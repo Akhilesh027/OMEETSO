@@ -1,0 +1,963 @@
+import { Category } from "../../modules/categories/models/Category";
+
+export const COMMON_SORT_OPTIONS = [
+  "Relevance",
+  "Newest First",
+  "Price: Low → High",
+  "Price: High → Low",
+  "Newest Model Year",
+  "Lowest Kilometres",
+  "Nearest Location",
+  "Verified Sellers First"
+];
+
+export const SEED_CATEGORIES = [
+  // --- ROW 1 ---
+  {
+    categoryId: "cars",
+    name: "Cars",
+    row: 1,
+    iconName: "Car",
+    subcategories: ["Sedan", "SUV", "Hatchback", "Luxury", "MUV", "Coupe", "Convertible"],
+    filters: [
+      "Brand",
+      "Model",
+      "Price Range",
+      "Manufacturing Year",
+      "Fuel Type (Petrol, Diesel, Electric, CNG, Hybrid)",
+      "Transmission (Manual, Automatic)",
+      "Kilometres Driven",
+      "Ownership (1st, 2nd, 3rd, 4th+)",
+      "Location (City & Distance)"
+    ],
+    listingCardFields: [
+      "Car Image",
+      "Brand, Model & Variant",
+      "Price (₹)",
+      "Year",
+      "Kilometres Driven",
+      "Fuel Type",
+      "Transmission",
+      "Ownership",
+      "Location",
+      "Verified Seller Badge",
+      "Negotiable / Fixed Price Badge"
+    ],
+    detailsSpecFields: [
+      "Multiple High-Res Vehicle Images",
+      "Complete Vehicle Specifications",
+      "Insurance Validity & Expiry Date",
+      "Registration Details & State",
+      "Service History Records",
+      "Accident History Disclosure",
+      "Seller Information & Contact",
+      "Vehicle Inspection Report"
+    ],
+    sellingFormFields: [
+      "Registration Number",
+      "Brand",
+      "Model & Variant",
+      "Manufacturing Year",
+      "Kilometres Driven",
+      "Fuel Type",
+      "Transmission",
+      "Ownership",
+      "Insurance Details",
+      "Expected Price (₹)",
+      "Upload Vehicle Images (Min 5, Max 20)"
+    ],
+    verificationBadges: [
+      "Seller KYC Verified",
+      "RC Verified",
+      "Verified Owner Badge",
+      "Verified Dealer Badge",
+      "Duplicate Listing Detection Passed",
+      "Suspicious Price Detection Verified"
+    ],
+    compareAttributes: [
+      "Price",
+      "Manufacturing Year",
+      "Mileage (km/l)",
+      "Fuel Type",
+      "Transmission",
+      "Ownership",
+      "Key Features & Safety Airbags"
+    ],
+    sortOptions: COMMON_SORT_OPTIONS
+  },
+  {
+    categoryId: "bikes",
+    name: "Bikes",
+    row: 1,
+    iconName: "Bike",
+    subcategoriesLabel: "Bike Types",
+    subcategories: [
+      "Commuter",
+      "Sports Bike",
+      "Cruiser",
+      "Scooter",
+      "Electric Bike",
+      "Adventure Bike",
+      "Off-Road Bike",
+      "Superbike",
+      "Touring Bike",
+      "Cafe Racer",
+      "Naked Street Bike"
+    ],
+    filters: [
+      "Brand (Hero, Honda, TVS, Bajaj, Royal Enfield, Yamaha, KTM, Suzuki, Jawa, Yezdi, Harley, Triumph, BMW, Kawasaki, Ather, Ola, Revolt, etc.)",
+      "Model & Variant",
+      "Bike Type",
+      "Price Range",
+      "Manufacturing Year",
+      "Kilometres Driven",
+      "Fuel Type (Petrol, Electric, CNG, Hybrid)",
+      "Engine Capacity (cc)",
+      "Mileage (km/l)",
+      "Transmission (Manual, Automatic)",
+      "Ownership (1st, 2nd, 3rd, 4th+)",
+      "Registration City & State",
+      "Color",
+      "Insurance Status (Comprehensive, Third-Party, None)",
+      "Seller Type (Individual Owner, Dealer, Certified Dealer)",
+      "Verified Seller Badge"
+    ],
+    listingCardFields: [
+      "Bike Image",
+      "Brand & Model",
+      "Variant",
+      "Price (₹)",
+      "Manufacturing Year",
+      "Kilometres Driven",
+      "Engine Capacity (cc)",
+      "Fuel Type",
+      "Ownership",
+      "Location",
+      "Seller Type",
+      "Verified Seller Badge",
+      "Negotiable / Fixed Price Badge",
+      "Posted Time & Wishlist Button"
+    ],
+    detailsSpecFields: [
+      "Multiple Images (Up to 20)",
+      "Brand, Model & Variant",
+      "Bike Type",
+      "Manufacturing & Registration Year",
+      "Registration Number (Masked)",
+      "Engine Capacity (cc) & Fuel Type",
+      "Mileage (km/l) & Transmission",
+      "Color & Ownership",
+      "Registration City & State",
+      "Insurance Status & Expiry Date",
+      "RC Available & PUC Available",
+      "Service History & Accident History",
+      "Number of Keys & Included Accessories",
+      "Description & Seller Contact Info",
+      "Report / Share / Similar Bikes"
+    ],
+    sellingFormFields: [
+      "Registration Number",
+      "Brand & Model",
+      "Variant & Bike Type",
+      "Manufacturing Year & Reg Year",
+      "Kilometres Driven",
+      "Engine Capacity (cc) & Mileage (km/l)",
+      "Fuel Type & Transmission",
+      "Color & Ownership",
+      "Registration City & State",
+      "Insurance Status & Expiry Date",
+      "RC Availability & PUC Availability",
+      "Service & Accident History",
+      "Number of Keys & Accessories",
+      "Expected Price & Price Negotiable (Yes/No)",
+      "Description",
+      "Upload Images (Min 5, Max 20)",
+      "Upload Video (Optional)"
+    ],
+    verificationBadges: [
+      "Verified Seller",
+      "Dealer Certified",
+      "RC Verified",
+      "Premium Listing"
+    ],
+    sortOptions: [
+      "Relevance",
+      "Latest",
+      "Price: Low to High",
+      "Price: High to Low",
+      "Newest Year",
+      "Oldest Year",
+      "Lowest Kilometres",
+      "Highest Engine Capacity (cc)",
+      "Nearby Bikes"
+    ]
+  },
+  {
+    categoryId: "commercial-vehicles",
+    name: "Commercial Vehicles",
+    row: 1,
+    iconName: "Truck",
+    subcategories: [
+      "Mini Trucks",
+      "Pickup Trucks",
+      "Heavy Trucks",
+      "Tippers",
+      "Trailers",
+      "Buses",
+      "School Buses",
+      "Vans",
+      "Auto Rickshaws",
+      "Taxi Vehicles",
+      "Tractors",
+      "Construction Vehicles",
+      "Refrigerated Vehicles",
+      "Other Commercial Vehicles"
+    ],
+    filters: [
+      "Vehicle Type",
+      "Brand",
+      "Model",
+      "Manufacturing Year",
+      "Price Range",
+      "Fuel Type",
+      "Kilometres Driven",
+      "Transmission",
+      "Load Capacity (Tonnes)",
+      "Number of Owners",
+      "Registration State",
+      "Insurance Validity"
+    ],
+    listingCardFields: [
+      "Brand, Model & Variant",
+      "Price (₹)",
+      "Manufacturing Year",
+      "Kilometres Driven",
+      "Fuel Type",
+      "Load Capacity",
+      "Ownership",
+      "Permit Status",
+      "Location",
+      "Verified Seller Badge"
+    ],
+    detailsSpecFields: [
+      "Engine Capacity",
+      "Payload Capacity",
+      "Body Type & Wheelbase",
+      "Tyre Condition",
+      "Registration Details & State Permit",
+      "Fitness Certificate Validity",
+      "Insurance Validity & PUC Certificate",
+      "Service & Accident History"
+    ],
+    sellingFormFields: [
+      "Registration Number",
+      "Vehicle Type",
+      "Brand & Model",
+      "Manufacturing Year",
+      "Kilometres Driven",
+      "Payload Capacity (Tonnes)",
+      "Permit Type (National/State)",
+      "Fitness Certificate Expiry",
+      "Expected Price"
+    ],
+    verificationBadges: ["Permit Verified", "Fitness Certified", "Verified Commercial Dealer"],
+    sortOptions: COMMON_SORT_OPTIONS
+  },
+  {
+    categoryId: "mobiles",
+    name: "Mobiles",
+    row: 1,
+    iconName: "Smartphone",
+    subcategoriesLabel: "Brand",
+    subcategories: [
+      "Apple iPhone",
+      "Samsung",
+      "OnePlus",
+      "Xiaomi / Redmi",
+      "Realme",
+      "Vivo",
+      "Oppo",
+      "Google Pixel",
+      "Motorola",
+      "Nothing",
+      "Poco",
+      "Other Brands"
+    ],
+    filters: [
+      "Brand (Apple, Samsung, OnePlus, Vivo, etc.)",
+      "Model",
+      "Price Range",
+      "Condition (New, Like New, Used, Refurbished)",
+      "Storage (32GB, 64GB, 128GB, 256GB, 512GB, 1TB)",
+      "RAM (4GB, 6GB, 8GB, 12GB, 16GB+)",
+      "Colour",
+      "Warranty Available (Yes/No)",
+      "Bill Available (Yes/No)",
+      "Seller Type (Individual / Refurbished Dealer)",
+      "City & Distance Radius"
+    ],
+    listingCardFields: [
+      "Brand & Model Title",
+      "Price (₹)",
+      "RAM & Storage Capacity",
+      "Colour",
+      "Condition",
+      "Warranty Status",
+      "Original Bill Available",
+      "Location",
+      "Seller Type",
+      "Negotiable / Fixed Price",
+      "Verified Seller Badge"
+    ],
+    detailsSpecFields: [
+      "Mobile Type (Smartphone, Feature Phone, Foldable, Gaming, Refurbished, Tablet, Accessory)",
+      "RAM & Storage Specifications",
+      "Screen Size & Display Type",
+      "Camera Megapixels (Rear & Front)",
+      "Battery Capacity (mAh) & Health %",
+      "Operating System & Processor",
+      "Original Box & Accessories Included",
+      "Warranty Expiry & Invoice Proof"
+    ],
+    sellingFormFields: [
+      "Brand",
+      "Model Name",
+      "Storage Capacity",
+      "RAM Size",
+      "Colour",
+      "Device Condition",
+      "Purchase Year",
+      "Warranty Remaining (Months)",
+      "Bill & Box Availability",
+      "Expected Price (₹)"
+    ],
+    verificationBadges: ["IMEI Verified", "Verified Seller", "Bill Verified"],
+    sortOptions: COMMON_SORT_OPTIONS
+  },
+  {
+    categoryId: "electronics",
+    name: "Electronics",
+    row: 1,
+    iconName: "Laptop",
+    subcategories: [
+      "Laptops & Notebooks",
+      "Desktop Computers",
+      "Gaming Consoles (PS5, Xbox)",
+      "Cameras & DSLRs",
+      "Audio & Headphones",
+      "Smartwatches & Wearables",
+      "Computer Accessories & Monitors"
+    ],
+    filters: [
+      "Brand & Model",
+      "Processor (Intel i3/i5/i7/i9, AMD Ryzen, Apple M1/M2/M3)",
+      "RAM (8GB, 16GB, 32GB+)",
+      "Storage (256GB SSD, 512GB, 1TB+)",
+      "Screen Size",
+      "Warranty Status",
+      "Bill Availability",
+      "Condition (New, Used, Refurbished)"
+    ],
+    listingCardFields: [
+      "Product Title & Model",
+      "Price (₹)",
+      "RAM & Storage",
+      "Processor Model",
+      "Condition",
+      "Warranty & Bill Status",
+      "Location & Seller Verification"
+    ],
+    detailsSpecFields: [
+      "Model Year",
+      "Processor Model",
+      "RAM & Storage Type (SSD/HDD)",
+      "Battery Health %",
+      "Screen Size & Resolution",
+      "Operating System",
+      "Repair History & Functional Defect Status"
+    ],
+    sellingFormFields: [
+      "Brand & Model",
+      "Processor",
+      "RAM & Storage",
+      "Condition",
+      "Purchase Date",
+      "Warranty & Bill",
+      "Expected Price"
+    ],
+    verificationBadges: ["Verified Device", "Functionality Checked", "Verified Dealer"],
+    sortOptions: COMMON_SORT_OPTIONS
+  },
+
+  // --- ROW 2 ---
+  {
+    categoryId: "home-appliances",
+    name: "Home Appliances",
+    row: 2,
+    iconName: "Tv",
+    subcategories: [
+      "Refrigerators",
+      "Washing Machines",
+      "Air Conditioners",
+      "Televisions",
+      "Water Purifiers",
+      "Microwave Ovens",
+      "Induction Stoves",
+      "Gas Stoves",
+      "Mixers and Grinders",
+      "Vacuum Cleaners",
+      "Geysers",
+      "Fans and Air Coolers",
+      "Dishwashers",
+      "Small Kitchen Appliances",
+      "Other Home Appliances"
+    ],
+    filters: [
+      "Appliance Type",
+      "Brand (LG, Samsung, Whirlpool, Haier, Godrej, IFB, Sony, Voltas, Blue Star, Daikin, etc.)",
+      "Model",
+      "Price Range",
+      "Condition (New, Used, Refurbished)",
+      "Purchase Year",
+      "Warranty Available",
+      "Original Bill Available",
+      "Energy Rating (1-Star to 5-Star)",
+      "Capacity / Size (Litres, kg, Tonnes)",
+      "Installation Required (Yes/No)",
+      "Delivery Available"
+    ],
+    listingCardFields: [
+      "Appliance Name & Brand",
+      "Price (₹)",
+      "Capacity / Size",
+      "Purchase Year",
+      "Condition",
+      "Warranty & Bill Status",
+      "Delivery Availability",
+      "Location",
+      "Verified Seller Badge"
+    ],
+    detailsSpecFields: [
+      "Refrigerators: Litres capacity, Door type (Single/Double/Multi), Frost-free/Direct cool, Star rating",
+      "Washing Machines: Capacity in kg, Front-load/Top-load, Fully/Semi-automatic",
+      "Air Conditioners: Capacity in Tonnes (1T, 1.5T, 2T), Split/Window, Inverter/Non-inverter",
+      "Water Purifiers: RO/UV/UF technology, Tank capacity in Litres, Filter replacement status"
+    ],
+    sellingFormFields: [
+      "Appliance Type",
+      "Brand & Model",
+      "Capacity / Size",
+      "Purchase Year",
+      "Energy Rating",
+      "Condition",
+      "Delivery / Installation Availability",
+      "Expected Price"
+    ],
+    verificationBadges: ["Working Condition Checked", "Verified Seller", "Bill Available"],
+    sortOptions: COMMON_SORT_OPTIONS
+  },
+  {
+    categoryId: "furniture",
+    name: "Furniture",
+    row: 2,
+    iconName: "Sofa",
+    subcategories: [
+      "Sofas",
+      "Beds",
+      "Dining Tables",
+      "Wardrobes",
+      "Office Furniture",
+      "Chairs",
+      "Tables",
+      "TV Units",
+      "Shoe Racks",
+      "Mattresses",
+      "Outdoor Furniture",
+      "Home Décor",
+      "Other Furniture"
+    ],
+    filters: [
+      "Furniture Type",
+      "Material (Teak Wood, Engineered Wood, Metal, Fabric, Leatherette, Plastic)",
+      "Seating Capacity (1, 2, 3, 5, 6+ Seater)",
+      "Size or Dimensions",
+      "Colour",
+      "Brand",
+      "Condition (New, Pre-owned)",
+      "Price Range",
+      "Delivery Available (Yes/No)",
+      "Assembly Available (Yes/No)",
+      "Seller Type",
+      "City & Distance Radius"
+    ],
+    listingCardFields: [
+      "Product Title",
+      "Price (₹)",
+      "Furniture Type",
+      "Material",
+      "Dimensions",
+      "Seating Capacity",
+      "Condition",
+      "Delivery Availability",
+      "Location",
+      "Verified Seller Badge",
+      "Negotiable / Fixed Price"
+    ],
+    detailsSpecFields: [
+      "Material & Wood Quality",
+      "Colour & Finish",
+      "Dimensions (L x W x H)",
+      "Seating or Storage Capacity",
+      "Weight & Durability",
+      "Manufacturing Year",
+      "Brand & Warranty",
+      "Assembly Required status",
+      "Custom-made or Ready-made",
+      "Included Accessories (Cushions, Mattress, etc.)"
+    ],
+    sellingFormFields: [
+      "Furniture Subcategory",
+      "Material Type",
+      "Seating / Storage Capacity",
+      "Dimensions",
+      "Condition",
+      "Delivery & Assembly Options",
+      "Expected Price"
+    ],
+    verificationBadges: ["Verified Seller", "Quality Checked", "Local Pickup Available"],
+    sortOptions: COMMON_SORT_OPTIONS
+  },
+  {
+    categoryId: "properties",
+    name: "Properties",
+    row: 2,
+    iconName: "Home",
+    subcategoriesLabel: "Property Types",
+    subcategories: [
+      "Apartments",
+      "Villas",
+      "Independent Houses",
+      "Open Plots",
+      "Agricultural Land",
+      "Commercial Spaces",
+      "Offices",
+      "Shops",
+      "Warehouses",
+      "Rentals",
+      "PG and Hostels"
+    ],
+    filters: [
+      "Property Type",
+      "Buy or Rent",
+      "Residential or Commercial",
+      "Location & Radius",
+      "Price / Monthly Rent Range",
+      "Built-up Area (sq ft)",
+      "Plot Area (sq yards / acres)",
+      "Bedrooms (1 BHK, 2 BHK, 3 BHK, 4+ BHK)",
+      "Bathrooms",
+      "Furnishing Status (Unfurnished, Semi-Furnished, Fully Furnished)",
+      "Property Age",
+      "Facing (East, West, North, South)",
+      "Parking (Car & Bike)",
+      "Ownership Type (Freehold, Leasehold, Gated Society)",
+      "Ready to Move or Under Construction",
+      "Verified Properties Only"
+    ],
+    listingCardFields: [
+      "Property Title",
+      "Sale Price or Monthly Rent (₹)",
+      "Property Type",
+      "BHK Configuration",
+      "Built-up Area (sq ft)",
+      "Location & Society",
+      "Furnishing Status",
+      "Ready-to-Move Status",
+      "Owner or Real Estate Agent",
+      "Verified-Property Badge"
+    ],
+    detailsSpecFields: [
+      "Property Type & BHK",
+      "Built-up Area, Carpet Area, Plot Area",
+      "Floor Number & Total Floors in Building",
+      "Property Age & Construction Quality",
+      "Furnishing & Facing Direction",
+      "Car & Bike Parking Slots",
+      "Water Supply & 24/7 Power Backup",
+      "Monthly Maintenance Charges",
+      "Possession Date & GHMC / HMDA Layout Approval",
+      "Map Integration & Distance from Metro/Schools/Hospitals/Hubs"
+    ],
+    sellingFormFields: [
+      "Listing Purpose (Sale / Rent)",
+      "Property Category",
+      "BHK & Bathrooms",
+      "Built-up Area (sq ft)",
+      "Locality & City",
+      "Furnishing & Facing",
+      "Expected Price / Monthly Rent",
+      "Upload Property Photos & Video Tour"
+    ],
+    verificationBadges: ["HMDA/GHMC Approved", "Verified Property", "Verified Owner/Agent"],
+    sortOptions: COMMON_SORT_OPTIONS
+  },
+  {
+    categoryId: "jobs",
+    name: "Jobs",
+    row: 2,
+    iconName: "Briefcase",
+    subcategories: [
+      "IT & Software Development",
+      "Sales & Marketing",
+      "Customer Support & BPO",
+      "Accounting & Finance",
+      "Data Entry & Back Office",
+      "Delivery & Logistics",
+      "Teaching & Education",
+      "Healthcare & Nursing",
+      "Hotel & Restaurant",
+      "Retail & Store Staff"
+    ],
+    filters: [
+      "Job Type (Full Time, Part Time, Internship, Contract, Freelance)",
+      "Work Mode (Work From Home, On-site, Hybrid)",
+      "Job Role & Industry",
+      "Experience Level (Fresher, 1-3 Yrs, 3-5 Yrs, 5+ Yrs)",
+      "Salary Range (Monthly / Annual CTC)",
+      "Education Qualification",
+      "Skills Required",
+      "Company Type (Startup, MNC, Local Business)",
+      "Location & Distance Radius",
+      "Freshers Allowed (Yes/No)",
+      "Immediate Joining",
+      "Verified Employers Only"
+    ],
+    listingCardFields: [
+      "Job Title",
+      "Company Name",
+      "Salary Range (₹)",
+      "Location",
+      "Experience Required",
+      "Job Type & Work Mode",
+      "Key Skills Required",
+      "Posted Date & Openings Count",
+      "Verified Employer Badge"
+    ],
+    detailsSpecFields: [
+      "Complete Job Description",
+      "Roles and Responsibilities",
+      "Required Skills & Education Qualification",
+      "Experience Range & Salary / Incentives",
+      "Work Location & Shift Timings",
+      "Number of Vacancies",
+      "Perks & Employee Benefits",
+      "Notice Period & Interview Process",
+      "Company Information & Application Deadline",
+      "Candidate Application Pipeline (Applied → Viewed → Shortlisted → Interview → Selected/Rejected)"
+    ],
+    sellingFormFields: [
+      "Job Title",
+      "Company Name",
+      "Job Role & Industry",
+      "Job Type & Work Mode",
+      "Experience Required",
+      "Monthly Salary Range",
+      "Vacancies Count",
+      "Work Location",
+      "Job Description & Requirements"
+    ],
+    verificationBadges: ["Verified Employer", "Immediate Hiring", "Verified Salary"],
+    sortOptions: ["Relevance", "Latest Jobs", "Salary: High to Low", "Nearby Jobs"]
+  },
+  {
+    categoryId: "services",
+    name: "Services",
+    row: 2,
+    iconName: "Wrench",
+    subcategoriesLabel: "Service Type",
+    subcategories: [
+      "Home Cleaning",
+      "Electricians",
+      "Plumbers",
+      "Carpenters",
+      "AC and Appliance Repair",
+      "Mobile and Laptop Repair",
+      "Tutors & Classes",
+      "Beauty and Salon",
+      "Photography and Videography",
+      "Event Services",
+      "Catering",
+      "Packers and Movers",
+      "Vehicle Repair",
+      "Legal Services",
+      "Digital and IT Services",
+      "Other Services"
+    ],
+    filters: [
+      "Service Category & Service Type",
+      "Location & Distance Radius",
+      "Price Range / Hourly Rate",
+      "Provider Type (Individual Professional / Registered Business)",
+      "Home Visit Available (Yes/No)",
+      "Online Service Available (Yes/No)",
+      "Available Today / Same-Day Service",
+      "Emergency 24x7 Service",
+      "Verified Providers Only",
+      "Rating & Reviews (4+ Stars)",
+      "Years of Experience"
+    ],
+    listingCardFields: [
+      "Provider or Business Name",
+      "Service Title",
+      "Starting Price (₹)",
+      "Rating & Reviews",
+      "Years of Experience",
+      "Service Location",
+      "Home Visit Availability",
+      "Response Time / Next Available Date",
+      "Verified-Provider Badge"
+    ],
+    detailsSpecFields: [
+      "Complete Service Description",
+      "Services & Package Checklist Included",
+      "Starting Price & Price Package Breakdown",
+      "Additional Charges / Spare Parts Terms",
+      "Average Service Duration & Working Hours",
+      "Service Areas Covered in City",
+      "Home Visit Details & Safety Protocols",
+      "Provider Work Portfolio Images",
+      "Terms & Cancellation / Refund Policy",
+      "Service Booking Flow (Select Service → Choose Date → Add Address → Confirm Price → Book)"
+    ],
+    sellingFormFields: [
+      "Service Title",
+      "Service Category & Service Type",
+      "Starting Price / Hourly Rate",
+      "Home Visit Option",
+      "Service Areas Covered",
+      "Years of Experience",
+      "Upload Portfolio Images"
+    ],
+    verificationBadges: ["Verified Provider", "Background Verified", "Top Rated Pro"],
+    sortOptions: ["Relevance", "Highest Rated", "Price: Low to High", "Experience: High to Low", "Nearby Providers"]
+  },
+
+  // --- ROW 3 ---
+  {
+    categoryId: "fashion",
+    name: "Fashion",
+    row: 3,
+    iconName: "Shirt",
+    subcategories: [
+      "Men’s Clothing",
+      "Women’s Clothing",
+      "Kids’ Clothing",
+      "Footwear",
+      "Watches",
+      "Bags & Backpacks",
+      "Jewellery & Accessories",
+      "Ethnic Wear",
+      "Western Wear",
+      "Sportswear",
+      "Bridal Wear"
+    ],
+    filters: [
+      "Target Gender (Men, Women, Kids)",
+      "Clothing Type",
+      "Brand",
+      "Size (XS, S, M, L, XL, XXL, Footwear UK/US)",
+      "Colour",
+      "Material (Cotton, Silk, Denim, Leather, Polyester)",
+      "Price Range",
+      "Condition (New with Tags, Pre-owned)",
+      "Occasion (Casual, Formal, Party, Festival, Wedding)",
+      "Verified Seller",
+      "Location & Delivery Availability"
+    ],
+    listingCardFields: [
+      "Product Title",
+      "Price (₹)",
+      "Brand",
+      "Size",
+      "Colour",
+      "Condition",
+      "Seller Location",
+      "Delivery Available",
+      "Negotiable / Fixed Price",
+      "Verified Seller Badge"
+    ],
+    detailsSpecFields: [
+      "Size Chart & Exact Measurements (Chest, Waist, Hip, Length)",
+      "Footwear Size Metric",
+      "Material & Fabric Care Instructions",
+      "Brand & Original Retail Price",
+      "Delivery Options (Home Delivery / Local Pickup)",
+      "Cash on Delivery & Return/Exchange Policy"
+    ],
+    sellingFormFields: [
+      "Category (Men/Women/Kids)",
+      "Item Type & Subcategory",
+      "Brand Name",
+      "Size & Colour",
+      "Material",
+      "Condition",
+      "Expected Price"
+    ],
+    verificationBadges: ["Brand Authentic", "Verified Seller", "COD Available"],
+    sortOptions: COMMON_SORT_OPTIONS
+  },
+  {
+    categoryId: "books-sports",
+    name: "Books & Sports",
+    row: 3,
+    iconName: "BookOpen",
+    subcategories: [
+      "School Books",
+      "College Books",
+      "Competitive Exam Books (JEE, NEET, UPSC)",
+      "Novels & Fiction",
+      "Children’s Books",
+      "Religious & Spiritual Books",
+      "Comics & Graphic Novels",
+      "Cricket Equipment",
+      "Football Equipment",
+      "Badminton Rackets",
+      "Fitness & Gym Equipment",
+      "Cycling & Bicycles",
+      "Indoor & Outdoor Games",
+      "Sportswear & Shoes"
+    ],
+    filters: [
+      "Type (Books or Sports Equipment)",
+      "Subcategory",
+      "Price Range",
+      "Condition (New, Used)",
+      "Brand or Publisher",
+      "Language (English, Telugu, Hindi, etc.)",
+      "City & Distance",
+      "Delivery Available",
+      "Verified Seller"
+    ],
+    listingCardFields: [
+      "Product Title",
+      "Price (₹)",
+      "Subcategory",
+      "Author / Publisher or Brand",
+      "Condition",
+      "Location",
+      "Delivery Status",
+      "Verified Seller Badge"
+    ],
+    detailsSpecFields: [
+      "Books: Title, Author, Publisher, Edition, Language, ISBN, Publication Year, Markings/Notes condition",
+      "Sports: Brand, Sport Type, Size, Material, Weight, Usage Duration, Included Accessories"
+    ],
+    sellingFormFields: [
+      "Item Type (Book / Sports)",
+      "Title / Brand",
+      "Author / Sport Category",
+      "Condition",
+      "Expected Price"
+    ],
+    verificationBadges: ["Verified Seller", "Quality Inspected"],
+    sortOptions: COMMON_SORT_OPTIONS
+  },
+  {
+    categoryId: "agriculture",
+    name: "Agriculture",
+    row: 3,
+    iconName: "Sprout",
+    subcategories: [
+      "Seeds",
+      "Fertilizers",
+      "Pesticides",
+      "Farm Equipment",
+      "Tractors",
+      "Irrigation Equipment",
+      "Dairy Equipment",
+      "Animal Feed",
+      "Fresh Produce",
+      "Grains and Pulses",
+      "Fruits and Vegetables",
+      "Plants and Saplings",
+      "Livestock",
+      "Poultry",
+      "Agricultural Land",
+      "Other Farm Supplies"
+    ],
+    filters: [
+      "Product Type",
+      "Crop or Equipment Category",
+      "Brand or Seed Variety",
+      "Quantity & Unit (kg, quintal, tonne, acre, piece)",
+      "Price per Unit (₹)",
+      "Location & Distance Radius",
+      "New or Used",
+      "Organic or Conventional",
+      "Harvest Date",
+      "Delivery Available"
+    ],
+    listingCardFields: [
+      "Product Title",
+      "Price per Unit (₹)",
+      "Quantity & Unit",
+      "Category",
+      "Location",
+      "Organic Status",
+      "Verified Farmer / Supplier Badge"
+    ],
+    detailsSpecFields: [
+      "Crops & Produce: Crop Name, Variety, Grade, Harvest Date, Moisture %, Organic Certification, Minimum Order Quantity",
+      "Farm Machinery: Brand, Model, Manufacturing Year, Working Condition, Engine Usage Hours, Service History"
+    ],
+    sellingFormFields: [
+      "Agricultural Category",
+      "Product Name / Variety",
+      "Quantity & Unit",
+      "Price per Unit (₹)",
+      "Organic Certification",
+      "Location & Delivery Radius"
+    ],
+    verificationBadges: ["Verified Farmer", "Organic Certified", "Quality Inspected"],
+    sortOptions: COMMON_SORT_OPTIONS
+  }
+];
+
+export async function seedCategories(): Promise<void> {
+  try {
+    console.log("[Seeder] Seeding 13 authoritative master categories into MongoDB...");
+
+    // Remove legacy categories that were discontinued (e.g. "pets", "books")
+    await Category.deleteMany({ categoryId: { $in: ["pets", "books", "services_repairs", "fashion_beauty"] } });
+
+    for (const item of SEED_CATEGORIES) {
+      await Category.findOneAndUpdate(
+        { categoryId: item.categoryId },
+        {
+          $set: {
+            categoryId: item.categoryId,
+            name: item.name,
+            row: item.row,
+            iconName: item.iconName,
+            subcategoriesLabel: item.subcategoriesLabel,
+            subcategories: item.subcategories,
+            filters: item.filters,
+            listingCardFields: item.listingCardFields,
+            detailsSpecFields: item.detailsSpecFields,
+            sellingFormFields: item.sellingFormFields,
+            verificationBadges: item.verificationBadges,
+            compareAttributes: (item as any).compareAttributes || [],
+            sortOptions: item.sortOptions,
+            isActive: true
+          }
+        },
+        { upsert: true, new: true }
+      );
+    }
+
+    const count = await Category.countDocuments({ isActive: true });
+    console.log(`[Seeder] ${count} master categories synced and seeded successfully in MongoDB.`);
+  } catch (error) {
+    console.error("[Seeder] Error seeding categories:", error);
+  }
+}

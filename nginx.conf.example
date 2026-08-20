@@ -1,0 +1,58 @@
+# Omeetso Nginx Configuration for Hostinger VPS
+# Save as /etc/nginx/sites-available/omeetso and symlink to /etc/nginx/sites-enabled/
+
+server {
+    listen 80;
+    server_name yourdomain.com www.yourdomain.com;
+
+    # 1. Frontend Web App (User Portal)
+    location / {
+        root /var/www/omeetso/frontend/dist;
+        index index.html;
+        try_files $uri $uri/ /index.html;
+    }
+
+    # 2. Backend API Reverse Proxy
+    location /api/ {
+        proxy_pass http://127.0.0.1:3000/api/;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection 'upgrade';
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_cache_bypass $http_upgrade;
+    }
+
+    # 3. Socket.IO Real-time WebSocket Proxy
+    location /socket.io/ {
+        proxy_pass http://127.0.0.1:3000/socket.io/;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection "upgrade";
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+
+    # 4. Static Uploads / Media Cache
+    location /uploads/ {
+        alias /var/www/omeetso/backend/uploads/;
+        expires 30d;
+        add_header Cache-Control "public, no-transform";
+    }
+}
+
+# Admin Subdomain (e.g. admin.yourdomain.com)
+server {
+    listen 80;
+    server_name admin.yourdomain.com;
+
+    location / {
+        root /var/www/omeetso/admin/dist;
+        index index.html;
+        try_files $uri $uri/ /index.html;
+    }
+}

@@ -1,0 +1,16 @@
+{
+  "name": "Omeetso — Buy Nearby. Sell Quickly.",
+  "short_name": "Omeetso",
+  "description": "Hyperlocal marketplace to discover products, sellers and stores near you.",
+  "start_url": "/home",
+  "id": "/",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#111E4D",
+  "theme_color": "#111E4D",
+  "orientation": "portrait",
+  "icons": [
+    { "src": "/favicon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" },
+    { "src": "/apple-touch-icon.png", "sizes": "180x180", "type": "image/png", "purpose": "any maskable" }
+  ]
+}

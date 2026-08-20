@@ -1,0 +1,22 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 50">
+  <defs>
+    <linearGradient id="fav-infinity-grad" x1="0" y1="25" x2="100" y2="25" gradientUnits="userSpaceOnUse">
+      <stop offset="0%" stop-color="#001F7D" />
+      <stop offset="35%" stop-color="#073896" />
+      <stop offset="70%" stop-color="#1547A7" />
+      <stop offset="100%" stop-color="#196DF9" />
+    </linearGradient>
+  </defs>
+  <path
+    d="M 30,10 C 15,10 5,17 5,25 C 5,33 15,40 30,40 C 42,40 54,28 65,20 C 73,14 82,10 90,17 C 98,23 96,33 87,38 C 77,43 65,37 55,28 C 45,19 38,10 30,10 Z"
+    fill="url(#fav-infinity-grad)"
+  />
+  <path
+    d="M 30,12 C 18,12 10,18 10,25 C 10,32 18,38 30,38 C 40,38 50,28 60,20 C 67,14 76,12 85,17 C 92,21 91,30 84,34 C 76,38 67,34 58,26 C 49,18 40,12 30,12 Z"
+    fill="none"
+    stroke="url(#fav-infinity-grad)"
+    stroke-width="10"
+    stroke-linecap="round"
+    stroke-linejoin="round"
+  />
+</svg>

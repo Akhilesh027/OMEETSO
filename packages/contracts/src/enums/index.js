@@ -1,0 +1,94 @@
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.SupportStatus = exports.SupportPriority = exports.SafetyPriority = exports.OfferStatus = exports.CampaignStatus = exports.StoreStatus = exports.ListingStatus = exports.UserStatus = void 0;
+var UserStatus;
+(function (UserStatus) {
+    UserStatus["ACTIVE"] = "ACTIVE";
+    UserStatus["PENDING_VERIFICATION"] = "PENDING_VERIFICATION";
+    UserStatus["LIMITED"] = "LIMITED";
+    UserStatus["UNDER_INVESTIGATION"] = "UNDER_INVESTIGATION";
+    UserStatus["TEMPORARILY_SUSPENDED"] = "TEMPORARILY_SUSPENDED";
+    UserStatus["PERMANENTLY_SUSPENDED"] = "PERMANENTLY_SUSPENDED";
+    UserStatus["DEACTIVATED"] = "DEACTIVATED";
+    UserStatus["DELETED"] = "DELETED";
+})(UserStatus || (exports.UserStatus = UserStatus = {}));
+var ListingStatus;
+(function (ListingStatus) {
+    ListingStatus["DRAFT"] = "DRAFT";
+    ListingStatus["SUBMITTED"] = "SUBMITTED";
+    ListingStatus["PENDING_REVIEW"] = "PENDING_REVIEW";
+    ListingStatus["UNDER_REVIEW"] = "UNDER_REVIEW";
+    ListingStatus["CHANGES_REQUIRED"] = "CHANGES_REQUIRED";
+    ListingStatus["APPROVED"] = "APPROVED";
+    ListingStatus["ACTIVE"] = "ACTIVE";
+    ListingStatus["PAUSED"] = "PAUSED";
+    ListingStatus["REJECTED"] = "REJECTED";
+    ListingStatus["REPORTED"] = "REPORTED";
+    ListingStatus["UNDER_INVESTIGATION"] = "UNDER_INVESTIGATION";
+    ListingStatus["REMOVED"] = "REMOVED";
+    ListingStatus["EXPIRED"] = "EXPIRED";
+    ListingStatus["SOLD"] = "SOLD";
+    ListingStatus["ARCHIVED"] = "ARCHIVED";
+})(ListingStatus || (exports.ListingStatus = ListingStatus = {}));
+var StoreStatus;
+(function (StoreStatus) {
+    StoreStatus["DRAFT"] = "DRAFT";
+    StoreStatus["SUBMITTED"] = "SUBMITTED";
+    StoreStatus["UNDER_REVIEW"] = "UNDER_REVIEW";
+    StoreStatus["CHANGES_REQUIRED"] = "CHANGES_REQUIRED";
+    StoreStatus["APPROVED"] = "APPROVED";
+    StoreStatus["ACTIVE"] = "ACTIVE";
+    StoreStatus["PAUSED"] = "PAUSED";
+    StoreStatus["REJECTED"] = "REJECTED";
+    StoreStatus["SUSPENDED"] = "SUSPENDED";
+    StoreStatus["ARCHIVED"] = "ARCHIVED";
+})(StoreStatus || (exports.StoreStatus = StoreStatus = {}));
+var CampaignStatus;
+(function (CampaignStatus) {
+    CampaignStatus["DRAFT"] = "DRAFT";
+    CampaignStatus["PAYMENT_PENDING"] = "PAYMENT_PENDING";
+    CampaignStatus["SUBMITTED"] = "SUBMITTED";
+    CampaignStatus["UNDER_REVIEW"] = "UNDER_REVIEW";
+    CampaignStatus["CHANGES_REQUIRED"] = "CHANGES_REQUIRED";
+    CampaignStatus["APPROVED"] = "APPROVED";
+    CampaignStatus["SCHEDULED"] = "SCHEDULED";
+    CampaignStatus["ACTIVE"] = "ACTIVE";
+    CampaignStatus["PAUSED"] = "PAUSED";
+    CampaignStatus["REJECTED"] = "REJECTED";
+    CampaignStatus["COMPLETED"] = "COMPLETED";
+    CampaignStatus["CANCELLED"] = "CANCELLED";
+})(CampaignStatus || (exports.CampaignStatus = CampaignStatus = {}));
+var OfferStatus;
+(function (OfferStatus) {
+    OfferStatus["PENDING"] = "PENDING";
+    OfferStatus["COUNTERED"] = "COUNTERED";
+    OfferStatus["ACCEPTED"] = "ACCEPTED";
+    OfferStatus["DECLINED"] = "DECLINED";
+    OfferStatus["EXPIRED"] = "EXPIRED";
+    OfferStatus["CANCELLED"] = "CANCELLED";
+})(OfferStatus || (exports.OfferStatus = OfferStatus = {}));
+var SafetyPriority;
+(function (SafetyPriority) {
+    SafetyPriority["LOW"] = "LOW";
+    SafetyPriority["MEDIUM"] = "MEDIUM";
+    SafetyPriority["HIGH"] = "HIGH";
+    SafetyPriority["CRITICAL"] = "CRITICAL";
+})(SafetyPriority || (exports.SafetyPriority = SafetyPriority = {}));
+var SupportPriority;
+(function (SupportPriority) {
+    SupportPriority["LOW"] = "LOW";
+    SupportPriority["MEDIUM"] = "MEDIUM";
+    SupportPriority["HIGH"] = "HIGH";
+    SupportPriority["URGENT"] = "URGENT";
+})(SupportPriority || (exports.SupportPriority = SupportPriority = {}));
+var SupportStatus;
+(function (SupportStatus) {
+    SupportStatus["OPEN"] = "OPEN";
+    SupportStatus["ASSIGNED"] = "ASSIGNED";
+    SupportStatus["IN_PROGRESS"] = "IN_PROGRESS";
+    SupportStatus["WAITING_USER"] = "WAITING_USER";
+    SupportStatus["ESCALATED"] = "ESCALATED";
+    SupportStatus["RESOLVED"] = "RESOLVED";
+    SupportStatus["CLOSED"] = "CLOSED";
+    SupportStatus["REOPENED"] = "REOPENED";
+})(SupportStatus || (exports.SupportStatus = SupportStatus = {}));
