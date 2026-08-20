@@ -1,6 +1,6 @@
 import { getUserAccessToken } from "./auth.api";
 import { API_BASE as ROOT_API } from "@/config/api";
-https://api.omeetso.in
+
 const API_BASE = `${ROOT_API}/listings`;
 
 export async function createListingApi(payload: Record<string, any>): Promise<{ success: boolean; data?: any; error?: string }> {
