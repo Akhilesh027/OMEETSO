@@ -134,7 +134,7 @@ export async function fetchLiveUserStores(): Promise<Store[]> {
   if (!token) return listStores();
 
   try {
-    const res = await fetch("http://localhost:3000/api/v1/stores/user/me", {
+    const res = await fetch("https://api.omeetso.in/api/v1/stores/user/me", {
       headers: { Authorization: `Bearer ${token}` }
     });
     const json = await res.json();

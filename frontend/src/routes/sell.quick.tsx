@@ -172,7 +172,7 @@ function QuickSellPage() {
 
     try {
       const token = typeof localStorage !== "undefined" ? localStorage.getItem("omeetso_user_token") : null;
-      await fetch("http://localhost:3000/api/v1/listings", {
+      await fetch("https://api.omeetso.in/api/v1/listings", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",

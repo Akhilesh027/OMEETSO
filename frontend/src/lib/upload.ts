@@ -20,7 +20,7 @@ export async function uploadImageToCloudinary(fileOrBase64: File | string, purpo
 
   const token = typeof window !== "undefined" ? (getUserAccessToken() || localStorage.getItem("omeetso_user_token")) : null;
   try {
-    const res = await fetch("http://localhost:3000/api/v1/uploads/direct", {
+    const res = await fetch("https://api.omeetso.in/api/v1/uploads/direct", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",

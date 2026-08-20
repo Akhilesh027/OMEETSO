@@ -47,7 +47,7 @@ function Account() {
       setLoading(false);
       return;
     }
-    fetch("http://localhost:3000/api/v1/users/me", {
+    fetch("https://api.omeetso.in/api/v1/users/me", {
       headers: { Authorization: `Bearer ${token}` }
     })
       .then(async (res) => {
@@ -491,7 +491,7 @@ function EditProfileModal({ open, onClose, profile, onSaved }: { open: boolean; 
 
     if (token) {
       try {
-        const res = await fetch("http://localhost:3000/api/v1/users/me", {
+        const res = await fetch("https://api.omeetso.in/api/v1/users/me", {
           method: "PATCH",
           headers: {
             "Content-Type": "application/json",

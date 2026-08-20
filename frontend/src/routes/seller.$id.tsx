@@ -10,7 +10,7 @@ import { toast } from "sonner";
 export const Route = createFileRoute("/seller/$id")({
   loader: async ({ params }) => {
     try {
-      const res = await fetch(`http://localhost:3000/api/v1/users/${params.id}/public`);
+      const res = await fetch(`https://api.omeetso.in/api/v1/users/${params.id}/public`);
       const json = await res.json();
       if (json.success && json.data) {
         return {
@@ -76,7 +76,7 @@ function SellerPage() {
   const [reported, setReported] = useState(false);
 
   useEffect(() => {
-    fetch(`http://localhost:3000/api/v1/users/${id}/public`)
+    fetch(`https://api.omeetso.in/api/v1/users/${id}/public`)
       .then((res) => res.json())
       .then((json) => {
         if (json.success && json.data) {
@@ -98,7 +98,7 @@ function SellerPage() {
       })
       .catch(() => { });
 
-    fetch(`http://localhost:3000/api/v1/listings?sellerId=${id}`)
+    fetch(`https://api.omeetso.in/api/v1/listings?sellerId=${id}`)
       .then((res) => res.json())
       .then((json) => {
         if (json.success && Array.isArray(json.data)) {

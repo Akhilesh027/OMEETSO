@@ -84,7 +84,7 @@ export default function ListingsListPage() {
     } catch { }
 
     try {
-      const res = await fetch("http://localhost:3000/api/v1/listings/feed");
+      const res = await fetch("https://api.omeetso.in/api/v1/listings/feed");
       const json = await res.json();
       if (json.success && Array.isArray(json.data)) {
         const mapped: Listing[] = json.data.map((item: any) => ({

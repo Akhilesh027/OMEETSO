@@ -1,6 +1,7 @@
 import { getUserAccessToken } from "./auth.api";
+import { API_BASE as ROOT_API } from "@/config/api";
 
-const API_BASE = "http://localhost:3000/api/v1/stores";
+const API_BASE = `${ROOT_API}/stores`;
 
 export async function createStoreApi(payload: Record<string, any>): Promise<{ success: boolean; data?: any; error?: string }> {
   try {

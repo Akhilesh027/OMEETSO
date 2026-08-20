@@ -40,7 +40,7 @@ export function ReviewModal({ isOpen, onClose, targetId, targetType, targetName,
     setIsSubmitting(true);
     try {
       const token = localStorage.getItem("omeetso_user_token");
-      const res = await fetch("http://localhost:3000/api/v1/reviews", {
+      const res = await fetch("https://api.omeetso.in/api/v1/reviews", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",

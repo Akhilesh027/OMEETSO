@@ -67,7 +67,7 @@ export default function ListingDetailPage() {
 
   React.useEffect(() => {
     if (!listingId) return;
-    fetch(`http://localhost:3000/api/v1/listings/${listingId}`)
+    fetch(`https://api.omeetso.in/api/v1/listings/${listingId}`)
       .then((res) => res.json())
       .then((json) => {
         if (json.success && json.data) {

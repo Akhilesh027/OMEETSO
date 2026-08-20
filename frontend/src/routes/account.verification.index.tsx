@@ -161,7 +161,7 @@ function VerificationCentre() {
 
     try {
       if (token) {
-        await fetch("http://localhost:3000/api/v1/verification", {
+        await fetch("https://api.omeetso.in/api/v1/verification", {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
@@ -673,11 +673,10 @@ function VerificationCentre() {
                         key={d.id}
                         type="button"
                         onClick={() => setDocType(d.id as any)}
-                        className={`p-2.5 rounded-xl border text-xs font-bold transition-all text-center cursor-pointer ${
-                          docType === d.id
+                        className={`p-2.5 rounded-xl border text-xs font-bold transition-all text-center cursor-pointer ${docType === d.id
                             ? "bg-indigo-brand text-white border-indigo-brand shadow-sm"
                             : "bg-secondary/70 text-foreground border-border hover:bg-secondary"
-                        }`}
+                          }`}
                       >
                         {d.label}
                       </button>
@@ -827,9 +826,8 @@ function VerificationCentre() {
                       key={d}
                       type="button"
                       onClick={() => setAddrDocType(d)}
-                      className={`px-3 py-1 rounded-lg border text-[11px] font-bold cursor-pointer ${
-                        addrDocType === d ? "bg-indigo-brand text-white border-indigo-brand" : "bg-secondary text-foreground border-border"
-                      }`}
+                      className={`px-3 py-1 rounded-lg border text-[11px] font-bold cursor-pointer ${addrDocType === d ? "bg-indigo-brand text-white border-indigo-brand" : "bg-secondary text-foreground border-border"
+                        }`}
                     >
                       {d}
                     </button>

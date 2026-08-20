@@ -78,7 +78,7 @@ export default function StoreDetailPage() {
 
   React.useEffect(() => {
     if (!storeId) return;
-    fetch(`http://localhost:3000/api/v1/stores/${storeId}`)
+    fetch(`https://api.omeetso.in/api/v1/stores/${storeId}`)
       .then((res) => res.json())
       .then((json) => {
         if (json.success && json.data) {
@@ -113,7 +113,7 @@ export default function StoreDetailPage() {
       })
       .catch(() => { });
 
-    fetch(`http://localhost:3000/api/v1/stores/${storeId}/listings`)
+    fetch(`https://api.omeetso.in/api/v1/stores/${storeId}/listings`)
       .then((res) => res.json())
       .then((json) => {
         if (json.success && Array.isArray(json.data) && json.data.length > 0) {

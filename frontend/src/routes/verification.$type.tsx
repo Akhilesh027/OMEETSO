@@ -120,7 +120,7 @@ function MobileVerify({ v, mobile }: { v: any; mobile: string }) {
                 className="w-full h-12 rounded-2xl border border-border bg-background px-4 text-center font-mono text-xl tracking-[0.5em] font-black text-foreground outline-none focus:border-indigo-brand"
               />
               {error && <p className="text-xs text-rose-600 font-bold text-center">{error}</p>}
-              
+
               <div className="flex gap-2 pt-1">
                 <button
                   type="button"
@@ -328,7 +328,7 @@ function IdentityVerify({ v }: { v: any }) {
 
     try {
       if (token) {
-        await fetch("http://localhost:3000/api/v1/verification", {
+        await fetch("https://api.omeetso.in/api/v1/verification", {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
@@ -437,11 +437,10 @@ function IdentityVerify({ v }: { v: any }) {
                   key={d.id}
                   type="button"
                   onClick={() => setDocType(d.id as any)}
-                  className={`p-2.5 rounded-xl border text-xs font-bold transition-all text-center ${
-                    docType === d.id
+                  className={`p-2.5 rounded-xl border text-xs font-bold transition-all text-center ${docType === d.id
                       ? "bg-indigo-brand text-white border-indigo-brand shadow-sm"
                       : "bg-secondary/60 text-foreground border-border hover:bg-secondary"
-                  }`}
+                    }`}
                 >
                   {d.label}
                 </button>
@@ -604,9 +603,8 @@ function AddressVerify({ v }: { v: any }) {
                 key={d}
                 type="button"
                 onClick={() => setDocType(d)}
-                className={`rounded-xl border px-3 py-1.5 text-xs font-bold transition-all ${
-                  docType === d ? "border-indigo-brand bg-indigo-brand text-white" : "border-border bg-secondary text-foreground"
-                }`}
+                className={`rounded-xl border px-3 py-1.5 text-xs font-bold transition-all ${docType === d ? "border-indigo-brand bg-indigo-brand text-white" : "border-border bg-secondary text-foreground"
+                  }`}
               >
                 {d}
               </button>

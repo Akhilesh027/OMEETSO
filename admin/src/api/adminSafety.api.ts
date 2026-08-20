@@ -1,6 +1,6 @@
 import { AdminAuthService } from "@/services/adminAuthService";
 
-const API_BASE = "http://localhost:3000/api/v1/safety/admin";
+const API_BASE = "https://api.omeetso.in/api/v1/safety/admin";
 
 function getHeaders(): Record<string, string> {
   const token = AdminAuthService.getAccessToken();

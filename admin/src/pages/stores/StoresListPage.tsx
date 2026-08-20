@@ -68,7 +68,7 @@ export default function StoresListPage() {
     } catch { }
 
     try {
-      const res = await fetch("http://localhost:3000/api/v1/stores");
+      const res = await fetch("https://api.omeetso.in/api/v1/stores");
       const json = await res.json();
       if (json.success && Array.isArray(json.data)) {
         const mapped: Store[] = json.data.map((item: any) => ({

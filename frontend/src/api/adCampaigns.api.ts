@@ -1,6 +1,5 @@
 import { getUserAccessToken } from "./auth.api";
-
-const API_BASE = "http://localhost:3000/api/v1";
+import { API_BASE } from "@/config/api";
 
 function getAuthHeaders(): Record<string, string> {
   const token = getUserAccessToken() || "";

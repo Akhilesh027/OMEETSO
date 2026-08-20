@@ -23,7 +23,7 @@ export default function MaintenancePage() {
   const checkHealth = async () => {
     setLoading(true);
     try {
-      const res = await fetch("http://localhost:3000/api/v1/health");
+      const res = await fetch("https://api.omeetso.in/api/v1/health");
       const json = await res.json();
       if (json.success) {
         setHealthData((prev) => ({ ...prev, api: "HEALTHY", mongodb: "CONNECTED (31 Collections)" }));
@@ -62,7 +62,7 @@ export default function MaintenancePage() {
               <CheckCircle2 className="w-3 h-3" /> ONLINE
             </span>
           </div>
-          <p className="text-xs text-slate-500 font-mono">Endpoint: http://localhost:3000/api/v1/health</p>
+          <p className="text-xs text-slate-500 font-mono">Endpoint: https://api.omeetso.in/api/v1/health</p>
           <div className="text-xs font-bold text-slate-700">Status: {healthData.api}</div>
         </div>
 

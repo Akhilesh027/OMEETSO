@@ -55,7 +55,7 @@ All service/data files are localStorage abstractions — NOT API clients.
 ### Grep for `VITE_API_URL`:
 Found only in `admin/.env.example`:
 ```
-VITE_API_URL=http://localhost:3000/api
+VITE_API_URL=https://api.omeetso.in/api
 ```
 This variable is **defined in the example file but never used** in any source file.
 
@@ -82,7 +82,7 @@ The following patterns simulate network delays without real API calls:
 
 ### Admin `.env.example`
 ```
-VITE_API_URL=http://localhost:3000/api
+VITE_API_URL=https://api.omeetso.in/api
 ```
 This is the **only** API-related environment variable in the entire project. It is declared but never imported or used.
 

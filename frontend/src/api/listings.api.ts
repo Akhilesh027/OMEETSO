@@ -1,6 +1,7 @@
 import { getUserAccessToken } from "./auth.api";
-
-const API_BASE = "http://localhost:3000/api/v1/listings";
+import { API_BASE as ROOT_API } from "@/config/api";
+https://api.omeetso.in
+const API_BASE = `${ROOT_API}/listings`;
 
 export async function createListingApi(payload: Record<string, any>): Promise<{ success: boolean; data?: any; error?: string }> {
   try {

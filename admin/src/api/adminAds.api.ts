@@ -1,6 +1,6 @@
 import { AdminAuthService } from "@/services/adminAuthService";
 
-const API_BASE = "http://localhost:3000/api/v1/admin/ad-campaigns";
+const API_BASE = "https://api.omeetso.in/api/v1/admin/ad-campaigns";
 
 function getHeaders(): Record<string, string> {
   const token = AdminAuthService.getAccessToken();
@@ -88,7 +88,7 @@ export async function getAdminAdPlacementsApi(): Promise<{
   error?: string;
 }> {
   try {
-    const res = await fetch("http://localhost:3000/api/v1/ad-placements", {
+    const res = await fetch("https://api.omeetso.in/api/v1/ad-placements", {
       headers: getHeaders(),
       credentials: "include"
     });
@@ -108,7 +108,7 @@ export async function createAdminAdPlacementApi(placementData: Record<string, an
   error?: string;
 }> {
   try {
-    const res = await fetch("http://localhost:3000/api/v1/admin/ad-placements", {
+    const res = await fetch("https://api.omeetso.in/api/v1/admin/ad-placements", {
       method: "POST",
       headers: getHeaders(),
       credentials: "include",
@@ -130,7 +130,7 @@ export async function deleteAdminAdPlacementApi(placementId: string): Promise<{
   error?: string;
 }> {
   try {
-    const res = await fetch(`http://localhost:3000/api/v1/admin/ad-placements/${placementId}`, {
+    const res = await fetch(`https://api.omeetso.in/api/v1/admin/ad-placements/${placementId}`, {
       method: "DELETE",
       headers: getHeaders(),
       credentials: "include"
@@ -151,7 +151,7 @@ export async function getAdminAdProductsApi(): Promise<{
   error?: string;
 }> {
   try {
-    const res = await fetch("http://localhost:3000/api/v1/ad-products", {
+    const res = await fetch("https://api.omeetso.in/api/v1/ad-products", {
       headers: getHeaders(),
       credentials: "include"
     });

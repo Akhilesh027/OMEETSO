@@ -8,7 +8,7 @@ const resolvePermissions = (role: string, rawPermissions: string[] = []): Permis
   return (rawPermissions || []) as Permission[];
 };
 
-const API_BASE = "http://localhost:3000/api/v1/admin/auth";
+const API_BASE = "https://api.omeetso.in/api/v1/admin/auth";
 
 let memoryAccessToken: string | null = null;
 let currentAdmin: AdminUser | null = null;

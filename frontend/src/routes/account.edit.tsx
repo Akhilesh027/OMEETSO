@@ -65,7 +65,7 @@ function EditProfile() {
     const token = typeof window !== "undefined" ? localStorage.getItem("omeetso_user_token") : null;
     if (token) {
       try {
-        await fetch("http://localhost:3000/api/v1/users/me", {
+        await fetch("https://api.omeetso.in/api/v1/users/me", {
           method: "PATCH",
           headers: {
             "Content-Type": "application/json",

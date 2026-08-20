@@ -1,4 +1,5 @@
-const API_BASE = "http://localhost:3000/api/v1/auth";
+import { API_BASE as ROOT_API } from "@/config/api";
+const API_BASE = `${ROOT_API}/auth`;
 
 let inMemoryUserAccessToken: string | null = null;
 

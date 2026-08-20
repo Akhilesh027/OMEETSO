@@ -1,8 +1,8 @@
 import { AdminAuthService } from "@/services/adminAuthService";
 import { CategoryData } from "@/pages/categories/CategoriesPage";
 
-const API_BASE = "http://localhost:3000/api/v1/categories";
-const UPLOADS_API = "http://localhost:3000/api/v1/uploads/direct";
+const API_BASE = "https://api.omeetso.in/api/v1/categories";
+const UPLOADS_API = "https://api.omeetso.in/api/v1/uploads/direct";
 
 function getHeaders(): Record<string, string> {
   const token = AdminAuthService.getAccessToken();

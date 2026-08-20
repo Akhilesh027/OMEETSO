@@ -129,7 +129,7 @@ export function PostJobForm() {
     setIsSubmitting(true);
     try {
       const token = typeof window !== "undefined" ? localStorage.getItem("omeetso_user_token") : null;
-      const res = await fetch("http://localhost:3000/api/v1/jobs", {
+      const res = await fetch("https://api.omeetso.in/api/v1/jobs", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -152,7 +152,7 @@ export function PostJobForm() {
 
   return (
     <div className="max-w-[900px] mx-auto p-4 sm:p-6 space-y-6 font-sans">
-      
+
       {/* Header */}
       <div className="flex items-center justify-between border-b border-border pb-4">
         <div>
@@ -172,7 +172,7 @@ export function PostJobForm() {
 
       {step === "form" ? (
         <div className="space-y-6 text-xs font-semibold">
-          
+
           {/* COMPANY SELECTION */}
           <div className="rounded-3xl border border-border bg-card p-5 space-y-4">
             <h2 className="text-sm font-extrabold uppercase tracking-wide text-indigo-brand flex items-center gap-2">

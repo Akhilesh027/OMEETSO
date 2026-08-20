@@ -71,7 +71,7 @@ function EditListing() {
     const nextStatus = l!.status === "rejected" ? "under_review" : l!.status === "active" ? "requires_changes" : l!.status;
     const hist = [...(l!.editHistory ?? []), { at: Date.now(), note: "Edited by seller" }];
     try {
-      await fetch(`http://localhost:3000/api/v1/listings/${id}`, {
+      await fetch(`https://api.omeetso.in/api/v1/listings/${id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({

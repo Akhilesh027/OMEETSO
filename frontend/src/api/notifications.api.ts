@@ -1,6 +1,7 @@
 import { getUserAccessToken } from "./auth.api";
+import { API_BASE as ROOT_API } from "@/config/api";
 
-const API_BASE = "http://localhost:3000/api/v1/notifications";
+const API_BASE = `${ROOT_API}/notifications`;
 
 function getAuthHeaders(): Record<string, string> {
   const token = getUserAccessToken() || "";

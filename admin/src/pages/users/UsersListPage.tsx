@@ -36,7 +36,7 @@ export default function UsersListPage() {
 
   const loadUsers = async () => {
     try {
-      const res = await fetch("http://localhost:3000/api/v1/users/admin/all");
+      const res = await fetch("https://api.omeetso.in/api/v1/users/admin/all");
       const json = await res.json();
       if (json.success && Array.isArray(json.data)) {
         setUsers(json.data);

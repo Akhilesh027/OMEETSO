@@ -18,7 +18,7 @@ export const Route = createFileRoute("/store/$id")({
   loader: async ({ params }) => {
     let s: Store | undefined = undefined;
     try {
-      const res = await fetch(`http://localhost:3000/api/v1/stores/${params.id}`);
+      const res = await fetch(`https://api.omeetso.in/api/v1/stores/${params.id}`);
       const json = await res.json();
       if (json.success && json.data) {
         const item = json.data;
@@ -48,7 +48,7 @@ export const Route = createFileRoute("/store/$id")({
         };
       } else {
         // Fallback search listing seller
-        const lRes = await fetch(`http://localhost:3000/api/v1/listings/${params.id}`);
+        const lRes = await fetch(`https://api.omeetso.in/api/v1/listings/${params.id}`);
         const lJson = await lRes.json();
         if (lJson.success && lJson.data) {
           const lItem = lJson.data;
@@ -116,10 +116,10 @@ function StorePage() {
     setLoadingListings(true);
     // Fetch listings specifically for this store
     Promise.all([
-      fetch(`http://localhost:3000/api/v1/stores/${store.id}/listings`).then((r) => r.json()).catch(() => null),
-      fetch(`http://localhost:3000/api/v1/listings?storeId=${store.id}`).then((r) => r.json()).catch(() => null),
-      fetch(`http://localhost:3000/api/v1/listings?category=${store.primaryCategory}&city=${store.city}`).then((r) => r.json()).catch(() => null),
-      fetch(`http://localhost:3000/api/v1/reviews/target/${store.id}`).then((r) => r.json()).catch(() => null),
+      fetch(`https://api.omeetso.in/api/v1/stores/${store.id}/listings`).then((r) => r.json()).catch(() => null),
+      fetch(`https://api.omeetso.in/api/v1/listings?storeId=${store.id}`).then((r) => r.json()).catch(() => null),
+      fetch(`https://api.omeetso.in/api/v1/listings?category=${store.primaryCategory}&city=${store.city}`).then((r) => r.json()).catch(() => null),
+      fetch(`https://api.omeetso.in/api/v1/reviews/target/${store.id}`).then((r) => r.json()).catch(() => null),
       serveAdsApi("STORE_BANNER").catch(() => null)
     ]).then(([sRes, storeListingsRes, catRes, revRes, adRes]) => {
       setLoadingListings(false);

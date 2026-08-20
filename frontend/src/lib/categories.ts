@@ -19,7 +19,7 @@ function notify() {
 
 export async function fetchLiveCategories(): Promise<LiveCategory[]> {
   try {
-    const res = await fetch("http://localhost:3000/api/v1/categories");
+    const res = await fetch("https://api.omeetso.in/api/v1/categories");
     const json = await res.json();
 
     if (json.success && Array.isArray(json.data) && json.data.length > 0) {

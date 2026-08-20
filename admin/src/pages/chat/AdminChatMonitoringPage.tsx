@@ -113,7 +113,7 @@ export default function AdminChatMonitoringPage() {
     const token = AdminAuthService.getAccessToken();
     if (!token) return;
 
-    const socket = io("http://localhost:3000", {
+    const socket = io("https://api.omeetso.in", {
       auth: { token },
       transports: ["websocket", "polling"]
     });

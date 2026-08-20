@@ -474,7 +474,7 @@ function EditStoreModal({ open, onClose, store, onSaved }: { open: boolean; onCl
 
     if (token) {
       try {
-        await fetch(`http://localhost:3000/api/v1/stores/${store.id}`, {
+        await fetch(`https://api.omeetso.in/api/v1/stores/${store.id}`, {
           method: "PATCH",
           headers: {
             "Content-Type": "application/json",

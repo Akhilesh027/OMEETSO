@@ -158,7 +158,7 @@ export async function fetchLivePublicListings(params?: {
     if (params?.category) search.set("category", params.category);
     if (params?.q) search.set("q", params.q);
 
-    const res = await fetch(`http://localhost:3000/api/v1/listings?${search.toString()}`);
+    const res = await fetch(`https://api.omeetso.in/api/v1/listings?${search.toString()}`);
     const json = await res.json();
     if (json.success && Array.isArray(json.data)) {
       const mapped: Listing[] = json.data.map((item: any) => {
@@ -210,7 +210,7 @@ export async function fetchLiveUserListings(): Promise<Listing[]> {
   if (!token) return [];
 
   try {
-    const res = await fetch("http://localhost:3000/api/v1/listings/user/me", {
+    const res = await fetch("https://api.omeetso.in/api/v1/listings/user/me", {
       headers: { Authorization: `Bearer ${token}` }
     });
     const json = await res.json();
@@ -255,7 +255,7 @@ export async function fetchLiveUserListings(): Promise<Listing[]> {
 
 export async function fetchLiveListingById(id: string): Promise<Listing | null> {
   try {
-    const res = await fetch(`http://localhost:3000/api/v1/listings/${id}`);
+    const res = await fetch(`https://api.omeetso.in/api/v1/listings/${id}`);
     const json = await res.json();
     if (json.success && json.data) {
       const item = json.data;
@@ -402,7 +402,7 @@ export function recordListingView(listingId: string) {
   setAnalytics(listingId, current);
 
   if (/^[0-9a-fA-F]{24}$/.test(listingId)) {
-    fetch(`http://localhost:3000/api/v1/listings/${listingId}/view`, { method: "POST" }).catch(() => { });
+    fetch(`https://api.omeetso.in/api/v1/listings/${listingId}/view`, { method: "POST" }).catch(() => { });
   }
 }
 
@@ -412,7 +412,7 @@ export function recordListingSave(listingId: string) {
   setAnalytics(listingId, current);
 
   if (/^[0-9a-fA-F]{24}$/.test(listingId)) {
-    fetch(`http://localhost:3000/api/v1/listings/${listingId}/save`, { method: "POST" }).catch(() => { });
+    fetch(`https://api.omeetso.in/api/v1/listings/${listingId}/save`, { method: "POST" }).catch(() => { });
   }
 }
 

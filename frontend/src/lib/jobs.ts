@@ -285,7 +285,7 @@ export const SEED_JOBS: JobItem[] = [
 export async function fetchPublicJobs(params?: Record<string, string>): Promise<JobItem[]> {
   try {
     const qStr = new URLSearchParams(params).toString();
-    const res = await fetch(`http://localhost:3000/api/v1/jobs?${qStr}`);
+    const res = await fetch(`https://api.omeetso.in/api/v1/jobs?${qStr}`);
     const json = await res.json();
     if (json.success && Array.isArray(json.data) && json.data.length > 0) {
       setLocal(LS_JOBS, json.data);
@@ -321,7 +321,7 @@ export async function fetchPublicJobs(params?: Record<string, string>): Promise<
 
 export async function fetchJobById(id: string): Promise<JobItem | null> {
   try {
-    const res = await fetch(`http://localhost:3000/api/v1/jobs/${id}`);
+    const res = await fetch(`https://api.omeetso.in/api/v1/jobs/${id}`);
     const json = await res.json();
     if (json.success && json.data) {
       return json.data;

@@ -390,7 +390,7 @@ function Home() {
       .catch(() => { });
 
     // Fetch Live Stores
-    fetch("http://localhost:3000/api/v1/stores/public")
+    fetch("https://api.omeetso.in/api/v1/stores/public")
       .then((res) => res.json())
       .then((json) => {
         if (json.success && Array.isArray(json.data) && json.data.length > 0) {
@@ -420,7 +420,7 @@ function Home() {
       .catch(() => { });
 
     // Fetch Admin-curated Home Hero Showcase & Banners
-    fetch("http://localhost:3000/api/v1/banners")
+    fetch("https://api.omeetso.in/api/v1/banners")
       .then((res) => res.json())
       .then((json) => {
         if (json.success && Array.isArray(json.data) && json.data.length > 0) {

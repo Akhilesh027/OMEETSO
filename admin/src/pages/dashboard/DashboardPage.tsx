@@ -62,8 +62,8 @@ export default function DashboardPage() {
         setSummary(sumRes.data);
       } else {
         const [listingsRes, storesRes] = await Promise.all([
-          fetch("http://localhost:3000/api/v1/listings/feed").then((r) => r.json()).catch(() => ({})),
-          fetch("http://localhost:3000/api/v1/stores").then((r) => r.json()).catch(() => ({}))
+          fetch("https://api.omeetso.in/api/v1/listings/feed").then((r) => r.json()).catch(() => ({})),
+          fetch("https://api.omeetso.in/api/v1/stores").then((r) => r.json()).catch(() => ({}))
         ]);
 
         const activeListings = Array.isArray(listingsRes.data) ? listingsRes.data.length : 12;
