@@ -9,6 +9,7 @@ const EnvSchema = z.object({
   API_PREFIX: z.string().default("/api/v1"),
   CLIENT_USER_URL: z.string().default("http://localhost:5173"),
   CLIENT_ADMIN_URL: z.string().default("http://localhost:5174"),
+  ALLOWED_ORIGINS: z.string().optional().default(""),
   MONGODB_URI: z.string().default("mongodb+srv://akhileshreddy066_db_user:s4Xzm5GRdB5b783C@cluster0.dzzxxm7.mongodb.net/?appName=Cluster0"),
   JWT_ACCESS_SECRET: z.string().min(16).default("omeetso_dev_access_secret_key_32_characters_minimum"),
   JWT_REFRESH_SECRET: z.string().min(16).default("omeetso_dev_refresh_secret_key_32_characters_minimum"),
@@ -21,3 +22,4 @@ const EnvSchema = z.object({
 });
 
 export const env = EnvSchema.parse(process.env);
+

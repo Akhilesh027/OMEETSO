@@ -33,7 +33,12 @@ import { bannersRouter } from "./modules/revenue/routes/banners.routes";
 export const app: Express = express();
 
 // Security & Core Middleware
-app.use(helmet());
+app.use(
+  helmet({
+    crossOriginResourcePolicy: { policy: "cross-origin" },
+    crossOriginOpenerPolicy: { policy: "same-origin-allow-popups" }
+  })
+);
 app.use(compression());
 app.use(cookieParser());
 app.use(express.json({ limit: "10mb" }));
@@ -54,29 +59,103 @@ const parseOrigins = (urlEnv?: string): string[] => {
 const allowedOrigins = new Set([
   ...parseOrigins(env.CLIENT_USER_URL),
   ...parseOrigins(env.CLIENT_ADMIN_URL),
+  ...parseOrigins(env.ALLOWED_ORIGINS),
   "https://omeetso.in",
   "https://www.omeetso.in",
   "https://adminomeetso.omeetso.in",
+  "https://admin.omeetso.in",
+  "https://api.omeetso.in",
   "http://localhost:5173",
   "http://localhost:5174",
-  "https://api.omeetso.in"
+  "http://localhost:5175",
+  "http://localhost:3000",
+  "http://localhost:8080",
+  "http://localhost",
+  "https://localhost",
+  "capacitor://localhost",
+  "ionic://localhost"
 ]);
 
-app.use(
-  cors({
-    origin: (origin, callback) => {
-      // Allow requests with no origin (e.g. mobile apps, Postman, curl)
-      if (!origin) return callback(null, true);
-      const cleanOrigin = origin.replace(/\/$/, "");
-      if (allowedOrigins.has(cleanOrigin) || cleanOrigin.endsWith(".omeetso.in")) {
-        return callback(null, true);
-      }
-      return callback(null, false);
-    },
-    credentials: true,
-    methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"]
-  })
-);
+const isAllowedOrigin = (origin?: string): boolean => {
+  // Allow requests with no origin (e.g. mobile apps, curl, server-to-server, Postman)
+  if (!origin) return true;
+
+  const cleanOrigin = origin.trim().replace(/\/$/, "");
+
+  // In development mode, allow all origins
+  if (env.NODE_ENV === "development") {
+    return true;
+  }
+
+  // Check explicit allowlist
+  if (allowedOrigins.has(cleanOrigin)) {
+    return true;
+  }
+
+  // Match localhost / 127.0.0.1 on any port
+  if (/^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/.test(cleanOrigin)) {
+    return true;
+  }
+
+  // Match local LAN IPs (e.g. 192.168.x.x, 10.x.x.x, 172.16-31.x.x) for mobile debugging
+  if (/^https?:\/\/(192\.168\.\d+\.\d+|10\.\d+\.\d+\.\d+|172\.(1[6-9]|2\d|3[0-1])\.\d+\.\d+)(:\d+)?$/.test(cleanOrigin)) {
+    return true;
+  }
+
+  // Match Capacitor / Ionic mobile webview schemes
+  if (
+    cleanOrigin.startsWith("capacitor://") ||
+    cleanOrigin.startsWith("ionic://") ||
+    cleanOrigin.startsWith("http://localhost") ||
+    cleanOrigin.startsWith("https://localhost")
+  ) {
+    return true;
+  }
+
+  // Match any omeetso.in or omeetso.com subdomain
+  if (/^https?:\/\/([a-zA-Z0-9-]+\.)*omeetso\.(in|com)(:\d+)?$/.test(cleanOrigin)) {
+    return true;
+  }
+
+  // Match preview hosting domains (e.g. Vercel, Render, Netlify)
+  if (
+    cleanOrigin.endsWith(".vercel.app") ||
+    cleanOrigin.endsWith(".onrender.com") ||
+    cleanOrigin.endsWith(".netlify.app")
+  ) {
+    return true;
+  }
+
+  return false;
+};
+
+const corsOptions: cors.CorsOptions = {
+  origin: (origin, callback) => {
+    if (isAllowedOrigin(origin)) {
+      return callback(null, true);
+    }
+    console.warn(`[CORS] Request blocked from origin: ${origin}`);
+    return callback(null, false);
+  },
+  credentials: true,
+  methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS", "HEAD"],
+  allowedHeaders: [
+    "Origin",
+    "X-Requested-With",
+    "Content-Type",
+    "Accept",
+    "Authorization",
+    "X-CSRF-Token",
+    "Access-Control-Request-Headers",
+    "Access-Control-Request-Method"
+  ],
+  exposedHeaders: ["Set-Cookie", "Authorization"],
+  maxAge: 86400
+};
+
+app.use(cors(corsOptions));
+app.options("*", cors(corsOptions));
+
 
 // Health Check Endpoints
 app.get("/health", (req: Request, res: Response) => {
