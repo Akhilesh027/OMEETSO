@@ -298,7 +298,7 @@ function ProductPage() {
         <div className="space-y-5 p-4">
           <div>
             <div className="flex flex-wrap items-center gap-2">
-              <p className="text-3xl sm:text-4xl font-black text-blue-600 dark:text-blue-400 leading-none">{formatINR(product.price)}</p>
+              <p className="text-3xl sm:text-4xl font-black text-slate-950 dark:text-white leading-none">{formatINR(product.price)}</p>
               {product.negotiable && (
                 <span className="rounded-full bg-blue-500/10 border border-blue-500/30 px-3 py-0.5 text-xs font-extrabold text-blue-700 dark:text-blue-300">
                   Negotiable Price
@@ -348,7 +348,7 @@ function ProductPage() {
                         }}
                         className="flex-1 min-w-[105px] py-2 px-3.5 rounded-xl bg-card border border-blue-500/20 text-left hover:border-blue-600 hover:bg-blue-600 hover:text-white transition-all active:scale-95 shadow-xs group"
                       >
-                        <p className="text-xs font-black transition-colors">{formatINR(offerVal)}</p>
+                        <p className="text-xs font-black text-slate-950 dark:text-white group-hover:text-white transition-colors">{formatINR(offerVal)}</p>
                         <p className="text-[10px] font-bold text-blue-700 dark:text-blue-400 group-hover:text-white transition-colors flex items-center justify-between">
                           <span>-{pct}% Offer</span>
                           <span className="font-bold">→</span>
@@ -443,7 +443,7 @@ function ProductPage() {
             {/* Quick Action Card */}
             <div className="space-y-3.5 rounded-3xl border border-border bg-card p-5 shadow-xs">
               <div className="flex flex-wrap items-center gap-2">
-                <p className="text-3xl font-black text-blue-600 dark:text-blue-400 leading-none">{formatINR(product.price)}</p>
+                <p className="text-3xl font-black text-slate-950 dark:text-white leading-none">{formatINR(product.price)}</p>
                 {product.negotiable && (
                   <span className="rounded-full bg-blue-500/10 border border-blue-500/30 px-2.5 py-0.5 text-xs font-extrabold text-blue-700 dark:text-blue-300">
                     Negotiable

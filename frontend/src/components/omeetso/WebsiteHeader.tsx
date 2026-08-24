@@ -344,7 +344,7 @@ export function WebsiteHeader() {
                               <p className="text-xs font-bold truncate text-foreground">{item.title}</p>
                               <p className="text-[11px] text-muted-foreground">{item.area} • {item.category}</p>
                             </div>
-                            <span className="text-xs font-extrabold text-navy shrink-0">{formatINR(item.price)}</span>
+                            <span className="text-xs font-extrabold text-slate-900 dark:text-white shrink-0">{formatINR(item.price)}</span>
                           </div>
                         ))}
                       </div>

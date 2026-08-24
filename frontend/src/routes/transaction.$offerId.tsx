@@ -155,7 +155,7 @@ function Transaction() {
               <p className="line-clamp-2 text-sm font-extrabold text-foreground leading-snug">{displayTitle}</p>
               <div className="mt-1 flex items-baseline gap-2">
                 <span className="text-xs font-bold text-muted-foreground">Agreed Price:</span>
-                <span className="text-xl font-black text-indigo-brand">{formatINR(agreedPrice)}</span>
+                <span className="text-xl font-black text-slate-900 dark:text-white">{formatINR(agreedPrice)}</span>
               </div>
             </div>
           </div>

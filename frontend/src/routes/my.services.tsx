@@ -157,7 +157,7 @@ function MyServicesDashboardPage() {
                         {inq.quotationAmount && (
                           <div className="rounded-2xl bg-emerald-500/10 border border-emerald-500/20 p-3 text-xs flex items-center justify-between">
                             <span className="font-bold text-emerald-800 dark:text-emerald-300">Quotation / Estimated Amount:</span>
-                            <span className="text-base font-black text-emerald-700 dark:text-emerald-400">₹{inq.quotationAmount}</span>
+                            <span className="text-base font-black text-slate-900 dark:text-white">₹{inq.quotationAmount}</span>
                           </div>
                         )}
 

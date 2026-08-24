@@ -160,7 +160,7 @@ function StorePreview() {
                   </div>
                   <div className="p-2.5">
                     <p className="line-clamp-1 text-xs font-bold">{p.title}</p>
-                    <p className="mt-1 text-xs font-black text-navy">₹{formatINR(p.price)}</p>
+                    <p className="mt-1 text-xs font-black text-slate-900 dark:text-white">₹{formatINR(p.price)}</p>
                   </div>
                 </Link>
               ))}

@@ -385,7 +385,7 @@ function StorePage() {
                     <img src={sponsoredAd.creative?.imageUrl} alt="Sponsored" className="h-16 w-16 rounded-2xl object-cover border border-border shrink-0" />
                     <div className="min-w-0 flex-1">
                       <p className="text-sm font-bold line-clamp-1">{sponsoredAd.creative?.title || "Special Store Deal"}</p>
-                      <p className="text-xs font-black text-primary mt-0.5">{formatINR(sponsoredAd.creative?.priceInPaise ? sponsoredAd.creative?.priceInPaise / 100 : 4999)}</p>
+                      <p className="text-xs font-black text-slate-900 dark:text-white mt-0.5">{formatINR(sponsoredAd.creative?.priceInPaise ? sponsoredAd.creative?.priceInPaise / 100 : 4999)}</p>
                     </div>
                     <button
                       onClick={() => nav({ to: `/listing/${sponsoredAd.listingId || store.id}` as any })}
@@ -473,7 +473,7 @@ function StorePage() {
                               FEATURED
                             </span>
                             <p className="text-xs font-bold line-clamp-1 mt-1">{p.title}</p>
-                            <p className="text-xs font-black text-primary">{formatINR(p.price)}</p>
+                            <p className="text-xs font-black text-slate-900 dark:text-white">{formatINR(p.price)}</p>
                           </div>
                           <Link
                             to="/ads/new"

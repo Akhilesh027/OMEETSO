@@ -398,7 +398,7 @@ function StorePreviewModal({ open, onClose, store, products }: { open: boolean; 
                       {p.images && p.images[p.cover || 0] ? <img src={p.images[p.cover || 0]} alt="" className="h-24 w-full object-cover" /> : <div className="h-24 bg-secondary" />}
                       <div className="p-2">
                         <p className="line-clamp-1 text-xs font-bold">{p.title}</p>
-                        <p className="text-xs font-extrabold text-navy">₹{formatINR(p.price)}</p>
+                        <p className="text-xs font-extrabold text-slate-900 dark:text-white">₹{formatINR(p.price)}</p>
                       </div>
                     </div>
                   ))}

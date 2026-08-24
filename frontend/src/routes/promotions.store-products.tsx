@@ -41,7 +41,7 @@ function SelectStoreProduct() {
                   <div className="grid h-14 w-14 place-items-center rounded-xl bg-secondary"><Package className="h-5 w-5" /></div>}
                 <div className="min-w-0 flex-1">
                   <p className="line-clamp-1 text-sm font-bold">{l.title}</p>
-                  <p className="text-xs font-bold text-primary">{formatINR(l.price)}</p>
+                  <p className="text-xs font-bold text-slate-900 dark:text-white">{formatINR(l.price)}</p>
                   <p className="text-[11px] text-muted-foreground capitalize">{l.category} • {(l.storeMeta?.stockStatus ?? "in_stock").replaceAll("_", " ")}</p>
                 </div>
                 <ChevronRight className="mt-4 h-4 w-4 text-muted-foreground" />

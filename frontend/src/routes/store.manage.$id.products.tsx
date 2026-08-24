@@ -139,7 +139,7 @@ function Products() {
                         <MoreVertical className="h-4 w-4" />
                       </button>
                     </div>
-                    <p className="text-sm font-extrabold text-primary">₹{formatINR(l.price)}</p>
+                    <p className="text-sm font-extrabold text-slate-900 dark:text-white">₹{formatINR(l.price)}</p>
                     <div className="mt-1 flex flex-wrap items-center gap-1 text-[10px]">
                       <span className={`rounded-full px-2 py-0.5 font-semibold ${stockTone(stock)}`}>{stockLabel(stock)}</span>
                       <span className="rounded-full bg-secondary px-2 py-0.5 font-semibold text-muted-foreground">{l.status}</span>

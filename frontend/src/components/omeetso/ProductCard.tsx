@@ -86,7 +86,7 @@ export function ProductCard({
           <StatusOverlay p={p} />
         </div>
         <div className="px-1 pt-2">
-          <p className="text-[15px] font-black text-primary leading-tight">{formatINR(p.price)}</p>
+          <p className="text-[15px] font-black text-slate-900 dark:text-white leading-tight">{formatINR(p.price)}</p>
           <p className="line-clamp-1 text-xs font-semibold text-foreground group-hover:text-primary transition-colors">{p.title}</p>
           <p className="mt-0.5 text-[11px] text-muted-foreground">{p.area || "Nearby"} · {p.distanceKm || 1.2} km</p>
         </div>
@@ -119,7 +119,7 @@ export function ProductCard({
         <div className="min-w-0 flex-1 flex flex-col justify-between py-0.5">
           <div>
             <div className="flex items-start justify-between gap-2">
-              <p className="text-lg font-black text-primary">{formatINR(p.price)}</p>
+              <p className="text-lg font-black text-slate-900 dark:text-white">{formatINR(p.price)}</p>
               <SaveButton id={p.id} size="sm" />
             </div>
             <p className="line-clamp-2 text-sm font-semibold text-foreground group-hover:text-primary transition-colors">{p.title}</p>
@@ -205,7 +205,7 @@ export function ProductCard({
       <div className="px-1 pt-3">
         <div className="flex items-center justify-between gap-2">
           <Link to="/product/$id" params={{ id: p.id }}>
-            <p className={cn("text-xl sm:text-2xl font-black text-primary leading-none hover:text-electric transition-colors")}>
+            <p className={cn("text-xl sm:text-2xl font-black text-slate-900 dark:text-white leading-none hover:text-slate-700 dark:hover:text-slate-300 transition-colors")}>
               {formatINR(p.price)}
             </p>
           </Link>

@@ -74,7 +74,7 @@ export function ProductQuickPreviewModal({ product, onClose }: ProductQuickPrevi
         {/* Info Content */}
         <div className="mt-4 space-y-3">
           <div className="flex items-baseline justify-between gap-2">
-            <h3 className="text-2xl font-bold text-navy leading-none">
+            <h3 className="text-2xl font-black text-slate-950 dark:text-white leading-none">
               {formatINR(product.price)}
             </h3>
             {product.negotiable && (

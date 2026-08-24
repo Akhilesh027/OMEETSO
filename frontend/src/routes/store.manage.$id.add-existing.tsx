@@ -87,7 +87,7 @@ function AddExisting() {
               )}
               <div className="min-w-0 flex-1">
                 <p className="line-clamp-1 text-sm font-bold">{l.title}</p>
-                <p className="text-sm font-extrabold text-primary">₹{formatINR(l.price)}</p>
+                <p className="text-sm font-extrabold text-slate-900 dark:text-white">₹{formatINR(l.price)}</p>
                 <p className="text-[11px] text-muted-foreground">{l.subcategory} · {l.area}</p>
               </div>
               <div className="grid h-8 w-8 place-items-center rounded-full bg-primary/10 text-primary"><Check className="h-4 w-4" /></div>
