@@ -73,7 +73,7 @@ export function SellerSummary({
             </div>
           )}
           {seller.verified && (
-            <span className="absolute -bottom-1 -right-1 grid h-5 w-5 place-items-center rounded-full bg-emerald-600 text-white border-2 border-card shadow-sm">
+            <span className="absolute -bottom-1 -right-1 grid h-5 w-5 place-items-center rounded-full bg-blue-600 text-white border-2 border-card shadow-sm">
               <ShieldCheck className="h-3 w-3" />
             </span>
           )}
@@ -82,7 +82,7 @@ export function SellerSummary({
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-1.5">
             <h4 className="truncate text-base font-black text-foreground group-hover:text-primary transition-colors">{displayName}</h4>
-            {seller.verified && <ShieldCheck className="h-4 w-4 shrink-0 text-emerald-600" />}
+            {seller.verified && <ShieldCheck className="h-4 w-4 shrink-0 text-blue-600" />}
           </div>
           <p className="mt-0.5 flex items-center gap-1 text-xs text-muted-foreground font-medium truncate">
             <MapPin className="h-3.5 w-3.5 text-primary shrink-0" /> {seller.area || "Hyderabad"}

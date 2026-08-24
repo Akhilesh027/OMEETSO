@@ -250,8 +250,8 @@ function OtpPage() {
             <ArrowLeft className="h-5 w-5 text-navy" />
           </button>
 
-          <div className="md:hidden">
-            <Logo />
+          <div className="md:hidden flex items-center">
+            <Logo size="sm" />
           </div>
 
           <span className="rounded-full bg-card px-3.5 py-1.5 text-xs font-bold text-navy ring-1 ring-border">

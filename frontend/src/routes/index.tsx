@@ -12,41 +12,6 @@ export const Route = createFileRoute("/")({
 
 type SplashState = "normal" | "slow" | "offline" | "error" | "update";
 
-/* ------------------------------ Brand Logo ------------------------------ */
-function OmeetsoMark({ size = 128 }: { size?: number }) {
-  return (
-    <svg
-      viewBox="0 0 100 50"
-      width={size * 2}
-      height={size}
-      className="drop-shadow-[0_10px_30px_rgba(25,109,249,0.4)]"
-      aria-label="Omeetso logo mark"
-    >
-      <defs>
-        <linearGradient id="splash-infinity-grad" x1="0" y1="25" x2="100" y2="25" gradientUnits="userSpaceOnUse">
-          <stop offset="0%" stopColor="#FFFFFF" />
-          <stop offset="50%" stopColor="#80B3FF" />
-          <stop offset="100%" stopColor="#196DF9" />
-        </linearGradient>
-      </defs>
-      <path
-        d="M 30,10 C 15,10 5,17 5,25 C 5,33 15,40 30,40 C 42,40 54,28 65,20 C 73,14 82,10 90,17 C 98,23 96,33 87,38 C 77,43 65,37 55,28 C 45,19 38,10 30,10 Z"
-        fill="url(#splash-infinity-grad)"
-        style={{ animation: "splash-fade-up 600ms ease-out 200ms both" }}
-      />
-      <path
-        d="M 30,12 C 18,12 10,18 10,25 C 10,32 18,38 30,38 C 40,38 50,28 60,20 C 67,14 76,12 85,17 C 92,21 91,30 84,34 C 76,38 67,34 58,26 C 49,18 40,12 30,12 Z"
-        fill="none"
-        stroke="url(#splash-infinity-grad)"
-        strokeWidth="10"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        style={{ animation: "splash-fade-up 600ms ease-out 400ms both" }}
-      />
-    </svg>
-  );
-}
-
 /* --------------------------- Subtle bg pattern --------------------------- */
 function BackgroundMotif() {
   const pins = [
@@ -251,39 +216,39 @@ function Splash() {
         )}
 
         {(state === "normal" || state === "slow") && (
-          <div className="relative z-10 flex flex-col items-center gap-5">
-            {/* Ping rings behind logo */}
-            <div className="relative grid place-items-center">
+          <div className="relative z-10 flex flex-col items-center gap-3.5">
+            {/* App Icon Mark */}
+            <div className="relative grid place-items-center mb-1">
               <span
-                className="pointer-events-none absolute h-40 w-40 rounded-full border border-white/15"
+                className="pointer-events-none absolute h-36 w-36 rounded-full border border-white/15"
                 style={{ animation: "splash-ping-ring 2.6s ease-out infinite" }}
               />
               <span
-                className="pointer-events-none absolute h-40 w-40 rounded-full border border-yellow-brand/40"
+                className="pointer-events-none absolute h-36 w-36 rounded-full border border-amber-400/30"
                 style={{ animation: "splash-ping-ring 2.6s ease-out 900ms infinite" }}
               />
-              <div style={{ animation: "splash-logo-scale 900ms cubic-bezier(0.2,0.8,0.2,1) 100ms both" }}>
-                <OmeetsoMark size={132} />
-              </div>
+              <img
+                src="/iconpng.png"
+                alt="Omeetso Icon"
+                className="h-24 w-24 sm:h-28 sm:w-28 object-contain drop-shadow-[0_12px_28px_rgba(0,0,0,0.5)]"
+                style={{ animation: "splash-logo-scale 800ms cubic-bezier(0.2,0.8,0.2,1) both" }}
+              />
             </div>
 
-            {/* Wordmark */}
-            <h1
-              className="text-4xl font-semibold tracking-[-0.02em] text-white"
-              style={{
-                fontFamily: "'Poppins', sans-serif",
-                animation: "splash-fade-up 600ms ease-out 1200ms both",
-              }}
-            >
-              omeetso
-            </h1>
+            {/* Brand Logo Image */}
+            <img
+              src="/logo.png"
+              alt="Omeetso"
+              className="h-10 sm:h-12 w-auto object-contain brightness-0 invert drop-shadow-md"
+              style={{ animation: "splash-fade-up 600ms ease-out 300ms both" }}
+            />
 
             {/* Tagline */}
             <p
-              className="-mt-3 text-sm font-medium text-white/80"
-              style={{ animation: "splash-fade-up 600ms ease-out 1500ms both" }}
+              className="text-xs sm:text-sm font-bold uppercase tracking-widest text-amber-300 drop-shadow-sm"
+              style={{ animation: "splash-fade-up 600ms ease-out 500ms both" }}
             >
-              Buy Nearby. Sell Quickly.
+              Buy Nearby · Sell Quickly
             </p>
 
             {/* Dots */}

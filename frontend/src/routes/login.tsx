@@ -195,8 +195,8 @@ function Auth() {
             <ArrowLeft className="h-5 w-5 text-navy" />
           </button>
           
-          <div className="md:hidden">
-            <Logo />
+          <div className="md:hidden flex items-center">
+            <Logo size="sm" />
           </div>
         </div>
 

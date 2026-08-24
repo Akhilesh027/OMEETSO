@@ -78,7 +78,7 @@ function FormattedDescription({ text }: { text?: string }) {
         if (trimmed.startsWith("•") || trimmed.startsWith("-") || trimmed.startsWith("✔")) {
           return (
             <div key={idx} className="flex items-start gap-2 pl-1">
-              <span className="text-emerald-600 font-black text-xs leading-tight shrink-0">{trimmed.charAt(0)}</span>
+              <span className="text-blue-600 dark:text-blue-400 font-black text-xs leading-tight shrink-0">{trimmed.charAt(0)}</span>
               <div className="flex-1">{parsedContent}</div>
             </div>
           );
@@ -119,7 +119,7 @@ function ProductPage() {
     return (
       <MobileFrame>
         <div className="min-h-dvh bg-background p-12 text-center flex flex-col items-center justify-center gap-3">
-          <div className="h-8 w-8 animate-spin rounded-full border-4 border-emerald-600 border-t-transparent mx-auto" />
+          <div className="h-8 w-8 animate-spin rounded-full border-4 border-blue-600 border-t-transparent mx-auto" />
           <p className="text-xs font-bold text-muted-foreground">Loading product details…</p>
         </div>
       </MobileFrame>
@@ -173,7 +173,7 @@ function ProductPage() {
             <Link
               to="/results"
               search={{ cat: product.category } as never}
-              className="mt-6 inline-flex rounded-2xl bg-emerald-600 px-5 py-3 text-sm font-bold text-white shadow-sm hover:bg-emerald-700"
+              className="mt-6 inline-flex rounded-2xl bg-blue-600 px-5 py-3 text-sm font-bold text-white shadow-sm hover:bg-blue-700"
             >
               View Similar Products
             </Link>
@@ -211,9 +211,9 @@ function ProductPage() {
         </div>
         <div className="hidden md:block border-b border-border bg-card">
           <div className="mx-auto max-w-[1440px] px-4 sm:px-6 md:px-8 lg:px-10 xl:px-12 py-4 text-xs text-muted-foreground">
-            <Link to="/home" className="hover:text-emerald-600 transition-colors">Home</Link>
+            <Link to="/home" className="hover:text-blue-600 transition-colors">Home</Link>
             <span className="mx-2">/</span>
-            <Link to="/results" search={{ cat: product.category } as never} className="hover:text-emerald-600 transition-colors">{product.category}</Link>
+            <Link to="/results" search={{ cat: product.category } as never} className="hover:text-blue-600 transition-colors">{product.category}</Link>
             <span className="mx-2">/</span>
             <span className="text-foreground font-semibold truncate">{product.title}</span>
           </div>
@@ -275,7 +275,7 @@ function ProductPage() {
             {idx + 1}/{displayImages.length}
           </span>
           <span className="absolute bottom-3 left-3 inline-flex items-center gap-1 rounded-full bg-slate-950/80 border border-white/20 px-2.5 py-1 text-[10px] font-bold text-white backdrop-blur-sm shadow-xs">
-            <Play className="h-3 w-3 text-emerald-400" /> {displayImages.length} Photos {videoUrl ? "+ 1 Video" : ""}
+            <Play className="h-3 w-3 text-blue-400" /> {displayImages.length} Photos {videoUrl ? "+ 1 Video" : ""}
           </span>
         </div>
         {displayImages.length > 1 && (
@@ -286,7 +286,7 @@ function ProductPage() {
                 onClick={() => setIdx(i)}
                 aria-label={`Image ${i + 1}`}
                 className={`h-16 w-16 shrink-0 overflow-hidden rounded-xl border-2 transition-all ${
-                  i === idx ? "border-emerald-600 ring-2 ring-emerald-500/20 scale-105 shadow-xs" : "border-border/80 opacity-70 hover:opacity-100"
+                  i === idx ? "border-blue-600 ring-2 ring-blue-500/20 scale-105 shadow-xs" : "border-border/80 opacity-70 hover:opacity-100"
                 }`}
               >
                 <img src={im} alt={`Product photo ${i + 1}`} className="h-full w-full object-cover" />
@@ -298,27 +298,27 @@ function ProductPage() {
         <div className="space-y-5 p-4">
           <div>
             <div className="flex flex-wrap items-center gap-2">
-              <p className="text-3xl sm:text-4xl font-black text-emerald-600 dark:text-emerald-400 leading-none">{formatINR(product.price)}</p>
+              <p className="text-3xl sm:text-4xl font-black text-blue-600 dark:text-blue-400 leading-none">{formatINR(product.price)}</p>
               {product.negotiable && (
-                <span className="rounded-full bg-emerald-500/10 border border-emerald-500/30 px-3 py-0.5 text-xs font-extrabold text-emerald-700 dark:text-emerald-300">
+                <span className="rounded-full bg-blue-500/10 border border-blue-500/30 px-3 py-0.5 text-xs font-extrabold text-blue-700 dark:text-blue-300">
                   Negotiable Price
                 </span>
               )}
               {product.verified && (
-                <span className="inline-flex items-center gap-1 rounded-full bg-emerald-500/10 border border-emerald-500/30 px-3 py-0.5 text-xs font-extrabold text-emerald-700 dark:text-emerald-300">
-                  <ShieldCheck className="h-3.5 w-3.5 text-emerald-600" /> Verified Seller
+                <span className="inline-flex items-center gap-1 rounded-full bg-blue-500/10 border border-blue-500/30 px-3 py-0.5 text-xs font-extrabold text-blue-700 dark:text-blue-300">
+                  <ShieldCheck className="h-3.5 w-3.5 text-blue-600" /> Verified Seller
                 </span>
               )}
             </div>
             <h1 className="mt-2.5 text-lg sm:text-xl font-extrabold text-foreground leading-snug">{product.title}</h1>
             <p className="mt-1.5 flex items-center gap-1 text-xs text-muted-foreground font-medium">
-              <MapPin className="h-3.5 w-3.5 text-emerald-600 shrink-0" /> {product.area || "Nearby"}{product.city ? `, ${product.city}` : ""}{product.distanceKm ? ` · ${product.distanceKm} km away` : ""}{product.postedAgo ? ` · ${product.postedAgo}` : ""}
+              <MapPin className="h-3.5 w-3.5 text-blue-600 shrink-0" /> {product.area || "Nearby"}{product.city ? `, ${product.city}` : ""}{product.distanceKm ? ` · ${product.distanceKm} km away` : ""}{product.postedAgo ? ` · ${product.postedAgo}` : ""}
             </p>
             <p className="mt-1 flex items-center gap-3 text-[11px] font-bold uppercase tracking-wide text-muted-foreground">
               <span>Condition · {(product.condition || "good").replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase())}</span>
               {Boolean(Number((product as any).rating) > 0 && Number((product as any).reviewCount) > 0) && (
-                <span className="inline-flex items-center gap-1 text-emerald-700 dark:text-emerald-300 bg-emerald-500/10 px-2 py-0.5 rounded-full border border-emerald-500/30 font-extrabold">
-                  <Star className="h-3 w-3 fill-emerald-500 text-emerald-500" />
+                <span className="inline-flex items-center gap-1 text-blue-700 dark:text-blue-300 bg-blue-500/10 px-2 py-0.5 rounded-full border border-blue-500/30 font-extrabold">
+                  <Star className="h-3 w-3 fill-amber-400 text-amber-400" />
                   {(product as any).rating} ({(product as any).reviewCount} reviews)
                 </span>
               )}
@@ -326,12 +326,12 @@ function ProductPage() {
 
             {/* Smart Bargain Assist Widget */}
             {product.negotiable && (
-              <div className="mt-3.5 rounded-2xl bg-emerald-500/5 border border-emerald-500/25 p-4 space-y-2.5 shadow-xs">
+              <div className="mt-3.5 rounded-2xl bg-blue-500/5 border border-blue-500/25 p-4 space-y-2.5 shadow-xs">
                 <div className="flex items-center justify-between">
-                  <span className="text-xs font-black uppercase text-emerald-700 dark:text-emerald-300 flex items-center gap-1.5 tracking-wider">
-                    <HandCoins className="h-4 w-4 text-emerald-600" /> Smart Bargain Offers ⚡
+                  <span className="text-xs font-black uppercase text-blue-700 dark:text-blue-300 flex items-center gap-1.5 tracking-wider">
+                    <HandCoins className="h-4 w-4 text-blue-600" /> Smart Bargain Offers ⚡
                   </span>
-                  <span className="text-[10px] font-black text-emerald-700 dark:text-emerald-300 bg-emerald-500/15 border border-emerald-500/30 px-2.5 py-0.5 rounded-full">
+                  <span className="text-[10px] font-black text-blue-700 dark:text-blue-300 bg-blue-500/15 border border-blue-500/30 px-2.5 py-0.5 rounded-full">
                     Instant AI Offer
                   </span>
                 </div>
@@ -346,10 +346,10 @@ function ProductPage() {
                           setOfferAmount(String(offerVal));
                           setOfferOpen(true);
                         }}
-                        className="flex-1 min-w-[105px] py-2 px-3.5 rounded-xl bg-card border border-emerald-500/20 text-left hover:border-emerald-600 hover:bg-emerald-600 hover:text-white transition-all active:scale-95 shadow-xs group"
+                        className="flex-1 min-w-[105px] py-2 px-3.5 rounded-xl bg-card border border-blue-500/20 text-left hover:border-blue-600 hover:bg-blue-600 hover:text-white transition-all active:scale-95 shadow-xs group"
                       >
                         <p className="text-xs font-black transition-colors">{formatINR(offerVal)}</p>
-                        <p className="text-[10px] font-bold text-emerald-700 dark:text-emerald-400 group-hover:text-white transition-colors flex items-center justify-between">
+                        <p className="text-[10px] font-bold text-blue-700 dark:text-blue-400 group-hover:text-white transition-colors flex items-center justify-between">
                           <span>-{pct}% Offer</span>
                           <span className="font-bold">→</span>
                         </p>
@@ -363,35 +363,16 @@ function ProductPage() {
 
           {/* Availability Chips */}
           <div className="flex flex-wrap gap-2">
-            <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-500/10 border border-emerald-500/25 px-3 py-1 text-xs font-extrabold text-emerald-700 dark:text-emerald-300">
-              <PackageCheck className="h-3.5 w-3.5 text-emerald-600" /> Available Now
+            <span className="inline-flex items-center gap-1.5 rounded-full bg-blue-500/10 border border-blue-500/25 px-3 py-1 text-xs font-extrabold text-blue-700 dark:text-blue-300">
+              <PackageCheck className="h-3.5 w-3.5 text-blue-600" /> Available Now
             </span>
-            <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-500/10 border border-emerald-500/25 px-3 py-1 text-xs font-extrabold text-emerald-700 dark:text-emerald-300">
-              <Package className="h-3.5 w-3.5 text-emerald-600" /> Pickup Available
+            <span className="inline-flex items-center gap-1.5 rounded-full bg-blue-500/10 border border-blue-500/25 px-3 py-1 text-xs font-extrabold text-blue-700 dark:text-blue-300">
+              <Package className="h-3.5 w-3.5 text-blue-600" /> Pickup Available
             </span>
-            <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-500/10 border border-emerald-500/25 px-3 py-1 text-xs font-extrabold text-emerald-700 dark:text-emerald-300">
-              <Truck className="h-3.5 w-3.5 text-emerald-600" /> Delivery on Request
+            <span className="inline-flex items-center gap-1.5 rounded-full bg-blue-500/10 border border-blue-500/25 px-3 py-1 text-xs font-extrabold text-blue-700 dark:text-blue-300">
+              <Truck className="h-3.5 w-3.5 text-blue-600" /> Delivery on Request
             </span>
           </div>
-
-          {/* Interactive Counter-Offer Slider Widget */}
-          <CounterOfferWidget
-            product={product}
-            onSendOffer={async (price) => {
-              if (isGuest()) { setGuestOpen(true); return; }
-              try {
-                const res = await startConversationApi("LISTING", product.id);
-                if (res.success && res.data?.id) {
-                  toast.success(`Direct offer of ${formatINR(price)} sent!`);
-                  nav({ to: "/chat/$id", params: { id: res.data.id } });
-                } else {
-                  toast.error(res.error?.message || "Could not start chat");
-                }
-              } catch {
-                toast.error("Connection error. Please try again.");
-              }
-            }}
-          />
 
           {/* Seller Verification Metrics Matrix */}
           <div>
@@ -462,9 +443,9 @@ function ProductPage() {
             {/* Quick Action Card */}
             <div className="space-y-3.5 rounded-3xl border border-border bg-card p-5 shadow-xs">
               <div className="flex flex-wrap items-center gap-2">
-                <p className="text-3xl font-black text-emerald-600 dark:text-emerald-400 leading-none">{formatINR(product.price)}</p>
+                <p className="text-3xl font-black text-blue-600 dark:text-blue-400 leading-none">{formatINR(product.price)}</p>
                 {product.negotiable && (
-                  <span className="rounded-full bg-emerald-500/10 border border-emerald-500/30 px-2.5 py-0.5 text-xs font-extrabold text-emerald-700 dark:text-emerald-300">
+                  <span className="rounded-full bg-blue-500/10 border border-blue-500/30 px-2.5 py-0.5 text-xs font-extrabold text-blue-700 dark:text-blue-300">
                     Negotiable
                   </span>
                 )}
@@ -484,16 +465,16 @@ function ProductPage() {
                       }
                     } catch { toast.error("Connection error. Please try again."); }
                   }}
-                  className="flex items-center justify-center gap-2 rounded-2xl bg-emerald-600 hover:bg-emerald-700 text-white py-3.5 text-sm font-extrabold shadow-md active:scale-98 transition-all"
+                  className="flex items-center justify-center gap-2 rounded-2xl bg-blue-600 hover:bg-blue-700 text-white py-3.5 text-sm font-extrabold shadow-md active:scale-98 transition-all"
                 >
                   <MessageCircle className="h-4 w-4" /> Chat with Seller
                 </button>
 
                 <button
                   onClick={() => setOfferOpen(true)}
-                  className="flex items-center justify-center gap-2 rounded-2xl bg-emerald-500/15 hover:bg-emerald-500/25 border border-emerald-500/30 text-emerald-700 dark:text-emerald-300 py-3.5 text-sm font-extrabold shadow-xs active:scale-98 transition-all"
+                  className="flex items-center justify-center gap-2 rounded-2xl bg-blue-500/15 hover:bg-blue-500/25 border border-blue-500/30 text-blue-700 dark:text-blue-300 py-3.5 text-sm font-extrabold shadow-xs active:scale-98 transition-all"
                 >
-                  <HandCoins className="h-4 w-4 text-emerald-600" /> Make an Offer
+                  <HandCoins className="h-4 w-4 text-blue-600" /> Make an Offer
                 </button>
 
                 {waLink && (
@@ -501,7 +482,7 @@ function ProductPage() {
                     href={waLink}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="flex items-center justify-center gap-2 rounded-2xl bg-emerald-600 hover:bg-emerald-700 text-white py-3 text-sm font-bold shadow-sm transition-all"
+                    className="flex items-center justify-center gap-2 rounded-2xl bg-blue-600 hover:bg-blue-700 text-white py-3 text-sm font-bold shadow-sm transition-all"
                   >
                     WhatsApp Seller
                   </a>
@@ -511,20 +492,20 @@ function ProductPage() {
                   href={waPhone ? `tel:+${waPhone}` : "tel:+911234567890"}
                   className="flex items-center justify-center gap-2 rounded-2xl border border-border bg-secondary/50 hover:bg-secondary py-3 text-sm font-bold text-foreground transition-colors"
                 >
-                  <Phone className="h-4 w-4 text-emerald-600" /> Call Seller
+                  <Phone className="h-4 w-4 text-blue-600" /> Call Seller
                 </a>
 
                 <div className="flex items-center justify-between pt-2 text-xs text-muted-foreground font-semibold">
                   <button onClick={toggle} className="inline-flex items-center gap-1.5 hover:text-foreground">
-                    <Heart className={"h-4 w-4 " + (saved ? "fill-emerald-600 text-emerald-600" : "")} /> {saved ? "Saved" : "Save Listing"}
+                    <Heart className={"h-4 w-4 " + (saved ? "fill-blue-600 text-blue-600" : "")} /> {saved ? "Saved" : "Save Listing"}
                   </button>
                   <button onClick={() => share(product.title)} className="inline-flex items-center gap-1.5 hover:text-foreground">
-                    <Share2 className="h-4 w-4 text-emerald-600" /> Share Listing
+                    <Share2 className="h-4 w-4 text-blue-600" /> Share Listing
                   </button>
                 </div>
               </div>
 
-              <div className="mt-3 rounded-2xl bg-emerald-500/5 border border-emerald-500/20 p-3 text-[11px] font-medium text-emerald-800 dark:text-emerald-300">
+              <div className="mt-3 rounded-2xl bg-blue-500/5 border border-blue-500/20 p-3 text-[11px] font-medium text-blue-800 dark:text-blue-300">
                 🛡️ Safety Shield: Meet in a public place, inspect the item thoroughly, and verify before making payment.
               </div>
             </div>
@@ -538,23 +519,23 @@ function ProductPage() {
             href={waPhone ? `tel:+${waPhone}` : "tel:+911234567890"}
             className="flex flex-col items-center justify-center gap-0.5 rounded-2xl border border-border bg-secondary py-2 text-xs font-bold text-foreground"
           >
-            <Phone className="h-4 w-4 text-emerald-600" /> Call
+            <Phone className="h-4 w-4 text-blue-600" /> Call
           </a>
           {waLink && (
             <a
               href={waLink}
               target="_blank"
               rel="noopener noreferrer"
-              className="flex flex-col items-center justify-center gap-0.5 rounded-2xl bg-emerald-600 text-white py-2 text-xs font-bold shadow-xs"
+              className="flex flex-col items-center justify-center gap-0.5 rounded-2xl bg-blue-600 text-white py-2 text-xs font-bold shadow-xs"
             >
               WhatsApp
             </a>
           )}
           <button
             onClick={() => setOfferOpen(true)}
-            className="flex flex-col items-center justify-center gap-0.5 rounded-2xl border border-emerald-500/30 bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 py-2 text-xs font-extrabold"
+            className="flex flex-col items-center justify-center gap-0.5 rounded-2xl border border-blue-500/30 bg-blue-500/15 text-blue-700 dark:text-blue-300 py-2 text-xs font-extrabold"
           >
-            <HandCoins className="h-4 w-4 text-emerald-600" /> Offer
+            <HandCoins className="h-4 w-4 text-blue-600" /> Offer
           </button>
           <button
             onClick={async () => {
@@ -568,7 +549,7 @@ function ProductPage() {
                 }
               } catch { toast.error("Connection error. Please try again."); }
             }}
-            className="flex flex-col items-center justify-center gap-0.5 rounded-2xl bg-emerald-600 text-white py-2 text-xs font-bold shadow-xs"
+            className="flex flex-col items-center justify-center gap-0.5 rounded-2xl bg-blue-600 text-white py-2 text-xs font-bold shadow-xs"
           >
             <MessageCircle className="h-4 w-4" /> Chat
           </button>
@@ -588,7 +569,7 @@ function ProductPage() {
                   try { localStorage.setItem("omeetso_return_product", product.id); } catch { /* ignore */ }
                   nav({ to: "/login" });
                 }}
-                className="h-11 rounded-2xl bg-emerald-600 text-sm font-bold text-white shadow-sm hover:bg-emerald-700"
+                className="h-11 rounded-2xl bg-blue-600 text-sm font-bold text-white shadow-sm hover:bg-blue-700"
               >Sign in</button>
             </div>
           }
@@ -610,7 +591,7 @@ function TopHeader({ saved, onSave, onShare }: { saved: boolean; onSave: () => v
       </button>
       <div className="flex items-center gap-1">
         <button onClick={onShare} className="grid h-10 w-10 place-items-center rounded-full hover:bg-secondary" aria-label="Share">
-          <Share2 className="h-5 w-5 text-emerald-600" />
+          <Share2 className="h-5 w-5 text-blue-600" />
         </button>
         <button
           onClick={onSave}
@@ -618,7 +599,7 @@ function TopHeader({ saved, onSave, onShare }: { saved: boolean; onSave: () => v
           aria-pressed={saved}
           className="grid h-10 w-10 place-items-center rounded-full hover:bg-secondary"
         >
-          <Heart className={"h-5 w-5 " + (saved ? "fill-emerald-600 text-emerald-600" : "text-muted-foreground")} />
+          <Heart className={"h-5 w-5 " + (saved ? "fill-blue-600 text-blue-600" : "text-muted-foreground")} />
         </button>
       </div>
     </header>
@@ -648,109 +629,23 @@ function NotFound() {
   );
 }
 
-function CounterOfferWidget({ product, onSendOffer }: { product: any; onSendOffer: (price: number) => void }) {
-  const [offerPrice, setOfferPrice] = useState(Math.round(product.price * 0.9));
-  const minPrice = Math.round(product.price * 0.6);
-  const maxPrice = product.price;
-  const savings = Math.max(0, product.price - offerPrice);
-
-  const applyPreset = (discountPct: number) => {
-    setOfferPrice(Math.round(product.price * (1 - discountPct / 100)));
-  };
-
-  return (
-    <div className="rounded-2xl border border-emerald-500/30 bg-emerald-500/5 p-4 sm:p-5 shadow-xs space-y-4">
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-2.5">
-          <div className="grid h-8 w-8 place-items-center rounded-xl bg-emerald-600 text-white font-black text-xs shadow-sm">
-            ⚡
-          </div>
-          <div>
-            <h4 className="text-sm font-extrabold text-foreground">Interactive Counter-Offer</h4>
-            <p className="text-[11px] font-semibold text-muted-foreground">Make instant cash offer to seller</p>
-          </div>
-        </div>
-        {savings > 0 && (
-          <span className="rounded-full bg-emerald-500/15 border border-emerald-500/30 px-3 py-1 text-xs font-black text-emerald-700 dark:text-emerald-300">
-            Save {formatINR(savings)}!
-          </span>
-        )}
-      </div>
-
-      <div className="space-y-3 bg-card p-4 rounded-xl border border-border shadow-xs">
-        <div className="flex items-baseline justify-between">
-          <span className="text-xs font-bold text-muted-foreground uppercase tracking-wide">Your Offer Price</span>
-          <span className="text-2xl font-black text-emerald-600 dark:text-emerald-400">{formatINR(offerPrice)}</span>
-        </div>
-
-        <input
-          type="range"
-          min={minPrice}
-          max={maxPrice}
-          step={500}
-          value={offerPrice}
-          onChange={(e) => setOfferPrice(Number(e.target.value))}
-          className="w-full h-2 rounded-lg bg-secondary border-0 accent-emerald-600 cursor-pointer"
-        />
-
-        <div className="flex items-center justify-between text-[11px] font-bold text-muted-foreground">
-          <span>Min {formatINR(minPrice)}</span>
-          <span>Listed {formatINR(maxPrice)}</span>
-        </div>
-
-        <div className="flex items-center gap-2 pt-1">
-          <button
-            type="button"
-            onClick={() => applyPreset(10)}
-            className="flex-1 rounded-xl bg-emerald-500/10 hover:bg-emerald-600 hover:text-white border border-emerald-500/30 py-1.5 text-xs font-black text-emerald-700 dark:text-emerald-300 transition-all"
-          >
-            10% OFF
-          </button>
-          <button
-            type="button"
-            onClick={() => applyPreset(15)}
-            className="flex-1 rounded-xl bg-emerald-500/10 hover:bg-emerald-600 hover:text-white border border-emerald-500/30 py-1.5 text-xs font-black text-emerald-700 dark:text-emerald-300 transition-all"
-          >
-            15% OFF
-          </button>
-          <button
-            type="button"
-            onClick={() => applyPreset(20)}
-            className="flex-1 rounded-xl bg-emerald-500/10 hover:bg-emerald-600 hover:text-white border border-emerald-500/30 py-1.5 text-xs font-black text-emerald-700 dark:text-emerald-300 transition-all"
-          >
-            20% OFF
-          </button>
-        </div>
-      </div>
-
-      <button
-        type="button"
-        onClick={() => onSendOffer(offerPrice)}
-        className="w-full flex items-center justify-center gap-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white py-3.5 text-xs sm:text-sm font-extrabold shadow-sm active:scale-98 transition-all"
-      >
-        <HandCoins className="h-4.5 w-4.5" /> Send {formatINR(offerPrice)} Direct Offer Now
-      </button>
-    </div>
-  );
-}
-
 function SellerTrustBadgeMatrix({ seller }: { seller: any }) {
   return (
     <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-      <div className="rounded-2xl border border-emerald-500/20 bg-emerald-500/5 p-3 text-center">
-        <div className="text-emerald-700 dark:text-emerald-300 text-xs sm:text-sm font-extrabold">⚡ &lt; 15 mins</div>
+      <div className="rounded-2xl border border-blue-500/20 bg-blue-500/5 p-3 text-center">
+        <div className="text-blue-700 dark:text-blue-300 text-xs sm:text-sm font-extrabold">⚡ &lt; 15 mins</div>
         <div className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider mt-0.5">Avg Response</div>
       </div>
-      <div className="rounded-2xl border border-emerald-500/20 bg-emerald-500/5 p-3 text-center">
-        <div className="text-emerald-700 dark:text-emerald-300 text-xs sm:text-sm font-extrabold">🛡️ Verified</div>
+      <div className="rounded-2xl border border-blue-500/20 bg-blue-500/5 p-3 text-center">
+        <div className="text-blue-700 dark:text-blue-300 text-xs sm:text-sm font-extrabold">🛡️ Verified</div>
         <div className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider mt-0.5">ID & Phone</div>
       </div>
-      <div className="rounded-2xl border border-emerald-500/20 bg-emerald-500/5 p-3 text-center">
-        <div className="text-emerald-700 dark:text-emerald-300 text-xs sm:text-sm font-extrabold">⭐ 4.9 / 5</div>
+      <div className="rounded-2xl border border-blue-500/20 bg-blue-500/5 p-3 text-center">
+        <div className="text-blue-700 dark:text-blue-300 text-xs sm:text-sm font-extrabold">⭐ 4.9 / 5</div>
         <div className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider mt-0.5">Seller Rating</div>
       </div>
-      <div className="rounded-2xl border border-emerald-500/20 bg-emerald-500/5 p-3 text-center">
-        <div className="text-emerald-700 dark:text-emerald-300 text-xs sm:text-sm font-extrabold">📍 {seller?.area || "Nearby"}</div>
+      <div className="rounded-2xl border border-blue-500/20 bg-blue-500/5 p-3 text-center">
+        <div className="text-blue-700 dark:text-blue-300 text-xs sm:text-sm font-extrabold">📍 {seller?.area || "Nearby"}</div>
         <div className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider mt-0.5">Local Distance</div>
       </div>
     </div>

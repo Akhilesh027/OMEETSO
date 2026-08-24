@@ -42,8 +42,8 @@ export function LocationTopBar({
   return (
     <header className="gradient-brand text-white px-4 pt-3 pb-5 safe-t md:hidden shadow-md">
       {/* Top row: Logo on Left, Action icons on Right */}
-      <div className="flex items-center justify-between gap-3 mb-2.5">
-        <Link to="/home" className="flex items-center shrink-0">
+      <div className="flex items-center justify-between gap-3 mb-2.5 min-h-[42px]">
+        <Link to="/home" className="flex items-center shrink-0 py-0.5">
           <Logo size="sm" mono />
         </Link>
 
