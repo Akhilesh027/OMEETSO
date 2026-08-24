@@ -39,6 +39,7 @@ import StoreDetailPage from "@/pages/stores/StoreDetailPage";
 import StoreProductDetailPage from "@/pages/stores/StoreProductDetailPage";
 
 import PromotionsOverviewPage from "@/pages/promotions/PromotionsOverviewPage";
+import PromotionPackagesPage from "@/pages/promotions/PromotionPackagesPage";
 
 import AdsOverviewPage from "@/pages/ads/AdsOverviewPage";
 import AdPlacementsPage from "@/pages/ads/AdPlacementsPage";
@@ -56,9 +57,17 @@ import BannersPage from "@/pages/banners/BannersPage";
 export default function AdminRoutes() {
   return (
     <Routes>
-      {/* Root redirects */}
+      {/* Root & convenience redirects without /admin prefix */}
       <Route path="/" element={<Navigate to="/admin/dashboard" replace />} />
       <Route path="/admin" element={<Navigate to="/admin/dashboard" replace />} />
+      <Route path="/promotions/packages" element={<Navigate to="/admin/promotions/packages" replace />} />
+      <Route path="/promotions/placements" element={<Navigate to="/admin/promotions/placements" replace />} />
+      <Route path="/promotions" element={<Navigate to="/admin/promotions" replace />} />
+      <Route path="/ads" element={<Navigate to="/admin/ads" replace />} />
+      <Route path="/users" element={<Navigate to="/admin/users" replace />} />
+      <Route path="/listings" element={<Navigate to="/admin/listings" replace />} />
+      <Route path="/stores" element={<Navigate to="/admin/stores" replace />} />
+      <Route path="/dashboard" element={<Navigate to="/admin/dashboard" replace />} />
 
       {/* Public / Auth Layout Routes */}
       <Route element={<AuthLayout />}>
@@ -149,10 +158,10 @@ export default function AdminRoutes() {
             <Route path="/admin/promotions/listings" element={<PromotionsOverviewPage />} />
             <Route path="/admin/promotions/stores" element={<PromotionsOverviewPage />} />
             <Route path="/admin/promotions/products" element={<PromotionsOverviewPage />} />
-            <Route path="/admin/promotions/offers" element={<PromotionsOverviewPage />} />
-            <Route path="/admin/promotions/packages" element={<PromotionsOverviewPage />} />
-            <Route path="/admin/promotions/packages/create" element={<PromotionsOverviewPage />} />
-            <Route path="/admin/promotions/packages/:packageId/edit" element={<PromotionsOverviewPage />} />
+            <Route path="/admin/promotions/packages" element={<PromotionPackagesPage />} />
+            <Route path="/admin/promotions/pricing-plans" element={<PromotionPackagesPage />} />
+            <Route path="/admin/promotions/packages/create" element={<PromotionPackagesPage />} />
+            <Route path="/admin/promotions/packages/:packageId/edit" element={<PromotionPackagesPage />} />
             <Route path="/admin/promotions/placements" element={<AdPlacementsPage />} />
             <Route path="/admin/promotions/discounts" element={<PromotionsOverviewPage />} />
             <Route path="/admin/promotions/refunds" element={<PromotionsOverviewPage />} />

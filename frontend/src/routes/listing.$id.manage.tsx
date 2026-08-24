@@ -300,6 +300,8 @@ function Manage() {
             listingId={l.id}
             listingTitle={l.title}
             listingImage={cover}
+            listingPrice={l.price}
+            listingArea={`${l.area || ""}${l.city ? `, ${l.city}` : ""}`}
             onClose={() => setShowBoostWizard(false)}
           />
         )}

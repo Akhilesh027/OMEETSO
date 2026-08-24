@@ -2,7 +2,6 @@ import http from "http";
 import { app } from "./app";
 import { env } from "./config/env";
 import { connectDatabase, disconnectDatabase } from "./database/connect";
-import { seedAdminUsers } from "./database/seeders/adminSeeder";
 import { initSocketServer } from "./sockets/socket-server";
 import { startBackgroundWorkers } from "./jobs/cleanupWorker";
 
@@ -13,9 +12,6 @@ export const io = initSocketServer(server);
 
 async function startServer() {
   await connectDatabase();
-  
-  // Only admin logins are seeded on server boot
-  await seedAdminUsers();
 
   startBackgroundWorkers();
 

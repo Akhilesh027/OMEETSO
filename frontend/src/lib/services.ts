@@ -1,4 +1,5 @@
 // Omeetso Services Vertical — Frontend persistence layer, API client & Seed data
+import { API_BASE as ROOT_API } from "@/config/api";
 
 export type ServiceType = "DOORSTEP" | "AT_CENTER" | "ONLINE" | "HYBRID";
 export type PriceType = "FIXED" | "STARTING_AT" | "PER_HOUR" | "VISITATION_FEE" | "REQUEST_QUOTE";
@@ -427,7 +428,7 @@ export async function fetchPublicServices(params?: {
     if (params?.verified) query.set("verified", params.verified);
     if (params?.sort) query.set("sort", params.sort);
 
-    const res = await fetch(`http://localhost:5000/api/v1/services?${query.toString()}`, {
+    const res = await fetch(`${ROOT_API}/services?${query.toString()}`, {
       credentials: "include",
     });
     if (res.ok) {
@@ -499,7 +500,7 @@ export async function fetchPublicServices(params?: {
 // Fetch single service by ID
 export async function fetchServiceById(id: string): Promise<ServiceItem | null> {
   try {
-    const res = await fetch(`http://localhost:5000/api/v1/services/${id}`, {
+    const res = await fetch(`${ROOT_API}/services/${id}`, {
       credentials: "include",
     });
     if (res.ok) {

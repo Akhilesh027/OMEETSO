@@ -156,77 +156,233 @@ const SUBCATEGORY_IMAGES: Record<string, string> = {
 };
 
 const SUBCATEGORY_ICONS_MAP: Record<string, Lucide.LucideIcon> = {
-  "Used Cars": Car,
-  "New Cars": Sparkles,
-  "Car Accessories": ShieldCheck,
-  "Spare Parts": Wrench,
-  "Car Services": Gauge,
-  "Motorcycles": Bike,
-  "Scooters": Zap,
-  "Bicycles": Compass,
-  "Bike Services": Gauge,
+  // Mobiles & Brands
+  "Apple iPhone": Smartphone,
+  "Samsung": Smartphone,
+  "OnePlus": Smartphone,
+  "Xiaomi / Redmi": Smartphone,
+  "Realme": Smartphone,
+  "Vivo": Smartphone,
+  "Oppo": Smartphone,
+  "Google Pixel": Smartphone,
+  "Motorola": Smartphone,
+  "Nothing": Smartphone,
+  "Poco": Smartphone,
+  "Other Brands": Package,
   "Smartphones": Smartphone,
   "Tablets": Tablet,
   "Accessories": Headphones,
   "Smart Watches": Watch,
   "Repair": Wrench,
+
+  // Cars
+  "Used Cars": Car,
+  "New Cars": Sparkles,
+  "Sedan": Car,
+  "SUV": Car,
+  "Hatchback": Car,
+  "Luxury": Sparkles,
+  "MUV": Car,
+  "Coupe": Car,
+  "Convertible": Car,
+  "Car Accessories": ShieldCheck,
+  "Spare Parts": Wrench,
+  "Car Services": Gauge,
+
+  // Bikes
+  "Commuter": Bike,
+  "Sports Bike": Zap,
+  "Cruiser": Bike,
+  "Scooter": Zap,
+  "Electric Bike": Zap,
+  "Adventure Bike": Compass,
+  "Off-Road Bike": Bike,
+  "Superbike": Zap,
+  "Touring Bike": Compass,
+  "Cafe Racer": Bike,
+  "Naked Street Bike": Bike,
+  "Motorcycles": Bike,
+  "Scooters": Zap,
+  "Bicycles": Compass,
+  "Bike Services": Gauge,
+
+  // Electronics
+  "Laptops & Notebooks": Laptop,
+  "Desktop Computers": Tv,
+  "Gaming Consoles (PS5, Xbox)": Gamepad2,
+  "Cameras & DSLRs": Camera,
+  "Audio & Headphones": Headphones,
+  "Smartwatches & Wearables": Watch,
+  "Computer Accessories & Monitors": Tv,
   "TVs": Tv,
   "Laptops": Laptop,
   "Cameras": Camera,
   "Audio": Headphones,
   "Gaming": Gamepad2,
+
+  // Furniture
   "Sofas": Sofa,
   "Beds": Bed,
   "Dining Tables": Utensils,
   "Wardrobes": Layers,
-  "Chairs": Sofa,
   "Office Furniture": Briefcase,
+  "Chairs": Sofa,
+  "Tables": Utensils,
+  "TV Units": Tv,
+  "Shoe Racks": Layers,
+  "Mattresses": Bed,
+  "Outdoor Furniture": Home,
+  "Home Décor": Sparkles,
   "Other Furniture": Home,
+
+  // Properties
+  "Apartments": Building2,
+  "Villas": Home,
+  "Independent Houses": Home,
+  "Open Plots": Map,
+  "Agricultural Land": Sprout,
+  "Commercial Spaces": Building2,
+  "Offices": Briefcase,
+  "Shops": ShoppingBag,
+  "Warehouses": Truck,
+  "Rentals": KeyRound,
+  "PG and Hostels": Home,
   "For Rent": KeyRound,
   "For Sale": Building2,
   "PG & Hostels": Home,
   "Land & Plots": Map,
   "Commercial": Building2,
-  "Men": Shirt,
-  "Women": Sparkles,
-  "Kids": Baby,
-  "Watches": Watch,
-  "Bags & Luggage": ShoppingBag,
+
+  // Home Appliances
   "Refrigerators": Refrigerator,
   "Washing Machines": Wind,
-  "ACs": Snowflake,
-  "Kitchen Appliances": Utensils,
+  "Air Conditioners": Snowflake,
+  "Televisions": Tv,
   "Water Purifiers": Droplets,
+  "Microwave Ovens": Utensils,
+  "Induction Stoves": Zap,
+  "Gas Stoves": Flame,
+  "Mixers and Grinders": Utensils,
+  "Vacuum Cleaners": Wind,
+  "Geysers": Droplets,
+  "Fans and Air Coolers": Wind,
+  "Dishwashers": Droplets,
+  "Small Kitchen Appliances": Utensils,
+  "Other Home Appliances": Tv,
+
+  // Jobs
+  "IT & Software Development": Laptop,
+  "Sales & Marketing": Trophy,
+  "Customer Support & BPO": Headphones,
+  "Accounting & Finance": Gauge,
+  "Data Entry & Back Office": Layers,
+  "Delivery & Logistics": Truck,
+  "Teaching & Education": GraduationCap,
+  "Healthcare & Nursing": ShieldCheck,
+  "Hotel & Restaurant": Utensils,
+  "Retail & Store Staff": ShoppingBag,
   "Full time": Briefcase,
   "Part time": Clock,
   "Work from home": Laptop,
   "Internships": GraduationCap,
   "Freshers": CheckCircle2,
+
+  // Services
+  "Home Cleaning": Sparkles,
+  "Electricians": Zap,
+  "Plumbers": Droplets,
+  "Carpenters": Wrench,
+  "AC and Appliance Repair": Snowflake,
+  "Mobile and Laptop Repair": Smartphone,
+  "Tutors & Classes": GraduationCap,
+  "Beauty and Salon": Sparkles,
+  "Photography and Videography": Camera,
+  "Event Services": Music,
+  "Catering": Utensils,
+  "Packers and Movers": Truck,
+  "Vehicle Repair": Wrench,
+  "Legal Services": ShieldCheck,
+  "Digital and IT Services": Laptop,
   "Home Repair": Wrench,
   "Cleaning": Sparkles,
   "Tutors": BookOpen,
   "Movers": Truck,
   "Photography": Camera,
-  "Dogs": PawPrint,
-  "Cats": PawPrint,
-  "Birds": Sparkles,
-  "Fish": Droplets,
-  "Pet Food & Accessories": Package,
-  "Auto Rickshaws": Truck,
-  "Trucks": Truck,
-  "Tractors": Truck,
+
+  // Commercial Vehicles
+  "Mini Trucks": Truck,
+  "Pickup Trucks": Truck,
+  "Heavy Trucks": Truck,
+  "Tippers": Truck,
+  "Trailers": Truck,
   "Buses": Truck,
+  "School Buses": Truck,
+  "Vans": Truck,
+  "Auto Rickshaws": Truck,
+  "Taxi Vehicles": Car,
+  "Tractors": Truck,
+  "Construction Vehicles": Truck,
+
+  // Agriculture
+  "Seeds": Sprout,
+  "Fertilizers": Sprout,
+  "Pesticides": ShieldCheck,
+  "Farm Equipment": Truck,
+  "Irrigation Equipment": Droplets,
+  "Dairy Equipment": Droplets,
+  "Animal Feed": Package,
+  "Fresh Produce": Sprout,
+  "Grains and Pulses": Sprout,
+  "Fruits and Vegetables": Sprout,
+  "Plants and Saplings": Sprout,
+  "Livestock": PawPrint,
+  "Poultry": PawPrint,
+  "Seeds & Plants": Sprout,
+
+  // Books & Sports
+  "School Books": BookOpen,
+  "College Books": GraduationCap,
+  "Competitive Exam Books (JEE, NEET, UPSC)": Trophy,
+  "Novels & Fiction": BookOpen,
+  "Children’s Books": BookOpen,
+  "Religious & Spiritual Books": BookOpen,
+  "Comics & Graphic Novels": BookOpen,
+  "Cricket Equipment": Trophy,
+  "Football Equipment": Trophy,
+  "Badminton Rackets": Trophy,
+  "Fitness & Gym Equipment": Dumbbell,
+  "Cycling & Bicycles": Bike,
+  "Indoor & Outdoor Games": Gamepad2,
+  "Sportswear & Shoes": Trophy,
   "Books": BookOpen,
   "Gym & Fitness": Dumbbell,
   "Musical Instruments": Music,
   "Sports Equipment": Trophy,
   "Games & Toys": Gamepad2,
-  "Seeds & Plants": Sprout,
-  "Livestock": PawPrint,
-  "Collectibles": Sparkles,
-  "Art": Palette,
-  "Household Items": Home,
-  "Miscellaneous": Package,
+
+  // Fashion
+  "Men’s Clothing": Shirt,
+  "Women’s Clothing": Sparkles,
+  "Kids’ Clothing": Baby,
+  "Footwear": ShoppingBag,
+  "Watches": Watch,
+  "Bags & Backpacks": ShoppingBag,
+  "Jewellery & Accessories": Sparkles,
+  "Ethnic Wear": Sparkles,
+  "Western Wear": Shirt,
+  "Sportswear": Trophy,
+  "Bridal Wear": Sparkles,
+  "Men": Shirt,
+  "Women": Sparkles,
+  "Kids": Baby,
+  "Bags & Luggage": ShoppingBag,
+
+  // Pets
+  "Dogs": PawPrint,
+  "Cats": PawPrint,
+  "Birds": Sparkles,
+  "Fish": Droplets,
+  "Pet Food & Accessories": Package,
 };
 
 export function CategoryDetailModal({
@@ -317,19 +473,19 @@ export function CategoryDetailModal({
         className="relative w-full max-w-2xl max-h-[92vh] overflow-hidden rounded-3xl bg-card border border-border/80 shadow-2xl animate-in zoom-in-95 duration-200 flex flex-col font-sans"
       >
         {/* Classy Classifieds Hero Header */}
-        <div className={`relative px-5 sm:px-6 pt-6 pb-5 bg-gradient-to-r ${tint.gradient} text-white shrink-0 overflow-hidden`}>
+        <div className="relative px-5 sm:px-6 pt-6 pb-5 bg-gradient-to-r from-slate-950 via-indigo-950 to-slate-950 text-white shrink-0 overflow-hidden">
           {/* Subtle Ambient Glow Shapes */}
-          <div className="absolute -right-10 -bottom-10 h-40 w-40 rounded-full bg-white/15 blur-2xl pointer-events-none" />
+          <div className="absolute -right-10 -bottom-10 h-40 w-40 rounded-full bg-white/10 blur-2xl pointer-events-none" />
           <div className="absolute -left-10 -top-10 h-32 w-32 rounded-full bg-black/20 blur-xl pointer-events-none" />
 
           {/* Top Header Controls Bar */}
           <div className="flex items-center justify-between gap-2 relative z-10">
-            <div className="inline-flex items-center gap-1.5 rounded-full bg-white/20 px-3 py-1 text-[11px] font-black tracking-wide backdrop-blur-md border border-white/30 text-white shadow-xs">
+            <div className="inline-flex items-center gap-1.5 rounded-full bg-white/15 px-3 py-1 text-[11px] font-black tracking-wide backdrop-blur-md border border-white/20 text-white shadow-xs">
               <Sparkles className="h-3.5 w-3.5 text-amber-300 fill-amber-300" /> Category Hub
             </div>
             <button
               onClick={onClose}
-              className="grid h-9 w-9 place-items-center rounded-full bg-white/20 hover:bg-white/35 text-white transition-all backdrop-blur-md active:scale-90 border border-white/30 cursor-pointer shadow-sm"
+              className="grid h-9 w-9 place-items-center rounded-full bg-white/15 hover:bg-white/30 text-white transition-all backdrop-blur-md active:scale-90 border border-white/20 cursor-pointer shadow-sm"
               aria-label="Close modal"
             >
               <X className="h-5 w-5" />
@@ -338,8 +494,8 @@ export function CategoryDetailModal({
 
           {/* Category Header Profile Card */}
           <div className="mt-4 flex items-center gap-4 relative z-10">
-            <div className="grid h-16 w-16 shrink-0 place-items-center rounded-2xl bg-white/20 border border-white/30 shadow-xl backdrop-blur-md text-white">
-              <div className="grid h-12 w-12 place-items-center rounded-xl bg-white/25 text-white shadow-inner">
+            <div className="grid h-16 w-16 shrink-0 place-items-center rounded-full bg-white/15 border border-white/25 shadow-xl backdrop-blur-md text-white">
+              <div className="grid h-12 w-12 place-items-center rounded-full bg-white/20 text-white shadow-inner">
                 <IconComp className="h-6.5 w-6.5" />
               </div>
             </div>
@@ -415,7 +571,7 @@ export function CategoryDetailModal({
           </div>
         </div>
 
-        {/* Content Container: Classy Visual Cards (Image on Top, Name Below) */}
+        {/* Content Container: Classy Circular Icon Cards (Circle Icon on Top, Text Below) */}
         <div className="p-4 sm:p-6 overflow-y-auto max-h-[52vh] space-y-4 font-sans bg-muted/15">
           {activeTab === "subcategories" && (
             <div className="space-y-3.5">
@@ -440,56 +596,30 @@ export function CategoryDetailModal({
                   </button>
                 </div>
               ) : (
-                <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 sm:gap-3.5">
+                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3 sm:gap-3.5">
                   {filteredSubs.map((sub) => {
                     const SubIcon = SUBCATEGORY_ICONS_MAP[sub] ?? IconComp;
-                    const imageUrl = SUBCATEGORY_IMAGES[sub] || `https://images.unsplash.com/photo-1552519507-da3b142c6e3d?w=600&auto=format&fit=crop&q=80`;
 
                     return (
                       <button
                         key={sub}
                         onClick={() => handleSubSelect(sub)}
-                        className="group relative flex flex-col overflow-hidden rounded-2xl border border-border/80 bg-card hover:border-primary/60 hover:shadow-lg hover:-translate-y-0.5 transition-all text-left cursor-pointer active:scale-[0.98]"
+                        className="group flex flex-col items-center justify-center text-center p-3.5 sm:p-4 rounded-2xl border border-border/80 bg-card hover:border-primary hover:bg-primary/[0.04] hover:shadow-md hover:-translate-y-1 transition-all cursor-pointer active:scale-95"
                       >
-                        {/* 1. Visual Card Image on Top with Icon Overlay & Badge */}
-                        <div className="relative h-24 sm:h-28 w-full overflow-hidden bg-slate-900 shrink-0">
-                          <img
-                            src={imageUrl}
-                            alt={sub}
-                            className="h-full w-full object-cover group-hover:scale-108 transition-transform duration-500 opacity-90 group-hover:opacity-100"
-                            loading="lazy"
-                          />
-                          {/* Rich Gradient Overlay */}
-                          <div className="absolute inset-0 bg-gradient-to-t from-slate-950/80 via-slate-950/20 to-transparent" />
-
-                          {/* Floating Top Category Icon Badge */}
-                          <div className="absolute top-2 left-2 grid h-7 w-7 place-items-center rounded-lg bg-slate-950/70 border border-white/20 text-white backdrop-blur-md shadow-sm">
-                            <SubIcon className="h-3.5 w-3.5" />
-                          </div>
-
-                          {/* Active Deals / Hot Pill */}
-                          <div className="absolute top-2 right-2 flex items-center gap-1 rounded-md bg-amber-500/90 backdrop-blur-md px-1.5 py-0.5 text-[9px] font-black text-slate-950 shadow-xs">
-                            <Flame className="h-2.5 w-2.5 fill-slate-950" />
-                            <span>Hot Deals</span>
-                          </div>
-
-                          {/* Subtle arrow in bottom right of image */}
-                          <div className="absolute bottom-2 right-2 grid h-6 w-6 place-items-center rounded-full bg-white/20 text-white backdrop-blur-md group-hover:bg-primary group-hover:text-white transition-colors">
-                            <ChevronRight className="h-3.5 w-3.5" />
-                          </div>
+                        {/* 1. Circle Icon on Top with Uniform Color */}
+                        <div className="grid h-14 w-14 sm:h-16 sm:w-16 place-items-center rounded-full bg-primary/10 text-primary border border-primary/20 group-hover:bg-primary group-hover:text-primary-foreground group-hover:scale-108 transition-all duration-300 mb-2.5 shadow-2xs">
+                          <SubIcon className="h-6 w-6 sm:h-7 sm:w-7 transition-transform duration-300" />
                         </div>
 
-                        {/* 2. Subcategory Details Name Below */}
-                        <div className="p-3 sm:p-3.5 flex flex-col justify-between flex-1 bg-card">
-                          <div className="space-y-1">
-                            <div className="text-xs sm:text-sm font-black text-foreground group-hover:text-primary transition-colors line-clamp-1 leading-snug">
-                              {sub}
-                            </div>
-                            <div className="text-[10px] text-muted-foreground font-bold flex items-center gap-1">
-                              <span className="inline-block h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse" />
-                              <span>Active Listings</span>
-                            </div>
-                          </div>
+                        {/* 2. Subcategory Name Below */}
+                        <div className="text-xs sm:text-sm font-black text-foreground group-hover:text-primary transition-colors line-clamp-1 leading-snug w-full px-1">
+                          {sub}
+                        </div>
+
+                        {/* 3. Verified Deals Status Below */}
+                        <div className="text-[10px] sm:text-[10.5px] text-muted-foreground font-bold flex items-center justify-center gap-1 mt-1">
+                          <span className="inline-block h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse shrink-0" />
+                          <span className="truncate">Verified Deals</span>
                         </div>
                       </button>
                     );
@@ -513,7 +643,7 @@ export function CategoryDetailModal({
                   </p>
                 </div>
               ) : (
-                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2.5 sm:gap-3">
+                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3 sm:gap-3.5">
                   {filteredBrands.map((brand) => {
                     const isSelected = selectedBrand === brand;
                     const modelCount = (MODELS_BY_BRAND[brand] || []).length;
@@ -523,32 +653,32 @@ export function CategoryDetailModal({
                         key={brand}
                         onClick={() => handleBrandSelect(brand)}
                         className={cn(
-                          "group relative flex flex-col items-center justify-between p-3.5 rounded-2xl border text-center transition-all cursor-pointer active:scale-98 overflow-hidden",
+                          "group flex flex-col items-center justify-center text-center p-3.5 sm:p-4 rounded-2xl border transition-all cursor-pointer active:scale-95",
                           isSelected
                             ? "bg-primary/10 border-primary text-primary shadow-md ring-2 ring-primary/30 font-black"
-                            : "bg-card border-border/80 text-foreground hover:border-primary/50 hover:bg-secondary/40 hover:shadow-sm font-extrabold"
+                            : "bg-card border-border/80 text-foreground hover:border-primary hover:bg-primary/[0.04] hover:shadow-sm font-extrabold hover:-translate-y-1"
                         )}
                       >
-                        {/* 1. Brand Logo / Emblem Visual on Top */}
+                        {/* 1. Circle Brand Icon on Top with Uniform Color */}
                         <div className={cn(
-                          "grid h-12 w-12 place-items-center rounded-2xl transition-transform group-hover:scale-108 shadow-xs mb-2 border",
+                          "grid h-14 w-14 sm:h-16 sm:w-16 place-items-center rounded-full border transition-all duration-300 group-hover:scale-108 mb-2.5 shadow-2xs",
                           isSelected
-                            ? "bg-primary text-primary-foreground border-primary"
-                            : cn(tint.bg, "border-border/60")
+                            ? "bg-primary text-primary-foreground border-primary shadow-md"
+                            : "bg-primary/10 text-primary border-primary/20 group-hover:bg-primary group-hover:text-primary-foreground"
                         )}>
-                          <IconComp className="h-6 w-6" />
+                          <IconComp className="h-6 w-6 sm:h-7 sm:w-7" />
                         </div>
 
                         {/* 2. Brand Name Below */}
-                        <div className="w-full space-y-1">
-                          <span className="text-xs font-black truncate block">{brand}</span>
-                          <span className="inline-flex items-center gap-0.5 rounded-full bg-secondary px-2 py-0.5 text-[9px] font-bold text-muted-foreground">
-                            {modelCount > 0 ? `${modelCount}+ Models` : "Popular Brand"}
-                          </span>
-                        </div>
+                        <span className="text-xs sm:text-sm font-black truncate block w-full px-1">{brand}</span>
+
+                        {/* 3. Badge Below */}
+                        <span className="mt-1 inline-flex items-center gap-0.5 rounded-full bg-secondary px-2 py-0.5 text-[9.5px] font-bold text-muted-foreground">
+                          {modelCount > 0 ? `${modelCount}+ Models` : "Verified Deals"}
+                        </span>
 
                         {isSelected && (
-                          <div className="mt-2 text-[10px] text-primary font-black flex items-center gap-1">
+                          <div className="mt-1 text-[10px] text-primary font-black flex items-center gap-1">
                             <CheckCircle2 className="h-3 w-3" /> Selected
                           </div>
                         )}
@@ -596,8 +726,9 @@ export function CategoryDetailModal({
         <div className="p-4 sm:px-6 border-t border-border/80 bg-card shrink-0">
           <button
             onClick={handleBrowseAll}
-            className="w-full py-3.5 rounded-2xl bg-primary hover:bg-primary/95 text-primary-foreground font-black text-xs sm:text-sm tracking-wide shadow-md hover:shadow-lg active:scale-98 transition-all flex items-center justify-center gap-2 cursor-pointer"
+            className="w-full py-3.5 rounded-2xl bg-primary hover:bg-primary/95 text-primary-foreground font-black text-xs sm:text-sm tracking-wide shadow-md hover:shadow-lg active:scale-98 transition-all flex items-center justify-center gap-2.5 cursor-pointer"
           >
+            <IconComp className="h-4.5 w-4.5" />
             <span>Explore All {category.name} Ads</span>
             <ArrowRight className="h-4 w-4" />
           </button>

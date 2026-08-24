@@ -63,74 +63,24 @@ function InfoWhySeeing() {
 
 const DEFAULT_HERO_SLOTS = [
   {
-    id: "default_hero_slot_1",
-    headline: "Boost Your Products & Reach Nearby Buyers on Omeetso!",
-    body: "Platform Highlight",
-    cta: "Launch Campaign",
-    destinationUrl: "/promotions/new",
-    image: "https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=1200",
-    advertiser: "Omeetso Promotions"
-  },
-  {
-    id: "default_hero_slot_2",
-    headline: "Explore Verified Local Electronics & Mobile Stores Near You",
-    body: "Local Merchant Spotlight",
-    cta: "Browse Stores",
-    destinationUrl: "/stores",
-    image: "https://images.unsplash.com/photo-1550009158-9ebf69173e03?w=1200",
-    advertiser: "Omeetso Stores"
-  },
-  {
-    id: "default_hero_slot_3",
-    headline: "Sell Anything in Under 60 Seconds — Fast & Free Listing!",
-    body: "Quick Listing",
-    cta: "Post Free Ad",
-    destinationUrl: "/sell/quick",
-    image: "https://images.unsplash.com/photo-1607082348824-0a96f2a4b9da?w=1200",
+    id: "default_hero_omeetso",
+    headline: "Sell Anything in 30 Seconds with 0% Commission on Omeetso",
+    body: "Post free listings, connect with verified nearby buyers, and get 100% direct inquiries.",
+    cta: "Post Free Listing",
+    destinationUrl: "/sell",
+    image: "https://images.unsplash.com/photo-1556742049-0a67e557b683?w=1200",
     advertiser: "Omeetso Marketplace"
-  },
-  {
-    id: "default_hero_slot_4",
-    headline: "Discover Trending Home, Furniture & Appliance Deals",
-    body: "Category Showcase",
-    cta: "Explore Deals",
-    destinationUrl: "/results",
-    image: "https://images.unsplash.com/photo-1555041469-a586c61ea9bc?w=1200",
-    advertiser: "Omeetso Home"
-  },
-  {
-    id: "default_hero_slot_5",
-    headline: "Upgrade Your Tech: Premium Audio & Accessories",
-    body: "Gadget Deals",
-    cta: "Shop Gadgets",
-    destinationUrl: "/results",
-    image: "https://images.unsplash.com/photo-1505740420928-5e560c06d30e?w=1200",
-    advertiser: "Omeetso Electronics"
-  },
-  {
-    id: "default_hero_slot_6",
-    headline: "Verified Sellers & Secure Negotiated Direct Chat",
-    body: "Safety & Trust",
-    cta: "Open Chats",
-    destinationUrl: "/chats",
-    image: "https://images.unsplash.com/photo-1556742049-0a670e4a4591?w=1200",
-    advertiser: "Omeetso Trust"
   }
 ];
 
-export function HeroAd({ ad, ads }: { ad?: any; ads?: any[] }) {
+export function HeroAd({ ad, ads, maxAds = 5 }: { ad?: any; ads?: any[]; maxAds?: number }) {
   const adList = useMemo(() => {
     let list: any[] = [];
     if (ads && ads.length > 0) list = [...ads];
     else if (ad) list = [ad];
-
-    let idx = 0;
-    while (list.length < 6 && idx < DEFAULT_HERO_SLOTS.length) {
-      list.push(DEFAULT_HERO_SLOTS[idx]);
-      idx++;
-    }
-    return list;
-  }, [ad, ads]);
+    if (list.length === 0) list = [...DEFAULT_HERO_SLOTS];
+    return list.slice(0, maxAds);
+  }, [ad, ads, maxAds]);
 
   const [currentIndex, setCurrentIndex] = useState(0);
   const [gone, setGone] = useState(false);
@@ -406,38 +356,151 @@ export function NativeAdCard({ ad }: { ad: any }) {
   );
 }
 
-export function SecondaryBannerAd({ ad }: { ad: any }) {
-  const [gone, setGone] = useState(false);
-  const adId = ad.id || ad.servedAdId || "ad_sec";
-  const image = ad.image || ad.imageUrl || ad.creative?.imageUrl;
-  const headline = ad.headline || ad.title || ad.creative?.title || "Exclusive Offer";
-  const body = ad.body || ad.subtitle || ad.label || ad.creative?.description || "";
-  const cta = ad.cta || ad.ctaText || "Claim Deal";
-  const destinationUrl = ad.destinationUrl || ad.ctaLink || ad.creative?.destinationUrl || "/";
-  const advertiser = ad.advertiser || "Verified Seller";
+export function SecondaryBannerAd({
+  ad,
+  ads,
+  maxAds = 5,
+}: {
+  ad?: any;
+  ads?: any[];
+  maxAds?: number;
+}) {
+  const adList = useMemo(() => {
+    let list: any[] = [];
+    if (ads && ads.length > 0) list = [...ads];
+    else if (ad) list = [ad];
 
-  useEffect(() => setGone(isAdDismissed(adId)), [adId]);
-  useImpression(adId, ad.campaignId, ad.placement, gone);
-  if (gone) return null;
+    // If no active ads exist, show only 1 single clean fallback ad
+    if (list.length === 0) {
+      list = [
+        {
+          id: "fallback_omeetso_market",
+          headline: "Buy & Sell Nearby with 0% Middleman Commission",
+          body: "Connect directly with verified local buyers & sellers in your neighborhood",
+          cta: "Explore Marketplace",
+          destinationUrl: "/results",
+          image: "https://images.unsplash.com/photo-1556742049-0a67e557b683?w=1200",
+          advertiser: "Omeetso Marketplace"
+        }
+      ];
+    }
+    return list.slice(0, maxAds);
+  }, [ad, ads, maxAds]);
+
+  const [currentIndex, setCurrentIndex] = useState(0);
+  const [gone, setGone] = useState(false);
+
+  // Auto-rotate every 5 seconds (5000ms)
+  useEffect(() => {
+    if (adList.length <= 1) return;
+
+    const timer = setInterval(() => {
+      setCurrentIndex((prev) => (prev + 1) % adList.length);
+    }, 5000);
+
+    return () => clearInterval(timer);
+  }, [adList.length]);
+
+  const currentAd = adList[currentIndex] || adList[0];
+
+  const adId = currentAd?.id || currentAd?.servedAdId || "ad_sec";
+  const image = currentAd?.image || currentAd?.imageUrl || currentAd?.creative?.imageUrl;
+  const headline = currentAd?.headline || currentAd?.title || currentAd?.creative?.title || "Exclusive Offer";
+  const body = currentAd?.body || currentAd?.subtitle || currentAd?.label || currentAd?.creative?.description || "";
+  const cta = currentAd?.cta || currentAd?.ctaText || "Claim Deal";
+  const destinationUrl = currentAd?.destinationUrl || currentAd?.ctaLink || currentAd?.creative?.destinationUrl || "/";
+  const advertiser = currentAd?.advertiser || "Verified Partner";
+
+  useEffect(() => {
+    if (adId) setGone(isAdDismissed(adId));
+  }, [adId]);
+
+  useImpression(adId, currentAd?.campaignId, currentAd?.placement, gone);
+
+  if (!currentAd || gone) return null;
 
   return (
-    <div className="relative overflow-hidden rounded-2xl bg-navy text-white card-elev">
-      {image && (
-        <img src={image} alt={headline} className="absolute inset-0 h-full w-full object-cover opacity-25" />
-      )}
-      <div className="relative flex items-center gap-3 p-4">
-        <div className="min-w-0 flex-1">
-          <AdLabel tone="dark" />
-          <h3 className="mt-1.5 text-base font-bold leading-tight">{headline}</h3>
-          {body && <p className="mt-0.5 text-xs text-white/80">{body}</p>}
-          <p className="mt-1 text-[10px] text-white/60">Ad by {advertiser}</p>
+    <div className="relative group block overflow-hidden rounded-2xl bg-slate-900 text-white shadow-md border border-slate-700/50 aspect-[16/9] max-h-56 w-full">
+      <Link
+        to={destinationUrl}
+        onClick={() => trackAdClick(adId)}
+        className="absolute inset-0 z-0 block flex flex-col justify-between"
+      >
+        {image ? (
+          <>
+            <img
+              key={adId + currentIndex}
+              src={image}
+              alt={headline}
+              onError={(e) => {
+                (e.target as HTMLImageElement).src = "https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=1200";
+              }}
+              className="absolute inset-0 h-full w-full object-cover transition-opacity duration-700 animate-in fade-in-50"
+            />
+            <div className="absolute inset-0 bg-gradient-to-t from-slate-950/95 via-slate-950/45 to-slate-950/20" />
+          </>
+        ) : (
+          <div className="absolute inset-0 bg-gradient-to-r from-[#1E293B] via-[#334155] to-[#0F172A]" />
+        )}
+      </Link>
+
+      <div className="relative p-4 flex flex-col justify-between h-full z-10 pointer-events-none">
+        <div className="flex items-center justify-between gap-2 pointer-events-auto">
+          <div className="flex items-center gap-2">
+            <AdLabel tone="dark" />
+            {adList.length > 1 && (
+              <span className="px-2 py-0.5 rounded-full bg-amber-500/90 text-slate-950 text-[10px] font-black uppercase tracking-wider shadow">
+                Ad {currentIndex + 1} of {adList.length} • Rotates 5s
+              </span>
+            )}
+          </div>
+          <div className="flex items-center gap-1">
+            <InfoWhySeeing />
+            <button
+              type="button"
+              aria-label="Dismiss ad"
+              onClick={(e) => { e.preventDefault(); e.stopPropagation(); dismissAd(adId); setGone(true); }}
+              className="grid h-7 w-7 place-items-center rounded-full bg-black/40 text-white hover:bg-black/60 backdrop-blur-sm"
+            >
+              <X className="h-3.5 w-3.5" />
+            </button>
+          </div>
         </div>
-        <a
-          href={destinationUrl}
-          className="shrink-0 rounded-full bg-yellow-brand px-3 py-1.5 text-xs font-bold text-navy"
-        >
-          {cta}
-        </a>
+
+        <div className="pointer-events-auto">
+          <Link to={destinationUrl} onClick={() => trackAdClick(adId)}>
+            <h3 className="text-base sm:text-lg font-extrabold leading-tight drop-shadow-sm">{headline}</h3>
+            {body && <p className="mt-0.5 text-xs text-slate-200 line-clamp-1 drop-shadow-sm">{body}</p>}
+          </Link>
+
+          <div className="mt-2 flex items-center justify-between">
+            <span className="text-[10px] font-medium text-slate-300">Ad · {advertiser}</span>
+            <div className="flex items-center gap-2">
+              {adList.length > 1 && (
+                <div className="flex items-center gap-1 mr-1">
+                  {adList.map((_, idx) => (
+                    <button
+                      key={idx}
+                      type="button"
+                      aria-label={`Go to slide ${idx + 1}`}
+                      onClick={(e) => { e.preventDefault(); e.stopPropagation(); setCurrentIndex(idx); }}
+                      className={`h-1.5 rounded-full transition-all ${
+                        idx === currentIndex ? "w-5 bg-amber-400" : "w-1.5 bg-white/40 hover:bg-white/70"
+                      }`}
+                    />
+                  ))}
+                </div>
+              )}
+              <Link
+                to={destinationUrl}
+                onClick={() => trackAdClick(adId)}
+                className="inline-flex items-center gap-1 rounded-full bg-[#FFB800] hover:bg-amber-400 px-3.5 py-1 text-xs font-bold text-slate-950 shadow-sm"
+              >
+                {cta} <ArrowRight className="h-3.5 w-3.5" />
+              </Link>
+            </div>
+          </div>
+        </div>
       </div>
     </div>
   );

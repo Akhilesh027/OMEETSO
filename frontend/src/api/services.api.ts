@@ -1,6 +1,7 @@
 import { ServiceItem, ServiceInquiryItem, ServiceCategoryItem } from "@/lib/services";
+import { API_BASE as ROOT_API } from "@/config/api";
 
-const API_BASE = "http://localhost:5000/api/v1/services";
+const API_BASE = `${ROOT_API}/services`;
 
 export async function getPublicServicesApi(params?: Record<string, any>): Promise<{ success: boolean; data?: ServiceItem[]; error?: string }> {
   try {

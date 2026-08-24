@@ -3,7 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { PageContainer } from "@/components/layout/PageContainer";
 import { MOCK_AD_CAMPAIGNS, type AdCampaign } from "@/services/adsDataService";
-import { Search, Eye, PauseCircle, PlayCircle } from "lucide-react";
+import { Search, Eye, PauseCircle, PlayCircle, MapPin } from "lucide-react";
 import { useToast } from "@/contexts/ToastContext";
 
 interface AdCampaignsListPageProps {
@@ -78,6 +78,7 @@ export default function AdCampaignsListPage({ filterType }: AdCampaignsListPageP
                 <th className="p-3">Campaign ID</th>
                 <th className="p-3">Campaign Title</th>
                 <th className="p-3">Advertiser</th>
+                <th className="p-3">Target Location</th>
                 <th className="p-3">Objective</th>
                 <th className="p-3">Daily Budget</th>
                 <th className="p-3">Review Status</th>
@@ -88,7 +89,7 @@ export default function AdCampaignsListPage({ filterType }: AdCampaignsListPageP
             <tbody className="divide-y divide-[#E2E8F0]">
               {filtered.length === 0 ? (
                 <tr>
-                  <td colSpan={8} className="p-8 text-center text-slate-400">
+                  <td colSpan={9} className="p-8 text-center text-slate-400">
                     No ad campaigns match the selected view.
                   </td>
                 </tr>
@@ -98,6 +99,12 @@ export default function AdCampaignsListPage({ filterType }: AdCampaignsListPageP
                     <td className="p-3 font-mono font-bold text-[#3547D4]">{c.id}</td>
                     <td className="p-3 font-bold text-[#111827]">{c.campaignTitle}</td>
                     <td className="p-3 text-[#64748B]">{c.advertiserName}</td>
+                    <td className="p-3">
+                      <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-blue-50 text-[#3547D4] font-bold text-[11px] border border-blue-200">
+                        <MapPin className="w-3 h-3 text-[#3547D4] shrink-0" />
+                        <span>{(c as any).targetLocation || (c as any).location || (c as any).city || "Hyderabad (500081)"}</span>
+                      </span>
+                    </td>
                     <td className="p-3 font-semibold text-[#3547D4]">{c.objective}</td>
                     <td className="p-3 font-bold text-[#16A36A]">₹{c.dailyBudget} / day</td>
                     <td className="p-3">

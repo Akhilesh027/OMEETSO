@@ -197,7 +197,121 @@ export async function resolveGpsLocation(lat: number, lng: number): Promise<Loca
       state,
     };
   } catch (err) {
-    console.warn("GPS resolution failed, using fallback:", err);
-    return { area: "Madhapur", pincode: "500081", city: "Hyderabad", state: "Telangana" };
+    console.warn("GPS resolution failed, using IP fallback:", err);
+    return fetchIpLocation();
   }
 }
+
+/**
+ * Resolves location using public IP geolocation (ideal for laptops and desktops without GPS hardware).
+ */
+export async function fetchIpLocation(): Promise<LocationResult> {
+  // Strategy 1: ipwho.is (fast, no CORS restriction, HTTPS supported)
+  try {
+    const res = await fetch("https://ipwho.is/");
+    const data = await res.json();
+    if (data && data.success) {
+      const city = cleanLocationName(data.city) || "Hyderabad";
+      const state = cleanLocationName(data.region) || "Telangana";
+      const pincode = data.postal && data.postal.replace(/\D/g, "").length === 6 ? data.postal.replace(/\D/g, "") : "";
+      
+      let area = city;
+      if (pincode) {
+        const pinRes = await fetchAreaFromPincode(pincode);
+        if (pinRes && pinRes.area && !pinRes.area.startsWith("Area ")) {
+          area = pinRes.area;
+        }
+      }
+
+      return {
+        area: area || city,
+        pincode: pincode || "500081",
+        city,
+        state
+      };
+    }
+  } catch (e) {
+    // Fallback to next provider
+  }
+
+  // Strategy 2: ipapi.co
+  try {
+    const res = await fetch("https://ipapi.co/json/");
+    const data = await res.json();
+    if (data && !data.error && data.city) {
+      const city = cleanLocationName(data.city) || "Hyderabad";
+      const state = cleanLocationName(data.region) || "Telangana";
+      const pincode = data.postal && data.postal.replace(/\D/g, "").length === 6 ? data.postal.replace(/\D/g, "") : "";
+      
+      let area = city;
+      if (pincode) {
+        const pinRes = await fetchAreaFromPincode(pincode);
+        if (pinRes && pinRes.area && !pinRes.area.startsWith("Area ")) {
+          area = pinRes.area;
+        }
+      }
+
+      return {
+        area: area || city,
+        pincode: pincode || "500081",
+        city,
+        state
+      };
+    }
+  } catch (e) {
+    // Ignore
+  }
+
+  return { area: "Madhapur", pincode: "500081", city: "Hyderabad", state: "Telangana" };
+}
+
+/**
+ * Universal location detection across Laptops, Desktops, and Mobile devices.
+ * 1. Tries Browser HTML5 Geolocation (GPS / Wi-Fi positioning).
+ * 2. If denied, unavailable, or times out (common on laptops without GPS chips), seamlessly falls back to IP-based detection!
+ */
+export async function detectDeviceLocation(): Promise<LocationResult> {
+  return new Promise((resolve) => {
+    if (typeof navigator === "undefined" || !navigator.geolocation) {
+      fetchIpLocation().then(resolve);
+      return;
+    }
+
+    let hasResolved = false;
+
+    // Safety timeout: if GPS doesn't respond in 4.5s on laptops, switch to IP location immediately
+    const timer = setTimeout(async () => {
+      if (!hasResolved) {
+        hasResolved = true;
+        const ipLoc = await fetchIpLocation();
+        resolve(ipLoc);
+      }
+    }, 4500);
+
+    navigator.geolocation.getCurrentPosition(
+      async (pos) => {
+        if (hasResolved) return;
+        hasResolved = true;
+        clearTimeout(timer);
+        try {
+          const lat = pos.coords.latitude;
+          const lng = pos.coords.longitude;
+          const loc = await resolveGpsLocation(lat, lng);
+          resolve(loc);
+        } catch {
+          const ipLoc = await fetchIpLocation();
+          resolve(ipLoc);
+        }
+      },
+      async () => {
+        if (hasResolved) return;
+        hasResolved = true;
+        clearTimeout(timer);
+        const ipLoc = await fetchIpLocation();
+        resolve(ipLoc);
+      },
+      { enableHighAccuracy: false, timeout: 4000, maximumAge: 60000 }
+    );
+  });
+}
+

@@ -68,7 +68,7 @@ const allowedOrigins = new Set([
   "http://localhost:5173",
   "http://localhost:5174",
   "http://localhost:5175",
-  "http://localhost:3000",
+  "https://api.omeetso.in",
   "http://localhost:8080",
   "http://localhost",
   "https://localhost",
@@ -171,11 +171,201 @@ app.get("/health", (req: Request, res: Response) => {
   });
 });
 
-app.get("/api/v1/seed-listings", async (req: Request, res: Response) => {
+app.get("/api/v1/seed-banners-ads", async (req: Request, res: Response) => {
   try {
-    const { seedApprovedListings } = await import("./database/seeders/listingSeeder");
-    await seedApprovedListings();
-    res.json({ success: true, message: "Approved DB listings seeded successfully" });
+    const { seedBannersAndAds } = await import("./database/seeders/bannerAdSeeder");
+    const result = await seedBannersAndAds();
+    res.json({
+      success: true,
+      message: "Banners and Ads seeded successfully!",
+      data: result
+    });
+  } catch (err: any) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+app.get("/api/v1/seed-admins", async (req: Request, res: Response) => {
+  try {
+    const { seedAdminUsers } = await import("./database/seeders/adminSeeder");
+    await seedAdminUsers();
+    res.json({
+      success: true,
+      message: "Admin accounts seeded successfully into MongoDB!"
+    });
+  } catch (err: any) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+app.get("/api/v1/seed-market", async (req: Request, res: Response) => {
+  try {
+    const { seedMultiLocationMarket } = await import("./database/seeders/multiLocationMarketSeeder");
+    const result = await seedMultiLocationMarket();
+    res.json({
+      success: true,
+      message: "Multi-location listings, stores & sellers seeded successfully!",
+      data: result
+    });
+  } catch (err: any) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+app.get("/api/v1/seed-banners-clean", async (req: Request, res: Response) => {
+  try {
+    const { seedBannersAndAds } = await import("./database/seeders/bannerAdSeeder");
+    const result = await seedBannersAndAds();
+    res.json({
+      success: true,
+      message: "Clean single fallback banners & ad placements initialized successfully!",
+      data: result
+    });
+  } catch (err: any) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+app.get("/api/v1/wipe-marketplace-data", async (req: Request, res: Response) => {
+  try {
+    const { Listing } = await import("./modules/listings/models/Listing");
+    const { ListingRevision } = await import("./modules/listings/models/ListingRevision");
+    const { ListingModeration } = await import("./modules/listings/models/ListingModeration");
+    const { User } = await import("./modules/users/models/User");
+    const { UserSession } = await import("./modules/auth/models/UserSession");
+    const { Store } = await import("./modules/stores/models/Store");
+    const { StoreMember } = await import("./modules/stores/models/StoreMember");
+    const { AdCampaign } = await import("./modules/revenue/models/AdCampaign");
+    const { WalletHold } = await import("./modules/revenue/models/WalletHold");
+    const { WalletTransaction } = await import("./modules/revenue/models/WalletTransaction");
+    const { Wallet } = await import("./modules/revenue/models/Wallet");
+
+    const [
+      listingsRes,
+      revisionsRes,
+      listingModRes,
+      usersRes,
+      sessionsRes,
+      storesRes,
+      storeMembersRes,
+      campaignsRes,
+      holdsRes,
+      txRes,
+      walletRes
+    ] = await Promise.all([
+      Listing.deleteMany({}),
+      ListingRevision.deleteMany({}),
+      ListingModeration.deleteMany({}),
+      User.deleteMany({}),
+      UserSession.deleteMany({}),
+      Store.deleteMany({}),
+      StoreMember.deleteMany({}),
+      AdCampaign.deleteMany({}),
+      WalletHold.deleteMany({}),
+      WalletTransaction.deleteMany({}),
+      Wallet.deleteMany({})
+    ]);
+
+    res.json({
+      success: true,
+      message: "Successfully removed all listings, users, stores, and live ad campaigns from MongoDB!",
+      deleted: {
+        listings: listingsRes.deletedCount,
+        listingRevisions: revisionsRes.deletedCount,
+        listingModeration: listingModRes.deletedCount,
+        users: usersRes.deletedCount,
+        userSessions: sessionsRes.deletedCount,
+        stores: storesRes.deletedCount,
+        storeMembers: storeMembersRes.deletedCount,
+        adCampaigns: campaignsRes.deletedCount,
+        walletHolds: holdsRes.deletedCount,
+        walletTransactions: txRes.deletedCount,
+        wallets: walletRes.deletedCount
+      }
+    });
+  } catch (err: any) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+app.get("/api/v1/clear-ad-campaigns", async (req: Request, res: Response) => {
+  try {
+    const { AdCampaign } = await import("./modules/revenue/models/AdCampaign");
+    const deleteResult = await AdCampaign.deleteMany({});
+    res.json({
+      success: true,
+      message: `Successfully removed ${deleteResult.deletedCount} seeded ad campaigns. Placements and ad products are preserved and ready for live campaigns!`,
+      deletedCount: deleteResult.deletedCount
+    });
+  } catch (err: any) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+app.get("/api/v1/inspect-campaigns", async (req: Request, res: Response) => {
+  try {
+    const { AdCampaign } = await import("./modules/revenue/models/AdCampaign");
+    const campaigns = await AdCampaign.find({}).populate("listingId", "title priceInPaise categoryId").populate("advertiserUserId", "phone email profile.name profile.city");
+    const formatted = campaigns.map((c: any) => ({
+      id: c._id.toString(),
+      status: c.status,
+      paymentStatus: c.paymentStatus,
+      campaignType: c.campaignType,
+      placementIds: c.placementIds,
+      startAt: c.startAt,
+      endAt: c.endAt,
+      pricing: c.pricing,
+      bannerUrl: c.bannerUrl ? (c.bannerUrl.startsWith("data:") ? "[BASE64_IMAGE]" : c.bannerUrl) : null,
+      listingTitle: c.listingId?.title,
+      advertiserName: c.advertiserUserId?.profile?.name,
+      advertiserPhone: c.advertiserUserId?.phone
+    }));
+    res.json({
+      success: true,
+      count: formatted.length,
+      data: formatted
+    });
+  } catch (err: any) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+app.get("/api/v1/inspect-listing/:id", async (req: Request, res: Response) => {
+  try {
+    const searchId = req.params.id;
+    const db = mongoose.connection.db;
+    if (!db) return res.status(500).json({ error: "No DB connection" });
+
+    let objId: any = null;
+    try {
+      objId = new mongoose.Types.ObjectId(searchId);
+    } catch (e) { }
+
+    const listing = await db.collection("listings").findOne({
+      $or: [{ _id: searchId }, { _id: objId }]
+    });
+
+    if (!listing) {
+      return res.status(404).json({ success: false, message: "Listing not found" });
+    }
+
+    const seller = await db.collection("users").findOne({
+      $or: [{ _id: listing.sellerId }, { _id: new mongoose.Types.ObjectId(listing.sellerId) }]
+    });
+
+    const { images, ...rest } = listing;
+
+    res.json({
+      success: true,
+      listing: rest,
+      seller: seller ? {
+        id: seller._id,
+        phone: seller.phone,
+        email: seller.email,
+        profile: seller.profile,
+        location: seller.location
+      } : null
+    });
   } catch (err: any) {
     res.status(500).json({ success: false, error: err.message });
   }

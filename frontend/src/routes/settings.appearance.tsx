@@ -13,13 +13,13 @@ export const Route = createFileRoute("/settings/appearance")({
 });
 
 const OPTS: { id: Appearance; label: string; icon: any; desc: string }[] = [
-  { id: "system", label: "System default", icon: Monitor, desc: "Match your device theme" },
-  { id: "light", label: "Light", icon: Sun, desc: "Always bright" },
+  { id: "light", label: "Light", icon: Sun, desc: "Always bright (Default)" },
   { id: "dark", label: "Dark", icon: Moon, desc: "Easier on the eyes at night" },
+  { id: "system", label: "System default", icon: Monitor, desc: "Match your device theme" },
 ];
 
 function AppearancePage() {
-  const [cur, setCur] = useState<Appearance>("system");
+  const [cur, setCur] = useState<Appearance>("light");
   useEffect(() => { setCur(getAppearance()); }, []);
   const choose = (v: Appearance) => { setCur(v); setAppearance(v); applyAppearance(v); toast.success(`Appearance: ${v}`); };
   return (

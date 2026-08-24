@@ -10,6 +10,25 @@ export async function getHomeBanners(req: Request, res: Response, next: NextFunc
     if (!includeInactive) filter.isActive = true;
     if (typeFilter) filter.type = typeFilter;
 
+    const locationQuery = (req.query.city || req.query.location || req.query.area) as string;
+    if (locationQuery) {
+      const locVal = locationQuery.split(",")[0].trim().toLowerCase();
+      let locRegex = locVal;
+      if (locVal.includes("bangalore") || locVal.includes("bengaluru") || locVal.includes("benglure")) {
+        locRegex = "bangalore|bengaluru|benglure";
+      } else if (locVal.includes("hyderabad") || locVal.includes("hyd")) {
+        locRegex = "hyderabad|hyd|secunderabad";
+      } else if (locVal.includes("mumbai") || locVal.includes("bombay")) {
+        locRegex = "mumbai|bombay|thane";
+      }
+      filter.$or = [
+        { location: { $regex: locRegex, $options: "i" } },
+        { location: { $exists: false } },
+        { location: null },
+        { location: "" }
+      ];
+    }
+
     const banners = await HomeBanner.find(filter).sort({ order: 1, createdAt: -1 }).lean();
 
     res.status(200).json({

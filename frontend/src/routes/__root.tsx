@@ -47,7 +47,8 @@ function RootComponent() {
   useEffect(() => {
     if (typeof window === "undefined") return;
     try {
-      const v = (localStorage.getItem("omeetso_appearance") ?? "system").replace(/"/g, "") as "system" | "light" | "dark";
+      const raw = localStorage.getItem("omeetso_appearance");
+      const v = (raw ? raw.replace(/"/g, "") : "light") as "system" | "light" | "dark";
       const dark = v === "dark" || (v === "system" && window.matchMedia?.("(prefers-color-scheme: dark)").matches);
       document.documentElement.classList.toggle("dark", !!dark);
     } catch { /* ignore */ }

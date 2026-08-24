@@ -312,7 +312,7 @@ function ProductPage() {
             </div>
             <h1 className="mt-2.5 text-lg sm:text-xl font-extrabold text-foreground leading-snug">{product.title}</h1>
             <p className="mt-1.5 flex items-center gap-1 text-xs text-muted-foreground font-medium">
-              <MapPin className="h-3.5 w-3.5 text-emerald-600 shrink-0" /> {product.area}, Hyderabad · {product.distanceKm} km away · {product.postedAgo}
+              <MapPin className="h-3.5 w-3.5 text-emerald-600 shrink-0" /> {product.area || "Nearby"}{product.city ? `, ${product.city}` : ""}{product.distanceKm ? ` · ${product.distanceKm} km away` : ""}{product.postedAgo ? ` · ${product.postedAgo}` : ""}
             </p>
             <p className="mt-1 flex items-center gap-3 text-[11px] font-bold uppercase tracking-wide text-muted-foreground">
               <span>Condition · {(product.condition || "good").replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase())}</span>

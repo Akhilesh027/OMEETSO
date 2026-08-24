@@ -438,8 +438,8 @@ function IdentityVerify({ v }: { v: any }) {
                   type="button"
                   onClick={() => setDocType(d.id as any)}
                   className={`p-2.5 rounded-xl border text-xs font-bold transition-all text-center ${docType === d.id
-                      ? "bg-indigo-brand text-white border-indigo-brand shadow-sm"
-                      : "bg-secondary/60 text-foreground border-border hover:bg-secondary"
+                    ? "bg-indigo-brand text-white border-indigo-brand shadow-sm"
+                    : "bg-secondary/60 text-foreground border-border hover:bg-secondary"
                     }`}
                 >
                   {d.label}

@@ -674,8 +674,8 @@ function VerificationCentre() {
                         type="button"
                         onClick={() => setDocType(d.id as any)}
                         className={`p-2.5 rounded-xl border text-xs font-bold transition-all text-center cursor-pointer ${docType === d.id
-                            ? "bg-indigo-brand text-white border-indigo-brand shadow-sm"
-                            : "bg-secondary/70 text-foreground border-border hover:bg-secondary"
+                          ? "bg-indigo-brand text-white border-indigo-brand shadow-sm"
+                          : "bg-secondary/70 text-foreground border-border hover:bg-secondary"
                           }`}
                       >
                         {d.label}

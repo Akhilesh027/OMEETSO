@@ -33,7 +33,7 @@ export const Route = createFileRoute("/home")({
   component: Home,
 });
 
-type SavedLocation = { area: string; pincode: string };
+type SavedLocation = { area: string; pincode: string; city?: string };
 
 import { LocationModal } from "@/components/omeetso/LocationModal";
 import { ProductQuickPreviewModal } from "@/components/omeetso/ProductQuickPreviewModal";
@@ -334,29 +334,48 @@ function Home() {
   const [liveStores, setLiveStores] = useState<any[]>([]);
   const [liveHeroAds, setLiveHeroAds] = useState<any[]>([]);
   const [liveCategoryAd, setLiveCategoryAd] = useState<any | null>(null);
+  const [liveMiddleBanners, setLiveMiddleBanners] = useState<any[]>([]);
+  const [liveNativeAds, setLiveNativeAds] = useState<any[]>([]);
 
   const [recentlyViewed, setRecentlyViewed] = useState<string[]>([]);
+  const [locLoaded, setLocLoaded] = useState(false);
 
   useEffect(() => {
-    try {
-      const raw = localStorage.getItem("omeetso_location") || localStorage.getItem("omeetso_selected_location");
-      if (raw) {
-        const parsed = JSON.parse(raw) as Partial<SavedLocation>;
-        if (parsed.area && parsed.pincode) setLoc({ area: parsed.area, pincode: parsed.pincode });
-      }
-    } catch { /* ignore */ }
+    const syncLocation = () => {
+      try {
+        const raw = localStorage.getItem("omeetso_location") || localStorage.getItem("omeetso_selected_location");
+        if (raw) {
+          const parsed = JSON.parse(raw) as Partial<SavedLocation>;
+          if (parsed.area || parsed.city) {
+            setLoc({ area: parsed.area || "", pincode: parsed.pincode || "", city: parsed.city });
+          }
+        }
+      } catch { /* ignore */ }
+      setLocLoaded(true);
+    };
+
+    syncLocation();
     setRecentlyViewed(getRecentlyViewed());
+
+    window.addEventListener("storage", syncLocation);
+    return () => window.removeEventListener("storage", syncLocation);
   }, []);
 
   useEffect(() => {
+    // Don't fetch until location has been loaded from localStorage
+    if (!locLoaded) return;
+
     fetchLiveCategories()
       .then((cats) => {
         if (cats && cats.length > 0) setDbCategories(cats);
       })
       .catch(() => { });
 
+    const activeCity = loc?.city || (loc?.area ? (loc.area.includes(",") ? loc.area.split(",")[1].trim() : (loc.area.toLowerCase().includes("bangalore") || loc.area.toLowerCase().includes("bengaluru") || loc.area.toLowerCase().includes("koramangala") || loc.area.toLowerCase().includes("indiranagar") || loc.area.toLowerCase().includes("whitefield") ? "Bangalore" : loc.area.toLowerCase().includes("mumbai") || loc.area.toLowerCase().includes("bandra") || loc.area.toLowerCase().includes("andheri") ? "Mumbai" : "Hyderabad")) : undefined);
+
     fetchLivePublicListings({
       area: loc?.area,
+      city: activeCity,
       pincode: loc?.pincode,
     })
       .then((items) => {
@@ -370,8 +389,8 @@ function Home() {
             category: item.category || item.categoryId || "electronics",
             subcategory: item.subcategory || item.subcategoryId || "electronics",
             condition: item.condition || "good",
-            area: item.area || item.location || "Madhapur",
-            city: item.city || "Hyderabad",
+            area: item.area || item.location || "",
+            city: item.city || "",
             distanceKm: 1.2,
             postedAgo: "Just now",
             image: item.images?.[0] || item.image || "https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=400",
@@ -385,9 +404,13 @@ function Home() {
             method: item.method || "quick",
           }));
           setLiveProducts(mapped);
+        } else {
+          setLiveProducts([]);
         }
       })
-      .catch(() => { });
+      .catch(() => {
+        setLiveProducts([]);
+      });
 
     // Fetch Live Stores
     fetch("https://api.omeetso.in/api/v1/stores/public")
@@ -420,16 +443,133 @@ function Home() {
       .catch(() => { });
 
     // Fetch Admin-curated Home Hero Showcase & Banners
-    fetch("https://api.omeetso.in/api/v1/banners")
+    fetch("https://api.omeetso.in/api/v1/banners" + (activeCity ? `?city=${encodeURIComponent(activeCity)}` : ""))
       .then((res) => res.json())
       .then((json) => {
         if (json.success && Array.isArray(json.data) && json.data.length > 0) {
           const showcaseItems = json.data.filter((b: any) => b.type === "hero_showcase" && b.isActive !== false);
-          if (showcaseItems.length > 0) setLiveShowcaseDeals(showcaseItems);
+          setLiveShowcaseDeals(showcaseItems.length > 0 ? showcaseItems : []);
+
+          const heroBanners = json.data.filter((b: any) => b.isActive !== false).map((b: any) => ({
+            id: b.id || b.bannerId,
+            headline: b.title,
+            body: b.subtitle || b.tag || "Featured Deal",
+            cta: b.tag || "Explore Now",
+            destinationUrl: b.targetUrl || "/results",
+            image: b.image,
+            advertiser: b.sellerName || "Verified Local Partner"
+          }));
+          if (heroBanners.length > 0) {
+            setLiveHeroAds(heroBanners);
+          }
+
+          const middleItems = json.data
+            .filter((b: any) => (b.type === "category_strip" || b.type === "quick_deal" || b.type === "hero_banner") && b.isActive !== false)
+            .map((b: any) => ({
+              id: b.id || b.bannerId,
+              headline: b.title,
+              body: b.subtitle || b.tag || "Exclusive Hyperlocal Offer",
+              cta: b.tag || "Claim Deal",
+              destinationUrl: b.targetUrl || "/results",
+              image: b.image,
+              advertiser: b.sellerName || "Omeetso Partner"
+            }));
+          if (middleItems.length > 0) {
+            setLiveMiddleBanners(middleItems);
+          }
+
+          const stripBanners = json.data.filter((b: any) => b.type === "category_strip" && b.isActive !== false);
+          if (stripBanners.length > 0) {
+            const firstStrip = stripBanners[0];
+            setLiveCategoryAd({
+              id: firstStrip.id || firstStrip.bannerId,
+              headline: firstStrip.title,
+              body: firstStrip.subtitle || "Explore Top Deals",
+              cta: "Discover Now",
+              destinationUrl: firstStrip.targetUrl || "/stores",
+              image: firstStrip.image,
+              advertiser: firstStrip.sellerName || "Omeetso Network"
+            });
+          }
         }
       })
       .catch(() => { });
-  }, []);
+
+    // Also fetch live served Ad campaigns specifically for active location
+    serveAdsApi("HOMEPAGE_HERO", loc?.pincode, loc?.area, activeCity)
+      .then((res) => {
+        if (res.success && Array.isArray(res.data) && res.data.length > 0) {
+          const adsMapped = res.data.map((ad: any) => ({
+            id: ad.id || ad._id || ad.servedAdId,
+            campaignId: ad.campaignId,
+            placement: "HOMEPAGE_HERO",
+            headline: ad.headline || ad.title || ad.creative?.title || "Sponsored Highlight",
+            body: ad.body || ad.description || (ad.creative?.priceInPaise ? formatINR(ad.creative.priceInPaise / 100) : "Verified Local Sponsor"),
+            cta: ad.cta || "View Details",
+            destinationUrl: ad.destinationUrl || ad.creative?.destinationUrl || "/",
+            image: ad.image || ad.imageUrl || ad.creative?.imageUrl,
+            advertiser: ad.advertiser || ad.label || "Verified Local Partner"
+          }));
+          setLiveHeroAds(adsMapped);
+          setLiveMiddleBanners(adsMapped);
+
+          const showcaseMapped = res.data.map((ad: any, idx: number) => ({
+            id: ad.id || ad._id || `hero-ad-${idx}`,
+            title: ad.headline || ad.title || ad.creative?.title || "Sponsored Deal",
+            price: ad.creative?.priceInPaise ? Math.round(ad.creative.priceInPaise / 100) : 0,
+            location: ad.targeting?.city || "Hyderabad",
+            image: ad.image || ad.imageUrl || ad.creative?.imageUrl,
+            sellerName: ad.advertiser || "Verified Partner",
+            tag: "⚡ Sponsored Deal",
+            targetUrl: ad.destinationUrl || "/"
+          }));
+          setLiveShowcaseDeals(showcaseMapped);
+        } else {
+          setLiveHeroAds([]);
+          setLiveShowcaseDeals([]);
+        }
+      })
+      .catch(() => {
+        setLiveHeroAds([]);
+        setLiveShowcaseDeals([]);
+      });
+
+    serveAdsApi("FEED_NATIVE", loc?.pincode, loc?.area, activeCity)
+      .then((res) => {
+        if (res.success && Array.isArray(res.data) && res.data.length > 0) {
+          const nativeMapped = res.data.map((ad: any) => ({
+            id: ad.id || ad._id || ad.servedAdId,
+            campaignId: ad.campaignId,
+            placement: "FEED_NATIVE",
+            headline: ad.headline || ad.title || ad.creative?.title || "Sponsored Highlight",
+            body: ad.body || ad.description || (ad.creative?.priceInPaise ? formatINR(ad.creative.priceInPaise / 100) : "Verified Partner"),
+            cta: ad.cta || "View Deal",
+            destinationUrl: ad.destinationUrl || ad.creative?.destinationUrl || "/",
+            image: ad.image || ad.imageUrl || ad.creative?.imageUrl,
+            advertiser: ad.advertiser || ad.label || "Sponsored Partner"
+          }));
+          setLiveNativeAds(nativeMapped);
+          setLiveMiddleBanners((prev) => [...prev, ...nativeMapped]);
+        }
+      })
+      .catch(() => { });
+  }, [loc?.area, loc?.pincode, loc?.city, locLoaded]);
+
+  // 🎯 Distribute active ads across the 3 banner positions: max 5 rotating ads per slot
+  const getBannerSlotAds = (slotIndex: number, maxPerSlot = 5) => {
+    if (!liveMiddleBanners || liveMiddleBanners.length === 0) return [];
+    if (liveMiddleBanners.length <= maxPerSlot) {
+      // If 5 or fewer active ads, all banner slots rotate all 5 active ads
+      return liveMiddleBanners;
+    }
+    // If > 5 ads (e.g. 7 ads):
+    // Slot 0: first 5 (index 0..4)
+    // Slot 1: starts at index 5 (5..6, wrapping with 0..2 to make 5)
+    // Slot 2: next rotated offset (e.g. index 3..7)
+    const offset = (slotIndex * maxPerSlot) % liveMiddleBanners.length;
+    const rotated = [...liveMiddleBanners.slice(offset), ...liveMiddleBanners.slice(0, offset)];
+    return rotated.slice(0, maxPerSlot);
+  };
 
   const heroAd = getAd("HOME_HERO");
   const stripAd = getAd("HOME_CATEGORY_STRIP");
@@ -437,36 +577,8 @@ function Home() {
   const secondaryAd = getAd("HOME_SECONDARY_BANNER");
 
   const organic = useMemo(() => {
-    const pool = liveProducts;
-    if (!loc?.area && !loc?.pincode) return pool;
-
-    const targetArea = (loc?.area || "").toLowerCase();
-    const targetPin = (loc?.pincode || "").toLowerCase();
-
-    // Extract individual location terms for matching
-    const areaTerms = targetArea.split(/[,\s]+/).filter(Boolean);
-
-    const matched = pool.filter((p: any) => {
-      const pText = `${p.location || ""} ${p.area || ""} ${p.city || ""} ${p.pincode || ""}`.toLowerCase();
-      const pinMatch = targetPin && (pText.includes(targetPin) || (p.pincode && p.pincode.toString() === targetPin));
-      const areaMatch = areaTerms.some((term) => term.length >= 3 && pText.includes(term));
-      return pinMatch || areaMatch;
-    });
-
-    if (matched.length > 0) return matched;
-
-    // Adapt products pool to selected user location (e.g. Adilabad, 504312) so all cards show user's exact area & pincode
-    const activeArea = loc.area.split(",")[0].trim();
-    const activePin = loc.pincode || "504312";
-    return pool.map((p: any, idx: number) => ({
-      ...p,
-      area: activeArea,
-      city: activeArea,
-      pincode: activePin,
-      location: `${activeArea}, ${activePin}`,
-      distanceKm: Number((0.6 + idx * 0.4).toFixed(1)),
-    }));
-  }, [liveProducts, loc]);
+    return liveProducts;
+  }, [liveProducts]);
 
   const nearby = organic.slice(0, 6);
   const featured = organic.slice(1, 5).reverse();
@@ -586,7 +698,7 @@ function Home() {
 
                 {/* Right Side: Dynamic Floating 3D Deal Showcase */}
                 <div className="hidden lg:block lg:col-span-6 relative w-full">
-                  <HeroProductShowcase items={liveShowcaseDeals.length > 0 ? liveShowcaseDeals : (liveProducts.length > 0 ? liveProducts : [])} />
+                  <HeroProductShowcase items={liveShowcaseDeals} />
                 </div>
 
               </div>
@@ -717,8 +829,8 @@ function Home() {
         <LocationModal open={showLocModal} onClose={() => setShowLocModal(false)} />
 
         <div className="mt-4 space-y-6 px-4 sm:px-6 md:px-8 lg:px-10 xl:px-12 md:mx-auto md:max-w-[1440px] md:space-y-10 md:mt-8">
-          {/* HOME_HERO */}
-          {liveHeroAds.length > 0 ? <HeroAd ads={liveHeroAds} /> : (heroAd ? <HeroAd ad={heroAd} /> : <AdErrorFallback />)}
+          {/* HOME_HERO — Only show if active ads/banners are running */}
+          {liveHeroAds.length > 0 && <HeroAd ads={liveHeroAds} maxAds={5} />}
 
           {/* Category Discovery Grid — Live DB Categories & Subcategories */}
           <section>
@@ -902,6 +1014,9 @@ function Home() {
             </section>
           )}
 
+          {/* 🌟 Dynamic Middle Rotating Promo Banner 1 */}
+          <SecondaryBannerAd ads={getBannerSlotAds(0, 5)} maxAds={5} />
+
           {/* Nearby carousel */}
           {nearby.length > 0 && (
             <section>
@@ -998,7 +1113,7 @@ function Home() {
                 {recommended.slice(0, 6).map((p) => (
                   <ProductCard key={p.id} p={p} onPreview={setPreviewProduct} />
                 ))}
-                {nativeAd && <NativeAdCard ad={nativeAd} />}
+                {liveNativeAds.length > 0 && <NativeAdCard ad={liveNativeAds[0]} />}
                 {recommended.slice(6).map((p) => (
                   <ProductCard key={p.id} p={p} onPreview={setPreviewProduct} />
                 ))}
@@ -1038,8 +1153,12 @@ function Home() {
             </section>
           )}
 
-          {/* HOME_SECONDARY_BANNER */}
-          {secondaryAd && <SecondaryBannerAd ad={secondaryAd} />}
+          {/* Bottom Secondary Banner */}
+          {liveMiddleBanners.length > 3 ? (
+            <SecondaryBannerAd ads={getBannerSlotAds(3, 5)} maxAds={5} />
+          ) : (
+            secondaryAd && <SecondaryBannerAd ad={secondaryAd} maxAds={5} />
+          )}
 
           <SafetyCard />
         </div>

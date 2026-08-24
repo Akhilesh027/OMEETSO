@@ -11,7 +11,7 @@ import { generateAiStoreDescription } from "@/lib/aiAssistance";
 import { toast } from "sonner";
 import { getUserAccessToken } from "@/api/auth.api";
 import { uploadImageToCloudinary } from "@/lib/upload";
-import { fetchAreaFromPincode, resolveGpsLocation } from "@/lib/location";
+import { fetchAreaFromPincode, detectDeviceLocation } from "@/lib/location";
 import {
   ChevronRight, ImagePlus, Check, Sparkles,
   Store as StoreIcon, MapPin, Clock, Truck, ShieldCheck, Eye, Wand2,
@@ -95,37 +95,23 @@ function CreateStore() {
     reader.readAsDataURL(file);
   }
 
-  // Auto-detect GPS location
+  // Auto-detect device/laptop location
   async function detectLocation() {
-    if (!navigator.geolocation) {
-      toast.error("Geolocation is not supported by your browser");
-      return;
-    }
     setFetchingGeo(true);
-    navigator.geolocation.getCurrentPosition(
-      async (pos) => {
-        try {
-          const { latitude: lat, longitude: lng } = pos.coords;
-          const loc = await resolveGpsLocation(lat, lng);
-          patch({
-            area: loc.area || loc.city,
-            city: loc.city || "Hyderabad",
-            state: loc.state || "Telangana",
-            pincode: loc.pincode,
-          });
-          toast.success(`Location detected: ${loc.area || loc.city}, ${loc.city}`);
-        } catch {
-          toast.error("Failed to detect location");
-        } finally {
-          setFetchingGeo(false);
-        }
-      },
-      () => {
-        setFetchingGeo(false);
-        toast.error("Location permission denied");
-      },
-      { enableHighAccuracy: true, timeout: 10000 }
-    );
+    try {
+      const loc = await detectDeviceLocation();
+      patch({
+        area: loc.area || loc.city,
+        city: loc.city || "Hyderabad",
+        state: loc.state || "Telangana",
+        pincode: loc.pincode,
+      });
+      toast.success(`Location detected: ${loc.area || loc.city}, ${loc.city}`);
+    } catch {
+      toast.error("Failed to detect location automatically");
+    } finally {
+      setFetchingGeo(false);
+    }
   }
 
   const handleGenerateAiDescription = () => {

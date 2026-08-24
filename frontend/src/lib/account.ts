@@ -399,7 +399,7 @@ export const resetAdPrefs = () => write(AK.adPrefs, DEFAULT_ADS);
 export type Appearance = "system" | "light" | "dark";
 export const getLanguage = () => read<string>(AK.language, "en");
 export const setLanguage = (v: string) => write(AK.language, v);
-export const getAppearance = (): Appearance => read<Appearance>(AK.appearance, "system");
+export const getAppearance = (): Appearance => read<Appearance>(AK.appearance, "light");
 export const setAppearance = (v: Appearance) => {
   write(AK.appearance, v);
   if (typeof document !== "undefined") applyAppearance(v);

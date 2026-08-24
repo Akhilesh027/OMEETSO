@@ -88,7 +88,7 @@ export function ProductCard({
         <div className="px-1 pt-2">
           <p className="text-[15px] font-black text-primary leading-tight">{formatINR(p.price)}</p>
           <p className="line-clamp-1 text-xs font-semibold text-foreground group-hover:text-primary transition-colors">{p.title}</p>
-          <p className="mt-0.5 text-[11px] text-muted-foreground">{p.area || "Kukatpally"} · {p.distanceKm || 1.5} km</p>
+          <p className="mt-0.5 text-[11px] text-muted-foreground">{p.area || "Nearby"} · {p.distanceKm || 1.2} km</p>
         </div>
       </Link>
     );
@@ -127,7 +127,7 @@ export function ProductCard({
 
           <div>
             <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
-              <MapPin className="h-3.5 w-3.5 text-primary shrink-0" /> {p.area || "Kukatpally"} · {p.distanceKm || 1.5} km away
+              <MapPin className="h-3.5 w-3.5 text-primary shrink-0" /> {p.area || "Nearby"}{(p as any).city ? `, ${(p as any).city}` : ""} · {p.distanceKm || 1.2} km away
             </div>
             <div className="mt-2 flex flex-wrap gap-1.5">
               {isQuickSale && (

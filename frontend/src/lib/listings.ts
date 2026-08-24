@@ -200,9 +200,9 @@ export async function fetchLivePublicListings(params?: {
       return mapped;
     }
   } catch (err) {
-    console.warn("Backend feed offline, using cached listings");
+    console.warn("Backend feed offline");
   }
-  return listListings();
+  return [];
 }
 
 export async function fetchLiveUserListings(): Promise<Listing[]> {

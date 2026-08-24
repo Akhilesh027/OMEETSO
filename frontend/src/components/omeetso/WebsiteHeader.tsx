@@ -9,6 +9,7 @@ import { getNotificationsApi, markNotificationReadApi, markAllNotificationsReadA
 import { cn } from "@/lib/utils";
 import { Logo } from "@/components/omeetso/Logo";
 import { LocationModal } from "@/components/omeetso/LocationModal";
+import { detectDeviceLocation } from "@/lib/location";
 
 type SavedLocation = { area: string; pincode: string };
 
@@ -174,14 +175,29 @@ export function WebsiteHeader() {
     return unsubscribeSaved;
   }, []);
 
-  // Load saved location
+  // Load saved location or auto-detect on laptop/device
   useEffect(() => {
     try {
       const raw = localStorage.getItem("omeetso_selected_location") || localStorage.getItem("omeetso_location");
       if (raw) {
         const p = JSON.parse(raw) as Partial<SavedLocation>;
-        if (p.area && p.pincode) setLoc({ area: p.area, pincode: p.pincode });
+        if (p.area && p.pincode) {
+          setLoc({ area: p.area, pincode: p.pincode });
+          return;
+        }
       }
+
+      // Auto-detect on first session if not selected yet
+      detectDeviceLocation().then((detected) => {
+        const displayArea = detected.area && detected.city && detected.area.toLowerCase() !== detected.city.toLowerCase()
+          ? `${detected.area}, ${detected.city}`
+          : detected.area || detected.city;
+        const item = { area: displayArea, pincode: detected.pincode };
+        setLoc(item);
+        const payload = JSON.stringify({ ...item, savedAt: Date.now() });
+        localStorage.setItem("omeetso_location", payload);
+        localStorage.setItem("omeetso_selected_location", payload);
+      });
     } catch { /* noop */ }
   }, [path, showLocModal]);
 

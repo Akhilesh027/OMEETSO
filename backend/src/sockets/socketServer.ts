@@ -8,7 +8,10 @@ import { Message } from "../modules/chat/models/Message";
 export function initSocketServer(httpServer: HttpServer): SocketIOServer {
   const io = new SocketIOServer(httpServer, {
     cors: {
-      origin: ["http://localhost:5173", "http://localhost:5174"],
+      origin: (origin, callback) => {
+        // Allow mobile apps, capacitor, or any local/prod client
+        callback(null, true);
+      },
       credentials: true
     }
   });

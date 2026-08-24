@@ -232,8 +232,10 @@ export const getProduct = (id: string) => {
       images: live.images && live.images.length > 0 && !live.images[0].startsWith("blob:")
         ? live.images
         : [mainImg],
-      location: `${live.area || "Kukatpally"}, ${live.city || "Hyderabad"}`,
-      pincode: live.pincode || "500072",
+      area: live.area || "Nearby",
+      city: live.city || "",
+      location: `${live.area || "Nearby"}${live.city ? `, ${live.city}` : ""}`,
+      pincode: live.pincode || "",
       description: live.description || live.title,
       category: live.category || "general",
       condition: live.condition || "good",
@@ -243,7 +245,15 @@ export const getProduct = (id: string) => {
       badge: "Verified",
       specs: live.specs || {},
       sold: live.status === "sold",
-      unavailable: live.status === "removed" || live.status === "rejected"
+      unavailable: live.status === "removed" || live.status === "rejected",
+      negotiable: live.negotiable,
+      verified: true,
+      video: live.video,
+      videoUrl: live.videoUrl,
+      whatsappPhone: live.whatsappPhone,
+      enableWhatsapp: live.enableWhatsapp,
+      sellerPhone: live.sellerPhone,
+      method: live.method,
     };
   }
   return PRODUCTS.find((p) => p.id === id);

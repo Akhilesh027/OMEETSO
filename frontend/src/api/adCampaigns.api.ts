@@ -16,6 +16,11 @@ export interface AdProductItem {
   campaignType: "LISTING_BOOST" | "BANNER_AD";
   durationDays: number;
   priceInPaise: number;
+  originalPriceInPaise?: number;
+  badge?: string;
+  features?: string[];
+  estimatedReach?: string;
+  priority?: number;
   permittedPlacements: string[];
 }
 

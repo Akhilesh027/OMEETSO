@@ -4,6 +4,10 @@ import { RouterProvider } from "@tanstack/react-router";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { getRouter } from "./router";
 import "./styles.css";
+import { initNativeApp } from "./lib/capacitor";
+
+// Initialize native mobile plugins if running inside Capacitor (Android/iOS)
+initNativeApp();
 
 // Purge legacy mock data cache from localStorage
 if (typeof localStorage !== "undefined") {

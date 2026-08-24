@@ -124,6 +124,31 @@ export async function createAdminAdPlacementApi(placementData: Record<string, an
   }
 }
 
+export async function updateAdminAdPlacementApi(
+  placementId: string,
+  placementData: Record<string, any>
+): Promise<{
+  success: boolean;
+  data?: any;
+  error?: string;
+}> {
+  try {
+    const res = await fetch(`https://api.omeetso.in/api/v1/admin/ad-placements/${placementId}`, {
+      method: "PUT",
+      headers: getHeaders(),
+      credentials: "include",
+      body: JSON.stringify(placementData)
+    });
+    const json = await res.json();
+    if (!res.ok || !json.success) {
+      return { success: false, error: json.error?.message || "Failed to update ad placement" };
+    }
+    return { success: true, data: json.data };
+  } catch (error) {
+    return { success: false, error: "Network error: Unable to update ad placement" };
+  }
+}
+
 export async function deleteAdminAdPlacementApi(placementId: string): Promise<{
   success: boolean;
   message?: string;
@@ -151,7 +176,7 @@ export async function getAdminAdProductsApi(): Promise<{
   error?: string;
 }> {
   try {
-    const res = await fetch("https://api.omeetso.in/api/v1/ad-products", {
+    const res = await fetch("https://api.omeetso.in/api/v1/admin/ad-products", {
       headers: getHeaders(),
       credentials: "include"
     });
@@ -164,3 +189,93 @@ export async function getAdminAdProductsApi(): Promise<{
     return { success: false, error: "Network error: Unable to fetch ad products" };
   }
 }
+
+export async function createAdminAdProductApi(productData: Record<string, any>): Promise<{
+  success: boolean;
+  data?: any;
+  error?: string;
+}> {
+  try {
+    const res = await fetch("https://api.omeetso.in/api/v1/admin/ad-products", {
+      method: "POST",
+      headers: getHeaders(),
+      credentials: "include",
+      body: JSON.stringify(productData)
+    });
+    const json = await res.json();
+    if (!res.ok || !json.success) {
+      return { success: false, error: json.error?.message || "Failed to create pricing plan" };
+    }
+    return { success: true, data: json.data };
+  } catch (error) {
+    return { success: false, error: "Network error: Unable to create pricing plan" };
+  }
+}
+
+export async function updateAdminAdProductApi(
+  productId: string,
+  productData: Record<string, any>
+): Promise<{
+  success: boolean;
+  data?: any;
+  error?: string;
+}> {
+  try {
+    const res = await fetch(`https://api.omeetso.in/api/v1/admin/ad-products/${productId}`, {
+      method: "PUT",
+      headers: getHeaders(),
+      credentials: "include",
+      body: JSON.stringify(productData)
+    });
+    const json = await res.json();
+    if (!res.ok || !json.success) {
+      return { success: false, error: json.error?.message || "Failed to update pricing plan" };
+    }
+    return { success: true, data: json.data };
+  } catch (error) {
+    return { success: false, error: "Network error: Unable to update pricing plan" };
+  }
+}
+
+export async function deleteAdminAdProductApi(productId: string): Promise<{
+  success: boolean;
+  message?: string;
+  error?: string;
+}> {
+  try {
+    const res = await fetch(`https://api.omeetso.in/api/v1/admin/ad-products/${productId}`, {
+      method: "DELETE",
+      headers: getHeaders(),
+      credentials: "include"
+    });
+    const json = await res.json();
+    if (!res.ok || !json.success) {
+      return { success: false, error: json.error?.message || "Failed to delete pricing plan" };
+    }
+    return { success: true, message: json.message };
+  } catch (error) {
+    return { success: false, error: "Network error: Unable to delete pricing plan" };
+  }
+}
+
+export async function toggleAdminAdProductStatusApi(productId: string): Promise<{
+  success: boolean;
+  data?: any;
+  error?: string;
+}> {
+  try {
+    const res = await fetch(`https://api.omeetso.in/api/v1/admin/ad-products/${productId}/toggle-status`, {
+      method: "PATCH",
+      headers: getHeaders(),
+      credentials: "include"
+    });
+    const json = await res.json();
+    if (!res.ok || !json.success) {
+      return { success: false, error: json.error?.message || "Failed to toggle pricing plan status" };
+    }
+    return { success: true, data: json.data };
+  } catch (error) {
+    return { success: false, error: "Network error: Unable to toggle pricing plan status" };
+  }
+}
+

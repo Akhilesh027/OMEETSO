@@ -155,150 +155,28 @@ function setLocal(key: string, val: unknown) {
   } catch { /* ignore */ }
 }
 
-// Initial Mock Jobs
-export const SEED_JOBS: JobItem[] = [
-  {
-    id: "JOB-REACT-SR1",
-    employerId: "emp_abc",
-    companyName: "ABC Technologies",
-    companyLogo: "https://images.unsplash.com/photo-1549923746-c502d488b3ea?w=200",
-    companyIndustry: "Software & IT",
-    companySize: "50-200 employees",
-    companyDescription: "Leading web & mobile development company in Madhapur.",
-    isVerifiedEmployer: true,
-    title: "Senior React & Frontend Developer",
-    jobCategoryId: "it_software",
-    subcategoryId: "Frontend Developer",
-    openingsCount: 3,
-    jobType: "FULL_TIME",
-    workplaceType: "HYBRID",
-    location: { area: "Madhapur", city: "Hyderabad", pincode: "500081" },
-    salary: { minSalary: 45000, maxSalary: 75000, salaryPeriod: "monthly", salaryDisclosed: true, negotiable: true, incentivesAvailable: true },
-    candidateCriteria: {
-      experience: "3-5 Years",
-      fresherAllowed: false,
-      minEducation: "Graduate (B.Tech / MCA)",
-      skills: ["React.js", "TypeScript", "TailwindCSS", "REST APIs"],
-      languages: ["English", "Telugu", "Hindi"]
-    },
-    jobDetails: {
-      description: "We are hiring a skilled Senior Frontend Developer to build high-performance web applications.",
-      responsibilities: "• Build reusable UI components\n• Optimize web performance\n• Collaborate with backend engineers",
-      requirements: "• 3+ years experience with React & TypeScript\n• Strong grasp of state management & web performance",
-      benefits: "• Health Insurance\n• Flexible Hours\n• Performance Bonus",
-      workingDays: "5 Days (Mon-Fri)",
-      shiftType: "Day Shift",
-      workingHours: "9:30 AM - 6:30 PM"
-    },
-    isUrgent: true,
-    isFeatured: true,
-    screeningQuestions: ["How many years of commercial React experience do you have?", "What is your notice period?"],
-    status: "ACTIVE",
-    viewsCount: 142,
-    applicationsCount: 18,
-    createdAt: Date.now() - 3600000 * 24 * 2
-  },
-  {
-    id: "JOB-WALKIN-SALES1",
-    employerId: "emp_store_miyapur",
-    storeId: "store_123",
-    companyName: "Venkata Retail Mart",
-    companyLogo: "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=200",
-    companyIndustry: "Retail & Supermarkets",
-    companySize: "10-50 employees",
-    companyDescription: "Chain of retail stores across Hyderabad.",
-    isVerifiedEmployer: true,
-    title: "Retail Sales Executive (Walk-In Drive)",
-    jobCategoryId: "sales_marketing",
-    subcategoryId: "Retail Sales",
-    openingsCount: 5,
-    jobType: "FULL_TIME",
-    workplaceType: "OFFICE",
-    location: { area: "Kukatpally", city: "Hyderabad", pincode: "500072" },
-    salary: { minSalary: 18000, maxSalary: 25000, salaryPeriod: "monthly", salaryDisclosed: true, incentivesAvailable: true },
-    candidateCriteria: {
-      experience: "Freshers Allowed",
-      fresherAllowed: true,
-      minEducation: "10th / 12th Pass",
-      skills: ["Customer Assistance", "Billing", "Communication"],
-      languages: ["Telugu", "Hindi"]
-    },
-    jobDetails: {
-      description: "Direct walk-in recruitment for retail sales executives. Freshers welcome!",
-      benefits: "• Sales Incentives\n• Staff Discount\n• ESIC & PF",
-      workingDays: "6 Days (Rotational Off)",
-      shiftType: "Day Shift"
-    },
-    walkInDetails: {
-      isWalkIn: true,
-      walkInDate: new Date(Date.now() + 86400000 * 2).toISOString().slice(0, 10),
-      startTime: "10:00 AM",
-      endTime: "4:00 PM",
-      venue: "Venkata Retail Mart, Opposite Metro Pillar 712, Kukatpally, Hyderabad",
-      contactPerson: "Ramesh (HR Manager)",
-      instructions: "Carry 2 copies of resume and Aadhaar card."
-    },
-    isUrgent: true,
-    isFeatured: false,
-    status: "ACTIVE",
-    viewsCount: 210,
-    applicationsCount: 32,
-    createdAt: Date.now() - 3600000 * 12
-  },
-  {
-    id: "JOB-REMOTE-SEO1",
-    employerId: "emp_digital_hub",
-    companyName: "Digital Growth Hub",
-    companyLogo: "https://images.unsplash.com/photo-1572021335469-31706a17aaef?w=200",
-    companyIndustry: "Digital Agency",
-    companySize: "10-20 employees",
-    companyDescription: "Full-service digital growth and SEO marketing agency.",
-    isVerifiedEmployer: true,
-    title: "SEO & Content Marketing Specialist",
-    jobCategoryId: "digital_marketing",
-    subcategoryId: "SEO Specialist",
-    openingsCount: 2,
-    jobType: "FULL_TIME",
-    workplaceType: "WORK_FROM_HOME",
-    location: { remoteScope: "Anywhere in India", area: "Remote", city: "Hyderabad", pincode: "500081" },
-    salary: { minSalary: 30000, maxSalary: 50000, salaryPeriod: "monthly", salaryDisclosed: true },
-    candidateCriteria: {
-      experience: "2-3 Years",
-      fresherAllowed: false,
-      minEducation: "Graduate",
-      skills: ["SEO", "Google Analytics", "Ahrefs", "Keyword Research"],
-      languages: ["English"]
-    },
-    jobDetails: {
-      description: "100% Remote position for an experienced SEO specialist to manage client organic search rankings.",
-      benefits: "• 100% Work from Home\n• Internet Allowance\n• Quarterly Bonus"
-    },
-    isUrgent: false,
-    isFeatured: true,
-    status: "ACTIVE",
-    viewsCount: 310,
-    applicationsCount: 45,
-    createdAt: Date.now() - 3600000 * 24 * 5
-  }
-];
+// Initial Clean Jobs (Empty - populated only by live employer postings)
+export const SEED_JOBS: JobItem[] = [];
 
 export async function fetchPublicJobs(params?: Record<string, string>): Promise<JobItem[]> {
   try {
-    const qStr = new URLSearchParams(params).toString();
+    const qStr = params ? new URLSearchParams(params).toString() : "";
     const res = await fetch(`https://api.omeetso.in/api/v1/jobs?${qStr}`);
-    const json = await res.json();
-    if (json.success && Array.isArray(json.data) && json.data.length > 0) {
-      setLocal(LS_JOBS, json.data);
-      return json.data;
+    if (res.ok) {
+      const json = await res.json();
+      if (json.success && Array.isArray(json.data)) {
+        setLocal(LS_JOBS, json.data);
+        return json.data;
+      }
     }
   } catch { /* ignore offline */ }
 
-  const cached = getLocal<JobItem[]>(LS_JOBS, SEED_JOBS);
-  let list = cached.length > 0 ? cached : SEED_JOBS;
+  const cached = getLocal<JobItem[]>(LS_JOBS, []);
+  let list = Array.isArray(cached) ? [...cached] : [];
 
   if (params?.q) {
     const q = params.q.toLowerCase();
-    list = list.filter(j => j.title.toLowerCase().includes(q) || j.companyName.toLowerCase().includes(q) || j.candidateCriteria.skills.some(s => s.toLowerCase().includes(q)));
+    list = list.filter(j => j.title?.toLowerCase().includes(q) || j.companyName?.toLowerCase().includes(q) || (j.candidateCriteria?.skills || []).some(s => s.toLowerCase().includes(q)));
   }
   if (params?.category) {
     list = list.filter(j => j.jobCategoryId === params.category);
@@ -322,13 +200,15 @@ export async function fetchPublicJobs(params?: Record<string, string>): Promise<
 export async function fetchJobById(id: string): Promise<JobItem | null> {
   try {
     const res = await fetch(`https://api.omeetso.in/api/v1/jobs/${id}`);
-    const json = await res.json();
-    if (json.success && json.data) {
-      return json.data;
+    if (res.ok) {
+      const json = await res.json();
+      if (json.success && json.data) {
+        return json.data;
+      }
     }
   } catch { /* ignore offline */ }
 
-  const all = getLocal<JobItem[]>(LS_JOBS, SEED_JOBS);
+  const all = getLocal<JobItem[]>(LS_JOBS, []);
   const found = all.find(j => j.id === id);
   if (found) {
     return {

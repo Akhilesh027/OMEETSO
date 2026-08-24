@@ -70,29 +70,7 @@ function Results() {
   }, []);
 
   // Combine Local User Listings + Live Backend Listings + Mock Products
-  const [allProducts, setAllProducts] = useState<Product[]>(() => {
-    const localItems = listListings();
-    const mappedLocal: Product[] = localItems.map((item) => ({
-      id: item.id,
-      title: item.title,
-      price: item.price,
-      negotiable: item.negotiable,
-      category: item.category,
-      subcategory: item.subcategory,
-      condition: item.condition,
-      area: item.area || "Hitec City",
-      distanceKm: 2,
-      postedAgo: "Recently",
-      image: item.images?.[item.cover || 0] || item.images?.[0] || "https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=400",
-      images: item.images,
-      verified: true,
-      sellerId: "u_me",
-      description: item.description,
-      specs: item.specs,
-      method: item.method,
-    }));
-    return mappedLocal;
-  });
+  const [allProducts, setAllProducts] = useState<Product[]>([]);
 
   const activeLoc = useMemo(() => {
     try {
@@ -103,10 +81,14 @@ function Results() {
   }, []);
 
   useEffect(() => {
+    const activeCity = activeLoc?.city || (activeLoc?.area ? (activeLoc.area.includes(",") ? activeLoc.area.split(",")[1].trim() : (activeLoc.area.toLowerCase().includes("bangalore") || activeLoc.area.toLowerCase().includes("bengaluru") || activeLoc.area.toLowerCase().includes("koramangala") || activeLoc.area.toLowerCase().includes("indiranagar") || activeLoc.area.toLowerCase().includes("whitefield") ? "Bangalore" : activeLoc.area.toLowerCase().includes("mumbai") || activeLoc.area.toLowerCase().includes("bandra") || activeLoc.area.toLowerCase().includes("andheri") ? "Mumbai" : "Hyderabad")) : undefined);
+
     fetchLivePublicListings({
       q: search.q,
       category: search.cat,
-      location: activeLoc?.area,
+      city: activeCity,
+      area: activeLoc?.area,
+      pincode: activeLoc?.pincode,
     }).then((liveItems) => {
       if (liveItems && liveItems.length > 0) {
         const mappedLive: Product[] = liveItems.map((item: any) => ({
@@ -131,16 +113,16 @@ function Results() {
           method: item.method || "quick",
         }));
 
-        setAllProducts((prev) => {
-          const existingIds = new Set(prev.map((p) => p.id));
-          const fresh = mappedLive.filter((p) => !existingIds.has(p.id));
-          return [...fresh, ...prev];
-        });
+        setAllProducts(mappedLive);
+      } else {
+        setAllProducts([]);
       }
+    }).catch(() => {
+      setAllProducts([]);
     });
 
     import("@/api/adCampaigns.api").then(({ serveAdsApi }) => {
-      serveAdsApi("SEARCH_TOP").then((res) => {
+      serveAdsApi("SEARCH_TOP", activeLoc?.pincode, activeLoc?.area, activeCity).then((res) => {
         if (res.success && res.data && res.data.length > 0) {
           const topAd = res.data[0];
           setLiveSponsoredAd({
@@ -148,14 +130,16 @@ function Results() {
             title: topAd.creative.title,
             price: (topAd.creative.priceInPaise || 0) / 100,
             images: [topAd.creative.imageUrl],
-            area: "Kukatpally",
-            city: "Hyderabad",
+            area: topAd.targeting?.targetAreas?.[0] || activeCity || "Local",
+            city: topAd.targeting?.city || activeCity || "Local",
             sponsored: true,
             verified: true,
             condition: "Like New",
             postedTime: "Sponsored",
             sellerName: "Omeetso Verified Partner"
           });
+        } else {
+          setLiveSponsoredAd(null);
         }
       });
     });

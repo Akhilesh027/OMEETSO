@@ -138,17 +138,34 @@ export async function getPublicListings(req: Request, res: Response, next: NextF
       locationOr.push({ area: { $regex: areaVal, $options: "i" } });
     }
     if (req.query.city) {
-      const cityVal = (req.query.city as string).split(",")[0].trim();
-      locationOr.push({ city: { $regex: cityVal, $options: "i" } });
+      const cityVal = (req.query.city as string).split(",")[0].trim().toLowerCase();
+      let cityRegex = cityVal;
+      if (cityVal.includes("bangalore") || cityVal.includes("bengaluru") || cityVal.includes("benglure")) {
+        cityRegex = "bangalore|bengaluru|benglure";
+      } else if (cityVal.includes("hyderabad") || cityVal.includes("hyd")) {
+        cityRegex = "hyderabad|hyd|secunderabad";
+      } else if (cityVal.includes("mumbai") || cityVal.includes("bombay")) {
+        cityRegex = "mumbai|bombay|thane";
+      }
+      locationOr.push({ city: { $regex: cityRegex, $options: "i" } });
     }
     if (req.query.pincode) {
       locationOr.push({ pincode: req.query.pincode as string });
     }
     if (req.query.location) {
       const locVal = (req.query.location as string).split(",")[0].trim();
+      let locRegex = locVal;
+      const lower = locVal.toLowerCase();
+      if (lower.includes("bangalore") || lower.includes("bengaluru") || lower.includes("benglure")) {
+        locRegex = "bangalore|bengaluru|benglure";
+      } else if (lower.includes("hyderabad") || lower.includes("hyd")) {
+        locRegex = "hyderabad|hyd|secunderabad";
+      } else if (lower.includes("mumbai") || lower.includes("bombay")) {
+        locRegex = "mumbai|bombay|thane";
+      }
       locationOr.push(
-        { area: { $regex: locVal, $options: "i" } },
-        { city: { $regex: locVal, $options: "i" } },
+        { area: { $regex: locRegex, $options: "i" } },
+        { city: { $regex: locRegex, $options: "i" } },
         { pincode: locVal }
       );
     }
@@ -185,7 +202,7 @@ export async function getPublicListings(req: Request, res: Response, next: NextF
     if (req.query.sort === "price_asc") sortOptions.priceInPaise = 1;
     if (req.query.sort === "price_desc") sortOptions.priceInPaise = -1;
 
-    let [listings, total] = await Promise.all([
+    const [listings, total] = await Promise.all([
       Listing.find(query)
         .select("title priceInPaise condition area city pincode coverIndex images sellerId status publishedAt free negotiable categoryId subcategoryId description specs")
         .populate("sellerId", "profile.name profile.avatar verificationSummary")
@@ -195,25 +212,6 @@ export async function getPublicListings(req: Request, res: Response, next: NextF
         .lean(),
       Listing.countDocuments(query)
     ]);
-
-    // If specific location filter yields 0 items, fallback to all approved listings so users still get active DB items
-    if (listings.length === 0 && locationOr.length > 0) {
-      const baseApprovedQuery = {
-        status: { $in: [ListingStatus.APPROVED, ListingStatus.ACTIVE, "APPROVED", "ACTIVE", "approved", "active"] }
-      };
-      const [fallbackListings, fallbackTotal] = await Promise.all([
-        Listing.find(baseApprovedQuery)
-          .select("title priceInPaise condition area city pincode coverIndex images sellerId status publishedAt free negotiable categoryId subcategoryId description specs")
-          .populate("sellerId", "profile.name profile.avatar verificationSummary")
-          .sort(sortOptions)
-          .skip(skip)
-          .limit(limit)
-          .lean(),
-        Listing.countDocuments(baseApprovedQuery)
-      ]);
-      listings = fallbackListings;
-      total = fallbackTotal;
-    }
 
     const items = listings.map((l: any) => ({
       id: l._id.toString(),

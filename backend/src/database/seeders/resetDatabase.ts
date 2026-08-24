@@ -1,70 +1,54 @@
 import mongoose from "mongoose";
 import { connectDatabase, disconnectDatabase } from "../connect";
-import { Category } from "../../modules/categories/models/Category";
-import { SEED_CATEGORIES } from "./categorySeeder";
-import { seedAdminUsers } from "./adminSeeder";
 
-export async function purgeDatabaseAndSeedCategoriesOnly(): Promise<void> {
+/**
+ * Drops all collections across the MongoDB database, leaving the database 100% empty.
+ * Zero data, zero seeds.
+ */
+export async function purgeEntireDatabase(): Promise<{ droppedCollections: string[]; count: number }> {
   console.log("[MongoDB Reset] Connecting to MongoDB...");
-  await connectDatabase();
+  if (mongoose.connection.readyState !== 1) {
+    await connectDatabase();
+  }
 
   const db = mongoose.connection.db;
   if (!db) {
-    throw new Error("[MongoDB Reset] Database connection failed");
+    throw new Error("[MongoDB Reset] Database connection unavailable");
   }
 
-  console.log("[MongoDB Reset] Fetching all collections...");
+  console.log("[MongoDB Reset] Inspecting all collections in MongoDB...");
   const collections = await db.listCollections().toArray();
+  const droppedCollections: string[] = [];
 
-  for (const collection of collections) {
-    console.log(`[MongoDB Reset] Dropping collection: ${collection.name}...`);
+  for (const col of collections) {
+    console.log(`[MongoDB Reset] Dropping collection: "${col.name}"...`);
     try {
-      await db.collection(collection.name).drop();
+      await db.collection(col.name).drop();
+      droppedCollections.push(col.name);
     } catch (err: any) {
-      // Ignore if collection was already dropped
       if (err.codeName !== "NamespaceNotFound") {
-        console.warn(`[MongoDB Reset] Warning dropping ${collection.name}:`, err.message);
+        console.warn(`[MongoDB Reset] Warning while dropping ${col.name}:`, err.message);
       }
     }
   }
 
-  console.log("[MongoDB Reset] All collections dropped. Seeding ONLY categories...");
-
-  for (const item of SEED_CATEGORIES) {
-    await Category.create({
-      categoryId: item.categoryId,
-      name: item.name,
-      row: item.row as 1 | 2 | 3,
-      iconName: item.iconName,
-      subcategoriesLabel: item.subcategoriesLabel,
-      subcategories: item.subcategories,
-      filters: item.filters,
-      listingCardFields: item.listingCardFields,
-      detailsSpecFields: item.detailsSpecFields,
-      sellingFormFields: item.sellingFormFields,
-      verificationBadges: item.verificationBadges,
-      compareAttributes: (item as any).compareAttributes || [],
-      sortOptions: item.sortOptions,
-      isActive: true
-    });
-  }
-
-  const categoryCount = await Category.countDocuments();
-  console.log(`[MongoDB Reset] Success! Database purged and ${categoryCount} master categories seeded into 'categories' collection.`);
-  
-  console.log("[MongoDB Reset] Seeding admin accounts...");
-  await seedAdminUsers();
-
-  await disconnectDatabase();
-  console.log("[MongoDB Reset] Disconnected cleanly.");
+  console.log(`[MongoDB Reset] Complete. Dropped ${droppedCollections.length} collections. Database is now 100% empty.`);
+  return {
+    droppedCollections,
+    count: droppedCollections.length
+  };
 }
 
 // Run directly if invoked from command line
 if (require.main === module) {
-  purgeDatabaseAndSeedCategoriesOnly()
-    .then(() => process.exit(0))
+  purgeEntireDatabase()
+    .then(async (res) => {
+      console.log(`[MongoDB Reset] Finished successfully. Total collections purged: ${res.count}`);
+      await disconnectDatabase();
+      process.exit(0);
+    })
     .catch((err) => {
-      console.error("[MongoDB Reset] Fatal error:", err);
+      console.error("[MongoDB Reset] Fatal error during database reset:", err);
       process.exit(1);
     });
 }

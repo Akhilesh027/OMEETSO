@@ -157,8 +157,15 @@ function CategoryPage() {
       }
     });
 
+    const activeCity = activeLoc?.city || (activeLoc?.area ? (activeLoc.area.includes(",") ? activeLoc.area.split(",")[1].trim() : (activeLoc.area.toLowerCase().includes("bangalore") || activeLoc.area.toLowerCase().includes("bengaluru") || activeLoc.area.toLowerCase().includes("koramangala") || activeLoc.area.toLowerCase().includes("indiranagar") || activeLoc.area.toLowerCase().includes("whitefield") ? "Bangalore" : activeLoc.area.toLowerCase().includes("mumbai") || activeLoc.area.toLowerCase().includes("bandra") || activeLoc.area.toLowerCase().includes("andheri") ? "Mumbai" : "Hyderabad")) : undefined);
+
     const [lRes, sRes] = await Promise.all([
-      getPublicListingsApi({ search: category.name }),
+      getPublicListingsApi({
+        search: category.name,
+        category: category.id,
+        city: activeCity,
+        area: activeLoc?.area
+      }),
       getPublicStoresApi()
     ]);
 

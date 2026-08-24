@@ -7,6 +7,11 @@ export interface IAdProduct extends Document {
   campaignType: "LISTING_BOOST" | "BANNER_AD";
   durationDays: number;
   priceInPaise: number;
+  originalPriceInPaise?: number;
+  badge?: string;
+  features?: string[];
+  estimatedReach?: string;
+  priority?: number;
   permittedPlacements: string[];
   active: boolean;
   createdAt: Date;
@@ -20,6 +25,11 @@ const AdProductSchema = new Schema<IAdProduct>(
     campaignType: { type: String, enum: ["LISTING_BOOST", "BANNER_AD"], required: true, index: true },
     durationDays: { type: Number, required: true },
     priceInPaise: { type: Number, required: true },
+    originalPriceInPaise: { type: Number },
+    badge: { type: String },
+    features: [{ type: String }],
+    estimatedReach: { type: String },
+    priority: { type: Number, default: 0 },
     permittedPlacements: [{ type: String, required: true }],
     active: { type: Boolean, default: true, index: true }
   },

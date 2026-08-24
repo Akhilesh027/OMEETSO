@@ -288,32 +288,32 @@ function JobsPage() {
   };
 
   return (
-    <MobileFrame>
-      <div className="min-h-dvh bg-background pb-20 md:pb-16 font-sans">
+    <MobileFrame className="max-w-full overflow-x-clip">
+      <div className="min-h-dvh bg-background pb-20 md:pb-16 font-sans w-full max-w-full overflow-x-hidden">
         {/* Mobile Header */}
-        <header className="sticky top-0 z-30 border-b border-border bg-card safe-t md:hidden">
+        <header className="sticky top-0 z-30 border-b border-border bg-card safe-t md:hidden w-full max-w-full">
           <div className="flex items-center gap-2 px-3 pt-2 pb-2">
-            <button onClick={() => history.back()} className="grid h-10 w-10 place-items-center rounded-full hover:bg-secondary" aria-label="Back">
+            <button onClick={() => history.back()} className="grid h-10 w-10 place-items-center rounded-full hover:bg-secondary shrink-0" aria-label="Back">
               <ArrowLeft className="h-5 w-5" />
             </button>
-            <div className="flex-1 flex items-center rounded-2xl bg-secondary px-3 py-1.5 text-sm gap-2">
+            <div className="flex-1 min-w-0 flex items-center rounded-2xl bg-secondary px-3 py-1.5 text-sm gap-2">
               <Search className="h-4 w-4 text-muted-foreground shrink-0" />
               <input
                 value={searchInput}
                 onChange={(e) => setSearchInput(e.target.value)}
                 onKeyDown={(e) => { if (e.key === "Enter") handleSearchSubmit(); }}
-                placeholder="Search job title, skills, or company..."
-                className="w-full bg-transparent text-sm outline-none placeholder:text-muted-foreground"
+                placeholder="Search job title, skills, company..."
+                className="w-full bg-transparent text-sm outline-none placeholder:text-muted-foreground min-w-0"
               />
               {searchInput && (
-                <button onClick={() => { setSearchInput(""); nav({ search: (p: JobsSearch) => ({ ...p, q: undefined }) }); }}>
+                <button onClick={() => { setSearchInput(""); nav({ search: (p: JobsSearch) => ({ ...p, q: undefined }) }); }} className="shrink-0">
                   <X className="h-4 w-4 text-muted-foreground" />
                 </button>
               )}
             </div>
             <button
               onClick={() => setSaved((v) => !v)}
-              className="grid h-10 w-10 place-items-center rounded-full hover:bg-secondary"
+              className="grid h-10 w-10 place-items-center rounded-full hover:bg-secondary shrink-0"
               aria-label={saved ? "Search saved" : "Save search"}
             >
               <BookmarkPlus className={"h-5 w-5 " + (saved ? "fill-yellow-brand text-yellow-brand" : "")} />
@@ -321,14 +321,14 @@ function JobsPage() {
           </div>
 
           <div className="flex items-center justify-between px-3 pb-2 text-xs text-muted-foreground">
-            <span>
+            <span className="truncate">
               <span className="font-bold text-foreground">{filteredJobs.length}</span> positions in <span className="font-extrabold text-foreground">Jobs & Careers</span>
             </span>
-            <span className="flex items-center gap-1"><MapPin className="h-3 w-3 text-indigo-brand" /> {activeLoc?.area || "Madhapur"}</span>
+            <span className="flex items-center gap-1 shrink-0"><MapPin className="h-3 w-3 text-indigo-brand" /> {activeLoc?.area || "Madhapur"}</span>
           </div>
 
           {chips.length > 0 && (
-            <div className="flex gap-2 overflow-x-auto no-scrollbar px-3 pb-2">
+            <div className="flex gap-2 overflow-x-auto no-scrollbar px-3 pb-2 max-w-full">
               {chips.map((c) => (
                 <FilterChip key={String(c.key)} label={c.label} active onClear={() => clearChip(c.key)} />
               ))}
@@ -336,8 +336,8 @@ function JobsPage() {
           )}
 
           {/* Controls Bar */}
-          <div className="flex items-center justify-between border-t border-border px-3 py-2">
-            <div className="flex items-center gap-1 overflow-x-auto no-scrollbar">
+          <div className="flex items-center justify-between border-t border-border px-3 py-2 gap-2">
+            <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar min-w-0 flex-1">
               <button
                 onClick={() => nav({ search: (p: JobsSearch) => ({ ...p, walkIn: p.walkIn === "1" ? undefined : "1" }) })}
                 className={`inline-flex items-center gap-1 rounded-full px-3 py-1.5 text-xs font-extrabold transition-all border shrink-0 ${
@@ -396,8 +396,8 @@ function JobsPage() {
         </header>
 
         {/* Desktop Breadcrumb + Summary Header */}
-        <div className="hidden md:block border-b border-border/80 bg-card/60 backdrop-blur-md">
-          <div className="mx-auto max-w-[1440px] px-4 sm:px-6 md:px-8 lg:px-10 xl:px-12 py-4">
+        <div className="hidden md:block border-b border-border/80 bg-card/60 backdrop-blur-md w-full">
+          <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-4">
             <nav className="text-xs text-muted-foreground flex items-center gap-2">
               <Link to="/home" className="hover:text-foreground font-bold transition-colors">Home</Link>
               <span className="text-muted-foreground/60">/</span>
@@ -439,7 +439,7 @@ function JobsPage() {
         </div>
 
         {/* Main Content Layout */}
-        <div className="px-4 sm:px-6 md:px-8 lg:px-10 xl:px-12 md:mx-auto md:max-w-[1440px] md:grid md:grid-cols-[300px_1fr] md:gap-6 md:py-6">
+        <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 md:grid md:grid-cols-[280px_minmax(0,1fr)] md:gap-8 md:py-6 w-full">
 
           {/* DESKTOP FILTER SIDEBAR */}
           <aside className="hidden md:block sticky top-24 self-start rounded-3xl border border-border bg-card p-5 shadow-sm space-y-5">
@@ -600,9 +600,9 @@ function JobsPage() {
           </aside>
 
           {/* MAIN LISTINGS AREA */}
-          <div className="space-y-6 mt-4 md:mt-0">
+          <div className="space-y-6 mt-4 md:mt-0 min-w-0 w-full overflow-hidden">
             {/* Category Pills Horizontal Scroll */}
-            <div className="flex gap-2 overflow-x-auto no-scrollbar pb-1">
+            <div className="flex gap-2 overflow-x-auto no-scrollbar pb-1 w-full max-w-full">
               <button
                 onClick={() => nav({ search: (p: JobsSearch) => ({ ...p, sub: undefined }) })}
                 className={"shrink-0 rounded-full border px-3.5 py-1.5 text-xs font-bold transition-all " + (!search.sub ? "border-primary bg-primary text-primary-foreground shadow-sm" : "border-border bg-card text-foreground hover:bg-secondary")}
@@ -643,20 +643,44 @@ function JobsPage() {
               <>
                 {/* Results Grid / List */}
                 {filteredJobs.length === 0 ? (
-                  <EmptyState
-                    title="No job openings found"
-                    body="Try adjusting filters, keyword search, or clearing your selected parameters."
-                    ctaLabel="Clear all filters"
-                    onCta={resetAllFilters}
-                  />
+                  <div className="rounded-3xl border border-border bg-card p-8 sm:p-12 text-center space-y-4 shadow-sm">
+                    <div className="grid h-16 w-16 place-items-center rounded-3xl bg-indigo-brand/10 text-indigo-brand mx-auto">
+                      <Briefcase className="h-8 w-8" />
+                    </div>
+                    <div className="space-y-1 max-w-md mx-auto">
+                      <h3 className="text-lg font-black text-foreground">No Live Job Openings Found</h3>
+                      <p className="text-xs sm:text-sm text-muted-foreground">
+                        {chips.length > 0
+                          ? "There are no jobs matching your current filter criteria. Try resetting your search filters."
+                          : "There are currently 0 active job postings in this location. Are you hiring? Post your opening for free!"}
+                      </p>
+                    </div>
+
+                    <div className="flex flex-wrap items-center justify-center gap-3 pt-2">
+                      <Link
+                        to="/jobs/new"
+                        className="inline-flex items-center gap-2 rounded-2xl bg-indigo-brand text-white px-5 py-2.5 text-xs font-bold hover:bg-blue-700 shadow-md shadow-indigo-brand/20 transition-all"
+                      >
+                        <Zap className="h-4 w-4" /> Post a Job Opening
+                      </Link>
+                      {chips.length > 0 && (
+                        <button
+                          onClick={resetAllFilters}
+                          className="inline-flex items-center gap-1.5 rounded-2xl border border-border bg-secondary px-4 py-2.5 text-xs font-bold text-foreground hover:bg-secondary/80 transition-all"
+                        >
+                          <X className="h-4 w-4" /> Clear All Filters
+                        </button>
+                      )}
+                    </div>
+                  </div>
                 ) : view === "list" ? (
-                  <div className="space-y-3">
+                  <div className="space-y-3 w-full">
                     {filteredJobs.map((job) => (
                       <JobCard key={job.id} job={job} variant="list" />
                     ))}
                   </div>
                 ) : (
-                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5 sm:gap-6">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-5 w-full">
                     {filteredJobs.map((job) => (
                       <JobCard key={job.id} job={job} variant="grid" />
                     ))}
@@ -665,14 +689,14 @@ function JobsPage() {
 
                 {/* Nearby Employers & Companies */}
                 {liveStores.length > 0 && (
-                  <section className="pt-4 space-y-3">
+                  <section className="pt-4 space-y-3 w-full max-w-full">
                     <div className="flex items-center justify-between">
                       <h2 className="text-base font-extrabold text-foreground">Verified Employers & Hiring Partners Near You</h2>
                       <Link to="/stores" className="text-xs font-bold text-indigo-brand hover:underline">View All Employers</Link>
                     </div>
-                    <div className="grid grid-rows-2 grid-flow-col gap-3.5 overflow-x-auto no-scrollbar pb-2 sm:grid-rows-none sm:grid-flow-row sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:overflow-visible sm:pb-0">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 w-full">
                       {liveStores.slice(0, 6).map((s: any) => (
-                        <div key={s.id} className="w-[280px] sm:w-full shrink-0 sm:shrink">
+                        <div key={s.id} className="w-full">
                           <StoreCard s={s} className="w-full h-full" />
                         </div>
                       ))}

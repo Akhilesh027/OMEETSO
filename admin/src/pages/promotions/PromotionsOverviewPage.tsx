@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from "react";
-import { useLocation } from "react-router-dom";
+import { useLocation, Link } from "react-router-dom";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { PageContainer } from "@/components/layout/PageContainer";
 import {
@@ -25,7 +25,9 @@ import {
   Layers,
   Sparkles,
   Info,
-  Maximize2
+  Maximize2,
+  MapPin,
+  ArrowRight
 } from "lucide-react";
 import { useToast } from "@/contexts/ToastContext";
 
@@ -276,7 +278,7 @@ export default function PromotionsOverviewPage() {
                       </span>
                     </div>
 
-                    <div className="p-3 bg-white rounded-xl border border-slate-200 text-xs space-y-1.5">
+                    <div className="p-3 bg-white rounded-xl border border-slate-200 text-xs space-y-2">
                       <div className="font-bold text-[#111827] flex items-center justify-between">
                         <span className="truncate">{c.listing?.title || "Product Listing Title"}</span>
                         <span className="text-[#3547D4]">₹{((c.pricing?.totalInPaise || 0) / 100).toLocaleString("en-IN")}</span>
@@ -285,10 +287,14 @@ export default function PromotionsOverviewPage() {
                         <span>Seller: {c.advertiser?.name || "Seller"}</span>
                         <span>Placements: {c.placementIds?.join(", ")}</span>
                       </div>
+                      <div className="flex items-center gap-1.5 text-[10px] font-bold text-blue-700 bg-blue-50 px-2 py-1 rounded-lg border border-blue-100">
+                        <MapPin className="w-3 h-3 text-[#3547D4] shrink-0" />
+                        <span className="truncate">Target: {c.locationSummary || c.targeting?.city || c.listing?.city || "All Locations"}</span>
+                      </div>
                     </div>
 
                     <div className="flex items-center justify-between pt-1 text-[11px]">
-                      <span className="text-slate-400 font-mono">24h SLA Deadline: {new Date(c.reviewDeadlineAt || Date.now()).toLocaleDateString("en-IN")}</span>
+                      <span className="text-slate-400 font-mono">24h SLA: {new Date(c.reviewDeadlineAt || Date.now()).toLocaleDateString("en-IN")}</span>
                       <button
                         onClick={() => setSelectedCampaign(c)}
                         className="px-3 py-1.5 bg-[#3547D4] text-white font-bold rounded-xl text-xs hover:bg-blue-700 flex items-center gap-1"
@@ -328,20 +334,20 @@ export default function PromotionsOverviewPage() {
                       </div>
                     </div>
                     <span className="px-2.5 py-0.5 text-[9px] font-bold uppercase rounded-full bg-emerald-100 text-emerald-800">
-                      ACTIVE SLOT
+                      Active
                     </span>
                   </div>
 
                   <div className="grid grid-cols-2 gap-2 text-xs p-3 bg-white rounded-xl border border-slate-200">
-                    <div>Aspect Ratio: <span className="font-bold text-[#111827]">{p.aspectRatio}</span></div>
-                    <div>Max Active Slots: <span className="font-bold text-[#111827]">{p.maximumActiveSlots}</span></div>
-                    <div>Min Resolution: <span className="font-bold text-[#3547D4]">{p.minimumWidth}x{p.minimumHeight}px</span></div>
-                    <div>Max File Size: <span className="font-bold text-[#111827]">{Math.round((p.maximumFileSizeBytes || 0) / (1024 * 1024))} MB</span></div>
+                    <div>Ratio: <span className="font-bold text-[#111827]">{p.aspectRatio}</span></div>
+                    <div>Min Res: <span className="font-bold text-[#3547D4]">{p.minimumWidth}x{p.minimumHeight}</span></div>
+                    <div>Max Slots: <span className="font-bold text-[#111827]">{p.maximumActiveSlots}</span></div>
+                    <div>Max Size: <span className="font-bold text-[#111827]">{Math.round((p.maximumFileSizeBytes || 0) / (1024 * 1024))} MB</span></div>
                   </div>
 
-                  <div className="text-[11px] text-slate-500 flex items-center justify-between pt-1">
-                    <span>Permitted Types:</span>
-                    <span className="font-bold font-mono text-[#3547D4]">{p.campaignTypes?.join(", ")}</span>
+                  <div className="flex items-center justify-between pt-1 text-[11px] text-slate-500">
+                    <span>Types: {p.campaignTypes?.join(", ")}</span>
+                    <span className="text-emerald-600 font-bold">● Serving</span>
                   </div>
                 </div>
               ))}
@@ -349,50 +355,133 @@ export default function PromotionsOverviewPage() {
           </div>
         ) : activeTab === "PACKAGES" ? (
           /* VIEW C: PRICING PLANS TAB */
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {packages.map((pkg) => (
-              <div key={pkg.id || pkg._id} className="bg-[#F5F7FC] p-4 rounded-xl border border-[#E2E8F0] space-y-2">
-                <div className="flex items-center justify-between">
-                  <span className="text-[10px] font-bold uppercase px-2 py-0.5 rounded-full bg-blue-100 text-[#3547D4]">
-                    {pkg.campaignType}
-                  </span>
-                  <span className="text-xs font-extrabold text-emerald-600">
-                    ₹{((pkg.priceInPaise || 0) / 100).toLocaleString("en-IN")}
-                  </span>
-                </div>
-                <h4 className="text-xs font-bold text-[#111827]">{pkg.name}</h4>
-                <p className="text-[11px] text-slate-500">{pkg.description}</p>
-                <div className="text-[10px] font-mono text-slate-400">
-                  Duration: {pkg.durationDays} Days | Placements: {pkg.permittedPlacements?.join(", ")}
-                </div>
+          <div className="space-y-4">
+            <div className="flex items-center justify-between bg-indigo-50/50 p-4 rounded-2xl border border-indigo-100">
+              <div>
+                <h3 className="text-sm font-black text-slate-900">Configured Seller Pricing & Boost Plans ({packages.length})</h3>
+                <p className="text-xs text-slate-500 mt-0.5">Live monetization packages available to sellers and merchants across Omeetso.</p>
               </div>
-            ))}
+              <Link
+                to="/admin/promotions/packages"
+                className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-bold transition-all shadow-xs inline-flex items-center gap-1.5"
+              >
+                Manage & Add Plans <ArrowRight className="w-3.5 h-3.5" />
+              </Link>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+              {packages.map((pkg) => {
+                const price = Math.round((pkg.priceInPaise || 0) / 100);
+                const originalPrice = pkg.originalPriceInPaise ? Math.round(pkg.originalPriceInPaise / 100) : 0;
+                const discount = originalPrice > price ? Math.round(((originalPrice - price) / originalPrice) * 100) : 0;
+                const isBoost = pkg.campaignType === "LISTING_BOOST";
+
+                return (
+                  <div
+                    key={pkg.id || pkg._id}
+                    className={`bg-white p-5 rounded-2xl border transition-all shadow-xs space-y-3.5 flex flex-col justify-between ${
+                      pkg.active === false ? "border-slate-200 opacity-60" : isBoost ? "border-indigo-100" : "border-amber-100"
+                    }`}
+                  >
+                    <div className="space-y-2.5">
+                      <div className="flex items-center justify-between">
+                        <span
+                          className={`text-[10px] font-black uppercase px-2.5 py-1 rounded-full ${
+                            isBoost ? "bg-indigo-100 text-indigo-700" : "bg-amber-100 text-amber-800"
+                          }`}
+                        >
+                          {isBoost ? "⚡ Boost Plan" : "🎨 Banner Ad"}
+                        </span>
+                        {pkg.badge && (
+                          <span className="text-[10px] font-extrabold px-2 py-0.5 rounded-full bg-rose-50 text-rose-600 border border-rose-200">
+                            {pkg.badge}
+                          </span>
+                        )}
+                      </div>
+
+                      <div>
+                        <h4 className="text-sm font-black text-slate-900">{pkg.name}</h4>
+                        <p className="text-xs text-slate-500 mt-0.5 line-clamp-2 leading-relaxed">{pkg.description}</p>
+                      </div>
+
+                      <div className="pt-2 border-t border-slate-100 flex items-baseline justify-between">
+                        <div className="flex items-baseline gap-2">
+                          <span className="text-xl font-black text-slate-900">₹{price.toLocaleString("en-IN")}</span>
+                          {originalPrice > price && (
+                            <span className="text-xs text-slate-400 line-through">₹{originalPrice.toLocaleString("en-IN")}</span>
+                          )}
+                          {discount > 0 && (
+                            <span className="text-[10px] font-bold text-emerald-700 bg-emerald-50 px-1.5 py-0.5 rounded">
+                              {discount}% OFF
+                            </span>
+                          )}
+                        </div>
+                        <span className="text-xs font-bold text-slate-600 bg-slate-100 px-2.5 py-1 rounded-lg">
+                          {pkg.durationDays} Days
+                        </span>
+                      </div>
+
+                      {pkg.estimatedReach && (
+                        <div className="text-[11px] bg-slate-50 p-2 rounded-xl border border-slate-200 flex items-center justify-between text-slate-600">
+                          <span className="flex items-center gap-1 font-medium text-slate-500">
+                            <Eye className="w-3.5 h-3.5 text-indigo-500" /> Est. Reach:
+                          </span>
+                          <span className="font-bold text-slate-800">{pkg.estimatedReach}</span>
+                        </div>
+                      )}
+
+                      {Array.isArray(pkg.features) && pkg.features.length > 0 && (
+                        <div className="space-y-1 pt-1">
+                          {pkg.features.slice(0, 3).map((f: string, i: number) => (
+                            <div key={i} className="flex items-center gap-1.5 text-[11px] text-slate-600">
+                              <CheckCircle className="w-3.5 h-3.5 text-emerald-500 shrink-0" />
+                              <span className="truncate">{f}</span>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+
+                    <div className="pt-2 border-t border-slate-100 flex items-center justify-between text-[11px]">
+                      <span className="text-slate-400 font-mono">
+                        Slots: {pkg.permittedPlacements?.slice(0, 2).join(", ")}
+                        {pkg.permittedPlacements?.length > 2 ? ` +${pkg.permittedPlacements.length - 2}` : ""}
+                      </span>
+                      <Link to="/admin/promotions/packages" className="text-xs font-bold text-indigo-600 hover:underline">
+                        Edit →
+                      </Link>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
           </div>
         ) : (
           /* VIEW D: ALL / STATUS CAMPAIGN TABLE */
-          <div className="overflow-x-auto">
-            <table className="w-full text-left text-xs">
-              <thead className="bg-[#F5F7FC] text-[#64748B] font-bold uppercase text-[10px] border-b border-[#E2E8F0]">
-                <tr>
-                  <th className="p-3">Campaign & Type</th>
-                  <th className="p-3">Seller / Advertiser</th>
-                  <th className="p-3">Target Product / Placement</th>
-                  <th className="p-3">Wallet Hold</th>
-                  <th className="p-3">24-Hour SLA Timer</th>
-                  <th className="p-3 text-right">Actions</th>
+          <div className="bg-white rounded-2xl border border-[#E2E8F0] overflow-hidden shadow-sm">
+            <table className="w-full text-left border-collapse text-xs">
+              <thead>
+                <tr className="bg-[#F5F7FC] border-b border-[#E2E8F0] text-slate-500 uppercase tracking-wider text-[10px]">
+                  <th className="p-3 font-bold">Campaign & Type</th>
+                  <th className="p-3 font-bold">Seller</th>
+                  <th className="p-3 font-bold">Listing Item</th>
+                  <th className="p-3 font-bold">Target Location</th>
+                  <th className="p-3 font-bold">Hold Value</th>
+                  <th className="p-3 font-bold">Moderation SLA</th>
+                  <th className="p-3 font-bold text-right">Actions</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-[#E2E8F0]">
                 {loading ? (
                   <tr>
-                    <td colSpan={6} className="p-8 text-center text-slate-400">
+                    <td colSpan={7} className="p-8 text-center text-slate-400">
                       <Loader2 className="w-5 h-5 animate-spin mx-auto mb-2 text-[#3547D4]" />
                       Loading promotions & boost queue...
                     </td>
                   </tr>
                 ) : filteredCampaigns.length === 0 ? (
                   <tr>
-                    <td colSpan={6} className="p-8 text-center text-slate-400">
+                    <td colSpan={7} className="p-8 text-center text-slate-400">
                       <div className="space-y-1">
                         <div className="text-sm font-bold text-slate-700">0 Campaigns Found</div>
                         <p className="text-xs text-slate-400">There are currently 0 seller boost or banner campaigns matching this filter.</p>
@@ -423,6 +512,12 @@ export default function PromotionsOverviewPage() {
                           <div className="text-[10px] text-slate-400 font-mono">
                             Placements: {c.placementIds?.join(", ")}
                           </div>
+                        </td>
+                        <td className="p-3">
+                          <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-blue-50 text-[#3547D4] font-bold border border-blue-200 text-[11px]">
+                            <MapPin className="w-3 h-3 text-[#3547D4] shrink-0" />
+                            <span className="truncate max-w-[140px]">{c.locationSummary || c.targeting?.city || c.listing?.city || "All Locations"}</span>
+                          </span>
                         </td>
                         <td className="p-3 font-bold text-[#111827]">
                           ₹{((c.pricing?.totalInPaise || 0) / 100).toLocaleString("en-IN")}
@@ -504,6 +599,10 @@ export default function PromotionsOverviewPage() {
                 <div>Reserved Hold: <span className="font-bold text-[#3547D4]">₹{((selectedCampaign.pricing?.totalInPaise || 0) / 100).toLocaleString("en-IN")}</span></div>
                 <div>Listing Title: <span className="font-bold text-[#111827] truncate block">{selectedCampaign.listing?.title}</span></div>
                 <div>Placements: <span className="font-bold text-[#111827]">{selectedCampaign.placementIds?.join(", ")}</span></div>
+                <div className="col-span-2 flex items-center gap-1.5 p-2 bg-blue-50 text-blue-900 rounded-lg border border-blue-200 font-medium">
+                  <MapPin className="w-4 h-4 text-[#3547D4] shrink-0" />
+                  <span>Target Location: <strong className="text-[#111827]">{selectedCampaign.locationSummary || selectedCampaign.targeting?.city || selectedCampaign.listing?.city || "Pan-India / All Locations"}</strong></span>
+                </div>
               </div>
             </div>
 
