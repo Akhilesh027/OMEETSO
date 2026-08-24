@@ -1235,7 +1235,7 @@ export async function serveAds(req: Request, res: Response, next: NextFunction):
 
       // Check area match
       if (userArea) {
-        if (adAreas.some((a) => a.includes(userArea) || userArea.includes(a))) return true;
+        if (adAreas.some((a: string) => a.includes(userArea) || userArea.includes(a))) return true;
         if (adCity && (adCity.includes(userArea) || userArea.includes(adCity))) return true;
       }
 

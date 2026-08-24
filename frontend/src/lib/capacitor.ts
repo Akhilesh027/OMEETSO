@@ -1,7 +1,4 @@
 import { Capacitor } from '@capacitor/core';
-import { StatusBar, Style } from '@capacitor/status-bar';
-import { SplashScreen } from '@capacitor/splash-screen';
-import { App } from '@capacitor/app';
 
 /**
  * Check if the application is running natively inside iOS or Android wrapper
@@ -28,26 +25,35 @@ export const initNativeApp = async (): Promise<void> => {
   try {
     // Configure status bar
     if (Capacitor.isPluginAvailable('StatusBar')) {
-      await StatusBar.setStyle({ style: Style.Dark });
-      if (getPlatform() === 'android') {
-        await StatusBar.setBackgroundColor({ color: '#111E4D' });
-      }
+      try {
+        const { StatusBar, Style } = await import('@capacitor/status-bar');
+        await StatusBar.setStyle({ style: Style.Dark });
+        if (getPlatform() === 'android') {
+          await StatusBar.setBackgroundColor({ color: '#111E4D' });
+        }
+      } catch { /* plugin not installed in runtime */ }
     }
 
     // Hide splash screen smoothly once React UI is mounted
     if (Capacitor.isPluginAvailable('SplashScreen')) {
-      await SplashScreen.hide({ fadeOutDuration: 300 });
+      try {
+        const { SplashScreen } = await import('@capacitor/splash-screen');
+        await SplashScreen.hide({ fadeOutDuration: 300 });
+      } catch { /* plugin not installed in runtime */ }
     }
 
     // Handle Android hardware back button
     if (Capacitor.isPluginAvailable('App')) {
-      App.addListener('backButton', ({ canGoBack }) => {
-        if (canGoBack) {
-          window.history.back();
-        } else {
-          App.exitApp();
-        }
-      });
+      try {
+        const { App } = await import('@capacitor/app');
+        App.addListener('backButton', ({ canGoBack }) => {
+          if (canGoBack) {
+            window.history.back();
+          } else {
+            App.exitApp();
+          }
+        });
+      } catch { /* plugin not installed in runtime */ }
     }
   } catch (err) {
     console.warn('[NativeApp] Failed to initialize mobile plugin features:', err);

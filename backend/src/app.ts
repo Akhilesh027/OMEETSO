@@ -332,25 +332,35 @@ app.get("/api/v1/inspect-campaigns", async (req: Request, res: Response) => {
 
 app.get("/api/v1/inspect-listing/:id", async (req: Request, res: Response) => {
   try {
-    const searchId = req.params.id;
+    const rawId = req.params.id;
+    const searchId = Array.isArray(rawId) ? String(rawId[0]) : String(rawId);
     const db = mongoose.connection.db;
     if (!db) return res.status(500).json({ error: "No DB connection" });
 
     let objId: any = null;
-    try {
-      objId = new mongoose.Types.ObjectId(searchId);
-    } catch (e) { }
+    if (mongoose.Types.ObjectId.isValid(searchId)) {
+      try {
+        objId = new mongoose.Types.ObjectId(searchId);
+      } catch (e) { }
+    }
 
     const listing = await db.collection("listings").findOne({
-      $or: [{ _id: searchId }, { _id: objId }]
+      $or: [{ _id: searchId as any }, ...(objId ? [{ _id: objId }] : [])]
     });
 
     if (!listing) {
       return res.status(404).json({ success: false, message: "Listing not found" });
     }
 
+    let sellerObjId: any = null;
+    if (listing.sellerId && mongoose.Types.ObjectId.isValid(String(listing.sellerId))) {
+      try {
+        sellerObjId = new mongoose.Types.ObjectId(String(listing.sellerId));
+      } catch (e) { }
+    }
+
     const seller = await db.collection("users").findOne({
-      $or: [{ _id: listing.sellerId }, { _id: new mongoose.Types.ObjectId(listing.sellerId) }]
+      $or: [{ _id: listing.sellerId }, ...(sellerObjId ? [{ _id: sellerObjId }] : [])]
     });
 
     const { images, ...rest } = listing;
