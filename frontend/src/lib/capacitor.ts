@@ -4,14 +4,14 @@ import { Capacitor } from '@capacitor/core';
  * Check if the application is running natively inside iOS or Android wrapper
  */
 export const isNativePlatform = (): boolean => {
-  return Capacitor.isNativePlatform();
+  return typeof window !== 'undefined' && Capacitor.isNativePlatform();
 };
 
 /**
  * Returns current platform name ('ios', 'android', or 'web')
  */
 export const getPlatform = (): 'ios' | 'android' | 'web' => {
-  return Capacitor.getPlatform() as 'ios' | 'android' | 'web';
+  return typeof window !== 'undefined' ? (Capacitor.getPlatform() as 'ios' | 'android' | 'web') : 'web';
 };
 
 /**
@@ -23,39 +23,40 @@ export const initNativeApp = async (): Promise<void> => {
   }
 
   try {
+    const plugins = (Capacitor as any).Plugins || (typeof window !== 'undefined' && (window as any).Capacitor?.Plugins);
+    if (!plugins) return;
+
     // Configure status bar
-    if (Capacitor.isPluginAvailable('StatusBar')) {
+    if (Capacitor.isPluginAvailable('StatusBar') && plugins.StatusBar) {
       try {
-        const { StatusBar, Style } = await import('@capacitor/status-bar');
-        await StatusBar.setStyle({ style: Style.Dark });
+        await plugins.StatusBar.setStyle({ style: 'DARK' });
         if (getPlatform() === 'android') {
-          await StatusBar.setBackgroundColor({ color: '#111E4D' });
+          await plugins.StatusBar.setBackgroundColor({ color: '#111E4D' });
         }
-      } catch { /* plugin not installed in runtime */ }
+      } catch { /* ignore */ }
     }
 
     // Hide splash screen smoothly once React UI is mounted
-    if (Capacitor.isPluginAvailable('SplashScreen')) {
+    if (Capacitor.isPluginAvailable('SplashScreen') && plugins.SplashScreen) {
       try {
-        const { SplashScreen } = await import('@capacitor/splash-screen');
-        await SplashScreen.hide({ fadeOutDuration: 300 });
-      } catch { /* plugin not installed in runtime */ }
+        await plugins.SplashScreen.hide({ fadeOutDuration: 300 });
+      } catch { /* ignore */ }
     }
 
     // Handle Android hardware back button
-    if (Capacitor.isPluginAvailable('App')) {
+    if (Capacitor.isPluginAvailable('App') && plugins.App) {
       try {
-        const { App } = await import('@capacitor/app');
-        App.addListener('backButton', ({ canGoBack }) => {
+        plugins.App.addListener('backButton', ({ canGoBack }: { canGoBack: boolean }) => {
           if (canGoBack) {
             window.history.back();
           } else {
-            App.exitApp();
+            plugins.App.exitApp();
           }
         });
-      } catch { /* plugin not installed in runtime */ }
+      } catch { /* ignore */ }
     }
   } catch (err) {
     console.warn('[NativeApp] Failed to initialize mobile plugin features:', err);
   }
 };
+
