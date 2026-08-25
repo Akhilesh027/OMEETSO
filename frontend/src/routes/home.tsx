@@ -407,7 +407,7 @@ function Home() {
       });
 
     // Fetch Live Stores
-    fetch("https://api.omeetso.in /api/v1/stores/public")
+    fetch("https://api.omeetso.in/api/v1/stores/public")
       .then((res) => res.json())
       .then((json) => {
         if (json.success && Array.isArray(json.data) && json.data.length > 0) {
@@ -437,7 +437,7 @@ function Home() {
       .catch(() => { });
 
     // Fetch Admin-curated Home Hero Showcase & Banners
-    fetch("https://api.omeetso.in /api/v1/banners" + (activeCity ? `?city=${encodeURIComponent(activeCity)}` : ""))
+    fetch("https://api.omeetso.in/api/v1/banners" + (activeCity ? `?city=${encodeURIComponent(activeCity)}` : ""))
       .then((res) => res.json())
       .then((json) => {
         if (json.success && Array.isArray(json.data) && json.data.length > 0) {

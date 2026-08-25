@@ -7,6 +7,8 @@ import { Camera, Trash2, User as UserIcon, MapPin, Briefcase, Shield, ChevronRig
 import { toast } from "sonner";
 import { ConfirmModal, SectionTitle, Toggle } from "@/components/omeetso/account";
 
+import { API_BASE } from "@/config/api";
+
 export const Route = createFileRoute("/account/edit")({
   head: () => ({
     meta: [
@@ -51,7 +53,7 @@ function EditProfile() {
   useBlocker({ shouldBlockFn: () => dirty });
 
   const nameError = name.trim().length < 2 ? "Name must be at least 2 characters" : name.length > 60 ? "Max 60 characters" : "";
-  const emailError = !email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim()) ? "Valid email address is mandatory" : "";
+  const emailError = email.trim() && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim()) ? "Please enter a valid email address" : "";
   const bioError = bio.length > 250 ? "Max 250 characters" : "";
   const pincodeError = pincode && !/^\d{6}$/.test(pincode) ? "6-digit pincode required" : "";
   const canSave = !nameError && !emailError && !bioError && !pincodeError && dirty;
@@ -65,7 +67,7 @@ function EditProfile() {
     const token = typeof window !== "undefined" ? localStorage.getItem("omeetso_user_token") : null;
     if (token) {
       try {
-        await fetch("https://api.omeetso.in /api/v1/users/me", {
+        await fetch(`${API_BASE}/users/me`, {
           method: "PATCH",
           headers: {
             "Content-Type": "application/json",
@@ -73,7 +75,7 @@ function EditProfile() {
           },
           body: JSON.stringify({
             name: name.trim(),
-            email: email.trim(),
+            email: email.trim() || undefined,
             city,
             pincode,
             area,
@@ -219,7 +221,7 @@ function EditProfile() {
               </div>
 
               <div className="space-y-3">
-                <Field label="Email" value={email} onChange={setEmail} error={emailError} type="email" placeholder="you@example.com" />
+                <Field label="Email (Optional)" value={email} onChange={setEmail} error={emailError} type="email" placeholder="you@example.com (Optional)" />
 
                 <div className="rounded-2xl border border-border bg-background p-3">
                   <p className="text-[11px] font-semibold text-muted-foreground">Mobile number</p>

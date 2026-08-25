@@ -34,6 +34,6 @@ createRoot(document.getElementById("root")!).render(
 
 // Gracefully dismiss the initial loading splash screen once portal is ready
 if (typeof window !== "undefined" && (window as unknown as { __dismissOmeetsoSplash?: (ms: number) => void }).__dismissOmeetsoSplash) {
-  (window as unknown as { __dismissOmeetsoSplash: (ms: number) => void }).__dismissOmeetsoSplash(1800);
+  (window as unknown as { __dismissOmeetsoSplash: (ms: number) => void }).__dismissOmeetsoSplash(2800);
 }
 

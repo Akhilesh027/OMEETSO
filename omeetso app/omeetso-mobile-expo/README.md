@@ -74,7 +74,7 @@ omeetso_chat_threads, omeetso_offers, omeetso_notifications, omeetso_settings
 Copy `.env.example` to `.env` and fill in your local values:
 
 ```
-EXPO_PUBLIC_API_BASE_URL=https://api.omeetso.in /api
+EXPO_PUBLIC_API_BASE_URL=https://api.omeetso.in/api
 EXPO_PUBLIC_ENVIRONMENT=development
 EXPO_PUBLIC_MAPS_API_KEY=
 ```

@@ -129,7 +129,7 @@ export function PostJobForm() {
     setIsSubmitting(true);
     try {
       const token = typeof window !== "undefined" ? localStorage.getItem("omeetso_user_token") : null;
-      const res = await fetch("https://api.omeetso.in /api/v1/jobs", {
+      const res = await fetch("https://api.omeetso.in/api/v1/jobs", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",

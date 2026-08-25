@@ -47,7 +47,7 @@ function Account() {
       setLoading(false);
       return;
     }
-    fetch("https://api.omeetso.in /api/v1/users/me", {
+    fetch("https://api.omeetso.in/api/v1/users/me", {
       headers: { Authorization: `Bearer ${token}` }
     })
       .then(async (res) => {
@@ -466,7 +466,8 @@ function EditProfileModal({ open, onClose, profile, onSaved }: { open: boolean; 
 
   if (!open) return null;
 
-  const emailValid = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim());
+  const emailTrimmed = email.trim();
+  const emailValid = !emailTrimmed || /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(emailTrimmed);
   const canSave = name.trim().length >= 2 && emailValid && pincode.length === 6;
 
   const pickAvatar = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -481,7 +482,7 @@ function EditProfileModal({ open, onClose, profile, onSaved }: { open: boolean; 
 
   const save = async () => {
     if (!canSave) {
-      if (!emailValid) toast.error("Valid mandatory email is required");
+      if (!emailValid) toast.error("Please enter a valid email address");
       else toast.error("Please fill in required profile details");
       return;
     }
@@ -491,7 +492,7 @@ function EditProfileModal({ open, onClose, profile, onSaved }: { open: boolean; 
 
     if (token) {
       try {
-        const res = await fetch("https://api.omeetso.in /api/v1/users/me", {
+        const res = await fetch(`${API_BASE}/users/me`, {
           method: "PATCH",
           headers: {
             "Content-Type": "application/json",
@@ -499,7 +500,7 @@ function EditProfileModal({ open, onClose, profile, onSaved }: { open: boolean; 
           },
           body: JSON.stringify({
             name: name.trim(),
-            email: email.trim(),
+            email: emailTrimmed || undefined,
             city,
             pincode,
             area,
@@ -516,7 +517,7 @@ function EditProfileModal({ open, onClose, profile, onSaved }: { open: boolean; 
       }
     }
 
-    setProfile({ name: name.trim(), email: email.trim(), city, pincode, area, bio, avatar: finalAvatar });
+    setProfile({ name: name.trim(), email: emailTrimmed, city, pincode, area, bio, avatar: finalAvatar });
 
     setSaving(false);
     toast.success("Profile updated successfully");
@@ -569,13 +570,13 @@ function EditProfileModal({ open, onClose, profile, onSaved }: { open: boolean; 
           </div>
 
           <div>
-            <label className="text-xs font-semibold text-muted-foreground">Email Address (Mandatory) *</label>
+            <label className="text-xs font-semibold text-muted-foreground">Email Address (Optional)</label>
             <input
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               type="email"
               className="mt-1 w-full rounded-xl border border-border bg-background px-3 py-2 text-sm font-medium outline-none focus:border-primary"
-              placeholder="you@example.com"
+              placeholder="you@example.com (Optional)"
             />
           </div>
 

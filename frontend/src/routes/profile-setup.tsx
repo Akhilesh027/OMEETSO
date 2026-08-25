@@ -2,8 +2,9 @@ import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { BackBar } from "@/components/omeetso/TopBar";
 import {
-  Camera, User, Mail, MapPinned, Languages, ShoppingBag, Store as StoreIcon, ArrowRight, Check, Sparkles,
+  Camera, User, Mail, Phone, MapPinned, Languages, ShoppingBag, Store as StoreIcon, ArrowRight, Check, Sparkles,
 } from "lucide-react";
+import { API_BASE } from "@/config/api";
 
 export const Route = createFileRoute("/profile-setup")({
   head: () => ({
@@ -21,6 +22,7 @@ function ProfileSetup() {
   const nav = useNavigate();
   const [avatar, setAvatar] = useState<string | null>(null);
   const [name, setName] = useState("");
+  const [phone, setPhone] = useState("");
   const [email, setEmail] = useState("");
   const [pincode, setPincode] = useState("");
   const [city, setCity] = useState("");
@@ -41,6 +43,7 @@ function ProfileSetup() {
     try {
       const u = JSON.parse(localStorage.getItem("omeetso_user") || "{}");
       if (u.profile?.name || u.name) setName(u.profile?.name || u.name);
+      if (u.phone || u.mobile) setPhone(u.phone || u.mobile);
       if (u.email) setEmail(u.email);
     } catch { }
     const loc = (() => {
@@ -52,8 +55,11 @@ function ProfileSetup() {
     if (l) setLang(l);
   }, []);
 
-  const emailValid = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim());
-  const canSubmit = name.trim().length >= 2 && emailValid && pincode.length === 6 && city.trim().length >= 2;
+  const cleanPhone = phone.replace(/\D/g, "").slice(0, 10);
+  const phoneValid = cleanPhone.length === 10;
+  const emailTrimmed = email.trim();
+  const emailValid = !emailTrimmed || /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(emailTrimmed);
+  const canSubmit = name.trim().length >= 2 && phoneValid && emailValid && pincode.length === 6 && city.trim().length >= 2;
 
   const pickAvatar = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -70,15 +76,16 @@ function ProfileSetup() {
 
     if (token) {
       try {
-        await fetch("https://api.omeetso.in /api/v1/users/me", {
+        await fetch(`${API_BASE}/users/me`, {
           method: "PATCH",
           headers: {
             "Content-Type": "application/json",
             Authorization: `Bearer ${token}`
           },
           body: JSON.stringify({
-            name,
-            email,
+            name: name.trim(),
+            phone: cleanPhone,
+            email: emailTrimmed || undefined,
             city,
             pincode,
             avatar: finalAvatar
@@ -95,10 +102,14 @@ function ProfileSetup() {
       })();
       const updatedUser = {
         ...existing,
-        email,
+        phone: cleanPhone,
+        mobile: cleanPhone,
+        email: emailTrimmed,
         profile: {
           ...(existing.profile || {}),
-          name,
+          name: name.trim(),
+          phone: cleanPhone,
+          mobile: cleanPhone,
           city,
           pincode,
           avatar: finalAvatar,
@@ -169,13 +180,35 @@ function ProfileSetup() {
               />
             </Field>
 
-            <Field label="Email address (Mandatory) *" icon={<Mail className="h-4 w-4" />} error={!emailValid && email.length > 0 ? "Enter a valid email address" : undefined}>
+            <Field
+              label="Mobile number *"
+              icon={<Phone className="h-4 w-4" />}
+              error={phone.length > 0 && !phoneValid ? "10-digit valid mobile number required" : undefined}
+            >
+              <div className="flex items-center gap-2 w-full">
+                <span className="text-xs font-bold text-muted-foreground">+91</span>
+                <input
+                  value={phone}
+                  onChange={(e) => setPhone(e.target.value.replace(/\D/g, "").slice(0, 10))}
+                  type="tel"
+                  inputMode="numeric"
+                  placeholder="9876543210"
+                  className="w-full bg-transparent text-sm font-semibold outline-none placeholder:font-normal placeholder:text-muted-foreground font-mono"
+                />
+              </div>
+            </Field>
+
+            <Field
+              label="Email address (Optional)"
+              icon={<Mail className="h-4 w-4" />}
+              error={!emailValid && emailTrimmed.length > 0 ? "Enter a valid email address" : undefined}
+            >
               <input
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 type="email"
                 inputMode="email"
-                placeholder="you@example.com"
+                placeholder="you@example.com (Optional)"
                 className="w-full bg-transparent text-sm font-semibold outline-none placeholder:font-normal placeholder:text-muted-foreground"
               />
             </Field>

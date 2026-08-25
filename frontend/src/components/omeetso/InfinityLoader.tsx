@@ -78,7 +78,7 @@ export function InfinitySpinner({
           filter={`url(#inf-glow-${uniqueId})`}
           style={{
             strokeDasharray: "290",
-            animation: "drawInfinitySpin 1.3s cubic-bezier(0.45, 0.05, 0.55, 0.95) infinite",
+            animation: "drawInfinitySpin 2.2s cubic-bezier(0.45, 0.05, 0.55, 0.95) infinite",
           }}
         />
 
@@ -90,7 +90,7 @@ export function InfinitySpinner({
           strokeLinecap="round"
           style={{
             strokeDasharray: "60 230",
-            animation: "shimmerInfinitySpin 1.3s linear infinite",
+            animation: "shimmerInfinitySpin 2.2s linear infinite",
           }}
         />
       </svg>

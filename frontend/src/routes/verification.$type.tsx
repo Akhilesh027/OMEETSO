@@ -328,7 +328,7 @@ function IdentityVerify({ v }: { v: any }) {
 
     try {
       if (token) {
-        await fetch("https://api.omeetso.in /api/v1/verification", {
+        await fetch("https://api.omeetso.in/api/v1/verification", {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
