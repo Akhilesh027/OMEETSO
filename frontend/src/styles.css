@@ -365,3 +365,26 @@ html, body {
   overscroll-behavior-y: none;
 }
 
+/* Infinity Loader Keyframe Animations */
+@keyframes drawInfinitySpin {
+  0% {
+    stroke-dashoffset: 290;
+  }
+  50% {
+    stroke-dashoffset: 0;
+  }
+  100% {
+    stroke-dashoffset: -290;
+  }
+}
+
+@keyframes shimmerInfinitySpin {
+  0% {
+    stroke-dashoffset: 290;
+  }
+  100% {
+    stroke-dashoffset: -290;
+  }
+}
+
+

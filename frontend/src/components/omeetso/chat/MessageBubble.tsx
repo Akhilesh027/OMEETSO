@@ -1,4 +1,4 @@
-import { Check, CheckCheck, Clock, AlertCircle, MapPin, Play, Pause, RefreshCw } from "lucide-react";
+import { Check, CheckCheck, Clock, AlertCircle, MapPin, Play, Pause, RefreshCw, FileText, Download, ExternalLink, Phone, User, QrCode } from "lucide-react";
 import { useState, useRef } from "react";
 import { cn } from "@/lib/utils";
 import type { Message } from "@/lib/chat";
@@ -10,11 +10,13 @@ export function MessageBubble({ m, onReport }: { m: Message; onReport?: (id: str
   return (
     <div className={cn("flex", mine ? "justify-end" : "justify-start")}>
       <div className={cn(
-        "max-w-[78%] rounded-2xl px-3 py-2 text-sm shadow-sm",
+        "max-w-[85%] rounded-2xl px-3 py-2 text-sm shadow-sm",
         mine ? "rounded-br-md bg-navy text-white" : "rounded-bl-md bg-card border border-border text-foreground",
       )}>
         {m.type === "text" && <p className="whitespace-pre-wrap break-words">{m.text}</p>}
         {m.type === "image" && <ImagePart m={m} mine={mine} />}
+        {m.type === "document" && <DocumentPart m={m} mine={mine} />}
+        {m.type === "contact" && <ContactPart m={m} mine={mine} />}
         {m.type === "location" && <LocationPart m={m} mine={mine} />}
         {m.type === "voice" && <VoicePart m={m} mine={mine} />}
 
@@ -73,6 +75,109 @@ function ImagePart({ m, mine }: { m: Message; mine: boolean }) {
         />
       )}
       {m.caption && <p className={cn("mt-1 whitespace-pre-wrap text-sm", mine ? "text-white" : "text-foreground")}>{m.caption}</p>}
+    </div>
+  );
+}
+
+function DocumentPart({ m, mine }: { m: Message; mine: boolean }) {
+  const doc = m.document;
+  if (!doc) return null;
+
+  const ext = (doc.ext || doc.name.split(".").pop() || "doc").toUpperCase();
+  const formatBytes = (bytes?: number) => {
+    if (!bytes || bytes === 0) return "Document";
+    if (bytes < 1024) return `${bytes} B`;
+    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+    return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+  };
+
+  const isPdf = ext === "PDF";
+  const isImage = ["JPG", "JPEG", "PNG", "WEBP"].includes(ext);
+
+  const handleDownload = () => {
+    if (doc.url) {
+      const a = document.createElement("a");
+      a.href = doc.url;
+      a.download = doc.name;
+      a.target = "_blank";
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+    }
+  };
+
+  return (
+    <div className="min-w-[220px] max-w-[280px]">
+      <div
+        onClick={handleDownload}
+        className={cn(
+          "flex items-center gap-3 p-2.5 rounded-xl border transition-all cursor-pointer",
+          mine
+            ? "bg-white/10 hover:bg-white/20 border-white/20 text-white"
+            : "bg-secondary/70 hover:bg-secondary border-border text-foreground"
+        )}
+      >
+        <div
+          className={cn(
+            "grid h-11 w-11 shrink-0 place-items-center rounded-lg font-bold text-[10px]",
+            isPdf
+              ? "bg-red-500 text-white shadow-sm"
+              : isImage
+              ? "bg-sky-500 text-white shadow-sm"
+              : "bg-blue-600 text-white shadow-sm"
+          )}
+        >
+          <div className="flex flex-col items-center">
+            <FileText className="h-4 w-4 mb-0.5" />
+            <span>{ext.slice(0, 4)}</span>
+          </div>
+        </div>
+
+        <div className="min-w-0 flex-1">
+          <p className="truncate text-xs font-bold leading-tight">{doc.name}</p>
+          <p className={cn("mt-0.5 text-[10px]", mine ? "text-white/70" : "text-muted-foreground")}>
+            {formatBytes(doc.size)}
+          </p>
+        </div>
+
+        <div className={cn("p-1.5 rounded-full", mine ? "bg-white/20 text-white" : "bg-card text-foreground shadow-sm")}>
+          <Download className="h-3.5 w-3.5" />
+        </div>
+      </div>
+      {m.caption && (
+        <p className={cn("mt-1 text-xs whitespace-pre-wrap", mine ? "text-white/90" : "text-foreground")}>
+          {m.caption}
+        </p>
+      )}
+    </div>
+  );
+}
+
+function ContactPart({ m, mine }: { m: Message; mine: boolean }) {
+  const contact = m.contact;
+  if (!contact) return null;
+
+  return (
+    <div className="min-w-[210px] max-w-[260px]">
+      <div
+        className={cn(
+          "flex items-center gap-2.5 p-2.5 rounded-xl border",
+          mine ? "bg-white/10 border-white/20 text-white" : "bg-secondary/70 border-border text-foreground"
+        )}
+      >
+        <div className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-emerald-500 text-white shadow-sm">
+          <User className="h-5 w-5" />
+        </div>
+        <div className="min-w-0 flex-1">
+          <p className="truncate text-xs font-bold leading-tight">{contact.name}</p>
+          <a
+            href={`tel:${contact.phone}`}
+            className={cn("text-[11px] hover:underline font-semibold block mt-0.5", mine ? "text-white" : "text-primary")}
+          >
+            📞 {contact.phone}
+          </a>
+        </div>
+      </div>
     </div>
   );
 }

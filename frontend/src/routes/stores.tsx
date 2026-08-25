@@ -3,6 +3,7 @@ import { useEffect, useMemo, useState, useCallback } from "react";
 import { MobileFrame } from "@/components/omeetso/MobileFrame";
 import { StoreCard } from "@/components/omeetso/StoreCard";
 import { EmptyState } from "@/components/omeetso/EmptyState";
+import { InfinityLoader } from "@/components/omeetso/InfinityLoader";
 import { LocationModal } from "@/components/omeetso/LocationModal";
 import { getPublicStoresApi } from "@/api/stores.api";
 import { serveAdsApi } from "@/api/adCampaigns.api";
@@ -373,10 +374,13 @@ function Stores() {
 
               {/* Stores Responsive Grid (1 col on phone, 2 cols on tablet, 3 cols on desktop) */}
               {loading ? (
-                <div className="p-16 text-center text-xs text-muted-foreground flex flex-col items-center justify-center gap-3 rounded-3xl border border-border bg-card">
-                  <Loader2 className="h-8 w-8 animate-spin text-primary" />
-                  <span className="font-extrabold">Loading nearby verified stores...</span>
-                </div>
+                <InfinityLoader
+                  size="lg"
+                  text="Finding verified local stores near you..."
+                  subtext="Discover showrooms and direct sellers nearby"
+                  variant="section"
+                  whiteCard
+                />
               ) : error ? (
                 <div className="p-10 text-center bg-destructive/10 border border-destructive/20 rounded-3xl space-y-3">
                   <p className="text-sm font-bold text-destructive">{error}</p>

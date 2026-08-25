@@ -27,6 +27,399 @@
 </head>
 
 <body>
+  <!-- Initial Portal Loading Splash Screen -->
+  <div id="omeetso-splash-loader">
+    <div class="splash-bg-glow"></div>
+    <div class="splash-container">
+      
+      <!-- Phase 1: Infinity Animation -->
+      <div class="infinity-wrapper" id="splash-infinity">
+        <svg class="infinity-svg" viewBox="0 0 160 90" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <defs>
+            <linearGradient id="inf-gradient" x1="0%" y1="0%" x2="100%" y2="100%">
+              <stop offset="0%" stop-color="#38BDF8" />
+              <stop offset="35%" stop-color="#60A5FA" />
+              <stop offset="70%" stop-color="#2563EB" />
+              <stop offset="100%" stop-color="#0284C7" />
+            </linearGradient>
+            <linearGradient id="inf-light" x1="0%" y1="0%" x2="100%" y2="0%">
+              <stop offset="0%" stop-color="#ffffff" stop-opacity="0.9" />
+              <stop offset="100%" stop-color="#BAE6FD" stop-opacity="0.3" />
+            </linearGradient>
+            <filter id="inf-glow" x="-20%" y="-20%" width="140%" height="140%">
+              <feGaussianBlur stdDeviation="3.5" result="blur" />
+              <feComposite in="SourceGraphic" in2="blur" operator="over" />
+            </filter>
+          </defs>
+
+          <!-- Background soft trace -->
+          <path
+            class="infinity-track"
+            d="M 80,45 C 60,15 25,15 25,45 C 25,75 60,75 80,45 C 100,15 135,15 135,45 C 135,75 100,75 80,45 Z"
+            stroke="#E0F2FE"
+            stroke-width="5.5"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+          />
+
+          <!-- Animated Glowing Infinity Stroke -->
+          <path
+            class="infinity-draw"
+            d="M 80,45 C 60,15 25,15 25,45 C 25,75 60,75 80,45 C 100,15 135,15 135,45 C 135,75 100,75 80,45 Z"
+            stroke="url(#inf-gradient)"
+            stroke-width="5.5"
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            filter="url(#inf-glow)"
+          />
+
+          <!-- Shimmer Lead Head -->
+          <path
+            class="infinity-shimmer"
+            d="M 80,45 C 60,15 25,15 25,45 C 25,75 60,75 80,45 C 100,15 135,15 135,45 C 135,75 100,75 80,45 Z"
+            stroke="url(#inf-light)"
+            stroke-width="3"
+            stroke-linecap="round"
+          />
+        </svg>
+      </div>
+
+      <!-- Phase 2: Icon and Omeetso Brand -->
+      <div class="brand-reveal-wrapper" id="splash-brand">
+        <!-- Floating Glow behind Icon -->
+        <div class="icon-pulse-glow"></div>
+        
+        <!-- App Icon -->
+        <div class="icon-box">
+          <img src="/iconpng.png" alt="Omeetso Icon" class="splash-icon-img" />
+        </div>
+
+        <!-- Typography & Tagline -->
+        <div class="brand-text-group">
+          <div class="brand-name-row">
+            <span class="brand-title">Omeetso</span>
+            <span class="brand-dot"></span>
+          </div>
+          <p class="brand-tagline">Buy Nearby <span class="tagline-sep">•</span> Sell Quickly</p>
+        </div>
+
+        <!-- Sleek Mini Progress Indicator -->
+        <div class="splash-progress-bar">
+          <div class="splash-progress-fill"></div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <style>
+    /* Fullscreen Light Blue & White Mix Splash */
+    #omeetso-splash-loader {
+      position: fixed;
+      inset: 0;
+      z-index: 999999;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: radial-gradient(circle at 50% 35%, #FFFFFF 0%, #F0F7FF 45%, #E1EFFE 85%, #D4E8FF 100%);
+      overflow: hidden;
+      font-family: 'Plus Jakarta Sans', 'Poppins', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      transition: opacity 0.55s cubic-bezier(0.4, 0, 0.2, 1), transform 0.55s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+
+    #omeetso-splash-loader.splash-fade-out {
+      opacity: 0;
+      transform: scale(1.03);
+      pointer-events: none;
+    }
+
+    /* Ambient Glow Orb */
+    .splash-bg-glow {
+      position: absolute;
+      width: 420px;
+      height: 420px;
+      border-radius: 50%;
+      background: radial-gradient(circle, rgba(56, 189, 248, 0.22) 0%, rgba(186, 230, 254, 0.15) 50%, rgba(255, 255, 255, 0) 70%);
+      filter: blur(40px);
+      animation: splashPulseGlow 3s ease-in-out infinite alternate;
+      pointer-events: none;
+    }
+
+    @keyframes splashPulseGlow {
+      0% { transform: scale(0.9) translateY(0); opacity: 0.7; }
+      100% { transform: scale(1.18) translateY(-10px); opacity: 1; }
+    }
+
+    .splash-container {
+      position: relative;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      z-index: 2;
+      padding: 20px;
+      text-align: center;
+      min-height: 220px;
+    }
+
+    /* Phase 1: Infinity Loop */
+    .infinity-wrapper {
+      position: absolute;
+      width: 140px;
+      height: 80px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      animation: infinitySequence 1.5s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+    }
+
+    .infinity-svg {
+      width: 100%;
+      height: 100%;
+      overflow: visible;
+      filter: drop-shadow(0 4px 14px rgba(37, 99, 235, 0.25));
+    }
+
+    .infinity-draw {
+      stroke-dasharray: 290;
+      stroke-dashoffset: 290;
+      animation: drawInfinity 1.3s cubic-bezier(0.45, 0.05, 0.55, 0.95) infinite;
+    }
+
+    .infinity-shimmer {
+      stroke-dasharray: 60 230;
+      stroke-dashoffset: 290;
+      animation: shimmerInfinity 1.3s linear infinite;
+    }
+
+    @keyframes drawInfinity {
+      0% {
+        stroke-dashoffset: 290;
+      }
+      50% {
+        stroke-dashoffset: 0;
+      }
+      100% {
+        stroke-dashoffset: -290;
+      }
+    }
+
+    @keyframes shimmerInfinity {
+      0% {
+        stroke-dashoffset: 290;
+      }
+      100% {
+        stroke-dashoffset: -290;
+      }
+    }
+
+    /* Transition Infinity -> Brand */
+    @keyframes infinitySequence {
+      0% {
+        opacity: 0;
+        transform: scale(0.7) translateY(0);
+      }
+      25% {
+        opacity: 1;
+        transform: scale(1) translateY(0);
+      }
+      70% {
+        opacity: 1;
+        transform: scale(1.05) translateY(0);
+      }
+      90% {
+        opacity: 0.2;
+        transform: scale(0.65) translateY(-10px);
+      }
+      100% {
+        opacity: 0;
+        transform: scale(0.4) translateY(-15px);
+        visibility: hidden;
+      }
+    }
+
+    /* Phase 2: Brand & Icon Reveal */
+    .brand-reveal-wrapper {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      opacity: 0;
+      transform: scale(0.85) translateY(12px);
+      animation: brandRevealSequence 0.8s cubic-bezier(0.16, 1, 0.3, 1) 1.25s forwards;
+    }
+
+    @keyframes brandRevealSequence {
+      0% {
+        opacity: 0;
+        transform: scale(0.85) translateY(12px);
+      }
+      100% {
+        opacity: 1;
+        transform: scale(1) translateY(0);
+      }
+    }
+
+    .icon-box {
+      position: relative;
+      width: 72px;
+      height: 72px;
+      border-radius: 20px;
+      background: linear-gradient(135deg, #FFFFFF 0%, #F0F9FF 100%);
+      box-shadow: 0 10px 25px -4px rgba(37, 99, 235, 0.2), 0 4px 10px -2px rgba(14, 165, 233, 0.15), inset 0 1px 2px #FFFFFF;
+      border: 1px solid rgba(224, 242, 254, 0.9);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin-bottom: 16px;
+      animation: iconFloat 2.6s ease-in-out infinite alternate;
+    }
+
+    .splash-icon-img {
+      width: 52px;
+      height: 52px;
+      object-fit: contain;
+      border-radius: 14px;
+      filter: drop-shadow(0 2px 6px rgba(17, 30, 77, 0.12));
+    }
+
+    .icon-pulse-glow {
+      position: absolute;
+      top: 15px;
+      width: 76px;
+      height: 76px;
+      border-radius: 24px;
+      background: radial-gradient(circle, rgba(56, 189, 248, 0.4) 0%, rgba(37, 99, 235, 0) 70%);
+      filter: blur(12px);
+      animation: iconGlow 2.6s ease-in-out infinite alternate;
+      pointer-events: none;
+    }
+
+    @keyframes iconFloat {
+      0% { transform: translateY(0); }
+      100% { transform: translateY(-5px); }
+    }
+
+    @keyframes iconGlow {
+      0% { opacity: 0.5; transform: scale(0.95); }
+      100% { opacity: 0.9; transform: scale(1.15); }
+    }
+
+    /* Brand Text */
+    .brand-text-group {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 3px;
+    }
+
+    .brand-name-row {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+    }
+
+    .brand-title {
+      font-size: 26px;
+      font-weight: 800;
+      letter-spacing: -0.03em;
+      background: linear-gradient(135deg, #0B1E48 0%, #1E40AF 60%, #0284C7 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      line-height: 1.2;
+    }
+
+    .brand-dot {
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: #0284C7;
+      box-shadow: 0 0 8px rgba(2, 132, 199, 0.8);
+      margin-top: -8px;
+    }
+
+    .brand-tagline {
+      margin: 0;
+      font-size: 11.5px;
+      font-weight: 600;
+      letter-spacing: 0.04em;
+      color: #64748B;
+      text-transform: uppercase;
+    }
+
+    .tagline-sep {
+      color: #38BDF8;
+      margin: 0 4px;
+    }
+
+    /* Progress bar */
+    .splash-progress-bar {
+      margin-top: 20px;
+      width: 110px;
+      height: 3.5px;
+      background: rgba(224, 242, 254, 0.9);
+      border-radius: 99px;
+      overflow: hidden;
+      position: relative;
+    }
+
+    .splash-progress-fill {
+      position: absolute;
+      top: 0;
+      left: 0;
+      bottom: 0;
+      width: 45%;
+      border-radius: 99px;
+      background: linear-gradient(90deg, #38BDF8, #2563EB);
+      animation: progressSlide 1.4s ease-in-out infinite;
+    }
+
+    @keyframes progressSlide {
+      0% { left: -45%; width: 40%; }
+      50% { width: 60%; }
+      100% { left: 100%; width: 40%; }
+    }
+  </style>
+
+  <script>
+    // Tab Session Check: Only play full splash animation when portal is opened in a new tab
+    (function() {
+      var loader = document.getElementById('omeetso-splash-loader');
+      if (!loader) return;
+      try {
+        var hasSeenInTab = sessionStorage.getItem('omeetso_tab_session_seen');
+        if (hasSeenInTab) {
+          // On refresh: instantly remove splash so user isn't interrupted
+          loader.style.display = 'none';
+          if (loader.parentNode) loader.parentNode.removeChild(loader);
+          return;
+        }
+        // Mark as seen for this tab session
+        sessionStorage.setItem('omeetso_tab_session_seen', 'true');
+      } catch(e) {}
+    })();
+
+    // Smooth dismiss helper for first tab load
+    window.__dismissOmeetsoSplash = function(minDelay) {
+      var loader = document.getElementById('omeetso-splash-loader');
+      if (!loader || loader.__isDismissed) return;
+      loader.__isDismissed = true;
+      var delay = typeof minDelay === 'number' ? minDelay : 1600;
+      setTimeout(function() {
+        loader.classList.add('splash-fade-out');
+        setTimeout(function() {
+          if (loader.parentNode) {
+            loader.parentNode.removeChild(loader);
+          }
+        }, 600);
+      }, delay);
+    };
+
+    // Auto dismiss fallback
+    window.addEventListener('load', function() {
+      window.__dismissOmeetsoSplash(1800);
+    });
+  </script>
+
   <div id="root"></div>
   <script type="module" src="/src/main.tsx"></script>
 </body>

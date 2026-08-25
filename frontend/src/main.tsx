@@ -31,3 +31,9 @@ createRoot(document.getElementById("root")!).render(
     </QueryClientProvider>
   </StrictMode>,
 );
+
+// Gracefully dismiss the initial loading splash screen once portal is ready
+if (typeof window !== "undefined" && (window as unknown as { __dismissOmeetsoSplash?: (ms: number) => void }).__dismissOmeetsoSplash) {
+  (window as unknown as { __dismissOmeetsoSplash: (ms: number) => void }).__dismissOmeetsoSplash(1800);
+}
+

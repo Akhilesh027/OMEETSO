@@ -40,10 +40,23 @@ export type Thread = {
 };
 
 export type MessageType =
-  | "text" | "image" | "location" | "voice"
+  | "text" | "image" | "document" | "location" | "voice" | "contact"
   | "offer" | "system";
 
 export type MsgStatus = "sending" | "sent" | "delivered" | "read" | "failed";
+
+export type DocumentAttachment = {
+  name: string;
+  size: number;
+  url?: string;
+  ext: string;
+  mimeType?: string;
+};
+
+export type ContactAttachment = {
+  name: string;
+  phone: string;
+};
 
 export type Message = {
   id: string;
@@ -53,6 +66,8 @@ export type Message = {
   text?: string;
   imageUrl?: string;
   caption?: string;
+  document?: DocumentAttachment;
+  contact?: ContactAttachment;
   location?: { name: string; area: string };
   voice?: { durationSec: number };
   offerId?: string;

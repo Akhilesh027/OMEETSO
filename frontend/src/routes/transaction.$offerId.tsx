@@ -8,6 +8,7 @@ import { BottomSheet } from "@/components/omeetso/BottomSheet";
 import { toast } from "sonner";
 import { AttachmentSheet } from "@/components/omeetso/chat/AttachmentSheet";
 import { getOfferByIdApi } from "@/api/chat.api";
+import { InfinityLoader } from "@/components/omeetso/InfinityLoader";
 
 export const Route = createFileRoute("/transaction/$offerId")({
   loader: ({ params }) => {
@@ -30,44 +31,14 @@ function Transaction() {
 
   useEffect(() => {
     async function fetchOffer() {
-      setLoading(true);
-      setError(null);
       try {
+        setLoading(true);
         const res = await getOfferByIdApi(offerId);
         if (res.success && res.data) {
           setOfferData(res.data);
-        } else {
-          // Demo fallback
-          setOfferData({
-            id: offerId,
-            conversationId: "conv_demo",
-            amountInPaise: 5170000,
-            status: "ACCEPTED",
-            listing: {
-              title: "LG 4K Smart TV / Laptop — High Performance, Low Use",
-              priceInPaise: 5745400,
-              image: "https://images.unsplash.com/photo-1593359677879-a4bb92f829d1?w=800",
-              area: "Madhapur, Hyderabad"
-            },
-            buyer: { name: "You (Buyer)" },
-            seller: { name: "Bannu (Seller)" }
-          });
         }
-      } catch {
-        setOfferData({
-          id: offerId,
-          conversationId: "conv_demo",
-          amountInPaise: 5170000,
-          status: "ACCEPTED",
-          listing: {
-            title: "LG 4K Smart TV / Laptop — High Performance, Low Use",
-            priceInPaise: 5745400,
-            image: "https://images.unsplash.com/photo-1593359677879-a4bb92f829d1?w=800",
-            area: "Madhapur, Hyderabad"
-          },
-          buyer: { name: "You (Buyer)" },
-          seller: { name: "Bannu (Seller)" }
-        });
+      } catch (e) {
+        console.warn("Failed to fetch live offer data, falling back to mock:", e);
       } finally {
         setLoading(false);
       }
@@ -79,10 +50,12 @@ function Transaction() {
   if (loading) {
     return (
       <MobileFrame>
-        <div className="flex min-h-dvh flex-col items-center justify-center gap-2">
-          <Loader2 className="h-8 w-8 animate-spin text-indigo-brand" />
-          <span className="text-xs font-bold text-muted-foreground">Loading transaction details…</span>
-        </div>
+        <InfinityLoader
+          size="lg"
+          text="Loading transaction details…"
+          subtext="Securing your offer settlement"
+          variant="page"
+        />
       </MobileFrame>
     );
   }

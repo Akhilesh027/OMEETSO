@@ -112,14 +112,8 @@ function HeroProductShowcase({ items }: { items?: any[] }) {
   return (
     <div className="relative mx-auto w-full max-w-[480px] flex flex-col justify-between py-1">
 
-      {/* Timer Progress Indicator & Manual Pill Selector (Relative top) */}
-      <div className="relative flex items-center justify-between px-1 mb-2 z-40">
-        <div className="rounded-full bg-slate-950/95 backdrop-blur-md text-white px-3 py-1 shadow-lg border border-amber-400/40 text-xs font-black flex items-center gap-2">
-          <span className="h-2 w-2 rounded-full bg-emerald-400 animate-ping" />
-          <span>🔥 5s Live DB Rotation</span>
-        </div>
-
-        {/* 5s 5-Card Progress Dots */}
+      {/* 5s 5-Card Progress Dots */}
+      <div className="relative flex items-center justify-end px-1 mb-2 z-40">
         <div className="flex items-center gap-1.5 bg-slate-950/80 backdrop-blur-md border border-white/20 px-3 py-1 rounded-full shadow-md">
           {displayItems.map((_, i) => (
             <button
@@ -413,7 +407,7 @@ function Home() {
       });
 
     // Fetch Live Stores
-    fetch("https://api.omeetso.in/api/v1/stores/public")
+    fetch("https://api.omeetso.in /api/v1/stores/public")
       .then((res) => res.json())
       .then((json) => {
         if (json.success && Array.isArray(json.data) && json.data.length > 0) {
@@ -443,7 +437,7 @@ function Home() {
       .catch(() => { });
 
     // Fetch Admin-curated Home Hero Showcase & Banners
-    fetch("https://api.omeetso.in/api/v1/banners" + (activeCity ? `?city=${encodeURIComponent(activeCity)}` : ""))
+    fetch("https://api.omeetso.in /api/v1/banners" + (activeCity ? `?city=${encodeURIComponent(activeCity)}` : ""))
       .then((res) => res.json())
       .then((json) => {
         if (json.success && Array.isArray(json.data) && json.data.length > 0) {

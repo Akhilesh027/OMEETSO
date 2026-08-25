@@ -14,6 +14,7 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
+import { InfinityLoader } from "@/components/omeetso/InfinityLoader";
 
 const CATS = [
   { id: "all", label: "All" },
@@ -179,10 +180,11 @@ function NotifList() {
 
         <div className="mt-3 divide-y divide-border/80">
           {loading ? (
-            <div className="flex justify-center p-8">
-              <Loader2 className="h-6 w-6 animate-spin text-primary" />
-              <span className="ml-2 text-xs text-muted-foreground">Loading notifications...</span>
-            </div>
+            <InfinityLoader
+              size="md"
+              text="Loading notifications..."
+              variant="section"
+            />
           ) : filteredList.length === 0 ? (
             <div className="p-8 text-center text-xs text-muted-foreground">
               <Bell className="mx-auto mb-2 h-8 w-8 text-muted-foreground/40" />

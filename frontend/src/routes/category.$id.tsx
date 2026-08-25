@@ -12,6 +12,7 @@ import { FilterChip } from "@/components/omeetso/FilterChip";
 import { HeroAd } from "@/components/omeetso/AdBanner";
 import { SafetyCard } from "@/components/omeetso/SafetyCard";
 import { EmptyState } from "@/components/omeetso/EmptyState";
+import { InfinityLoader } from "@/components/omeetso/InfinityLoader";
 import { serveAdsApi } from "@/api/adCampaigns.api";
 import { getPublicListingsApi } from "@/api/listings.api";
 import { getPublicStoresApi } from "@/api/stores.api";
@@ -672,10 +673,12 @@ function CategoryPage() {
             {liveCatAd && <HeroAd ad={liveCatAd} />}
 
             {loading ? (
-              <div className="p-12 text-center text-xs text-muted-foreground flex flex-col items-center justify-center gap-2">
-                <Loader2 className="h-6 w-6 animate-spin text-indigo-brand" />
-                <span>Loading {category.name.toLowerCase()} listings...</span>
-              </div>
+              <InfinityLoader
+                size="md"
+                text={`Loading ${category.name.toLowerCase()} listings...`}
+                subtext="Finding the best verified deals near you"
+                variant="section"
+              />
             ) : error ? (
               <div className="p-6 text-center bg-destructive/10 border border-destructive/20 rounded-2xl space-y-3">
                 <p className="text-xs font-bold text-destructive">{error}</p>

@@ -78,6 +78,7 @@ function Conversation() {
     loadMessages,
     loadMoreMessages,
     sendTextMessage,
+    sendAttachmentMessage,
     respondToOffer,
     markAsRead,
     startTyping,
@@ -572,7 +573,14 @@ function Conversation() {
         )}
 
         {product && <MakeOfferSheet open={offerOpen} onClose={() => setOfferOpen(false)} product={product} threadId={thread.id} />}
-        <AttachmentSheet open={attachOpen} onClose={() => setAttachOpen(false)} threadId={thread.id} />
+        <AttachmentSheet
+          open={attachOpen}
+          onClose={() => setAttachOpen(false)}
+          threadId={thread.id}
+          onSendAttachment={(payload) => {
+            sendAttachmentMessage(id, payload);
+          }}
+        />
         <CallSheet open={callOpen} onClose={() => setCallOpen(false)} threadId={thread.id} peerName={thread.peerName} peerType={thread.peerType} />
         <ReportUserSheet
           open={reportOpen || !!reportMsgId}

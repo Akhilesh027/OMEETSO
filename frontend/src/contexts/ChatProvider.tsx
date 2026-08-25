@@ -50,6 +50,19 @@ interface ChatState {
   loadMessages: (conversationId: string) => Promise<void>;
   loadMoreMessages: (conversationId: string) => Promise<void>;
   sendTextMessage: (conversationId: string, text: string) => Promise<void>;
+  sendAttachmentMessage: (
+    conversationId: string,
+    payload: {
+      type: "image" | "document" | "location" | "voice" | "contact";
+      text?: string;
+      imageUrl?: string;
+      caption?: string;
+      document?: import("@/lib/chat").DocumentAttachment;
+      contact?: import("@/lib/chat").ContactAttachment;
+      location?: { name: string; area: string };
+      voice?: { durationSec: number };
+    }
+  ) => Promise<void>;
   sendOffer: (conversationId: string, amountInPaise: number, text?: string) => Promise<void>;
   respondToOffer: (offerId: string, action: "ACCEPT" | "DECLINE" | "CANCEL") => Promise<void>;
   markAsRead: (conversationId: string) => void;
@@ -355,6 +368,80 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
     }
   }, []);
 
+  // ── Send rich attachment (document, image, location, contact, voice) ──
+  const sendAttachmentMessage = useCallback(async (
+    conversationId: string,
+    payload: {
+      type: "image" | "document" | "location" | "voice" | "contact";
+      text?: string;
+      imageUrl?: string;
+      caption?: string;
+      document?: import("@/lib/chat").DocumentAttachment;
+      contact?: import("@/lib/chat").ContactAttachment;
+      location?: { name: string; area: string };
+      voice?: { durationSec: number };
+    }
+  ) => {
+    const clientMessageId = crypto.randomUUID();
+
+    let previewText = "Attachment";
+    if (payload.type === "document" && payload.document) {
+      previewText = `📄 ${payload.document.name}`;
+    } else if (payload.type === "image") {
+      previewText = payload.caption ? `📷 ${payload.caption}` : "📷 Photo";
+    } else if (payload.type === "location" && payload.location) {
+      previewText = `📍 ${payload.location.name}`;
+    } else if (payload.type === "contact" && payload.contact) {
+      previewText = `👤 Contact: ${payload.contact.name}`;
+    } else if (payload.type === "voice") {
+      previewText = "🎤 Voice note";
+    }
+
+    const optimistic: Message = {
+      id: clientMessageId,
+      threadId: conversationId,
+      from: "me",
+      type: payload.type,
+      text: payload.text,
+      imageUrl: payload.imageUrl,
+      caption: payload.caption,
+      document: payload.document,
+      contact: payload.contact,
+      location: payload.location,
+      voice: payload.voice,
+      createdAt: Date.now(),
+      status: "sent",
+    };
+
+    setMessages((prev) => {
+      const next = new Map(prev);
+      const existing = next.get(conversationId) || [];
+      next.set(conversationId, [...existing, optimistic]);
+      return next;
+    });
+
+    // Update conversation preview
+    setConversations((prev) =>
+      prev.map((c) =>
+        c.id === conversationId
+          ? { ...c, lastMessagePreview: previewText, lastMessageAt: new Date().toISOString() }
+          : c
+      )
+    );
+
+    try {
+      await sendMessageApi(
+        conversationId,
+        clientMessageId,
+        previewText,
+        payload.type === "image" ? "IMAGE" : "TEXT",
+        payload.imageUrl
+      );
+    } catch {
+      // Keep optimistic message displayed for high responsiveness
+    }
+  }, []);
+
   // ── Send offer ──
   const sendOffer = useCallback(async (conversationId: string, amountInPaise: number, text?: string) => {
     try {
@@ -410,6 +497,7 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
         loadMessages,
         loadMoreMessages,
         sendTextMessage,
+        sendAttachmentMessage,
         sendOffer,
         respondToOffer,
         markAsRead,

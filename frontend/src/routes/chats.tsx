@@ -3,6 +3,7 @@ import { useEffect, useMemo, useState } from "react";
 import { MobileFrame } from "@/components/omeetso/MobileFrame";
 import { BottomNav } from "@/components/omeetso/BottomNav";
 import { EmptyState } from "@/components/omeetso/EmptyState";
+import { InfinityLoader } from "@/components/omeetso/InfinityLoader";
 import {
   Search, MessageCircle, ShieldCheck, BellOff, VolumeX, X, HandCoins,
   Archive as ArchiveIcon, BadgeCheck, Store as StoreIcon, MoreVertical, ArrowLeft,
@@ -226,10 +227,11 @@ function Chats() {
 
         {/* Loading state */}
         {conversationsLoading && threads.length === 0 && (
-          <div className="flex items-center justify-center py-16">
-            <Loader2 className="h-6 w-6 animate-spin text-primary" />
-            <span className="ml-2 text-sm text-muted-foreground">Loading conversations...</span>
-          </div>
+          <InfinityLoader
+            size="md"
+            text="Loading conversations..."
+            variant="section"
+          />
         )}
 
         {/* Error state */}

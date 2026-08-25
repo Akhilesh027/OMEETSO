@@ -321,20 +321,24 @@ export async function sendMessage(req: AuthenticatedUserRequest, res: Response, 
       } catch (err) {}
     }
 
-    conversation.lastMessageId = message._id;
-    conversation.lastMessagePreview = text || (imageUrl ? "📷 Photo" : "Message");
-    conversation.lastMessageType = type.toUpperCase() as any;
-    conversation.lastMessageAt = message.createdAt;
-    conversation.lastSenderId = req.user._id;
-
-    const updatedUnread = conversation.unreadCounts.map((uc) => {
+    const previewText = text || (imageUrl ? "📷 Photo" : "Message");
+    const updatedUnread = (conversation.unreadCounts || []).map((uc) => {
       if (uc.userId.toString() !== req.user!._id.toString()) {
         return { userId: uc.userId, count: (uc.count || 0) + 1 };
       }
       return uc;
     });
-    conversation.unreadCounts = updatedUnread as any;
-    await conversation.save();
+
+    await Conversation.findByIdAndUpdate(conversation._id, {
+      $set: {
+        lastMessageId: message._id,
+        lastMessagePreview: previewText,
+        lastMessageType: type.toUpperCase() as any,
+        lastMessageAt: message.createdAt,
+        lastSenderId: req.user._id,
+        unreadCounts: updatedUnread,
+      }
+    });
 
     const msgPayload = {
       id: message._id.toString(),

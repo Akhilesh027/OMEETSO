@@ -12,6 +12,7 @@ import { FilterChip } from "@/components/omeetso/FilterChip";
 import { HeroAd } from "@/components/omeetso/AdBanner";
 import { SafetyCard } from "@/components/omeetso/SafetyCard";
 import { EmptyState } from "@/components/omeetso/EmptyState";
+import { InfinityLoader } from "@/components/omeetso/InfinityLoader";
 import { StoreCard } from "@/components/omeetso/StoreCard";
 import { fetchPublicJobs, JobItem } from "@/lib/jobs";
 import { serveAdsApi } from "@/api/adCampaigns.api";
@@ -625,10 +626,12 @@ function JobsPage() {
             {liveHeaderAd && <HeroAd ad={liveHeaderAd} />}
 
             {loading ? (
-              <div className="p-12 text-center text-xs text-muted-foreground flex flex-col items-center justify-center gap-2">
-                <Loader2 className="h-6 w-6 animate-spin text-indigo-brand" />
-                <span>Loading active job openings...</span>
-              </div>
+              <InfinityLoader
+                size="md"
+                text="Loading active job openings..."
+                subtext="Finding local hiring opportunities near you"
+                variant="section"
+              />
             ) : error ? (
               <div className="p-6 text-center bg-destructive/10 border border-destructive/20 rounded-2xl space-y-3">
                 <p className="text-xs font-bold text-destructive">{error}</p>

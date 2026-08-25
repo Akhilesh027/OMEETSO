@@ -169,7 +169,7 @@ function CreateStore() {
 
     if (token) {
       try {
-        const res = await fetch("https://api.omeetso.in/api/v1/stores", {
+        const res = await fetch("https://api.omeetso.in /api/v1/stores", {
           method: "POST",
           headers: {
             "Content-Type": "application/json",

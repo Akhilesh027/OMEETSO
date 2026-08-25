@@ -36,7 +36,7 @@ function SelectListing() {
 
     // Fetch live backend listings
     const token = getUserAccessToken();
-    fetch("https://api.omeetso.in/api/v1/listings", {
+    fetch("https://api.omeetso.in /api/v1/listings", {
       headers: token ? { Authorization: `Bearer ${token}` } : {}
     })
       .then((res) => res.json())

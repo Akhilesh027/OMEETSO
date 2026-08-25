@@ -70,7 +70,7 @@ function ProfileSetup() {
 
     if (token) {
       try {
-        await fetch("https://api.omeetso.in/api/v1/users/me", {
+        await fetch("https://api.omeetso.in /api/v1/users/me", {
           method: "PATCH",
           headers: {
             "Content-Type": "application/json",

@@ -12,6 +12,7 @@ import { BookServiceModal } from "@/components/omeetso/services/BookServiceModal
 import { SortSheet } from "@/components/omeetso/SortSheet";
 import { FilterChip } from "@/components/omeetso/FilterChip";
 import { EmptyState } from "@/components/omeetso/EmptyState";
+import { InfinityLoader } from "@/components/omeetso/InfinityLoader";
 import { fetchPublicServices, ServiceItem, SERVICE_CATEGORIES } from "@/lib/services";
 
 type ServicesSearch = {
@@ -279,10 +280,13 @@ function ServicesPage() {
         {/* Main Content Area */}
         <main className="p-4 md:mx-auto md:max-w-6xl">
           {loading ? (
-            <div className="py-20 text-center">
-              <Loader2 className="mx-auto h-8 w-8 animate-spin text-primary" />
-              <p className="mt-3 text-xs text-muted-foreground font-semibold">Finding verified services nearby...</p>
-            </div>
+            <InfinityLoader
+              size="lg"
+              text="Finding verified services nearby..."
+              subtext="Connecting you with local professionals and technicians"
+              variant="section"
+              whiteCard
+            />
           ) : services.length === 0 ? (
             <div className="py-16 text-center">
               <div className="mx-auto grid h-16 w-16 place-items-center rounded-full bg-secondary text-muted-foreground mb-3">

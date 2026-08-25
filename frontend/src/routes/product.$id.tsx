@@ -16,6 +16,7 @@ import { BottomSheet } from "@/components/omeetso/BottomSheet";
 import { toast } from "sonner";
 import { ReportSheet } from "@/components/omeetso/ReportSheet";
 import { EmptyState } from "@/components/omeetso/EmptyState";
+import { InfinityLoader } from "@/components/omeetso/InfinityLoader";
 import {
   PRODUCTS, SELLERS, formatINR, getProduct, getSeller, getAd, productsBySeller, productsByCategory,
 } from "@/lib/mock";
@@ -49,6 +50,16 @@ export const Route = createFileRoute("/product/$id")({
         ]
       : [{ title: "Product · Omeetso" }],
   }),
+  pendingComponent: () => (
+    <MobileFrame>
+      <InfinityLoader
+        variant="page"
+        size="lg"
+        text="Loading product details..."
+        subtext="Fetching live verified listing information"
+      />
+    </MobileFrame>
+  ),
   component: ProductPage,
   notFoundComponent: NotFound,
 });
@@ -127,21 +138,36 @@ function ProductPage() {
   }
 
   const liveSeller = (product as any).seller;
-  const realSellerId = liveSeller?._id || liveSeller?.id || (typeof product.sellerId === "object" ? (product.sellerId as any)?._id || (product.sellerId as any)?.id : product.sellerId) || "u_seller";
+  const realSellerId = liveSeller?._id || liveSeller?.id || (typeof product.sellerId === "object" ? (product.sellerId as any)?._id || (product.sellerId as any)?.id : product.sellerId) || (product as any).seller || "u_seller";
+  const mockSeller = typeof realSellerId === "string" ? getSeller(realSellerId) : null;
+
+  // Extract accurate live or mock seller rating
+  const rawRating = 
+    (typeof liveSeller?.ratings?.average === "number" && liveSeller.ratings.average > 0 ? liveSeller.ratings.average : null) ??
+    (typeof (product as any).sellerRating === "number" && (product as any).sellerRating > 0 ? (product as any).sellerRating : null) ??
+    (typeof (product as any).rating === "number" && (product as any).rating > 0 ? (product as any).rating : null) ??
+    (mockSeller?.rating ?? 0);
+
+  const rawReviews = 
+    (typeof liveSeller?.ratings?.count === "number" ? liveSeller.ratings.count : null) ??
+    (typeof (product as any).sellerReviews === "number" ? (product as any).sellerReviews : null) ??
+    (typeof (product as any).reviewCount === "number" ? (product as any).reviewCount : null) ??
+    (mockSeller?.reviews ?? 0);
+
   const defaultSeller = {
     id: String(realSellerId),
-    name: liveSeller?.name || liveSeller?.profile?.name || product.sellerName || "Omeetso Seller",
-    avatar: liveSeller?.avatar || liveSeller?.profile?.avatar || (product as any).sellerAvatar || (product as any).sellerPhoto,
-    memberSince: liveSeller?.createdAt || liveSeller?.memberSince || (product as any).createdAt || 0,
-    rating: typeof liveSeller?.ratings?.average === "number" ? liveSeller.ratings.average : (typeof (product as any).sellerRating === "number" ? (product as any).sellerRating : 0),
-    reviews: typeof liveSeller?.ratings?.count === "number" ? liveSeller.ratings.count : (typeof (product as any).sellerReviews === "number" ? (product as any).sellerReviews : 0),
-    responseTime: liveSeller?.responseTime || (product as any).sellerResponseTime || "N/A",
-    verified: Boolean(liveSeller?.verificationSummary?.mobileVerified || (product as any).verified),
-    phoneVerified: Boolean(liveSeller?.verificationSummary?.mobileVerified),
-    kycVerified: Boolean(liveSeller?.verificationSummary?.govtIdVerified),
-    type: (liveSeller?.accountType || (product as any).sellerType || "individual") as "individual" | "business",
-    area: liveSeller?.area || liveSeller?.profile?.area || product.area || "Hyderabad",
-    activeListings: typeof liveSeller?.activeListingsCount === "number" ? liveSeller.activeListingsCount : 0,
+    name: liveSeller?.name || liveSeller?.profile?.name || product.sellerName || mockSeller?.name || "Omeetso Seller",
+    avatar: liveSeller?.avatar || liveSeller?.profile?.avatar || (product as any).sellerAvatar || (product as any).sellerPhoto || mockSeller?.avatar,
+    memberSince: liveSeller?.createdAt || liveSeller?.memberSince || (product as any).createdAt || mockSeller?.memberSince || 0,
+    rating: rawRating,
+    reviews: rawReviews,
+    responseTime: liveSeller?.responseTime || (product as any).sellerResponseTime || mockSeller?.responseTime || "< 15 mins",
+    verified: Boolean(liveSeller?.verificationSummary?.mobileVerified || (product as any).verified || mockSeller?.verified),
+    phoneVerified: Boolean(liveSeller?.verificationSummary?.mobileVerified || (product as any).phoneVerified || mockSeller?.phoneVerified),
+    kycVerified: Boolean(liveSeller?.verificationSummary?.govtIdVerified || (product as any).kycVerified || mockSeller?.kycVerified),
+    type: (liveSeller?.accountType || (product as any).sellerType || mockSeller?.type || "individual") as "individual" | "business",
+    area: liveSeller?.area || liveSeller?.profile?.area || product.area || product.city || mockSeller?.area || "Hyderabad",
+    activeListings: typeof liveSeller?.activeListingsCount === "number" ? liveSeller.activeListingsCount : (mockSeller?.activeListings || 0),
   };
   const seller = defaultSeller;
   const contextualAd = getAd("PRODUCT_CONTEXTUAL", product.category) ?? getAd("PRODUCT_CONTEXTUAL");
@@ -630,22 +656,44 @@ function NotFound() {
 }
 
 function SellerTrustBadgeMatrix({ seller }: { seller: any }) {
+  const ratingNum = typeof seller?.rating === "number" && seller.rating > 0 ? seller.rating : 0;
+  const ratingText = ratingNum > 0 ? `${ratingNum.toFixed(1)} / 5` : "Unrated";
+  const reviewsCount = typeof seller?.reviews === "number" ? seller.reviews : 0;
+  const isVerified = Boolean(seller?.verified || seller?.phoneVerified || seller?.kycVerified);
+  const verificationDetail = seller?.kycVerified
+    ? "ID & KYC"
+    : seller?.phoneVerified
+    ? "Phone Verified"
+    : isVerified
+    ? "ID & Phone"
+    : "Active Member";
+
   return (
     <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
       <div className="rounded-2xl border border-blue-500/20 bg-blue-500/5 p-3 text-center">
-        <div className="text-blue-700 dark:text-blue-300 text-xs sm:text-sm font-extrabold">⚡ &lt; 15 mins</div>
+        <div className="text-blue-700 dark:text-blue-300 text-xs sm:text-sm font-extrabold">
+          ⚡ {seller?.responseTime || "< 15 mins"}
+        </div>
         <div className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider mt-0.5">Avg Response</div>
       </div>
       <div className="rounded-2xl border border-blue-500/20 bg-blue-500/5 p-3 text-center">
-        <div className="text-blue-700 dark:text-blue-300 text-xs sm:text-sm font-extrabold">🛡️ Verified</div>
-        <div className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider mt-0.5">ID & Phone</div>
+        <div className="text-blue-700 dark:text-blue-300 text-xs sm:text-sm font-extrabold">
+          🛡️ {isVerified ? "Verified" : "Active Member"}
+        </div>
+        <div className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider mt-0.5">{verificationDetail}</div>
       </div>
       <div className="rounded-2xl border border-blue-500/20 bg-blue-500/5 p-3 text-center">
-        <div className="text-blue-700 dark:text-blue-300 text-xs sm:text-sm font-extrabold">⭐ 4.9 / 5</div>
-        <div className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider mt-0.5">Seller Rating</div>
+        <div className="text-blue-700 dark:text-blue-300 text-xs sm:text-sm font-extrabold">
+          ⭐ {ratingText}
+        </div>
+        <div className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider mt-0.5">
+          {reviewsCount > 0 ? `Rating (${reviewsCount})` : "Seller Rating"}
+        </div>
       </div>
       <div className="rounded-2xl border border-blue-500/20 bg-blue-500/5 p-3 text-center">
-        <div className="text-blue-700 dark:text-blue-300 text-xs sm:text-sm font-extrabold">📍 {seller?.area || "Nearby"}</div>
+        <div className="text-blue-700 dark:text-blue-300 text-xs sm:text-sm font-extrabold truncate">
+          📍 {seller?.area || "Madhapur"}
+        </div>
         <div className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider mt-0.5">Local Distance</div>
       </div>
     </div>

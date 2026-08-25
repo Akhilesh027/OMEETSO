@@ -1,7 +1,7 @@
 import { AdminAuthService } from "@/services/adminAuthService";
 
-const API_BASE = "https://api.omeetso.in/api/v1/admin/services";
-const PUBLIC_API_BASE = "https://api.omeetso.in/api/v1/services";
+const API_BASE = "https://api.omeetso.in /api/v1/admin/services";
+const PUBLIC_API_BASE = "https://api.omeetso.in /api/v1/services";
 
 function getHeaders(): Record<string, string> {
   const token = AdminAuthService.getAccessToken();
