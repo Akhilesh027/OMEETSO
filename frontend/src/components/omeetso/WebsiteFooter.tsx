@@ -114,11 +114,9 @@ export function WebsiteFooter() {
 
         {/* Bottom Legal & Copyright Bar */}
         <div className="mt-14 flex flex-col items-start justify-between gap-4 border-t border-white/10 pt-8 text-xs text-white/50 md:flex-row md:items-center">
-          <p>© {new Date().getFullYear()} Omeetso Marketplace Inc. All rights reserved.</p>
+          <p>© {new Date().getFullYear()} DIGITALNESS INDUSTRIES LLP. All rights reserved.</p>
           <div className="flex items-center gap-4 text-xs font-bold text-white/70">
             <span>Made with ❤️ in India</span>
-            <span>·</span>
-            <span>Hyderabad, Telangana</span>
           </div>
         </div>
       </div>
