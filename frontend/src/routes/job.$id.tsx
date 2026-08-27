@@ -392,12 +392,28 @@ function NotFound() {
   const nav = useNavigate();
   return (
     <MobileFrame>
-      <div className="p-12 text-center space-y-4">
-        <h2 className="text-lg font-bold text-foreground">Job listing not found</h2>
-        <p className="text-xs text-muted-foreground">This job post is no longer available.</p>
-        <button onClick={() => nav({ to: "/jobs" })} className="px-4 py-2 bg-primary text-primary-foreground font-bold text-xs rounded-xl">
-          Browse Jobs Landing
-        </button>
+      <div className="min-h-[60vh] flex flex-col items-center justify-center p-6 text-center space-y-4">
+        <div className="w-16 h-16 rounded-3xl bg-indigo-50 dark:bg-indigo-950/40 text-indigo-600 flex items-center justify-center text-2xl font-black shadow-inner">
+          💼
+        </div>
+        <h2 className="text-xl font-black text-foreground">Job Listing Not Found</h2>
+        <p className="text-xs text-muted-foreground max-w-xs leading-relaxed">
+          This job post is either a temporary preview that has been published or is no longer available.
+        </p>
+        <div className="flex items-center gap-2 pt-2">
+          <button
+            onClick={() => nav({ to: "/jobs" })}
+            className="px-5 py-2.5 bg-indigo-brand text-white font-extrabold text-xs rounded-xl shadow-md hover:bg-indigo-brand/90 transition-all"
+          >
+            Explore Active Jobs
+          </button>
+          <button
+            onClick={() => nav({ to: "/jobs/post" })}
+            className="px-4 py-2.5 bg-secondary text-foreground font-bold text-xs rounded-xl hover:bg-secondary/80 transition-all"
+          >
+            Post a Job
+          </button>
+        </div>
       </div>
     </MobileFrame>
   );

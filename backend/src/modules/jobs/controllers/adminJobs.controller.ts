@@ -8,16 +8,38 @@ import { Notification } from "../../notifications/models/Notification";
 export async function getAdminJobs(req: Request, res: Response, next: NextFunction): Promise<void> {
   try {
     const page = Math.max(1, parseInt(req.query.page as string) || 1);
-    const limit = Math.min(100, Math.max(1, parseInt(req.query.limit as string) || 20));
+    const limit = Math.min(200, Math.max(1, parseInt(req.query.limit as string) || 100));
     const skip = (page - 1) * limit;
 
     const query: Record<string, any> = {};
     if (req.query.status && req.query.status !== "ALL") {
-      query.status = (req.query.status as string).toUpperCase();
+      const st = (req.query.status as string).toUpperCase();
+      if (st === "SUBMITTED" || st === "PENDING") {
+        query.status = { $in: ["SUBMITTED", "submitted", "pending", "PENDING"] };
+      } else if (st === "APPROVED" || st === "ACTIVE") {
+        query.status = { $in: ["APPROVED", "approved", "ACTIVE", "active"] };
+      } else if (st === "PAUSED") {
+        query.status = { $in: ["PAUSED", "paused"] };
+      } else if (st === "FILLED") {
+        query.status = { $in: ["FILLED", "filled"] };
+      } else if (st === "EXPIRED") {
+        query.status = { $in: ["EXPIRED", "expired"] };
+      } else if (st === "REJECTED") {
+        query.status = { $in: ["REJECTED", "rejected"] };
+      } else {
+        query.status = st;
+      }
     }
+
     if (req.query.q) {
       const regex = new RegExp(req.query.q as string, "i");
-      query.$or = [{ title: regex }, { companyName: regex }];
+      query.$or = [
+        { title: regex },
+        { companyName: regex },
+        { "jobDetails.description": regex },
+        { "location.city": regex },
+        { "location.area": regex },
+      ];
     }
 
     const [jobs, total] = await Promise.all([

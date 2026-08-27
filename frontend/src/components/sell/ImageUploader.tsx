@@ -1,6 +1,7 @@
 import { useRef, useState } from "react";
-import { Camera, ImagePlus, Trash2, Star, ArrowLeft, ArrowRight, Loader2, AlertTriangle, Video, Upload } from "lucide-react";
+import { Camera, ImagePlus, Trash2, Star, ArrowLeft, ArrowRight, Loader2, AlertTriangle, Video, Upload, ShieldCheck } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { ProductWatermark, applyInfinityWatermarkToDataUrl } from "@/components/omeetso/Watermark";
 
 const ACCEPTED = ["image/jpeg", "image/jpg", "image/png", "image/webp"];
 const MAX_SIZE = 10 * 1024 * 1024; // 10MB
@@ -32,7 +33,7 @@ export function ImageUploader({
   const [uploadingVideo, setUploadingVideo] = useState(false);
   const [errors, setErrors] = useState<UploadError[]>([]);
 
-  function addFiles(files: FileList | null) {
+  async function addFiles(files: FileList | null) {
     if (!files) return;
     const room = max - images.length;
     if (room <= 0) {
@@ -50,22 +51,24 @@ export function ImageUploader({
     setErrors(errs);
     if (accepted.length === 0) return;
     setUploading(true);
-    Promise.all(
-      accepted.map(
-        (f) =>
-          new Promise<string>((resolve, reject) => {
+    try {
+      const watermarked = await Promise.all(
+        accepted.map(async (f) => {
+          const raw = await new Promise<string>((resolve, reject) => {
             const reader = new FileReader();
             reader.onload = () => resolve(String(reader.result));
             reader.onerror = reject;
             reader.readAsDataURL(f);
-          })
-      )
-    )
-      .then((dataUrls) => {
-        onChange([...images, ...dataUrls]);
-        setUploading(false);
-      })
-      .catch(() => setUploading(false));
+          });
+          return await applyInfinityWatermarkToDataUrl(raw);
+        })
+      );
+      onChange([...images, ...watermarked]);
+    } catch {
+      // Fallback in case of canvas error
+    } finally {
+      setUploading(false);
+    }
   }
 
   function handleVideoFile(files: FileList | null) {
@@ -145,6 +148,7 @@ export function ImageUploader({
                 <Trash2 className="h-3.5 w-3.5" />
               </button>
             </div>
+            <ProductWatermark size="xs" position="bottom-right" className="bottom-8 right-1 scale-90" />
             <div className="absolute inset-x-0 bottom-0 flex items-center justify-between p-1">
               <button type="button" onClick={() => move(i, -1)} aria-label="Move earlier" disabled={i === 0}
                 className="grid h-6 w-6 place-items-center rounded-full bg-white/90 text-navy shadow disabled:opacity-40">
@@ -169,6 +173,13 @@ export function ImageUploader({
             <span className="text-[11px] font-semibold">Add Photo</span>
           </button>
         )}
+      </div>
+
+      <div className="flex items-center gap-2 px-3 py-2 rounded-xl bg-blue-500/10 border border-blue-500/20 text-xs text-blue-900 dark:text-blue-200">
+        <ShieldCheck className="h-4 w-4 text-blue-600 shrink-0" />
+        <span className="text-[11px] font-medium leading-tight">
+          <strong>Omeetso Infinity Watermark</strong> is automatically applied to protect your photos from unauthorized copying.
+        </span>
       </div>
 
       <div className="flex gap-2">

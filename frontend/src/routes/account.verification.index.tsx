@@ -571,16 +571,21 @@ function VerificationCentre() {
                 <div className="space-y-3.5 text-xs">
                   <div>
                     <label className="block text-[11px] font-bold text-foreground mb-1">
-                      Mobile Number *
+                      Mobile Number (10 Digits) *
                     </label>
-                    <input
-                      type="tel"
-                      value={mobileNumber}
-                      disabled={mobileStep === "sent"}
-                      onChange={(e) => setMobileNumber(e.target.value)}
-                      placeholder="+91 98765 43210"
-                      className="w-full px-3.5 py-2.5 bg-background border border-border rounded-xl outline-none font-bold text-xs text-foreground focus:border-indigo-brand disabled:opacity-60"
-                    />
+                    <div className="relative">
+                      <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-xs font-bold text-muted-foreground">+91</span>
+                      <input
+                        type="tel"
+                        inputMode="numeric"
+                        maxLength={10}
+                        value={mobileNumber}
+                        disabled={mobileStep === "sent"}
+                        onChange={(e) => setMobileNumber(e.target.value.replace(/\D/g, "").slice(0, 10))}
+                        placeholder="9876543210"
+                        className="w-full pl-11 pr-3.5 py-2.5 bg-background border border-border rounded-xl outline-none font-bold text-xs text-foreground focus:border-indigo-brand disabled:opacity-60 font-mono"
+                      />
+                    </div>
                   </div>
 
                   {mobileStep === "idle" && (

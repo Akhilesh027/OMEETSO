@@ -3,7 +3,7 @@ import { useEffect, useState } from "react";
 import { MobileFrame } from "@/components/omeetso/MobileFrame";
 import { BackBar } from "@/components/omeetso/TopBar";
 import { getListing, getAnalytics, type Listing, type ListingAnalytics, subscribe } from "@/lib/listings";
-import { Eye, Heart, MessageCircle, Phone, Tag, Share2, Sparkles, ChevronRight, TrendingUp } from "lucide-react";
+import { Eye, Heart, MessageCircle, Phone, Tag, Share2, Sparkles, ChevronRight, TrendingUp, AlertCircle } from "lucide-react";
 
 export const Route = createFileRoute("/listing/$id/analytics")({
   head: () => ({ meta: [{ title: "Listing analytics — Omeetso" }] }),
@@ -25,6 +25,7 @@ function Analytics() {
     <MobileFrame><div className="min-h-dvh bg-background"><BackBar title="Analytics" /><p className="p-6 text-center text-sm text-muted-foreground">Listing not found.</p></div></MobileFrame>
   );
 
+  const isRejected = l.status === "rejected" || l.status === "REJECTED";
   const maxDaily = Math.max(1, ...a.daily.map((d) => d.views));
   const viewToChat = a.views > 0 ? Math.round((a.chats / a.views) * 100) : 0;
 
@@ -48,7 +49,24 @@ function Analytics() {
             <p className="line-clamp-1 text-sm font-bold">{l.title}</p>
           </div>
 
-          {a.impressions === 0 ? (
+          {isRejected ? (
+            <div className="rounded-2xl border border-rose-200 bg-rose-50/70 p-6 text-center space-y-3">
+              <div className="mx-auto grid h-12 w-12 place-items-center rounded-2xl bg-rose-100 text-rose-600">
+                <AlertCircle className="h-6 w-6" />
+              </div>
+              <p className="text-base font-extrabold text-rose-800">Engagement Metrics Disabled</p>
+              <p className="text-xs text-rose-700 max-w-sm mx-auto font-medium">
+                This listing is in rejected status and is not public. Views, chats, and impression metrics are not displayed for rejected products.
+              </p>
+              <Link
+                to="/listing/$id/rejection"
+                params={{ id }}
+                className="inline-flex items-center gap-1.5 px-4 py-2 rounded-full bg-rose-600 text-white text-xs font-bold shadow-sm hover:bg-rose-700 transition-all"
+              >
+                View Rejection Reason & Fix
+              </Link>
+            </div>
+          ) : a.impressions === 0 ? (
             <div className="rounded-2xl border border-dashed border-border bg-card p-6 text-center text-sm text-muted-foreground">
               <TrendingUp className="mx-auto h-6 w-6 text-primary" />
               <p className="mt-2 font-semibold text-foreground">No performance data yet</p>

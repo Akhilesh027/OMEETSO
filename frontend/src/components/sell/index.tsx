@@ -414,14 +414,25 @@ export function ContactPreferenceSelector({
 
         {isWhatsappActive && (
           <div className="pt-1">
-            <label className="block text-[11px] font-bold text-muted-foreground mb-1">WhatsApp Number (Optional if same as account phone)</label>
-            <input
-              type="tel"
-              value={whatsappPhone ?? ""}
-              onChange={(e) => onWhatsappPhoneChange?.(e.target.value)}
-              placeholder="e.g. 9876543210"
-              className="w-full h-10 rounded-xl border border-border bg-background px-3 text-xs font-bold text-foreground outline-none focus:border-emerald-500"
-            />
+            <div className="flex items-center justify-between mb-1">
+              <label className="block text-[11px] font-bold text-muted-foreground">WhatsApp Number (Optional if same as account phone)</label>
+              <span className="text-[10px] font-bold text-muted-foreground">10 digits</span>
+            </div>
+            <div className="relative">
+              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-xs font-bold text-muted-foreground">+91</span>
+              <input
+                type="tel"
+                inputMode="numeric"
+                maxLength={10}
+                value={whatsappPhone ?? ""}
+                onChange={(e) => onWhatsappPhoneChange?.(e.target.value.replace(/\D/g, "").slice(0, 10))}
+                placeholder="9876543210"
+                className="w-full h-10 rounded-xl border border-border bg-background pl-11 pr-3 text-xs font-bold text-foreground outline-none focus:border-emerald-500 font-mono"
+              />
+            </div>
+            {whatsappPhone && whatsappPhone.length > 0 && whatsappPhone.length < 10 && (
+              <p className="mt-1 text-[10.5px] font-bold text-amber-600">Please enter a complete 10-digit mobile number ({whatsappPhone.length}/10)</p>
+            )}
           </div>
         )}
       </div>
@@ -512,3 +523,5 @@ export function LoadingOverlay({ open, label }: { open: boolean; label?: string 
     </div>
   );
 }
+
+export { MissingFieldsModal } from "./MissingFieldsModal";

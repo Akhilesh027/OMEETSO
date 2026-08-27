@@ -41,7 +41,7 @@ export function ListingCard({
             {l.status === "under_review" ? `Submitted ${timeAgo(l.updatedAt)}` : `Posted ${timeAgo(l.createdAt)}`}
           </span>
         </div>
-        {viewsIcon && (
+        {viewsIcon && l.status !== "rejected" && l.status !== "REJECTED" && (
           <div className="mt-1.5 flex items-center gap-3 text-[11px] text-muted-foreground">
             <span className="inline-flex items-center gap-1"><Eye className="h-3 w-3" /> {extra?.views ?? 0}</span>
             <span className="inline-flex items-center gap-1"><Heart className="h-3 w-3" /> {extra?.saves ?? 0}</span>

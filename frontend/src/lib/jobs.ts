@@ -301,3 +301,15 @@ export function withdrawJobApplicationLocal(appId: string, reason?: string) {
     setLocal(LS_APPLICATIONS, all);
   }
 }
+
+export function createJobLocal(job: JobItem): JobItem {
+  const all = getLocal<JobItem[]>(LS_JOBS, []);
+  const idx = all.findIndex(j => j.id === job.id);
+  if (idx !== -1) {
+    all[idx] = job;
+  } else {
+    all.unshift(job);
+  }
+  setLocal(LS_JOBS, all);
+  return job;
+}

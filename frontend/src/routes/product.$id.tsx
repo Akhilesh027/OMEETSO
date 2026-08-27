@@ -23,6 +23,7 @@ import {
 import { fetchLiveListingById, recordListingView } from "@/lib/listings";
 import { addRecentlyViewed } from "@/lib/saved";
 import { useSaved } from "@/hooks/useSaved";
+import { ProductWatermark } from "@/components/omeetso/Watermark";
 
 export const Route = createFileRoute("/product/$id")({
   loader: async ({ params }) => {
@@ -37,19 +38,46 @@ export const Route = createFileRoute("/product/$id")({
     }
     return { product: p || null };
   },
-  head: ({ loaderData }) => ({
-    meta: loaderData?.product
-      ? [
-          { title: `${loaderData.product.title} · Omeetso` },
-          { name: "description", content: loaderData.product.description },
-          { property: "og:title", content: loaderData.product.title },
-          { property: "og:description", content: loaderData.product.description },
-          { property: "og:image", content: loaderData.product.image },
-          { name: "twitter:card", content: "summary_large_image" },
-          { name: "twitter:image", content: loaderData.product.image },
-        ]
-      : [{ title: "Product · Omeetso" }],
-  }),
+  head: ({ loaderData }) => {
+    const product = loaderData?.product;
+    if (!product) return { meta: [{ title: "Product · Omeetso" }] };
+
+    const coverIdx = product.cover || product.coverIndex || 0;
+    const rawImg = (Array.isArray(product.images) && product.images.length > 0)
+      ? (product.images[coverIdx] || product.images[0])
+      : (product.image || "https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=1200&h=630&fit=crop&q=85");
+
+    const imgUrl = rawImg.startsWith("http://") || rawImg.startsWith("https://")
+      ? rawImg
+      : `https://omeetso.in${rawImg.startsWith("/") ? "" : "/"}${rawImg}`;
+
+    const priceText = product.price ? `₹${Number(product.price).toLocaleString("en-IN")}` : "";
+    const title = `${product.title}${priceText ? ` · ${priceText}` : ""} | Omeetso`;
+    const description = product.description
+      ? (product.description.length > 200 ? `${product.description.slice(0, 197)}...` : product.description)
+      : `Buy ${product.title} on Omeetso hyperlocal marketplace.`;
+
+    return {
+      meta: [
+        { title },
+        { name: "description", content: description },
+        { property: "og:type", content: "product" },
+        { property: "og:site_name", content: "Omeetso" },
+        { property: "og:title", content: title },
+        { property: "og:description", content: description },
+        { property: "og:image", content: imgUrl },
+        { property: "og:image:secure_url", content: imgUrl },
+        { property: "og:image:alt", content: product.title },
+        { property: "og:image:width", content: "1200" },
+        { property: "og:image:height", content: "630" },
+        { name: "twitter:card", content: "summary_large_image" },
+        { name: "twitter:title", content: title },
+        { name: "twitter:description", content: description },
+        { name: "twitter:image", content: imgUrl },
+        { name: "twitter:image:alt", content: product.title },
+      ],
+    };
+  },
   pendingComponent: () => (
     <MobileFrame>
       <InfinityLoader
@@ -297,6 +325,7 @@ function ProductPage() {
               </button>
             </>
           )}
+          <ProductWatermark size="md" position="bottom-right" className="bottom-12 right-3 md:bottom-14 md:right-4" />
           <span className="absolute bottom-3 right-3 rounded-full bg-slate-950/80 border border-white/20 px-2.5 py-1 text-[11px] font-bold text-white backdrop-blur-sm shadow-xs">
             {idx + 1}/{displayImages.length}
           </span>

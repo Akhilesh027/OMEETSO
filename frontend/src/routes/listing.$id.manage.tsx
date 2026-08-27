@@ -162,37 +162,48 @@ function Manage() {
             </div>
 
             {/* Performance Analytics Card */}
-            <div className="rounded-3xl border border-border bg-card p-5 shadow-sm space-y-4">
-              <div className="flex items-center justify-between border-b border-border pb-3">
-                <h2 className="text-sm font-extrabold uppercase tracking-wide flex items-center gap-2 text-foreground">
-                  <BarChart3 className="h-4 w-4 text-indigo-brand" /> Listing Performance
-                </h2>
-                <Link to="/listing/$id/analytics" params={{ id }} className="text-xs font-bold text-indigo-brand hover:underline">
-                  Detailed Stats →
-                </Link>
-              </div>
+            {!isRejected ? (
+              <div className="rounded-3xl border border-border bg-card p-5 shadow-sm space-y-4">
+                <div className="flex items-center justify-between border-b border-border pb-3">
+                  <h2 className="text-sm font-extrabold uppercase tracking-wide flex items-center gap-2 text-foreground">
+                    <BarChart3 className="h-4 w-4 text-indigo-brand" /> Listing Performance
+                  </h2>
+                  <Link to="/listing/$id/analytics" params={{ id }} className="text-xs font-bold text-indigo-brand hover:underline">
+                    Detailed Stats →
+                  </Link>
+                </div>
 
-              <div className="grid grid-cols-3 gap-3 text-center">
-                <div className="p-3 rounded-2xl bg-indigo-brand/5 border border-indigo-brand/10">
-                  <Eye className="h-4 w-4 text-indigo-brand mx-auto mb-1" />
-                  <p className="text-base font-black text-indigo-brand">{a.views || 142}</p>
-                  <p className="text-[10px] font-bold text-muted-foreground">Views</p>
-                </div>
-                <div className="p-3 rounded-2xl bg-emerald-50 border border-emerald-100">
-                  <MessageSquare className="h-4 w-4 text-emerald-600 mx-auto mb-1" />
-                  <p className="text-base font-black text-emerald-700">{a.chats || 12}</p>
-                  <p className="text-[10px] font-bold text-muted-foreground">Chats</p>
-                </div>
-                <div className="p-3 rounded-2xl bg-amber-50 border border-amber-100">
-                  <Heart className="h-4 w-4 text-amber-600 mx-auto mb-1" />
-                  <p className="text-base font-black text-amber-700">{a.saves || 8}</p>
-                  <p className="text-[10px] font-bold text-muted-foreground">Saves</p>
+                <div className="grid grid-cols-3 gap-3 text-center">
+                  <div className="p-3 rounded-2xl bg-indigo-brand/5 border border-indigo-brand/10">
+                    <Eye className="h-4 w-4 text-indigo-brand mx-auto mb-1" />
+                    <p className="text-base font-black text-indigo-brand">{a.views || 0}</p>
+                    <p className="text-[10px] font-bold text-muted-foreground">Views</p>
+                  </div>
+                  <div className="p-3 rounded-2xl bg-emerald-50 border border-emerald-100">
+                    <MessageSquare className="h-4 w-4 text-emerald-600 mx-auto mb-1" />
+                    <p className="text-base font-black text-emerald-700">{a.chats || 0}</p>
+                    <p className="text-[10px] font-bold text-muted-foreground">Chats</p>
+                  </div>
+                  <div className="p-3 rounded-2xl bg-amber-50 border border-amber-100">
+                    <Heart className="h-4 w-4 text-amber-600 mx-auto mb-1" />
+                    <p className="text-base font-black text-amber-700">{a.saves || 0}</p>
+                    <p className="text-[10px] font-bold text-muted-foreground">Saves</p>
+                  </div>
                 </div>
               </div>
-            </div>
+            ) : (
+              <div className="rounded-3xl border border-rose-200 bg-rose-50/70 p-4 shadow-sm space-y-1.5 text-xs text-rose-900">
+                <div className="flex items-center gap-1.5 font-extrabold text-xs text-rose-700">
+                  <AlertCircle className="h-4 w-4 shrink-0" /> Engagement Details Hidden
+                </div>
+                <p className="text-rose-800/80 text-[11px] leading-relaxed">
+                  Views, chats, and engagement metrics are not displayed while this listing is in rejected status.
+                </p>
+              </div>
+            )}
 
             {/* Boost Ad Banner */}
-            {!isReview && !isSold && (
+            {!isReview && !isSold && !isRejected && (
               <button
                 onClick={() => setShowBoostWizard(true)}
                 className="w-full flex items-center justify-between rounded-3xl border border-amber-500/30 bg-gradient-to-r from-amber-500/15 to-yellow-500/10 p-5 text-left transition-all hover:border-amber-500/50 shadow-sm"

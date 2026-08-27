@@ -273,6 +273,7 @@ export async function fetchLiveListingById(id: string): Promise<Listing | null> 
         category: item.categoryId || item.category || "general",
         subcategory: item.subcategoryId || item.subcategory || item.categoryId || "General",
         images: validImages,
+        image: validImages[item.coverIndex || 0] || validImages[0],
         cover: item.coverIndex || 0,
         video: item.videoUrl || item.video,
         videoUrl: item.videoUrl || item.video,

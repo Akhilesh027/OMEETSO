@@ -54,6 +54,7 @@ export const SPEC_CONFIG: Record<string, SpecField[]> = {
     { key: "Warranty", label: "Warranty", type: "select", options: ["None", "Under 3 months", "3–6 months", "6–12 months", "Extended"] },
     { key: "Working condition", label: "Working condition", type: "select", options: ["Perfect", "Minor issues", "Needs repair"], required: true },
     { key: "Accessories", label: "Accessories", type: "text" },
+    { key: "Invoice available", label: "Invoice available", type: "toggle" },
   ],
   furniture: [
     { key: "Furniture type", label: "Furniture type", type: "select", options: ["Sofa", "Bed", "Dining Table", "Study Table / Desk", "Chair", "Wardrobe / Almirah", "Shoe Rack", "Bookshelf", "TV Unit", "Recliner", "Other"], required: true },
@@ -91,12 +92,13 @@ export const SPEC_CONFIG: Record<string, SpecField[]> = {
     { key: "Star Rating", label: "Energy Rating", type: "select", options: ["5 Star", "4 Star", "3 Star", "2 Star", "1 Star", "Not Rated"] },
     { key: "Purchase year", label: "Purchase year", type: "select", options: YEARS },
     { key: "Warranty", label: "Warranty remaining", type: "select", options: ["None", "Under 6 months", "1-2 Years", "Compressor Warranty Only"] },
+    { key: "Invoice available", label: "Invoice available", type: "toggle" },
   ],
   jobs: [
     { key: "Job Designation", label: "Job Title / Role", type: "text", required: true, placeholder: "e.g. Senior Software Engineer / Sales Executive" },
     { key: "Job Type", label: "Job Type", type: "select", options: ["Full time", "Part time", "Work from home", "Contract / Freelance", "Internship"], required: true },
     { key: "Work Mode", label: "Work Mode", type: "select", options: ["On-site (Office)", "Remote (Work from Home)", "Hybrid"], required: true },
-    { key: "Experience Required", label: "Experience Required", type: "select", options: ["Fresher / No Experience", "1-2 Years", "3-5 Years", "5-8 Years", "8+ Years"] },
+    { key: "Experience Required", label: "Experience Required", type: "select", options: ["Fresher / No Experience", "0-1 Year", "1-2 Years", "2-3 Years", "3-5 Years", "5-8 Years", "8+ Years", "Any Experience"], required: true },
     { key: "Qualification", label: "Minimum Qualification", type: "select", options: ["10th / 12th Pass", "Diploma / ITI", "Graduate (Bachelor's)", "Post Graduate (Master's)", "Any"] },
     { key: "Salary Period", label: "Salary Pay Period", type: "select", options: ["Per Month", "Per Year", "Hourly", "Per Project"] },
     { key: "Company Name", label: "Hiring Company / Consultant", type: "text" },

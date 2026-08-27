@@ -4,7 +4,7 @@ import { MobileFrame } from "@/components/omeetso/MobileFrame";
 import { BackBar } from "@/components/omeetso/TopBar";
 import {
   ConditionSelector, PriceInput, ContactPreferenceSelector, LocationSelector,
-  ValidationSummary, LoadingOverlay,
+  ValidationSummary, LoadingOverlay, MissingFieldsModal,
 } from "@/components/sell";
 import { ImageUploader } from "@/components/sell/ImageUploader";
 import { SpecForm } from "@/components/sell/SpecForm";
@@ -29,6 +29,7 @@ function EditListing() {
   const [l, setL] = useState<Listing | undefined>(() => getListing(id));
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [summary, setSummary] = useState<string[]>([]);
+  const [showMissingModal, setShowMissingModal] = useState(false);
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
@@ -66,7 +67,10 @@ function EditListing() {
     const v = validateAll(l as Listing, { specs: true });
     setErrors(v.errors);
     setSummary(v.summary);
-    if (!v.ok) { toast.error("Please fix the highlighted fields"); return; }
+    if (!v.ok) {
+      setShowMissingModal(true);
+      return;
+    }
     setSaving(true);
     const nextStatus = l!.status === "rejected" ? "under_review" : l!.status === "active" ? "requires_changes" : l!.status;
     const hist = [...(l!.editHistory ?? []), { at: Date.now(), note: "Edited by seller" }];
@@ -284,6 +288,13 @@ function EditListing() {
         </div>
 
         <LoadingOverlay open={saving} label="Saving changes to MongoDB..." />
+
+        {/* Missing Fields Pop-up Modal */}
+        <MissingFieldsModal
+          open={showMissingModal}
+          onClose={() => setShowMissingModal(false)}
+          missingItems={summary}
+        />
       </div>
     </MobileFrame>
   );

@@ -5,6 +5,7 @@ import { BackBar } from "@/components/omeetso/TopBar";
 import {
   ConditionSelector, PriceInput, ContactPreferenceSelector,
   LocationSelector, ConfirmModal, LoadingOverlay,
+  MissingFieldsModal,
 } from "@/components/sell";
 import { ImageUploader } from "@/components/sell/ImageUploader";
 import { SpecForm } from "@/components/sell/SpecForm";
@@ -23,9 +24,11 @@ import {
 } from "@/lib/listingValidation";
 import { BRANDS_BY_CATEGORY, generateTitleSuggestions, generateAiDescription } from "@/lib/aiAssistance";
 import { toast } from "sonner";
+import { useRef } from "react";
 import {
   Sparkles, ClipboardList, ShieldCheck, MapPin, Tag, Eye,
-  Wand2, Image as ImageIcon, Layers, Phone, MessageSquare, CheckCircle2, X
+  Wand2, Image as ImageIcon, Layers, Phone, MessageSquare, CheckCircle2, X,
+  RefreshCw, Clock, Trash2,
 } from "lucide-react";
 
 export const Route = createFileRoute("/sell/detailed")({
@@ -63,11 +66,19 @@ function DetailedSellPage() {
   const [selectedBrand, setSelectedBrand] = useState<string>("");
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [summary, setSummary] = useState<string[]>([]);
+  const [showMissingModal, setShowMissingModal] = useState(false);
   const [publishing, setPublishing] = useState(false);
   const [confirmed, setConfirmed] = useState(true);
   const [aiLoading, setAiLoading] = useState(false);
   const [storeId, setStoreId] = useState<string | undefined>();
   const [mobilePreviewOpen, setMobilePreviewOpen] = useState(false);
+
+  // Auto-Save Management State
+  const [autoSaveEnabled, setAutoSaveEnabled] = useState(true);
+  const [lastSavedTime, setLastSavedTime] = useState<number | null>(null);
+  const [isAutoSaving, setIsAutoSaving] = useState(false);
+  const [draftRestored, setDraftRestored] = useState(false);
+  const isInitialLoad = useRef(true);
 
   useEffect(() => {
     const d = loadDraft();
@@ -90,6 +101,13 @@ function DetailedSellPage() {
       }
     } catch { }
 
+    if (d && (d.title || d.price || (d.images && d.images.length > 0) || d.description || (d.specs && Object.keys(d.specs).length > 0))) {
+      setDraftRestored(true);
+      if ((d as any).lastAutoSavedAt) {
+        setLastSavedTime((d as any).lastAutoSavedAt);
+      }
+    }
+
     setData((prev) => ({
       area: locArea,
       city: locCity,
@@ -101,7 +119,81 @@ function DetailedSellPage() {
       ...d,
     }));
     if (selStore) setStoreId(selStore);
+
+    setTimeout(() => {
+      isInitialLoad.current = false;
+    }, 400);
   }, []);
+
+  // Automatic real-time background draft saving (debounced 800ms)
+  useEffect(() => {
+    if (isInitialLoad.current || !autoSaveEnabled) return;
+
+    const hasData = Boolean(
+      (data.title && data.title.trim().length > 0) ||
+      (data.price && data.price > 0) ||
+      (data.images && data.images.length > 0) ||
+      (data.description && data.description.trim().length > 0) ||
+      (data.specs && Object.keys(data.specs).length > 0)
+    );
+
+    if (!hasData) return;
+
+    setIsAutoSaving(true);
+    const timer = setTimeout(() => {
+      const now = Date.now();
+      const payload = { ...data, lastAutoSavedAt: now };
+      try {
+        localStorage.setItem(DRAFT_KEY, JSON.stringify(payload));
+        saveDraftFn({
+          id: (data as any).draftId || "detailed-draft-1",
+          title: data.title || "Untitled Detailed Listing",
+          category: data.category || "electronics",
+          subcategory: data.subcategory || "laptops",
+          price: data.price,
+          images: data.images,
+          cover: data.cover,
+          specs: data.specs,
+          method: "detailed",
+          createdAt: now,
+          updatedAt: now,
+        });
+        setLastSavedTime(now);
+      } catch (err) {
+        console.warn("Auto-save warning:", err);
+      } finally {
+        setIsAutoSaving(false);
+      }
+    }, 800);
+
+    return () => clearTimeout(timer);
+  }, [data, autoSaveEnabled]);
+
+  // Flush auto-save on page exit / beforeunload
+  useEffect(() => {
+    const handleBeforeUnload = () => {
+      if (autoSaveEnabled && data.title) {
+        localStorage.setItem(DRAFT_KEY, JSON.stringify({ ...data, lastAutoSavedAt: Date.now() }));
+      }
+    };
+    window.addEventListener("beforeunload", handleBeforeUnload);
+    return () => window.removeEventListener("beforeunload", handleBeforeUnload);
+  }, [data, autoSaveEnabled]);
+
+  const handleDiscardDraft = () => {
+    localStorage.removeItem(DRAFT_KEY);
+    setDraftRestored(false);
+    setData({
+      images: [], cover: 0, negotiable: true, fulfilment: "pickup",
+      contactPref: "call_and_chat", bestContactTime: "anytime",
+      sellerName: "You", sellerType: "individual",
+      city: "Hyderabad", area: "Hitec City", pincode: "500081",
+      category: "electronics", subcategory: "laptops", condition: "good",
+      specs: {}
+    });
+    setLastSavedTime(null);
+    toast.info("Draft cleared. Starting fresh.");
+  };
 
   const patch = (p: Partial<Listing>) => setData((d) => ({ ...d, ...p }));
 
@@ -138,7 +230,10 @@ function DetailedSellPage() {
     const errs = Object.assign({}, ...checks.map((r) => r.errors));
     const sums = checks.flatMap((r) => r.summary);
     setErrors(errs); setSummary(sums);
-    if (sums.length > 0) { toast.error("Please complete required fields"); return; }
+    if (sums.length > 0) {
+      setShowMissingModal(true);
+      return;
+    }
     if (!confirmed) { toast.error("Please confirm the listing declaration"); return; }
 
     const guest = typeof localStorage !== "undefined" && localStorage.getItem("omeetso_guest_session");
@@ -230,6 +325,75 @@ function DetailedSellPage() {
     <MobileFrame>
       <div className="min-h-dvh bg-background pb-28 md:pb-16 font-sans">
         <BackBar title="Create Detailed Listing" />
+
+        {/* Auto-Save Status & Control Bar */}
+        <div className="bg-secondary/40 border-b border-border/80 px-4 py-2 flex items-center justify-between text-xs">
+          <div className="flex items-center gap-2">
+            {isAutoSaving ? (
+              <span className="inline-flex items-center gap-1.5 text-indigo-brand font-bold animate-pulse">
+                <RefreshCw className="h-3.5 w-3.5 animate-spin" /> Saving draft...
+              </span>
+            ) : lastSavedTime ? (
+              <span className="inline-flex items-center gap-1.5 text-emerald-600 font-bold">
+                <CheckCircle2 className="h-3.5 w-3.5" /> Draft auto-saved ({new Date(lastSavedTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })})
+              </span>
+            ) : (
+              <span className="text-muted-foreground font-semibold flex items-center gap-1.5">
+                <Clock className="h-3.5 w-3.5" /> Auto-save active
+              </span>
+            )}
+          </div>
+
+          <div className="flex items-center gap-2">
+            <label className="flex items-center gap-1.5 text-[11px] font-extrabold text-muted-foreground hover:text-foreground cursor-pointer select-none">
+              <span>Auto-save:</span>
+              <input
+                type="checkbox"
+                checked={autoSaveEnabled}
+                onChange={(e) => {
+                  setAutoSaveEnabled(e.target.checked);
+                  if (e.target.checked) toast.success("Auto-save enabled");
+                  else toast.info("Auto-save paused");
+                }}
+                className="h-3.5 w-3.5 accent-emerald-600 rounded cursor-pointer"
+              />
+              <span className={autoSaveEnabled ? "text-emerald-600 font-bold" : "text-muted-foreground"}>
+                {autoSaveEnabled ? "ON" : "OFF"}
+              </span>
+            </label>
+          </div>
+        </div>
+
+        {/* Draft Restored Banner */}
+        {draftRestored && (
+          <div className="mx-auto max-w-[1400px] px-4 pt-3 md:px-8">
+            <div className="rounded-2xl border border-emerald-500/30 bg-emerald-500/10 p-3 flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 text-xs text-foreground">
+              <div className="flex items-center gap-2 min-w-0">
+                <CheckCircle2 className="h-4 w-4 text-emerald-600 shrink-0" />
+                <span className="font-bold truncate">
+                  Draft restored from your previous session
+                  {lastSavedTime && ` (${new Date(lastSavedTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })})`}.
+                </span>
+              </div>
+              <div className="flex items-center gap-2 shrink-0">
+                <button
+                  type="button"
+                  onClick={() => setDraftRestored(false)}
+                  className="px-3 py-1 rounded-full bg-emerald-600 text-white font-bold hover:bg-emerald-700 transition-all text-[11px] cursor-pointer"
+                >
+                  Continue Editing
+                </button>
+                <button
+                  type="button"
+                  onClick={handleDiscardDraft}
+                  className="px-3 py-1 rounded-full bg-card border border-border text-muted-foreground font-bold hover:text-rose-600 hover:border-rose-300 transition-all text-[11px] cursor-pointer flex items-center gap-1"
+                >
+                  <Trash2 className="h-3 w-3" /> Discard
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
 
         <div className="mx-auto max-w-[1400px] px-4 py-6 md:px-8">
           <div className="flex flex-col lg:flex-row gap-8 items-start">
@@ -621,6 +785,13 @@ function DetailedSellPage() {
             </div>
           </div>
         )}
+
+        {/* Missing Fields Pop-up Modal */}
+        <MissingFieldsModal
+          open={showMissingModal}
+          onClose={() => setShowMissingModal(false)}
+          missingItems={summary}
+        />
       </div>
     </MobileFrame>
   );

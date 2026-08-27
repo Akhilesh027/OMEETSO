@@ -57,6 +57,10 @@ export function validateContact(l: Partial<Listing>): Validation {
   const errors: Record<string, string> = {};
   const summary: string[] = [];
   if (!l.contactPref) { errors.contactPref = "Choose a contact preference"; summary.push("Contact preference required"); }
+  if (l.whatsappPhone && l.whatsappPhone.trim().length > 0 && !/^\d{10}$/.test(l.whatsappPhone.trim())) {
+    errors.whatsappPhone = "WhatsApp number must be 10 digits";
+    summary.push("WhatsApp phone must be 10 digits");
+  }
   return { ok: Object.keys(errors).length === 0, errors, summary };
 }
 

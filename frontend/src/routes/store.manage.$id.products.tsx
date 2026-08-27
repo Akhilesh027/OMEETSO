@@ -145,11 +145,13 @@ function Products() {
                       <span className="rounded-full bg-secondary px-2 py-0.5 font-semibold text-muted-foreground">{l.status}</span>
                       {l.storeMeta?.featured && <span className="rounded-full bg-yellow-brand/20 px-2 py-0.5 font-semibold text-yellow-brand"><Star className="mr-0.5 inline h-2.5 w-2.5" />Featured</span>}
                     </div>
-                    <div className="mt-1 flex gap-3 text-[10px] text-muted-foreground">
-                      <span className="inline-flex items-center gap-1"><Eye className="h-3 w-3" />{a.views}</span>
-                      <span className="inline-flex items-center gap-1"><MessageCircle className="h-3 w-3" />{a.chats}</span>
-                      <span className="inline-flex items-center gap-1"><Bookmark className="h-3 w-3" />{a.saves}</span>
-                    </div>
+                    {l.status !== "rejected" && l.status !== "REJECTED" && (
+                      <div className="mt-1 flex gap-3 text-[10px] text-muted-foreground">
+                        <span className="inline-flex items-center gap-1"><Eye className="h-3 w-3" />{a.views}</span>
+                        <span className="inline-flex items-center gap-1"><MessageCircle className="h-3 w-3" />{a.chats}</span>
+                        <span className="inline-flex items-center gap-1"><Bookmark className="h-3 w-3" />{a.saves}</span>
+                      </div>
+                    )}
                   </div>
                 </div>
 

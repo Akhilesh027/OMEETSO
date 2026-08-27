@@ -66,21 +66,20 @@ export function JobsPage() {
     setLoading(true);
     let loaded = false;
 
-    // Try port 3000 then 5000
+    // Fetch all jobs so stats and tabs filter seamlessly
     for (const port of [3000, 5000]) {
       try {
         const token = typeof localStorage !== "undefined" ? localStorage.getItem("omeetso_admin_token") : null;
-        const res = await fetch(
-          `http://localhost:${port}/api/v1/admin/jobs?status=${statusFilter === "all" ? "ALL" : statusFilter.toUpperCase()}&q=${encodeURIComponent(searchQuery)}`,
-          {
-            headers: { ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+        const res = await fetch(`http://localhost:${port}/api/v1/admin/jobs?status=ALL`, {
+          headers: { ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+        });
+        if (res.ok) {
+          const json = await res.json();
+          if (json.success && Array.isArray(json.data)) {
+            setJobs(json.data);
+            loaded = true;
+            break;
           }
-        );
-        const json = await res.json();
-        if (json.success && Array.isArray(json.data) && json.data.length > 0) {
-          setJobs(json.data);
-          loaded = true;
-          break;
         }
       } catch {
         // try next
@@ -88,84 +87,7 @@ export function JobsPage() {
     }
 
     if (!loaded) {
-      // Fallback to rich seed jobs
-      const defaultJobs = [
-        {
-          id: "job-001",
-          _id: "job-001",
-          employerId: "emp-001",
-          companyName: "TechNova Solutions Pvt Ltd",
-          title: "Senior Full Stack React & Node Developer",
-          jobCategoryId: "it_software",
-          subcategoryId: "IT & Software",
-          jobType: "FULL_TIME",
-          workplaceType: "HYBRID",
-          openingsCount: 3,
-          salary: { minSalary: 800000, maxSalary: 1400000, salaryPeriod: "yearly", salaryDisclosed: true },
-          location: { area: "Hitec City", city: "Hyderabad", pincode: "500081" },
-          status: "APPROVED",
-          isVerifiedEmployer: true,
-          isUrgent: true,
-          isFeatured: true,
-          applicationsCount: 24,
-          viewsCount: 650,
-          createdAt: new Date(Date.now() - 86400000 * 2).toISOString(),
-          candidateCriteria: { experience: "3-6 Years", minEducation: "B.Tech / MCA", fresherAllowed: false },
-          jobDetails: { description: "We are seeking a senior full stack developer proficient in React, TypeScript, Node.js and TailwindCSS to join our core product engineering team." },
-        },
-        {
-          id: "job-002",
-          _id: "job-002",
-          employerId: "emp-002",
-          companyName: "GrowthPulse Marketing Labs",
-          title: "Performance Marketing & SEO Specialist",
-          jobCategoryId: "sales_marketing",
-          subcategoryId: "Digital Marketing",
-          jobType: "FULL_TIME",
-          workplaceType: "OFFICE",
-          openingsCount: 2,
-          salary: { minSalary: 350000, maxSalary: 600000, salaryPeriod: "yearly", salaryDisclosed: true },
-          location: { area: "Madhapur", city: "Hyderabad", pincode: "500081" },
-          status: "ACTIVE",
-          isVerifiedEmployer: true,
-          isUrgent: false,
-          isFeatured: false,
-          applicationsCount: 18,
-          viewsCount: 420,
-          createdAt: new Date(Date.now() - 86400000 * 4).toISOString(),
-          candidateCriteria: { experience: "1-3 Years", minEducation: "Graduate", fresherAllowed: true },
-          jobDetails: { description: "Manage paid ad campaigns across Google Ads, Meta Ads and optimize technical on-page SEO." },
-        },
-        {
-          id: "job-003",
-          _id: "job-003",
-          employerId: "emp-003",
-          companyName: "QuickDeliver Logistics Hub",
-          title: "Delivery Fleet Associates & Hub Supervisors",
-          jobCategoryId: "delivery_logistics",
-          subcategoryId: "Delivery & Logistics",
-          jobType: "FULL_TIME",
-          workplaceType: "FIELD_WORK",
-          openingsCount: 15,
-          salary: { minSalary: 22000, maxSalary: 28000, salaryPeriod: "monthly", salaryDisclosed: true },
-          location: { area: "Kukatpally", city: "Hyderabad", pincode: "500072" },
-          status: "SUBMITTED",
-          isVerifiedEmployer: false,
-          isUrgent: true,
-          isFeatured: false,
-          applicationsCount: 8,
-          viewsCount: 190,
-          createdAt: new Date(Date.now() - 86400000 * 1).toISOString(),
-          candidateCriteria: { experience: "0-2 Years", minEducation: "10th / 12th Pass", fresherAllowed: true },
-          jobDetails: { description: "Responsible for local parcel distribution in Cyberabad zone. Attractive daily incentives and fuel allowance." },
-        },
-      ];
-
-      if (statusFilter === "all") {
-        setJobs(defaultJobs);
-      } else {
-        setJobs(defaultJobs.filter((j) => j.status.toLowerCase() === statusFilter.toLowerCase()));
-      }
+      setJobs([]);
     }
     setLoading(false);
   };
@@ -174,29 +96,23 @@ export function JobsPage() {
     for (const port of [3000, 5000]) {
       try {
         const res = await fetch(`http://localhost:${port}/api/v1/jobs/categories`);
-        const json = await res.json();
-        if (json.success && Array.isArray(json.data) && json.data.length > 0) {
-          setCategories(json.data);
-          return;
+        if (res.ok) {
+          const json = await res.json();
+          if (json.success && Array.isArray(json.data)) {
+            setCategories(json.data);
+            return;
+          }
         }
       } catch {
         // try next
       }
     }
-
-    setCategories([
-      { id: "it_software", name: "IT & Software", icon: "Laptop", subcategories: ["Web Development", "Mobile Apps", "Cloud & DevOps", "QA & Testing"] },
-      { id: "sales_marketing", name: "Sales & Marketing", icon: "TrendingUp", subcategories: ["B2B Sales", "Digital Marketing", "Field Sales", "Telecalling"] },
-      { id: "delivery_logistics", name: "Delivery & Logistics", icon: "Truck", subcategories: ["Delivery Rider", "Warehouse Staff", "Fleet Supervisor"] },
-      { id: "hotel_restaurant", name: "Hotel & Restaurant", icon: "Coffee", subcategories: ["Chef / Cook", "Service Staff", "Barista", "Manager"] },
-      { id: "customer_support", name: "Customer Support", icon: "Headphones", subcategories: ["Voice Process", "Non-Voice / Chat", "Technical Support"] },
-    ]);
   };
 
   useEffect(() => {
     loadAdminJobs();
     loadAdminCategories();
-  }, [statusFilter]);
+  }, []);
 
   const handleUpdateJobStatus = async (jobId: string, status: string, reason?: string) => {
     try {
@@ -255,26 +171,30 @@ export function JobsPage() {
   };
 
   const filteredJobs = jobs.filter((j) => {
-    const matchesSearch =
-      j.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      j.companyName.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      (j.location?.city && j.location.city.toLowerCase().includes(searchQuery.toLowerCase())) ||
-      (j.location?.area && j.location.area.toLowerCase().includes(searchQuery.toLowerCase()));
+    if (!j) return false;
+    const q = (searchQuery || "").trim().toLowerCase();
+    if (q) {
+      const titleMatch = (j.title || "").toLowerCase().includes(q);
+      const compMatch = (j.companyName || "").toLowerCase().includes(q);
+      const cityMatch = (j.location?.city || "").toLowerCase().includes(q);
+      const areaMatch = (j.location?.area || "").toLowerCase().includes(q);
+      if (!titleMatch && !compMatch && !cityMatch && !areaMatch) return false;
+    }
 
-    if (!matchesSearch) return false;
-
-    if (statusFilter === "submitted") return j.status === "SUBMITTED" || j.status === "pending";
-    if (statusFilter === "approved" || statusFilter === "active") return j.status === "APPROVED" || j.status === "ACTIVE";
-    if (statusFilter === "paused") return j.status === "PAUSED";
-    if (statusFilter === "filled") return j.status === "FILLED";
-    if (statusFilter === "rejected") return j.status === "REJECTED";
+    if (statusFilter === "all") return true;
+    const s = (j.status || "").toLowerCase();
+    if (statusFilter === "submitted") return s === "submitted" || s === "pending";
+    if (statusFilter === "approved" || statusFilter === "active") return s === "approved" || s === "active";
+    if (statusFilter === "paused") return s === "paused";
+    if (statusFilter === "filled") return s === "filled";
+    if (statusFilter === "rejected") return s === "rejected";
 
     return true;
   });
 
   const totalOpenings = jobs.reduce((acc, j) => acc + (j.openingsCount || 1), 0);
   const totalApplications = jobs.reduce((acc, j) => acc + (j.applicationsCount || 0), 0);
-  const pendingCount = jobs.filter((j) => j.status === "SUBMITTED" || j.status === "pending").length;
+  const pendingCount = jobs.filter((j) => (j.status || "").toLowerCase() === "submitted" || (j.status || "").toLowerCase() === "pending").length;
 
   return (
     <PageContainer>

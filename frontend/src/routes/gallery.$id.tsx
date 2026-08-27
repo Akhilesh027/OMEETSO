@@ -2,6 +2,7 @@ import { createFileRoute, notFound, useNavigate } from "@tanstack/react-router";
 import { useState } from "react";
 import { X, Share2, ChevronLeft, ChevronRight, Play } from "lucide-react";
 import { getProduct } from "@/lib/mock";
+import { ProductWatermark } from "@/components/omeetso/Watermark";
 
 export const Route = createFileRoute("/gallery/$id")({
   validateSearch: (s: Record<string, unknown>) => ({ i: typeof s.i === "string" ? s.i : "0" }),
@@ -57,6 +58,7 @@ function GalleryPage() {
           onClick={() => setZoom((z) => !z)}
           className={"max-h-full max-w-full object-contain transition-transform duration-300 " + (zoom ? "scale-150" : "scale-100")}
         />
+        <ProductWatermark size="lg" position="bottom-right" className="bottom-6 right-6 md:bottom-8 md:right-8" />
         {images.length > 1 && (
           <>
             <button

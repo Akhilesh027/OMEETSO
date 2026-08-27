@@ -158,7 +158,9 @@ function SelectListing() {
                     <p className="line-clamp-1 text-xs font-extrabold text-foreground">{l.title}</p>
                     <p className="text-xs font-black text-slate-900 dark:text-white mt-0.5">{formatINR(l.price)}</p>
                     <p className="text-[11px] text-muted-foreground font-medium mt-0.5 truncate">
-                      {l.area}, {l.city} • <Eye className="inline h-3 w-3 text-muted-foreground" /> {l.views || 0} views
+                      {l.area}, {l.city}{l.status !== "rejected" && l.status !== "REJECTED" && (
+                        <> • <Eye className="inline h-3 w-3 text-muted-foreground" /> {l.views || 0} views</>
+                      )}
                     </p>
 
                     <div className="mt-1 flex items-center gap-2">

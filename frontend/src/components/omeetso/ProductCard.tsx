@@ -3,6 +3,7 @@ import { Heart, ShieldCheck, MapPin, Sparkles, Ban, Zap, Eye, Star } from "lucid
 import { formatINR, type Product } from "@/lib/mock";
 import { useSaved } from "@/hooks/useSaved";
 import { cn } from "@/lib/utils";
+import { ProductWatermark } from "./Watermark";
 
 function SaveButton({ id, size = "md" }: { id: string; size?: "sm" | "md" }) {
   const { saved, toggle } = useSaved(id);
@@ -84,6 +85,7 @@ export function ProductCard({
             </button>
           )}
           <StatusOverlay p={p} />
+          <ProductWatermark size="xs" position="bottom-right" />
         </div>
         <div className="px-1 pt-2">
           <p className="text-[15px] font-black text-slate-900 dark:text-white leading-tight">{formatINR(p.price)}</p>
@@ -115,6 +117,7 @@ export function ProductCard({
             </button>
           )}
           <StatusOverlay p={p} />
+          <ProductWatermark size="xs" position="bottom-right" />
         </div>
         <div className="min-w-0 flex-1 flex flex-col justify-between py-0.5">
           <div>
@@ -199,6 +202,7 @@ export function ProductCard({
             </span>
           )}
           <StatusOverlay p={p} />
+          <ProductWatermark size="xs" position={p.condition ? "bottom-right" : "bottom-right"} />
         </div>
       </Link>
 

@@ -189,6 +189,12 @@ export async function createJobListing(req: AuthenticatedUserRequest, res: Respo
     }
 
     const body = req.body;
+    const loc = body.location || {};
+    const sal = body.salary || {};
+    const crit = body.candidateCriteria || {};
+    const det = body.jobDetails || {};
+    const walk = body.walkInDetails || {};
+
     const job = await Job.create({
       employerId: req.user._id,
       storeId: body.storeId || undefined,
@@ -201,22 +207,59 @@ export async function createJobListing(req: AuthenticatedUserRequest, res: Respo
       title: body.title,
       jobCategoryId: body.jobCategoryId || "it_software",
       subcategoryId: body.subcategoryId || "General",
-      openingsCount: body.openingsCount || 1,
+      openingsCount: Number(body.openingsCount) || 1,
       jobType: body.jobType || "FULL_TIME",
       workplaceType: body.workplaceType || "OFFICE",
-      location: body.location || { area: "Madhapur", city: "Hyderabad", pincode: "500081" },
-      salary: body.salary || { minSalary: 25000, maxSalary: 40000, salaryPeriod: "monthly", salaryDisclosed: true },
-      candidateCriteria: body.candidateCriteria || { experience: "1-2 Years", fresherAllowed: true, minEducation: "Graduate", skills: [] },
-      jobDetails: body.jobDetails || { description: body.description || body.title },
-      walkInDetails: body.walkInDetails || { isWalkIn: false },
+      location: {
+        remoteScope: loc.remoteScope,
+        area: loc.area || "Madhapur",
+        city: loc.city || "Hyderabad",
+        pincode: loc.pincode || "500081",
+        coordinates: Array.isArray(loc.coordinates) && loc.coordinates.length === 2 ? loc.coordinates : [78.3871, 17.4486]
+      },
+      salary: {
+        minSalary: Number(sal.minSalary) || 0,
+        maxSalary: Number(sal.maxSalary) || 0,
+        salaryPeriod: sal.salaryPeriod || "monthly",
+        salaryDisclosed: sal.salaryDisclosed !== undefined ? Boolean(sal.salaryDisclosed) : true,
+        negotiable: Boolean(sal.negotiable),
+        incentivesAvailable: Boolean(sal.incentivesAvailable)
+      },
+      candidateCriteria: {
+        experience: crit.experience || "Fresher / Entry Level",
+        fresherAllowed: crit.fresherAllowed !== undefined ? Boolean(crit.fresherAllowed) : true,
+        minEducation: crit.minEducation || "Graduate",
+        skills: Array.isArray(crit.skills) ? crit.skills : [],
+        languages: Array.isArray(crit.languages) ? crit.languages : []
+      },
+      jobDetails: {
+        description: det.description || body.description || body.title || "Job details provided by employer",
+        responsibilities: det.responsibilities || "",
+        requirements: det.requirements || "",
+        benefits: det.benefits || "",
+        workingDays: det.workingDays || "5 Days (Mon-Fri)",
+        shiftType: det.shiftType || "Day Shift",
+        workingHours: det.workingHours || "9 AM - 6 PM",
+        workplacePhotos: Array.isArray(det.workplacePhotos) ? det.workplacePhotos : []
+      },
+      walkInDetails: {
+        isWalkIn: Boolean(walk.isWalkIn),
+        walkInDate: walk.walkInDate ? new Date(walk.walkInDate) : undefined,
+        startTime: walk.startTime,
+        endTime: walk.endTime,
+        venue: walk.venue,
+        contactPerson: walk.contactPerson,
+        instructions: walk.instructions
+      },
       isUrgent: Boolean(body.isUrgent),
       isFeatured: Boolean(body.isFeatured),
-      screeningQuestions: body.screeningQuestions || [],
+      screeningQuestions: Array.isArray(body.screeningQuestions) ? body.screeningQuestions : [],
       status: "ACTIVE"
     });
 
     res.status(201).json({ success: true, data: { ...job.toObject(), id: job._id.toString() } });
   } catch (err) {
+    console.error("Failed to create job in backend:", err);
     next(err);
   }
 }

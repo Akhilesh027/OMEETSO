@@ -69,11 +69,35 @@ export function SpecForm({
                 ))}
               </select>
             ) : f.type === "toggle" ? (
-              <label className="inline-flex cursor-pointer items-center gap-2">
-                <input type="checkbox" checked={values[f.key] === "yes"} onChange={(e) => set(f.key, e.target.checked ? "yes" : "no")}
-                  className="h-4 w-4 accent-indigo-brand" />
-                <span className="text-xs font-bold text-foreground">Yes</span>
-              </label>
+              <div className="flex items-center gap-2 pt-0.5">
+                <button
+                  type="button"
+                  onClick={() => set(f.key, "yes")}
+                  className={cn(
+                    "flex-1 py-2 px-4 rounded-xl border text-xs font-black transition-all flex items-center justify-center gap-2 cursor-pointer select-none",
+                    values[f.key] === "yes"
+                      ? "bg-emerald-500/15 border-emerald-500 text-emerald-600 dark:text-emerald-400 ring-2 ring-emerald-500/20 shadow-xs"
+                      : "bg-card border-border/80 text-muted-foreground hover:bg-secondary hover:text-foreground"
+                  )}
+                >
+                  <span className={cn("h-2 w-2 rounded-full", values[f.key] === "yes" ? "bg-emerald-500" : "bg-muted-foreground/40")} />
+                  <span>Yes</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => set(f.key, "no")}
+                  className={cn(
+                    "flex-1 py-2 px-4 rounded-xl border text-xs font-black transition-all flex items-center justify-center gap-2 cursor-pointer select-none",
+                    values[f.key] === "no" || (!values[f.key] && f.key.toLowerCase().includes("invoice"))
+                      ? "bg-rose-500/10 border-rose-500/50 text-rose-600 dark:text-rose-400 ring-2 ring-rose-500/20 shadow-xs"
+                      : "bg-card border-border/80 text-muted-foreground hover:bg-secondary hover:text-foreground"
+                  )}
+                >
+                  <span className={cn("h-2 w-2 rounded-full", (values[f.key] === "no" || (!values[f.key] && f.key.toLowerCase().includes("invoice"))) ? "bg-rose-500" : "bg-muted-foreground/40")} />
+                  <span>No</span>
+                </button>
+              </div>
             ) : (
               <input id={id} type={f.type === "number" ? "number" : "text"} value={values[f.key] ?? ""}
                 onChange={(e) => set(f.key, e.target.value)} placeholder={f.placeholder}

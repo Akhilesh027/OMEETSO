@@ -1,5 +1,5 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
-import { Search, Mic, Camera, MapPin, X, Zap, ShieldCheck, MessageSquare, Sparkles, ArrowRight, Car, Bike, Smartphone } from "lucide-react";
+import { Search, Mic, Camera, MapPin, X, Zap, ShieldCheck, MessageSquare, Sparkles, ArrowRight, Car, Bike, Smartphone, ChevronLeft, ChevronRight, ChevronDown } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { MobileFrame } from "@/components/omeetso/MobileFrame";
 import { LocationTopBar } from "@/components/omeetso/TopBar";
@@ -833,16 +833,40 @@ function Home() {
                 <h2 className="text-base sm:text-xl font-extrabold text-foreground">Browse Top Categories</h2>
                 <p className="text-xs text-muted-foreground">Discover verified items across popular categories</p>
               </div>
-              <Link
-                to="/categories"
-                className="inline-flex items-center gap-1 text-xs font-bold text-primary hover:underline"
-              >
-                All Categories <ArrowRight className="h-3.5 w-3.5" />
-              </Link>
+              <div className="flex items-center gap-2">
+                <div className="flex items-center gap-1 bg-card/80 p-0.5 rounded-full border border-border/80 shadow-2xs">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      document.getElementById("top-categories-row")?.scrollBy({ left: -240, behavior: "smooth" });
+                    }}
+                    className="grid h-7 w-7 place-items-center rounded-full bg-card hover:bg-secondary text-muted-foreground hover:text-foreground text-xs transition-all active:scale-90"
+                    aria-label="Previous categories"
+                  >
+                    <ChevronLeft className="h-4 w-4" />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      document.getElementById("top-categories-row")?.scrollBy({ left: 240, behavior: "smooth" });
+                    }}
+                    className="grid h-7 w-7 place-items-center rounded-full bg-card hover:bg-secondary text-muted-foreground hover:text-foreground text-xs transition-all active:scale-90"
+                    aria-label="Next categories"
+                  >
+                    <ChevronRight className="h-4 w-4" />
+                  </button>
+                </div>
+                <Link
+                  to="/categories"
+                  className="inline-flex items-center gap-1 text-xs font-bold text-primary hover:underline"
+                >
+                  All Categories <ArrowRight className="h-3.5 w-3.5" />
+                </Link>
+              </div>
             </div>
 
             {/* Grid of Master DB Categories */}
-            <div className="grid grid-cols-4 sm:grid-cols-5 md:grid-cols-7 lg:grid-cols-10 gap-3 md:gap-4">
+            <div id="top-categories-row" className="grid grid-cols-4 sm:grid-cols-5 md:grid-cols-7 lg:grid-cols-10 gap-3 md:gap-4 scroll-smooth">
               {(dbCategories.length > 0 ? dbCategories : CATEGORIES).map((c) => (
                 <div
                   key={c.id}
@@ -915,16 +939,40 @@ function Home() {
                     <p className="text-xs text-muted-foreground">Inspected cars, verified service history & 0% middleman commission</p>
                   </div>
                 </div>
-                <Link
-                  to="/results"
-                  search={{ cat: "cars" } as any}
-                  className="inline-flex items-center gap-1 text-xs font-black text-blue-600 dark:text-blue-400 hover:underline shrink-0"
-                >
-                  Explore All Cars <ArrowRight className="h-3.5 w-3.5" />
-                </Link>
+                <div className="flex items-center gap-2.5 shrink-0">
+                  <div className="flex items-center gap-1 bg-card/80 p-0.5 rounded-full border border-border/80 shadow-2xs">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        document.getElementById("cars-carousel")?.scrollBy({ left: -320, behavior: "smooth" });
+                      }}
+                      className="grid h-7 w-7 place-items-center rounded-full bg-card hover:bg-secondary text-muted-foreground hover:text-foreground text-xs transition-all active:scale-90"
+                      aria-label="Previous Cars"
+                    >
+                      <ChevronLeft className="h-4 w-4" />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        document.getElementById("cars-carousel")?.scrollBy({ left: 320, behavior: "smooth" });
+                      }}
+                      className="grid h-7 w-7 place-items-center rounded-full bg-card hover:bg-secondary text-muted-foreground hover:text-foreground text-xs transition-all active:scale-90"
+                      aria-label="Next Cars"
+                    >
+                      <ChevronRight className="h-4 w-4" />
+                    </button>
+                  </div>
+                  <Link
+                    to="/results"
+                    search={{ cat: "cars" } as any}
+                    className="inline-flex items-center gap-1 text-xs font-black text-blue-600 dark:text-blue-400 hover:underline shrink-0"
+                  >
+                    Explore All Cars <ArrowRight className="h-3.5 w-3.5" />
+                  </Link>
+                </div>
               </div>
 
-              <div className="flex gap-3.5 overflow-x-auto no-scrollbar pb-2">
+              <div id="cars-carousel" className="flex gap-3.5 overflow-x-auto no-scrollbar pb-2 scroll-smooth">
                 {carProducts.map((p) => (
                   <div key={p.id} className="w-[280px] sm:w-[320px] shrink-0">
                     <ProductCard p={p} onPreview={setPreviewProduct} />
@@ -952,16 +1000,40 @@ function Home() {
                     <p className="text-xs text-muted-foreground">Cruisers, sports bikes, commuter motorcycles & scooters</p>
                   </div>
                 </div>
-                <Link
-                  to="/results"
-                  search={{ cat: "bikes" } as any}
-                  className="inline-flex items-center gap-1 text-xs font-black text-amber-600 dark:text-amber-400 hover:underline shrink-0"
-                >
-                  Explore All Bikes <ArrowRight className="h-3.5 w-3.5" />
-                </Link>
+                <div className="flex items-center gap-2.5 shrink-0">
+                  <div className="flex items-center gap-1 bg-card/80 p-0.5 rounded-full border border-border/80 shadow-2xs">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        document.getElementById("bikes-carousel")?.scrollBy({ left: -320, behavior: "smooth" });
+                      }}
+                      className="grid h-7 w-7 place-items-center rounded-full bg-card hover:bg-secondary text-muted-foreground hover:text-foreground text-xs transition-all active:scale-90"
+                      aria-label="Previous Bikes"
+                    >
+                      <ChevronLeft className="h-4 w-4" />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        document.getElementById("bikes-carousel")?.scrollBy({ left: 320, behavior: "smooth" });
+                      }}
+                      className="grid h-7 w-7 place-items-center rounded-full bg-card hover:bg-secondary text-muted-foreground hover:text-foreground text-xs transition-all active:scale-90"
+                      aria-label="Next Bikes"
+                    >
+                      <ChevronRight className="h-4 w-4" />
+                    </button>
+                  </div>
+                  <Link
+                    to="/results"
+                    search={{ cat: "bikes" } as any}
+                    className="inline-flex items-center gap-1 text-xs font-black text-amber-600 dark:text-amber-400 hover:underline shrink-0"
+                  >
+                    Explore All Bikes <ArrowRight className="h-3.5 w-3.5" />
+                  </Link>
+                </div>
               </div>
 
-              <div className="flex gap-3.5 overflow-x-auto no-scrollbar pb-2">
+              <div id="bikes-carousel" className="flex gap-3.5 overflow-x-auto no-scrollbar pb-2 scroll-smooth">
                 {bikeProducts.map((p) => (
                   <div key={p.id} className="w-[280px] sm:w-[320px] shrink-0">
                     <ProductCard p={p} onPreview={setPreviewProduct} />
@@ -989,16 +1061,40 @@ function Home() {
                     <p className="text-xs text-muted-foreground">Smartphones, MacBooks, gaming consoles & audio accessories</p>
                   </div>
                 </div>
-                <Link
-                  to="/results"
-                  search={{ cat: "electronics" } as any}
-                  className="inline-flex items-center gap-1 text-xs font-black text-indigo-600 dark:text-indigo-400 hover:underline shrink-0"
-                >
-                  Explore All Electronics <ArrowRight className="h-3.5 w-3.5" />
-                </Link>
+                <div className="flex items-center gap-2.5 shrink-0">
+                  <div className="flex items-center gap-1 bg-card/80 p-0.5 rounded-full border border-border/80 shadow-2xs">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        document.getElementById("electronics-carousel")?.scrollBy({ left: -320, behavior: "smooth" });
+                      }}
+                      className="grid h-7 w-7 place-items-center rounded-full bg-card hover:bg-secondary text-muted-foreground hover:text-foreground text-xs transition-all active:scale-90"
+                      aria-label="Previous Electronics"
+                    >
+                      <ChevronLeft className="h-4 w-4" />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        document.getElementById("electronics-carousel")?.scrollBy({ left: 320, behavior: "smooth" });
+                      }}
+                      className="grid h-7 w-7 place-items-center rounded-full bg-card hover:bg-secondary text-muted-foreground hover:text-foreground text-xs transition-all active:scale-90"
+                      aria-label="Next Electronics"
+                    >
+                      <ChevronRight className="h-4 w-4" />
+                    </button>
+                  </div>
+                  <Link
+                    to="/results"
+                    search={{ cat: "electronics" } as any}
+                    className="inline-flex items-center gap-1 text-xs font-black text-indigo-600 dark:text-indigo-400 hover:underline shrink-0"
+                  >
+                    Explore All Electronics <ArrowRight className="h-3.5 w-3.5" />
+                  </Link>
+                </div>
               </div>
 
-              <div className="flex gap-3.5 overflow-x-auto no-scrollbar pb-2">
+              <div id="electronics-carousel" className="flex gap-3.5 overflow-x-auto no-scrollbar pb-2 scroll-smooth">
                 {electronicProducts.map((p) => (
                   <div key={p.id} className="w-[260px] sm:w-[300px] shrink-0">
                     <ProductCard p={p} onPreview={setPreviewProduct} />

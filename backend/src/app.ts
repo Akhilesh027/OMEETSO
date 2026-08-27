@@ -29,6 +29,8 @@ import { adminJobsRouter } from "./modules/jobs/routes/adminJobs.routes";
 import { servicesRouter } from "./modules/services/routes/services.routes";
 import { adminServicesRouter } from "./modules/services/routes/adminServices.routes";
 import { bannersRouter } from "./modules/revenue/routes/banners.routes";
+import { ogRouter } from "./modules/og/routes/og.routes";
+import { getProductOpenGraphPreview, getStoreOpenGraphPreview } from "./modules/og/controllers/og.controller";
 
 export const app: Express = express();
 
@@ -419,6 +421,12 @@ app.use(`${env.API_PREFIX}/admin/dashboard`, adminDashboardRouter);
 app.use(`${env.API_PREFIX}/admin/chats`, adminChatsRouter);
 app.use(`${env.API_PREFIX}/reviews`, reviewsRouter);
 app.use(`${env.API_PREFIX}/admin/reviews`, adminReviewsRouter);
+app.use(`${env.API_PREFIX}/og`, ogRouter);
+
+// Direct crawler & link preview friendly routes
+app.get("/product/:id", getProductOpenGraphPreview);
+app.get("/p/:id", getProductOpenGraphPreview);
+app.get("/store/:id", getStoreOpenGraphPreview);
 
 // Centralized 404 Handler
 app.use((req: Request, res: Response) => {

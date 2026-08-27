@@ -1,15 +1,15 @@
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, useEffect, useRef } from "react";
 import { useNavigate } from "@tanstack/react-router";
 import * as Lucide from "lucide-react";
 import {
-  X, Sparkles, ChevronRight, Search, Tag, Layers, Flame, ShieldCheck,
+  X, Sparkles, ChevronRight, ChevronLeft, ChevronDown, ArrowDown, Search, Tag, Layers, Flame, ShieldCheck,
   ArrowRight, CheckCircle2, Car, Bike, Smartphone, Tv, Sofa, Building2,
   Shirt, Refrigerator, Briefcase, Wrench, PawPrint, Truck, BookOpen, Sprout, Package,
   Laptop, Camera, Headphones, Gamepad2, Bed, Utensils, KeyRound, Home, Map,
   Tablet, Watch, Wind, Clock, GraduationCap, Compass, Zap, Gauge, Droplets,
   Snowflake, Dumbbell, Music, Trophy, Baby, ShoppingBag, Palette, Eye
 } from "lucide-react";
-import { SUBCATEGORIES, type Category } from "@/lib/mock";
+import { CATEGORIES, SUBCATEGORIES, type Category } from "@/lib/mock";
 import { BRANDS_BY_CATEGORY, MODELS_BY_BRAND } from "@/lib/aiAssistance";
 import { cn } from "@/lib/utils";
 
@@ -388,18 +388,62 @@ const SUBCATEGORY_ICONS_MAP: Record<string, Lucide.LucideIcon> = {
 export function CategoryDetailModal({
   open,
   onClose,
-  category,
+  category: initialCategory,
 }: {
   open: boolean;
   onClose: () => void;
   category: Category | { id: string; name: string; icon?: string; subcategories?: string[] } | null;
 }) {
   const nav = useNavigate();
+  const [internalCat, setInternalCat] = useState(initialCategory);
   const [activeTab, setActiveTab] = useState<"subcategories" | "brands">("subcategories");
   const [searchFilter, setSearchFilter] = useState("");
   const [selectedBrand, setSelectedBrand] = useState<string | null>(null);
+  const scrollRef = useRef<HTMLDivElement>(null);
 
+  useEffect(() => {
+    setInternalCat(initialCategory);
+    setSelectedBrand(null);
+    setSearchFilter("");
+  }, [initialCategory]);
+
+  const category = internalCat || initialCategory;
   const catId = category?.id?.toLowerCase() || "";
+
+  // Category cycling
+  const allCats = CATEGORIES;
+  const currentIdx = allCats.findIndex((c) => c.id.toLowerCase() === catId);
+  const nextCategory = currentIdx !== -1 ? allCats[(currentIdx + 1) % allCats.length] : allCats[0];
+  const prevCategory = currentIdx !== -1 ? allCats[(currentIdx - 1 + allCats.length) % allCats.length] : allCats[allCats.length - 1];
+
+  const handleNextCategory = () => {
+    if (nextCategory) {
+      setInternalCat(nextCategory);
+      setSelectedBrand(null);
+      setSearchFilter("");
+      if (scrollRef.current) scrollRef.current.scrollTop = 0;
+    }
+  };
+
+  const handlePrevCategory = () => {
+    if (prevCategory) {
+      setInternalCat(prevCategory);
+      setSelectedBrand(null);
+      setSearchFilter("");
+      if (scrollRef.current) scrollRef.current.scrollTop = 0;
+    }
+  };
+
+  const handleScrollDown = () => {
+    if (scrollRef.current) {
+      const { scrollTop, scrollHeight, clientHeight } = scrollRef.current;
+      if (scrollTop + clientHeight >= scrollHeight - 30) {
+        handleNextCategory();
+      } else {
+        scrollRef.current.scrollBy({ top: 280, behavior: "smooth" });
+      }
+    }
+  };
 
   // Subcategories list
   const subcategoriesList: string[] = useMemo(() => {
@@ -572,7 +616,7 @@ export function CategoryDetailModal({
         </div>
 
         {/* Content Container: Classy Circular Icon Cards (Circle Icon on Top, Text Below) */}
-        <div className="p-4 sm:p-6 overflow-y-auto max-h-[52vh] space-y-4 font-sans bg-muted/15">
+        <div ref={scrollRef} className="p-4 sm:p-6 overflow-y-auto max-h-[52vh] space-y-4 font-sans bg-muted/15 scroll-smooth">
           {activeTab === "subcategories" && (
             <div className="space-y-3.5">
               <div className="flex items-center justify-between text-xs text-muted-foreground font-extrabold uppercase tracking-wider px-1">
@@ -722,8 +766,47 @@ export function CategoryDetailModal({
           )}
         </div>
 
+        {/* Next Category & Scroll Arrow Navigation Bar (Above Explore button) */}
+        <div className="px-4 sm:px-6 pt-3 pb-2 flex items-center justify-between gap-2 border-t border-border/70 bg-card shrink-0">
+          <button
+            type="button"
+            onClick={handleScrollDown}
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-secondary/80 hover:bg-secondary text-[11.5px] font-black text-foreground hover:text-primary transition-all shadow-xs hover:scale-105 active:scale-95 cursor-pointer border border-border/60"
+            title="Scroll down to view more subcategories & brands"
+          >
+            <ChevronDown className="h-3.5 w-3.5 text-primary animate-bounce" />
+            <span>Scroll for More</span>
+          </button>
+
+          <div className="flex items-center gap-1.5">
+            {prevCategory && (
+              <button
+                type="button"
+                onClick={handlePrevCategory}
+                className="grid h-8 w-8 place-items-center rounded-full border border-border/80 bg-card hover:bg-secondary text-muted-foreground hover:text-foreground text-xs transition-all active:scale-95 shadow-xs"
+                title={`Previous Category: ${prevCategory.name}`}
+                aria-label="Previous Category"
+              >
+                <ChevronLeft className="h-4 w-4" />
+              </button>
+            )}
+
+            {nextCategory && (
+              <button
+                type="button"
+                onClick={handleNextCategory}
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-primary/10 hover:bg-primary/20 text-primary border border-primary/25 text-[11.5px] font-black transition-all hover:scale-105 active:scale-95 cursor-pointer shadow-xs"
+                title={`Next Category: ${nextCategory.name}`}
+              >
+                <span>Next: {nextCategory.name}</span>
+                <ChevronRight className="h-3.5 w-3.5" />
+              </button>
+            )}
+          </div>
+        </div>
+
         {/* Footer Action Bar */}
-        <div className="p-4 sm:px-6 border-t border-border/80 bg-card shrink-0">
+        <div className="px-4 sm:px-6 pb-4 pt-1 bg-card shrink-0">
           <button
             onClick={handleBrowseAll}
             className="w-full py-3.5 rounded-2xl bg-primary hover:bg-primary/95 text-primary-foreground font-black text-xs sm:text-sm tracking-wide shadow-md hover:shadow-lg active:scale-98 transition-all flex items-center justify-center gap-2.5 cursor-pointer"

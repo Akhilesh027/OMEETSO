@@ -72,16 +72,37 @@ export const Route = createFileRoute("/store/$id")({
     if (!s) throw notFound();
     return { store: s };
   },
-  head: ({ loaderData }) => ({
-    meta: loaderData
-      ? [
-        { title: `${loaderData.store.name} — Verified Omeetso Store` },
-        { name: "description", content: `${loaderData.store.primaryCategory || "Retail"} store in ${loaderData.store.area}, ${loaderData.store.city}.` },
-        { property: "og:title", content: loaderData.store.name },
-        { property: "og:image", content: loaderData.store.cover },
-      ]
-      : [{ title: "Store — Omeetso" }],
-  }),
+  head: ({ loaderData }) => {
+    const store = loaderData?.store;
+    if (!store) return { meta: [{ title: "Store — Omeetso" }] };
+
+    const rawImg = store.cover || store.logo || "https://images.unsplash.com/photo-1441986300917-64674bd600d8?w=1200&h=630&fit=crop&q=85";
+    const imgUrl = rawImg.startsWith("http://") || rawImg.startsWith("https://")
+      ? rawImg
+      : `https://omeetso.in${rawImg.startsWith("/") ? "" : "/"}${rawImg}`;
+
+    const title = `${store.name} — Verified Store on Omeetso`;
+    const description = store.description || `${store.primaryCategory || "Retail"} store in ${store.area || store.city || "Hyderabad"}. Discover verified catalog & offers.`;
+
+    return {
+      meta: [
+        { title },
+        { name: "description", content: description },
+        { property: "og:type", content: "website" },
+        { property: "og:site_name", content: "Omeetso" },
+        { property: "og:title", content: title },
+        { property: "og:description", content: description },
+        { property: "og:image", content: imgUrl },
+        { property: "og:image:secure_url", content: imgUrl },
+        { property: "og:image:width", content: "1200" },
+        { property: "og:image:height", content: "630" },
+        { name: "twitter:card", content: "summary_large_image" },
+        { name: "twitter:title", content: title },
+        { name: "twitter:description", content: description },
+        { name: "twitter:image", content: imgUrl },
+      ],
+    };
+  },
   component: StorePage,
   notFoundComponent: () => <div className="p-8 text-center text-sm font-semibold">Store not found</div>,
 });
