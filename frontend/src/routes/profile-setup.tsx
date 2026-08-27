@@ -5,6 +5,7 @@ import {
   Camera, User, Mail, Phone, MapPinned, Languages, ShoppingBag, Store as StoreIcon, ArrowRight, Check, Sparkles,
 } from "lucide-react";
 import { API_BASE } from "@/config/api";
+import { registerUserApi } from "@/api/auth.api";
 
 export const Route = createFileRoute("/profile-setup")({
   head: () => ({
@@ -94,6 +95,22 @@ function ProfileSetup() {
       } catch (err) {
         console.warn("Failed to update profile on backend:", err);
       }
+    } else {
+      try {
+        await registerUserApi({
+          name: name.trim(),
+          phone: cleanPhone,
+          email: emailTrimmed || undefined,
+          city,
+          pincode,
+          accountType: account,
+          avatar: finalAvatar,
+          language: lang,
+          gender
+        });
+      } catch (err) {
+        console.warn("Failed to register on backend:", err);
+      }
     }
 
     if (typeof window !== "undefined") {
@@ -119,6 +136,8 @@ function ProfileSetup() {
       localStorage.setItem("omeetso_user", JSON.stringify(updatedUser));
       localStorage.setItem("omeetso_profile", "1");
       localStorage.setItem("omeetso_language", lang);
+      localStorage.removeItem("omeetso_guest");
+      localStorage.removeItem("omeetso_guest_session");
     }
     nav({ to: "/home" });
   };
@@ -199,7 +218,7 @@ function ProfileSetup() {
             </Field>
 
             <Field
-              label="Email address (Optional)"
+              label="Email address"
               icon={<Mail className="h-4 w-4" />}
               error={!emailValid && emailTrimmed.length > 0 ? "Enter a valid email address" : undefined}
             >
@@ -208,7 +227,7 @@ function ProfileSetup() {
                 onChange={(e) => setEmail(e.target.value)}
                 type="email"
                 inputMode="email"
-                placeholder="you@example.com (Optional)"
+                placeholder="you@example.com"
                 className="w-full bg-transparent text-sm font-semibold outline-none placeholder:font-normal placeholder:text-muted-foreground"
               />
             </Field>

@@ -305,3 +305,239 @@ export async function getUserSession(req: AuthenticatedUserRequest, res: Respons
     next(error);
   }
 }
+
+export async function checkPhoneStatus(req: Request, res: Response, next: NextFunction): Promise<void> {
+  try {
+    const { phone } = req.body;
+    if (!phone) {
+      res.status(400).json({ success: false, error: { code: "VALIDATION_ERROR", message: "Mobile number is required" } });
+      return;
+    }
+
+    const cleanDigits = phone.replace(/\D/g, "");
+    const tenDigitPhone = cleanDigits.slice(-10);
+    const normalizedPhone = `+91${tenDigitPhone}`;
+
+    if (tenDigitPhone.length !== 10) {
+      res.status(400).json({ success: false, error: { code: "INVALID_PHONE", message: "Please enter a valid 10-digit mobile number" } });
+      return;
+    }
+
+    const user = await User.findOne({ phone: normalizedPhone });
+    if (!user) {
+      res.status(200).json({
+        success: true,
+        data: {
+          exists: false,
+          phone: normalizedPhone,
+          cleanPhone: tenDigitPhone
+        }
+      });
+      return;
+    }
+
+    res.status(200).json({
+      success: true,
+      data: {
+        exists: true,
+        phone: normalizedPhone,
+        cleanPhone: tenDigitPhone,
+        name: user.profile?.name || "User",
+        hasPin: Boolean((user as any).passwordHash),
+        avatar: user.profile?.avatar
+      }
+    });
+  } catch (error) {
+    next(error);
+  }
+}
+
+export async function registerUser(req: Request, res: Response, next: NextFunction): Promise<void> {
+  try {
+    const { name, phone, email, pin, password, city, pincode, area, accountType, avatar, language, gender } = req.body;
+
+    if (!name || name.trim().length < 2) {
+      res.status(400).json({ success: false, error: { code: "VALIDATION_ERROR", message: "Full Name is required (min 2 characters)" } });
+      return;
+    }
+
+    if (!phone) {
+      res.status(400).json({ success: false, error: { code: "VALIDATION_ERROR", message: "Mobile phone number is required" } });
+      return;
+    }
+
+    const cleanDigits = phone.replace(/\D/g, "");
+    const tenDigitPhone = cleanDigits.slice(-10);
+    const normalizedPhone = `+91${tenDigitPhone}`;
+
+    if (tenDigitPhone.length !== 10) {
+      res.status(400).json({ success: false, error: { code: "INVALID_PHONE", message: "Please enter a valid 10-digit mobile number" } });
+      return;
+    }
+
+    let user = await User.findOne({ phone: normalizedPhone });
+
+    const userPin = pin || password;
+    let passwordHash = undefined;
+    if (userPin && userPin.trim()) {
+      passwordHash = crypto.createHash("sha256").update(userPin.trim()).digest("hex");
+    }
+
+    if (user) {
+      user.profile.name = name.trim();
+      if (city) user.profile.city = city.trim();
+      if (pincode) user.profile.pincode = pincode.trim();
+      if (area) user.profile.area = area.trim();
+      if (avatar) user.profile.avatar = avatar;
+      if (language) user.profile.language = language;
+      if (accountType) user.accountType = accountType;
+      if (email) user.email = email.trim();
+      if (passwordHash) (user as any).passwordHash = passwordHash;
+      await user.save();
+    } else {
+      user = await User.create({
+        phone: normalizedPhone,
+        email: email ? email.trim() : undefined,
+        accountType: accountType === "business" ? "business" : "individual",
+        passwordHash,
+        profile: {
+          name: name.trim(),
+          city: city ? city.trim() : "Hyderabad",
+          pincode: pincode ? pincode.trim() : "500081",
+          area: area ? area.trim() : "Madhapur",
+          avatar: avatar || undefined,
+          language: language || "en",
+          memberSince: new Date()
+        },
+        verificationSummary: {
+          mobileVerified: true,
+          emailVerified: Boolean(email),
+          identityVerified: false,
+          businessVerified: accountType === "business"
+        }
+      });
+    }
+
+    const accessToken = generateUserAccessToken(user._id.toString());
+    const rawRefreshToken = generateOpaqueToken();
+    const refreshTokenHash = hashToken(rawRefreshToken);
+    const refreshExpiresAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
+
+    await UserSession.create({
+      userId: user._id,
+      refreshTokenHash,
+      ipAddress: req.ip,
+      userAgent: req.get("user-agent"),
+      expiresAt: refreshExpiresAt
+    });
+
+    res.cookie(USER_REFRESH_COOKIE, rawRefreshToken, {
+      httpOnly: true,
+      secure: env.NODE_ENV === "production",
+      sameSite: "strict",
+      path: "/api/v1/auth",
+      expires: refreshExpiresAt
+    });
+
+    res.status(200).json({
+      success: true,
+      data: {
+        accessToken,
+        isNewUser: true,
+        user: {
+          id: user._id.toString(),
+          phone: user.phone,
+          email: user.email,
+          accountType: user.accountType,
+          status: user.status,
+          profile: user.profile,
+          verificationSummary: user.verificationSummary
+        }
+      }
+    });
+  } catch (error) {
+    next(error);
+  }
+}
+
+export async function loginUserDirect(req: Request, res: Response, next: NextFunction): Promise<void> {
+  try {
+    const { phone, pin, password } = req.body;
+
+    if (!phone) {
+      res.status(400).json({ success: false, error: { code: "VALIDATION_ERROR", message: "Mobile number is required" } });
+      return;
+    }
+
+    const cleanDigits = phone.replace(/\D/g, "");
+    const tenDigitPhone = cleanDigits.slice(-10);
+    const normalizedPhone = `+91${tenDigitPhone}`;
+
+    if (tenDigitPhone.length !== 10) {
+      res.status(400).json({ success: false, error: { code: "INVALID_PHONE", message: "Please enter a valid 10-digit mobile number" } });
+      return;
+    }
+
+    let user = await User.findOne({ phone: normalizedPhone });
+
+    if (!user) {
+      res.status(404).json({
+        success: false,
+        error: { code: "USER_NOT_FOUND", message: "No account found with this phone number. Please register to continue." }
+      });
+      return;
+    }
+
+    const userPin = pin || password;
+    if ((user as any).passwordHash) {
+      if (!userPin) {
+        res.status(400).json({ success: false, error: { code: "PIN_REQUIRED", message: "Please enter your 4-digit PIN" } });
+        return;
+      }
+      const pHash = crypto.createHash("sha256").update(userPin.trim()).digest("hex");
+      if ((user as any).passwordHash !== pHash) {
+        res.status(400).json({ success: false, error: { code: "INVALID_PIN", message: "Incorrect 4-digit PIN. Please try again." } });
+        return;
+      }
+    }
+
+    const accessToken = generateUserAccessToken(user._id.toString());
+    const rawRefreshToken = generateOpaqueToken();
+    const refreshTokenHash = hashToken(rawRefreshToken);
+    const refreshExpiresAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
+
+    await UserSession.create({
+      userId: user._id,
+      refreshTokenHash,
+      ipAddress: req.ip,
+      userAgent: req.get("user-agent"),
+      expiresAt: refreshExpiresAt
+    });
+
+    res.cookie(USER_REFRESH_COOKIE, rawRefreshToken, {
+      httpOnly: true,
+      secure: env.NODE_ENV === "production",
+      sameSite: "strict",
+      path: "/api/v1/auth",
+      expires: refreshExpiresAt
+    });
+
+    res.status(200).json({
+      success: true,
+      data: {
+        accessToken,
+        user: {
+          id: user._id.toString(),
+          phone: user.phone,
+          email: user.email,
+          accountType: user.accountType,
+          status: user.status,
+          profile: user.profile,
+          verificationSummary: user.verificationSummary
+        }
+      }
+    });
+  } catch (error) {
+    next(error);
+  }
+}

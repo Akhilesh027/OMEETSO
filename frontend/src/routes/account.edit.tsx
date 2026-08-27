@@ -221,7 +221,7 @@ function EditProfile() {
               </div>
 
               <div className="space-y-3">
-                <Field label="Email (Optional)" value={email} onChange={setEmail} error={emailError} type="email" placeholder="you@example.com (Optional)" />
+                <Field label="Email" value={email} onChange={setEmail} error={emailError} type="email" placeholder="you@example.com" />
 
                 <div className="rounded-2xl border border-border bg-background p-3">
                   <p className="text-[11px] font-semibold text-muted-foreground">Mobile number</p>

@@ -570,13 +570,13 @@ function EditProfileModal({ open, onClose, profile, onSaved }: { open: boolean; 
           </div>
 
           <div>
-            <label className="text-xs font-semibold text-muted-foreground">Email Address (Optional)</label>
+            <label className="text-xs font-semibold text-muted-foreground">Email Address</label>
             <input
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               type="email"
               className="mt-1 w-full rounded-xl border border-border bg-background px-3 py-2 text-sm font-medium outline-none focus:border-primary"
-              placeholder="you@example.com (Optional)"
+              placeholder="you@example.com"
             />
           </div>
 

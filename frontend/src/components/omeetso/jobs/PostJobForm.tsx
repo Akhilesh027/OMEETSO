@@ -908,8 +908,8 @@ export function PostJobForm() {
                         if (formErrors.experience) setFormErrors({ ...formErrors, experience: "" });
                       }}
                       className={`px-2.5 py-1 rounded-lg text-[10px] font-extrabold transition-all cursor-pointer ${formData.experience.includes(pill)
-                          ? "bg-indigo-brand text-white shadow-xs"
-                          : "bg-secondary text-muted-foreground hover:bg-indigo-brand/10 hover:text-indigo-brand"
+                        ? "bg-indigo-brand text-white shadow-xs"
+                        : "bg-secondary text-muted-foreground hover:bg-indigo-brand/10 hover:text-indigo-brand"
                         }`}
                     >
                       {pill}

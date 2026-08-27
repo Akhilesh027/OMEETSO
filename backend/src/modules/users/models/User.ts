@@ -34,6 +34,7 @@ export interface IUser extends Document {
   phone: string;
   email?: string;
   emailVerified: boolean;
+  passwordHash?: string;
   accountType: "individual" | "business";
   status: UserStatus;
   profile: IUserProfile;
@@ -49,6 +50,7 @@ const UserSchema = new Schema<IUser>(
     phone: { type: String, required: true, unique: true, index: true },
     email: { type: String, sparse: true },
     emailVerified: { type: Boolean, default: false },
+    passwordHash: { type: String },
     accountType: { type: String, enum: ["individual", "business"], default: "individual" },
     status: { type: String, enum: Object.values(UserStatus), default: UserStatus.ACTIVE, index: true },
     profile: {

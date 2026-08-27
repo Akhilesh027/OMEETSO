@@ -2,65 +2,148 @@ import { createFileRoute, useNavigate, Link } from "@tanstack/react-router";
 import { useEffect, useRef, useState } from "react";
 import { Logo } from "@/components/omeetso/Logo";
 import {
-  ArrowLeft, ArrowRight, ShieldCheck, X, Loader2, WifiOff,
-  Compass, Store, MapPin, Tag, Building2, AlertCircle, Sparkles,
-  MessageSquare, Zap, CheckCircle2, Star, Users
+  ArrowLeft, ArrowRight, ShieldCheck, X, Loader2,
+  Compass, Store, Lock, Eye, EyeOff, AlertCircle, Sparkles,
+  MessageSquare, Zap, CheckCircle2, Star, Users, UserPlus, KeyRound, Phone, UserX
 } from "lucide-react";
-
-import { requestUserOtp } from "@/api/auth.api";
+import { loginUserApi, checkPhoneStatusApi, requestUserOtp, verifyUserOtp } from "@/api/auth.api";
+import { toast } from "sonner";
 
 export const Route = createFileRoute("/login")({
-  component: Auth,
+  component: LoginPage,
   head: () => ({
     meta: [
       { title: "Sign in · Omeetso" },
-      { name: "description", content: "Sign in to Omeetso — buy nearby, sell quickly, and connect with trusted local sellers." },
+      { name: "description", content: "Sign in to Omeetso — buy nearby, sell quickly, post jobs, and connect with trusted local sellers." },
       { property: "og:title", content: "Sign in · Omeetso" },
-      { property: "og:description", content: "Buy nearby, sell quickly, and connect with trusted local sellers." },
+      { property: "og:description", content: "Buy nearby, sell quickly, post jobs, and connect with trusted local sellers." },
       { property: "og:type", content: "website" },
-      { name: "twitter:card", content: "summary" },
     ],
   }),
 });
 
-type Status = "idle" | "sending" | "sent" | "network-error";
+type LoginStep = "phone" | "pin" | "not_registered" | "otp_fallback";
 
-function formatIN(digits: string) {
-  const d = digits.slice(0, 10);
-  return d.length > 5 ? `${d.slice(0, 5)} ${d.slice(5)}` : d;
-}
-
-function Auth() {
+function LoginPage() {
   const nav = useNavigate();
+  const [step, setStep] = useState<LoginStep>("phone");
   const [phone, setPhone] = useState("");
-  const [touched, setTouched] = useState(false);
-  const [status, setStatus] = useState<Status>("idle");
+  const [registeredName, setRegisteredName] = useState("");
+  const [registeredAvatar, setRegisteredAvatar] = useState<string | null>(null);
+
+  // PIN step
+  const [pin, setPin] = useState("");
+  const [showPin, setShowPin] = useState(true);
+
+  // OTP Fallback
+  const [otpCode, setOtpCode] = useState("");
+
+  const [isLoading, setIsLoading] = useState(false);
+  const [errorMessage, setErrorMessage] = useState("");
   const [guestSheet, setGuestSheet] = useState(false);
   const [googleLoading, setGoogleLoading] = useState(false);
-  const inputRef = useRef<HTMLInputElement | null>(null);
-  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const phoneInputRef = useRef<HTMLInputElement | null>(null);
 
-  const isValid = phone.length === 10;
-  const showInvalid = touched && phone.length > 0 && !isValid;
+  const cleanPhone = phone.replace(/\D/g, "").slice(0, 10);
+  const isValidPhone = cleanPhone.length === 10;
 
-  useEffect(() => () => { if (timerRef.current) clearTimeout(timerRef.current); }, []);
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const pendingPhone = localStorage.getItem("omeetso_pending_phone");
+    if (pendingPhone) setPhone(pendingPhone.replace(/\D/g, "").slice(-10));
+  }, []);
 
-  const handleContinue = async () => {
-    if (!isValid || status === "sending") return;
-    setStatus("sending");
-    if (typeof window !== "undefined") {
-      if (!navigator.onLine) {
-        setStatus("network-error");
-        return;
+  // STEP 1: CHECK PHONE NUMBER
+  const handleCheckPhone = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!isValidPhone || isLoading) return;
+
+    setIsLoading(true);
+    setErrorMessage("");
+
+    try {
+      const res = await checkPhoneStatusApi(cleanPhone);
+      setIsLoading(false);
+
+      if (res.success && res.data) {
+        if (res.data.exists) {
+          // User is registered! Ask for PIN
+          setRegisteredName(res.data.name || "User");
+          setRegisteredAvatar(res.data.avatar || null);
+          setStep("pin");
+        } else {
+          // User is NOT registered! Show registration prompt
+          if (typeof window !== "undefined") {
+            localStorage.setItem("omeetso_pending_phone", cleanPhone);
+          }
+          setStep("not_registered");
+        }
+      } else {
+        setErrorMessage(res.error || "Failed to check phone number. Please try again.");
       }
-      localStorage.setItem("omeetso_pending_phone", phone);
+    } catch {
+      setIsLoading(false);
+      // Dev fallback: if user exists in login, ask pin
+      setStep("pin");
     }
-    const result = await requestUserOtp(phone);
-    if (result.success) {
-      setStatus("sent");
-      nav({ to: "/otp" });
+  };
+
+  // STEP 2: VERIFY PIN & SIGN IN
+  const handlePinLogin = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const cleanPin = pin.replace(/\D/g, "");
+    if (cleanPin.length !== 4 || isLoading) {
+      setErrorMessage("Please enter your 4-digit PIN.");
+      return;
+    }
+
+    setIsLoading(true);
+    setErrorMessage("");
+
+    const res = await loginUserApi(cleanPhone, cleanPin);
+    setIsLoading(false);
+
+    if (res.success) {
+      toast.success(`Welcome back${registeredName ? `, ${registeredName}` : ""}! Signed in successfully.`);
+      nav({ to: "/home" });
     } else {
-      setStatus("network-error");
+      setErrorMessage(res.error || "Incorrect 4-digit PIN. Please try again.");
+      toast.error(res.error || "Sign in failed");
+    }
+  };
+
+  // OTP Fallback Login
+  const handleSendOtpFallback = async () => {
+    setIsLoading(true);
+    setErrorMessage("");
+    const res = await requestUserOtp(cleanPhone);
+    setIsLoading(false);
+    if (res.success) {
+      toast.success(`OTP sent to +91 ${cleanPhone}. (Use 1234)`);
+      setStep("otp_fallback");
+    } else {
+      toast.error(res.error || "Failed to send OTP");
+    }
+  };
+
+  const handleVerifyOtpFallback = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const cleanOtp = otpCode.replace(/\D/g, "");
+    if (cleanOtp.length !== 4) {
+      setErrorMessage("Please enter the 4-digit OTP.");
+      return;
+    }
+    setIsLoading(true);
+    setErrorMessage("");
+
+    const res = await verifyUserOtp(cleanPhone, cleanOtp);
+    setIsLoading(false);
+
+    if (res.success) {
+      toast.success("Signed in successfully via OTP!");
+      nav({ to: "/home" });
+    } else {
+      setErrorMessage(res.error || "Invalid OTP code");
     }
   };
 
@@ -77,23 +160,28 @@ function Auth() {
     setGoogleLoading(true);
     setTimeout(() => {
       if (typeof window !== "undefined") {
-        localStorage.setItem("omeetso_user", JSON.stringify({ provider: "google" }));
+        localStorage.setItem("omeetso_user", JSON.stringify({
+          id: "usr_google_demo",
+          phone: "+919876543210",
+          accountType: "individual",
+          status: "ACTIVE",
+          profile: { name: "Google User", city: "Hyderabad", pincode: "500081", area: "Madhapur" }
+        }));
+        localStorage.setItem("omeetso_profile", "1");
         localStorage.removeItem("omeetso_guest");
+        localStorage.removeItem("omeetso_guest_session");
       }
-      const hasLocation = typeof window !== "undefined" && localStorage.getItem("omeetso_location");
-      if (!hasLocation && typeof window !== "undefined") {
-        localStorage.setItem("omeetso_location", JSON.stringify({ area: "Madhapur, Hyderabad", pincode: "500081", savedAt: Date.now() }));
-      }
-      if (!hasProfile) return nav({ to: "/profile-setup" });
+      toast.success("Signed in with Google");
       nav({ to: "/home" });
-    }, 700);
+    }, 600);
   };
 
   return (
     <div className="relative min-h-screen w-full bg-background text-foreground flex flex-col md:flex-row overflow-x-hidden font-sans">
-      {/* ── LEFT PANEL (DESKTOP FEATURE HIGHLIGHTS & BRANDING) ── */}
+      
+      {/* ── LEFT PANEL (DESKTOP BRANDING & FEATURES) ── */}
       <div className="hidden md:flex md:w-1/2 lg:w-[52%] relative flex-col justify-between p-8 lg:p-12 bg-slate-950 text-white border-r border-slate-800/80 overflow-hidden select-none">
-        {/* Background Mesh Glow & Grid */}
+        {/* Background Glows */}
         <div className="absolute inset-0 pointer-events-none overflow-hidden" aria-hidden>
           <div className="absolute -top-32 -left-20 h-96 w-96 rounded-full bg-indigo-600/25 blur-[100px]" />
           <div className="absolute top-1/2 -right-32 h-96 w-96 rounded-full bg-amber-500/20 blur-[110px]" />
@@ -109,264 +197,440 @@ function Auth() {
 
         {/* Top Branding */}
         <div className="relative z-10 flex items-center justify-between">
-          <Logo />
+          <Link to="/home">
+            <Logo />
+          </Link>
           <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-slate-800/90 text-amber-400 text-xs font-bold border border-slate-700/60 backdrop-blur-sm">
             <Sparkles className="h-3.5 w-3.5" /> Verified Local Marketplace
           </span>
         </div>
 
-        {/* Center Content & Feature Cards */}
+        {/* Center Features */}
         <div className="relative z-10 my-auto py-8 space-y-8 max-w-lg">
           <div className="space-y-3">
             <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-indigo-500/15 text-indigo-300 text-xs font-extrabold uppercase tracking-wider border border-indigo-500/30">
-              ⚡ Fast & Secure Login
+              ⚡ Fast & Secure PIN Access
             </span>
             <h1 className="text-3xl lg:text-4xl font-black leading-tight tracking-tight text-white drop-shadow-sm">
-              Buy Nearby, Sell Quickly & Connect with Trusted Sellers.
+              Buy Nearby, Sell Quickly & Post Jobs with Ease.
             </h1>
             <p className="text-sm lg:text-base text-slate-300 font-normal leading-relaxed">
-              Discover verified deals right in your neighborhood. Negotiate directly in real-time without middleman commission fees.
+              Sign in with your registered phone number and 4-digit PIN for instant access without waiting for OTPs.
             </p>
           </div>
 
-          {/* 3 Value Proposition Cards */}
           <div className="space-y-3.5">
             <div className="flex items-start gap-3.5 p-3.5 rounded-2xl bg-slate-900/80 border border-slate-800/80 backdrop-blur-md transition-all hover:bg-slate-900 hover:border-slate-700">
               <div className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-indigo-500/20 text-indigo-400">
                 <Store className="h-5 w-5" />
               </div>
               <div>
-                <h3 className="text-sm font-bold text-white">Hyperlocal Marketplace</h3>
-                <p className="text-xs text-slate-400 mt-0.5">Browse products and verified merchant stores within 1 to 5 km of your location.</p>
+                <h3 className="text-sm font-bold text-white">Local Sellers & Verified Shops</h3>
+                <p className="text-xs text-slate-400 mt-0.5">Explore authentic listings with direct contact with owners.</p>
               </div>
             </div>
 
             <div className="flex items-start gap-3.5 p-3.5 rounded-2xl bg-slate-900/80 border border-slate-800/80 backdrop-blur-md transition-all hover:bg-slate-900 hover:border-slate-700">
               <div className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-amber-500/20 text-amber-400">
-                <ShieldCheck className="h-5 w-5" />
-              </div>
-              <div>
-                <h3 className="text-sm font-bold text-white">Passwordless 100% Security</h3>
-                <p className="text-xs text-slate-400 mt-0.5">Instant OTP verification with encrypted session token rotation.</p>
-              </div>
-            </div>
-
-            <div className="flex items-start gap-3.5 p-3.5 rounded-2xl bg-slate-900/80 border border-slate-800/80 backdrop-blur-md transition-all hover:bg-slate-900 hover:border-slate-700">
-              <div className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-emerald-500/20 text-emerald-400">
                 <MessageSquare className="h-5 w-5" />
               </div>
               <div>
-                <h3 className="text-sm font-bold text-white">Direct Real-Time Offer Chat</h3>
-                <p className="text-xs text-slate-400 mt-0.5">Chat directly with sellers, make instant price offers, and close deals fast.</p>
+                <h3 className="text-sm font-bold text-white">Instant Real-Time Chat</h3>
+                <p className="text-xs text-slate-400 mt-0.5">Negotiate directly, exchange details, and close deals safely.</p>
               </div>
             </div>
           </div>
         </div>
 
-        {/* Bottom Platform Metrics Pill */}
-        <div className="relative z-10 pt-4 border-t border-slate-800/80 flex items-center justify-between text-xs text-slate-400">
+        {/* Bottom Social Proof */}
+        <div className="relative z-10 pt-6 border-t border-slate-800/80 flex items-center justify-between text-xs text-slate-400">
           <div className="flex items-center gap-2">
             <Users className="h-4 w-4 text-indigo-400" />
-            <span className="font-semibold text-slate-200">15,000+ Sellers</span>
+            <span className="font-semibold text-slate-200">15,000+ Active Users</span>
           </div>
           <div className="flex items-center gap-1.5 text-amber-400 font-bold">
             <Star className="h-3.5 w-3.5 fill-amber-400" />
-            <span>4.9 Rating</span>
+            <span>4.9 / 5 Rating</span>
           </div>
           <div className="flex items-center gap-1.5 text-emerald-400 font-semibold">
             <CheckCircle2 className="h-3.5 w-3.5" />
-            <span>100% Verified</span>
+            <span>100% Free</span>
           </div>
         </div>
       </div>
 
-      {/* ── RIGHT PANEL (LOGIN FORM FOR DESKTOP & MOBILE) ── */}
-      <div className="relative w-full md:w-1/2 lg:w-[48%] flex flex-col justify-between p-5 sm:p-8 lg:p-12 bg-background min-h-screen md:min-h-0">
+      {/* ── RIGHT PANEL (LOGIN STEP FLOW) ── */}
+      <div className="relative w-full md:w-1/2 lg:w-[48%] flex flex-col justify-between p-6 sm:p-10 lg:p-14 bg-background min-h-screen md:min-h-0 overflow-y-auto">
         <DecorShapes />
 
-        {/* Top Bar Header */}
+        {/* Top bar */}
         <div className="relative z-10 flex items-center justify-between mb-4">
           <button
             type="button"
             aria-label="Go back"
-            onClick={() => history.length > 1 ? history.back() : nav({ to: "/onboarding" })}
-            className="grid h-10 w-10 place-items-center rounded-full bg-card ring-1 ring-border shadow-sm active:scale-95 transition-transform hover:bg-secondary"
+            onClick={() => {
+              if (step === "pin" || step === "not_registered" || step === "otp_fallback") {
+                setStep("phone");
+              } else {
+                history.length > 1 ? history.back() : nav({ to: "/home" });
+              }
+            }}
+            className="grid h-10 w-10 place-items-center rounded-full bg-card ring-1 border border-border shadow-sm active:scale-95 transition-transform hover:bg-secondary cursor-pointer"
           >
-            <ArrowLeft className="h-5 w-5 text-navy" />
+            <ArrowLeft className="h-5 w-5 text-foreground" />
           </button>
-          
           <div className="md:hidden flex items-center">
             <Logo size="sm" />
           </div>
+          <div className="text-xs font-semibold text-muted-foreground">
+            {step === "not_registered" ? (
+              <span className="text-indigo-brand font-bold">New to Omeetso</span>
+            ) : (
+              <>
+                New user?{" "}
+                <Link to="/register" className="font-extrabold text-indigo-brand hover:underline">
+                  Create account
+                </Link>
+              </>
+            )}
+          </div>
         </div>
 
-        {/* Form Container */}
+        {/* Center Container */}
         <div className="relative z-10 my-auto mx-auto w-full max-w-md space-y-6">
-          <div className="space-y-1.5 text-center md:text-left">
-            <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight text-foreground">
-              Welcome to Omeetso
-            </h1>
-            <p className="text-xs sm:text-sm text-muted-foreground">
-              Enter your 10-digit mobile number to sign in or get started.
-            </p>
-          </div>
+          
+          {errorMessage && (
+            <div className="p-3.5 rounded-2xl bg-rose-500/10 border border-rose-500/20 text-rose-500 text-xs font-bold flex items-center gap-2">
+              <AlertCircle className="h-4 w-4 shrink-0" />
+              <span>{errorMessage}</span>
+            </div>
+          )}
 
-          {/* Mobile number form */}
-          <form
-            onSubmit={(e) => { e.preventDefault(); setTouched(true); handleContinue(); }}
-            className="space-y-3"
-            noValidate
-          >
-            <label htmlFor="omeetso-phone" className="block text-xs font-bold text-foreground">
-              Mobile number
-            </label>
-
-            <div
-              className={`flex items-stretch overflow-hidden rounded-2xl border bg-card transition-colors ${
-                showInvalid
-                  ? "border-destructive ring-2 ring-destructive/15"
-                  : "border-border focus-within:border-indigo-brand focus-within:ring-2 focus-within:ring-indigo-brand/20"
-              }`}
-            >
-              <div className="flex items-center gap-2 border-r border-border bg-secondary/60 px-3.5">
-                <span className="text-base leading-none" aria-hidden>🇮🇳</span>
-                <span className="text-xs font-extrabold text-navy">+91</span>
+          {/* ========================================================================= */}
+          {/* STEP 1: PHONE NUMBER INPUT                                                */}
+          {/* ========================================================================= */}
+          {step === "phone" && (
+            <div className="space-y-6">
+              <div className="space-y-1.5 text-center md:text-left">
+                <h1 className="text-2xl sm:text-3xl font-black tracking-tight text-foreground">
+                  Sign in to Omeetso
+                </h1>
+                <p className="text-xs sm:text-sm text-muted-foreground">
+                  Enter your registered mobile number to continue.
+                </p>
               </div>
-              <input
-                id="omeetso-phone"
-                ref={inputRef}
-                type="tel"
-                inputMode="numeric"
-                autoComplete="tel-national"
-                aria-invalid={showInvalid}
-                aria-describedby="omeetso-phone-help"
-                value={formatIN(phone)}
-                onChange={(e) => setPhone(e.target.value.replace(/\D/g, "").slice(0, 10))}
-                onBlur={() => setTouched(true)}
-                placeholder="Enter your mobile number"
-                className="min-w-0 flex-1 bg-transparent px-3.5 py-3.5 text-base font-semibold tracking-wide outline-none placeholder:font-normal placeholder:text-muted-foreground"
-              />
-              {phone.length > 0 && (
+
+              <form onSubmit={handleCheckPhone} className="space-y-4" noValidate>
+                <div>
+                  <label className="block text-xs font-bold text-foreground mb-1.5">
+                    Mobile Number (10 Digits) *
+                  </label>
+                  <div className="relative flex items-center rounded-2xl border border-border bg-card px-3.5 py-3 focus-within:border-indigo-brand focus-within:ring-2 focus-within:ring-indigo-brand/20 transition-all">
+                    <span className="text-sm font-black text-foreground font-mono mr-2">+91</span>
+                    <input
+                      ref={phoneInputRef}
+                      type="tel"
+                      inputMode="numeric"
+                      maxLength={10}
+                      autoFocus
+                      required
+                      placeholder="98765 43210"
+                      value={phone}
+                      onChange={(e) => setPhone(e.target.value.replace(/\D/g, "").slice(0, 10))}
+                      className="w-full bg-transparent text-base font-bold text-foreground outline-none placeholder:font-normal placeholder:text-muted-foreground font-mono tracking-wider"
+                    />
+                  </div>
+                </div>
+
+                <button
+                  type="submit"
+                  disabled={!isValidPhone || isLoading}
+                  className="relative flex h-[52px] w-full items-center justify-center gap-2 overflow-hidden rounded-2xl bg-indigo-brand text-sm font-bold text-white shadow-md transition-all active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-50 hover:bg-indigo-brand/90 cursor-pointer"
+                >
+                  {isLoading ? (
+                    <>
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                      <span>Checking number…</span>
+                    </>
+                  ) : (
+                    <>
+                      <span>Continue</span>
+                      <ArrowRight className="h-4 w-4" />
+                    </>
+                  )}
+                </button>
+              </form>
+
+              {/* Direct Register Link Card */}
+              <div className="p-4 rounded-2xl bg-secondary/40 border border-border flex items-center justify-between">
+                <div>
+                  <p className="text-xs font-bold text-foreground">Don't have an account?</p>
+                  <p className="text-[11px] text-muted-foreground">Register once with OTP & PIN</p>
+                </div>
+                <Link
+                  to="/register"
+                  className="px-3.5 py-1.5 rounded-xl bg-indigo-brand text-white text-xs font-bold hover:bg-indigo-brand/90 shadow-sm transition-all"
+                >
+                  Register
+                </Link>
+              </div>
+            </div>
+          )}
+
+          {/* ========================================================================= */}
+          {/* STEP 2: USER IS NOT REGISTERED -> SHOW REGISTER PROMPT                    */}
+          {/* ========================================================================= */}
+          {step === "not_registered" && (
+            <div className="space-y-6 text-center">
+              <div className="mx-auto grid h-16 w-16 place-items-center rounded-3xl bg-amber-500/10 text-amber-600 ring-4 ring-amber-500/10">
+                <UserX className="h-8 w-8" />
+              </div>
+
+              <div className="space-y-2">
+                <h2 className="text-2xl font-black text-foreground">
+                  No Account Found
+                </h2>
+                <p className="text-sm text-muted-foreground leading-relaxed">
+                  We couldn't find an account for <span className="font-bold text-foreground font-mono">+91 {cleanPhone}</span>.
+                  <br />Please register to start buying, selling, and posting jobs.
+                </p>
+              </div>
+
+              <div className="space-y-3">
+                <Link
+                  to="/register"
+                  className="w-full h-12 rounded-2xl bg-indigo-brand text-white font-extrabold text-sm flex items-center justify-center gap-2 hover:bg-indigo-brand/90 transition-all shadow-md cursor-pointer"
+                >
+                  <UserPlus className="h-4 w-4" />
+                  <span>Register Account with +91 {cleanPhone}</span>
+                </Link>
+
                 <button
                   type="button"
-                  aria-label="Clear mobile number"
-                  onClick={() => { setPhone(""); setTouched(false); inputRef.current?.focus(); }}
-                  className="grid w-10 place-items-center text-muted-foreground hover:text-foreground"
+                  onClick={() => setStep("phone")}
+                  className="w-full py-2.5 text-xs font-bold text-muted-foreground hover:text-foreground transition-colors cursor-pointer"
                 >
-                  <X className="h-4 w-4" />
+                  Try a different mobile number
                 </button>
-              )}
-              {isValid && phone.length > 0 && (
-                <div className="grid w-10 place-items-center pr-1" aria-hidden>
-                  <ShieldCheck className="h-5 w-5 text-[color:var(--success)]" />
-                </div>
-              )}
+              </div>
             </div>
+          )}
 
-            <div id="omeetso-phone-help" aria-live="polite" className="min-h-[20px] px-1 text-xs">
-              {showInvalid && (
-                <span className="inline-flex items-center gap-1 font-medium text-destructive">
-                  <AlertCircle className="h-3.5 w-3.5" /> Enter a valid 10-digit mobile number.
-                </span>
-              )}
-              {status === "network-error" && !showInvalid && (
-                <span className="inline-flex items-center gap-1 font-medium text-destructive">
-                  <WifiOff className="h-3.5 w-3.5" /> We couldn't send the OTP. Check your connection and try again.
-                </span>
-              )}
-              {status === "sent" && !showInvalid && (
-                <span className="inline-flex items-center gap-1 font-medium text-[color:var(--success)]">
-                  <ShieldCheck className="h-3.5 w-3.5" /> OTP sent to +91 {formatIN(phone)}. Verification screen coming next.
-                </span>
-              )}
+          {/* ========================================================================= */}
+          {/* STEP 3: USER IS REGISTERED -> ENTER 4-DIGIT PIN                           */}
+          {/* ========================================================================= */}
+          {step === "pin" && (
+            <div className="space-y-6">
+              <div className="space-y-2 text-center md:text-left">
+                {registeredAvatar && (
+                  <div className="h-14 w-14 rounded-full overflow-hidden border-2 border-indigo-brand mx-auto md:mx-0 shadow-sm">
+                    <img src={registeredAvatar} alt="Profile" className="h-full w-full object-cover" />
+                  </div>
+                )}
+                <h1 className="text-2xl sm:text-3xl font-black tracking-tight text-foreground">
+                  Welcome back{registeredName ? `, ${registeredName}` : ""}!
+                </h1>
+                <div className="flex items-center justify-center md:justify-start gap-2 text-xs text-muted-foreground">
+                  <span className="font-mono font-bold text-foreground">+91 {cleanPhone}</span>
+                  <span>•</span>
+                  <button
+                    type="button"
+                    onClick={() => setStep("phone")}
+                    className="font-bold text-indigo-brand hover:underline cursor-pointer"
+                  >
+                    Change
+                  </button>
+                </div>
+              </div>
+
+              <form onSubmit={handlePinLogin} className="space-y-4">
+                <div>
+                  <div className="flex items-center justify-between mb-1.5">
+                    <label className="block text-xs font-bold text-foreground">
+                      Enter 4-Digit PIN *
+                    </label>
+                    <button
+                      type="button"
+                      onClick={handleSendOtpFallback}
+                      className="text-[11px] font-bold text-indigo-brand hover:underline cursor-pointer"
+                    >
+                      Forgot PIN?
+                    </button>
+                  </div>
+
+                  <div className="flex items-center gap-2.5 rounded-2xl border border-border bg-card px-3.5 py-3 focus-within:border-indigo-brand focus-within:ring-2 focus-within:ring-indigo-brand/20 transition-all">
+                    <KeyRound className="h-4 w-4 text-muted-foreground shrink-0" />
+                    <input
+                      type={showPin ? "text" : "password"}
+                      inputMode="numeric"
+                      maxLength={4}
+                      autoFocus
+                      required
+                      placeholder="Enter 4-digit PIN"
+                      value={pin}
+                      onChange={(e) => setPin(e.target.value.replace(/\D/g, "").slice(0, 4))}
+                      className="w-full bg-transparent text-base font-bold text-foreground outline-none font-mono tracking-widest placeholder:tracking-normal placeholder:font-normal placeholder:text-muted-foreground"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowPin(!showPin)}
+                      className="text-muted-foreground hover:text-foreground cursor-pointer"
+                    >
+                      {showPin ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                    </button>
+                  </div>
+                </div>
+
+                <button
+                  type="submit"
+                  disabled={pin.length !== 4 || isLoading}
+                  className="relative flex h-[52px] w-full items-center justify-center gap-2 overflow-hidden rounded-2xl bg-indigo-brand text-sm font-bold text-white shadow-md transition-all active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-50 hover:bg-indigo-brand/90 cursor-pointer"
+                >
+                  {isLoading ? (
+                    <>
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                      <span>Signing in…</span>
+                    </>
+                  ) : (
+                    <>
+                      <span>Sign In</span>
+                      <ArrowRight className="h-4 w-4" />
+                    </>
+                  )}
+                </button>
+              </form>
             </div>
+          )}
+
+          {/* ========================================================================= */}
+          {/* STEP 4: OTP FALLBACK (FORGOT PIN)                                         */}
+          {/* ========================================================================= */}
+          {step === "otp_fallback" && (
+            <div className="space-y-6">
+              <div className="space-y-1.5 text-center md:text-left">
+                <h1 className="text-2xl sm:text-3xl font-black tracking-tight text-foreground">
+                  Sign In with OTP
+                </h1>
+                <p className="text-xs sm:text-sm text-muted-foreground">
+                  Enter the 4-digit OTP sent to <span className="font-bold text-foreground font-mono">+91 {cleanPhone}</span>.
+                </p>
+              </div>
+
+              <form onSubmit={handleVerifyOtpFallback} className="space-y-4">
+                <div>
+                  <input
+                    type="tel"
+                    inputMode="numeric"
+                    maxLength={4}
+                    autoFocus
+                    required
+                    placeholder="• • • •"
+                    value={otpCode}
+                    onChange={(e) => setOtpCode(e.target.value.replace(/\D/g, "").slice(0, 4))}
+                    className="w-full h-14 rounded-2xl border border-border bg-card text-center text-2xl font-black tracking-widest text-foreground outline-none focus:border-indigo-brand focus:ring-2 focus:ring-indigo-brand/20 font-mono"
+                  />
+                  <p className="mt-2 text-xs text-muted-foreground">
+                    Default Testing OTP: <strong className="text-foreground font-mono">1234</strong>
+                  </p>
+                </div>
+
+                <button
+                  type="submit"
+                  disabled={otpCode.length !== 4 || isLoading}
+                  className="w-full h-12 rounded-2xl bg-indigo-brand text-white font-extrabold text-sm flex items-center justify-center gap-2 hover:bg-indigo-brand/90 transition-all shadow-md cursor-pointer disabled:opacity-50"
+                >
+                  {isLoading ? "Signing in..." : "Verify OTP & Sign In"}
+                </button>
+
+                <div className="text-center">
+                  <button
+                    type="button"
+                    onClick={() => setStep("pin")}
+                    className="text-xs font-bold text-indigo-brand hover:underline cursor-pointer"
+                  >
+                    Back to PIN sign in
+                  </button>
+                </div>
+              </form>
+            </div>
+          )}
+
+          {/* Social Sign-In & Guest Browsing */}
+          <div className="pt-2 space-y-3 border-t border-border">
+            <button
+              type="button"
+              onClick={handleGoogle}
+              disabled={googleLoading}
+              className="flex h-[46px] w-full items-center justify-center gap-3 rounded-2xl border border-border bg-card text-xs font-bold transition-all hover:bg-secondary active:scale-[0.99] cursor-pointer disabled:opacity-60"
+            >
+              {googleLoading ? (
+                <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+              ) : (
+                <svg className="h-4 w-4" viewBox="0 0 24 24">
+                  <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" />
+                  <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" />
+                  <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z" />
+                  <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z" />
+                </svg>
+              )}
+              <span>Continue with Google</span>
+            </button>
 
             <button
-              type="submit"
-              disabled={!isValid || status === "sending"}
-              aria-busy={status === "sending"}
-              className="relative flex h-[54px] w-full items-center justify-center gap-2 overflow-hidden rounded-2xl bg-indigo-brand text-sm font-bold text-white shadow-[0_14px_30px_-12px_color-mix(in_oklab,var(--indigo-brand)_55%,transparent)] transition-all active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-45 disabled:shadow-none hover:opacity-95"
+              type="button"
+              onClick={() => setGuestSheet(true)}
+              className="flex h-[44px] w-full items-center justify-center gap-2 rounded-2xl bg-secondary/50 text-xs font-bold text-muted-foreground transition-all hover:bg-secondary hover:text-foreground active:scale-[0.99] cursor-pointer"
             >
-              {status === "sending" ? (
-                <>
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                  <span>Sending OTP…</span>
-                </>
-              ) : status === "network-error" ? (
-                <>
-                  <span>Try Again</span>
-                  <ArrowRight className="h-4 w-4" />
-                </>
-              ) : status === "sent" ? (
-                <>
-                  <ShieldCheck className="h-4 w-4" />
-                  <span>OTP sent</span>
-                </>
-              ) : (
-                <>
-                  <span>Continue securely</span>
-                  <ArrowRight className="h-4 w-4" />
-                </>
-              )}
-              {isValid && status === "idle" && (
-                <span
-                  aria-hidden
-                  className="pointer-events-none absolute inset-y-0 -left-1/2 w-1/3 bg-white/25 blur-md motion-reduce:hidden"
-                  style={{ animation: "ob-shine 2.8s ease-in-out infinite" }}
-                />
-              )}
+              <Compass className="h-4 w-4" />
+              <span>Browse as Guest</span>
             </button>
-          </form>
-
-          {/* Divider */}
-          <div className="my-5 flex items-center gap-3">
-            <div className="h-px flex-1 bg-border" />
-            <span className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">
-              or continue with
-            </span>
-            <div className="h-px flex-1 bg-border" />
           </div>
-
-          {/* Google */}
-          <button
-            type="button"
-            onClick={handleGoogle}
-            disabled={googleLoading}
-            aria-busy={googleLoading}
-            className="flex h-[52px] w-full items-center justify-center gap-2.5 rounded-2xl border border-border bg-card text-sm font-bold text-navy shadow-sm transition-colors hover:bg-secondary/70 disabled:opacity-70"
-          >
-            {googleLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <GoogleG />}
-            {googleLoading ? "Signing in…" : "Continue with Google"}
-          </button>
-
-          {/* Guest */}
-          <button
-            type="button"
-            onClick={() => setGuestSheet(true)}
-            className="mt-2.5 flex h-[52px] w-full items-center justify-center gap-2 rounded-2xl border border-dashed border-electric/45 bg-electric/[0.06] text-sm font-bold text-navy transition-colors hover:bg-electric/[0.12]"
-          >
-            <Compass className="h-4 w-4 text-electric" />
-            Browse as Guest
-          </button>
         </div>
 
-        {/* Legal Footer */}
-        <div className="relative z-10 pt-6 mt-4 text-center">
+        {/* Legal footer */}
+        <div className="relative z-10 pt-4 text-center">
           <p className="text-[11.5px] leading-relaxed text-muted-foreground">
-            By continuing, you agree to Omeetso's{" "}
-            <Link to="/login" className="font-bold text-navy underline underline-offset-2">Terms of Service</Link>{" "}
+            By signing in, you agree to Omeetso's{" "}
+            <Link to="/terms" className="font-bold text-foreground underline underline-offset-2">Terms</Link>{" "}
             and{" "}
-            <Link to="/login" className="font-bold text-navy underline underline-offset-2">Privacy Policy</Link>.
+            <Link to="/privacy" className="font-bold text-foreground underline underline-offset-2">Privacy Policy</Link>.
           </p>
         </div>
-
-        {/* Guest bottom sheet */}
-        <GuestSheet
-          open={guestSheet}
-          onClose={() => setGuestSheet(false)}
-          onConfirm={confirmGuest}
-        />
       </div>
+
+      {/* Guest Mode Confirmation Modal */}
+      {guestSheet && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
+          <div className="w-full max-w-sm rounded-3xl bg-card p-6 border border-border shadow-2xl space-y-4 text-center">
+            <div className="mx-auto grid h-12 w-12 place-items-center rounded-2xl bg-indigo-brand/10 text-indigo-brand">
+              <Compass className="h-6 w-6" />
+            </div>
+            <div>
+              <h3 className="text-lg font-bold text-foreground">Explore Omeetso as Guest</h3>
+              <p className="mt-1 text-xs text-muted-foreground leading-relaxed">
+                You can browse listings, view stores, and search local jobs. You will only need to sign in when you want to chat or post.
+              </p>
+            </div>
+            <div className="flex gap-2.5 pt-2">
+              <button
+                type="button"
+                onClick={() => setGuestSheet(false)}
+                className="flex-1 h-11 rounded-xl border border-border text-xs font-bold text-muted-foreground hover:bg-secondary cursor-pointer"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={confirmGuest}
+                className="flex-1 h-11 rounded-xl bg-indigo-brand text-xs font-bold text-white hover:bg-indigo-brand/90 cursor-pointer shadow-sm"
+              >
+                Continue
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
     </div>
   );
 }
@@ -376,76 +640,7 @@ function DecorShapes() {
     <div aria-hidden className="pointer-events-none absolute inset-0 overflow-hidden">
       <div className="absolute -top-24 -left-16 h-64 w-64 rounded-full bg-indigo-brand/12 blur-3xl" />
       <div className="absolute top-10 -right-16 h-56 w-56 rounded-full bg-yellow-brand/20 blur-3xl" />
-      <div className="absolute -bottom-24 left-1/2 h-56 w-72 -translate-x-1/2 rounded-full bg-navy/[0.06] blur-3xl" />
-    </div>
-  );
-}
-
-function GoogleG() {
-  return (
-    <svg viewBox="0 0 24 24" className="h-[18px] w-[18px]" aria-hidden>
-      <path fill="#4285F4" d="M23.5 12.3c0-.8-.1-1.6-.2-2.3H12v4.5h6.5c-.3 1.5-1.1 2.7-2.4 3.6v3h3.9c2.3-2.1 3.5-5.2 3.5-8.8z"/>
-      <path fill="#34A853" d="M12 24c3.2 0 5.9-1.1 7.9-2.9l-3.9-3c-1.1.7-2.4 1.2-4 1.2-3.1 0-5.7-2.1-6.6-4.9H1.4v3.1C3.4 21.4 7.4 24 12 24z"/>
-      <path fill="#FBBC05" d="M5.4 14.4c-.2-.7-.3-1.4-.3-2.4s.1-1.7.3-2.4V6.5H1.4C.5 8.2 0 10 0 12s.5 3.8 1.4 5.5l4-3.1z"/>
-      <path fill="#EA4335" d="M12 4.8c1.7 0 3.3.6 4.5 1.7l3.4-3.4C17.9 1.2 15.2 0 12 0 7.4 0 3.4 2.6 1.4 6.5l4 3.1C6.3 6.8 8.9 4.8 12 4.8z"/>
-    </svg>
-  );
-}
-
-function GuestSheet({
-  open, onClose, onConfirm,
-}: { open: boolean; onClose: () => void; onConfirm: () => void }) {
-  useEffect(() => {
-    if (!open) return;
-    const onKey = (e: KeyboardEvent) => e.key === "Escape" && onClose();
-    document.addEventListener("keydown", onKey);
-    return () => document.removeEventListener("keydown", onKey);
-  }, [open, onClose]);
-
-  if (!open) return null;
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4" role="dialog" aria-modal="true" aria-labelledby="omeetso-guest-title">
-      <button
-        aria-label="Close"
-        onClick={onClose}
-        className="absolute inset-0 bg-slate-950/60 backdrop-blur-sm"
-        style={{ animation: "ob-fade-in 200ms both" }}
-      />
-      <div
-        className="relative z-10 w-full max-w-md rounded-3xl bg-card p-6 shadow-2xl border border-border"
-        style={{ animation: "ob-slide-up 260ms cubic-bezier(0.22,1,0.36,1) both" }}
-      >
-        <div className="flex items-start gap-3.5">
-          <div className="grid h-12 w-12 shrink-0 place-items-center rounded-2xl bg-electric/10 text-electric">
-            <Compass className="h-6 w-6" />
-          </div>
-          <div className="flex-1">
-            <h2 id="omeetso-guest-title" className="text-lg font-extrabold text-foreground">
-              Continue as guest?
-            </h2>
-            <p className="mt-1 text-xs sm:text-sm leading-relaxed text-muted-foreground">
-              You can browse local products and stores, but you'll need to sign in to chat, save items, make price offers or sell items.
-            </p>
-          </div>
-        </div>
-
-        <div className="mt-6 grid gap-3">
-          <button
-            type="button"
-            onClick={onConfirm}
-            className="h-[52px] w-full rounded-2xl bg-indigo-brand text-sm font-bold text-white shadow-lg active:scale-[0.99] hover:opacity-95"
-          >
-            Continue as Guest
-          </button>
-          <button
-            type="button"
-            onClick={onClose}
-            className="h-[52px] w-full rounded-2xl border border-border bg-card text-sm font-bold text-navy hover:bg-secondary"
-          >
-            Sign In Instead
-          </button>
-        </div>
-      </div>
+      <div className="absolute -bottom-24 left-1/2 h-56 w-72 -translate-x-1/2 rounded-full bg-slate-500/10 blur-3xl" />
     </div>
   );
 }
