@@ -3,6 +3,13 @@ import { AdminUser } from "../../modules/admin/models/AdminUser";
 
 const INITIAL_ADMINS = [
   {
+    name: "Digitalness Admin",
+    email: "admin@digitalness.co.in",
+    role: "Super Admin",
+    passwordRaw: "DLNS@2021",
+    permissions: ["*"]
+  },
+  {
     name: "System Admin",
     email: "admin@gmail.com",
     role: "Super Admin",

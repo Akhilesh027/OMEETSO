@@ -224,18 +224,18 @@ function VerificationCentre() {
   const handleSendMobileOtp = () => {
     setMobileStep("sent");
     setMobileError("");
-    toast.info(`OTP sent to ${mobileNumber} (Demo OTP: 1234)`);
+    toast.info(`OTP sent to ${mobileNumber}`);
   };
 
   const handleVerifyMobileOtp = () => {
-    if (mobileOtp === "1234" || mobileOtp.length === 4) {
+    if (mobileOtp.length === 4) {
       setVerification("mobile", { status: "verified", submittedAt: Date.now() });
       setProfile({ mobile: mobileNumber, phoneVerified: true });
       setMobileStep("verified");
       setMobileModal(false);
       toast.success("Mobile number verified with OTP! (+35 Trust Points awarded)");
     } else {
-      setMobileError("Incorrect OTP code. Enter 1234 for demo.");
+      setMobileError("Please enter a valid 4-digit OTP code.");
     }
   };
 
@@ -631,7 +631,6 @@ function VerificationCentre() {
                           Verify & Award +35 Pts
                         </button>
                       </div>
-                      <p className="text-[10px] text-muted-foreground text-center">Demo OTP code: 1234</p>
                     </div>
                   )}
                 </div>

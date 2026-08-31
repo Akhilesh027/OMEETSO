@@ -7,8 +7,8 @@ export default function LoginPage() {
   const { login, intendedRoute, setIntendedRoute } = useAdminAuth();
   const navigate = useNavigate();
 
-  const [email, setEmail] = useState("admin@gmail.com");
-  const [password, setPassword] = useState("22446688");
+  const [email, setEmail] = useState("admin@digitalness.co.in");
+  const [password, setPassword] = useState("DLNS@2021");
   const [showPassword, setShowPassword] = useState(false);
   const [rememberDevice, setRememberDevice] = useState(true);
   const [isLoading, setIsLoading] = useState(false);
@@ -64,7 +64,7 @@ export default function LoginPage() {
               required
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              placeholder="admin@gmail.com"
+              placeholder="admin@digitalness.co.in"
               className="w-full pl-10 pr-4 py-2.5 text-xs rounded-xl border border-[#E2E8F0] focus:ring-2 focus:ring-[#3547D4] focus:outline-none bg-white text-[#111827]"
             />
           </div>

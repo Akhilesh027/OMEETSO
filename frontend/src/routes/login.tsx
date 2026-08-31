@@ -119,7 +119,7 @@ function LoginPage() {
     const res = await requestUserOtp(cleanPhone);
     setIsLoading(false);
     if (res.success) {
-      toast.success(`OTP sent to +91 ${cleanPhone}. (Use 1234)`);
+      toast.success(`OTP sent to +91 ${cleanPhone}.`);
       setStep("otp_fallback");
     } else {
       toast.error(res.error || "Failed to send OTP");
@@ -529,9 +529,6 @@ function LoginPage() {
                     onChange={(e) => setOtpCode(e.target.value.replace(/\D/g, "").slice(0, 4))}
                     className="w-full h-14 rounded-2xl border border-border bg-card text-center text-2xl font-black tracking-widest text-foreground outline-none focus:border-indigo-brand focus:ring-2 focus:ring-indigo-brand/20 font-mono"
                   />
-                  <p className="mt-2 text-xs text-muted-foreground">
-                    Default Testing OTP: <strong className="text-foreground font-mono">1234</strong>
-                  </p>
                 </div>
 
                 <button

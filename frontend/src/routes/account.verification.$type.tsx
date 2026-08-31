@@ -62,16 +62,16 @@ function MobileVerify({ v, mobile }: { v: any; mobile: string }) {
   const [error, setError] = useState("");
   const [attempts, setAttempts] = useState(0);
 
-  const send = () => { setStep("sent"); setOtp(""); setError(""); toast.info("OTP sent to your mobile (Demo OTP: 1234)"); };
+  const send = () => { setStep("sent"); setOtp(""); setError(""); toast.info("OTP sent to your mobile"); };
   const verify = () => {
     if (attempts >= 3) { setStep("too_many"); return; }
-    if (otp === "1234" || otp.length === 4) {
+    if (otp.length === 4) {
       setVerification("mobile", { status: "verified", submittedAt: Date.now() });
       setStep("verified");
       toast.success("Mobile phone verified (+35 Trust Points awarded)");
     } else {
       setAttempts((n) => n + 1);
-      setError("Incorrect OTP code. Enter 1234 for demo.");
+      setError("Incorrect 4-digit verification code.");
     }
   };
 
@@ -137,7 +137,6 @@ function MobileVerify({ v, mobile }: { v: any; mobile: string }) {
                   Verify OTP & Unlock (+35 Pts)
                 </button>
               </div>
-              <p className="text-[11px] text-muted-foreground text-center">Demo OTP code is 1234</p>
             </div>
           )}
         </div>

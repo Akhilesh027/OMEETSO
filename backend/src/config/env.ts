@@ -18,9 +18,16 @@ const EnvSchema = z.object({
   CLOUDINARY_CLOUD_NAME: z.string().default("mock_cloud_name"),
   CLOUDINARY_API_KEY: z.string().default("mock_api_key"),
   CLOUDINARY_API_SECRET: z.string().default("mock_api_secret"),
-  SMS_PROVIDER: z.string().default("renflair"),
-  RENFLAIR_SMS_API_KEY: z.string().default("58f1b50a7c3e8999de6f0f8234590ff6"),
-  SMS_GATEWAY_URL: z.string().default("https://sms.renflair.in/V1.php")
+  SMS_PROVIDER: z.string().default("combirds"),
+  COMBIRDS_API_KEY: z.string().optional().default(""),
+  COMBIRDS_GATEWAY_URL: z.string().default("https://api.combirds.com/api/v1/sms/send"),
+  COMBIRDS_SENDER_ID: z.string().optional().default("omeetso"),
+  COMBIRDS_DLT_TE_ID: z.string().optional().default(""),
+  COMBIRDS_SMS_TYPE: z.string().optional().default("otp"),
+  COMBIRDS_MESSAGE_TEMPLATE: z.string().optional().default(""),
+  COMBIRDS_ROUTE: z.string().optional().default("otp"),
+  RENFLAIR_SMS_API_KEY: z.string().optional().default(""),
+  SMS_GATEWAY_URL: z.string().optional().default("https://sms.renflair.in/V1.php")
 });
 
 export const env = EnvSchema.parse(process.env);

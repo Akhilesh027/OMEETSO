@@ -122,7 +122,7 @@ function RegisterPage() {
       setIsSubmitting(false);
 
       if (otpRes.success) {
-        toast.success(`OTP sent to +91 ${cleanPhone}. (Use 1234)`);
+        toast.success(`OTP sent to +91 ${cleanPhone}.`);
         setResendCooldown(30);
         setStep("otp");
       } else {
@@ -146,14 +146,6 @@ function RegisterPage() {
     setIsSubmitting(true);
     setErrorMessage("");
 
-    // Default test code or API verify
-    if (cleanOtp === "1234") {
-      setIsSubmitting(false);
-      toast.success("Phone verified successfully! Now set your 4-digit PIN.");
-      setStep("pin");
-      return;
-    }
-
     const res = await verifyUserOtp(cleanPhone, cleanOtp);
     setIsSubmitting(false);
 
@@ -161,7 +153,7 @@ function RegisterPage() {
       toast.success("Phone verified successfully! Now set your 4-digit PIN.");
       setStep("pin");
     } else {
-      setErrorMessage(res.error || "Invalid OTP code. Use default code 1234.");
+      setErrorMessage(res.error || "Invalid verification code. Please check and try again.");
     }
   };
 
@@ -170,7 +162,7 @@ function RegisterPage() {
     setResendCooldown(30);
     const otpRes = await requestUserOtp(cleanPhone);
     if (otpRes.success) {
-      toast.success(`New OTP sent to +91 ${cleanPhone}. (Use 1234)`);
+      toast.success(`New OTP sent to +91 ${cleanPhone}.`);
     } else {
       toast.error(otpRes.error || "Failed to resend OTP");
     }
@@ -618,20 +610,19 @@ function RegisterPage() {
                       className="w-full h-14 rounded-2xl border border-border bg-card text-center text-2xl font-black tracking-widest text-foreground outline-none focus:border-indigo-brand focus:ring-2 focus:ring-indigo-brand/20 font-mono"
                     />
                   </div>
-                  <p className="mt-2 text-xs text-muted-foreground flex items-center justify-between">
-                    <span>Default Testing OTP: <strong className="text-foreground font-mono">1234</strong></span>
-                    {resendCooldown > 0 ? (
-                      <span className="text-slate-400 font-mono">Resend in {resendCooldown}s</span>
-                    ) : (
-                      <button
-                        type="button"
-                        onClick={handleResendOtp}
-                        className="text-indigo-brand font-bold hover:underline cursor-pointer flex items-center gap-1"
-                      >
-                        <RefreshCw className="h-3 w-3" /> Resend OTP
-                      </button>
-                    )}
-                  </p>
+                    <p className="mt-2 text-xs text-muted-foreground flex items-center justify-end">
+                      {resendCooldown > 0 ? (
+                        <span className="text-slate-400 font-mono">Resend OTP in {resendCooldown}s</span>
+                      ) : (
+                        <button
+                          type="button"
+                          onClick={handleResendOtp}
+                          className="text-indigo-brand font-bold hover:underline cursor-pointer flex items-center gap-1"
+                        >
+                          <RefreshCw className="h-3 w-3" /> Resend OTP
+                        </button>
+                      )}
+                    </p>
                 </div>
 
                 <div className="pt-2">

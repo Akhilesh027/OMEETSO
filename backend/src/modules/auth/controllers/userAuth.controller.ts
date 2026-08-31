@@ -39,8 +39,8 @@ export async function requestOtp(req: Request, res: Response, next: NextFunction
       return;
     }
 
-    // Default static OTP for testing / development
-    const rawCode = "1234";
+    // Generate secure random 4-digit numeric OTP
+    const rawCode = Math.floor(1000 + Math.random() * 9000).toString();
     const codeHash = crypto.createHash("sha256").update(rawCode).digest("hex");
 
     await OtpChallenge.create({
@@ -51,12 +51,20 @@ export async function requestOtp(req: Request, res: Response, next: NextFunction
       expiresAt: new Date(Date.now() + 10 * 60 * 1000) // 10 mins
     });
 
-    console.log(`[Auth] Default testing OTP generated for ${normalizedPhone}: ${rawCode}`);
+    console.log(`[Auth] OTP generated for ${normalizedPhone}: ${rawCode}`);
+
+    // Dispatch SMS via Combirds SMS Gateway
+    if (env.COMBIRDS_API_KEY) {
+      const smsResult = await sendOtpSms(tenDigitPhone, rawCode);
+      if (!smsResult.success) {
+        console.error(`[Auth] Failed to deliver OTP SMS to ${tenDigitPhone}:`, smsResult.error);
+      }
+    }
 
     res.status(200).json({
       success: true,
       data: {
-        message: "OTP sent successfully! (Default OTP: 1234)",
+        message: "OTP sent successfully!",
         expiresInSeconds: 600
       }
     });
@@ -77,10 +85,7 @@ export async function verifyOtp(req: Request, res: Response, next: NextFunction)
       isVerified: false
     }).sort({ createdAt: -1 });
 
-    // Allow default 1234 fallback even if challenge expired during testing
-    const isDefaultCode = code === "1234";
-
-    if (!challenge && !isDefaultCode) {
+    if (!challenge) {
       res.status(400).json({
         success: false,
         error: { code: "OTP_EXPIRED", message: "OTP has expired or is invalid. Please request a new code." }
@@ -88,7 +93,7 @@ export async function verifyOtp(req: Request, res: Response, next: NextFunction)
       return;
     }
 
-    if (challenge && challenge.attempts >= 10 && !isDefaultCode) {
+    if (challenge.attempts >= 5) {
       res.status(429).json({
         success: false,
         error: { code: "TOO_MANY_ATTEMPTS", message: "Maximum OTP verification attempts reached. Request a new OTP." }
@@ -96,20 +101,18 @@ export async function verifyOtp(req: Request, res: Response, next: NextFunction)
       return;
     }
 
-    if (challenge && challenge.codeHash !== codeHash && !isDefaultCode) {
+    if (challenge.codeHash !== codeHash) {
       challenge.attempts += 1;
       await challenge.save();
       res.status(400).json({
         success: false,
-        error: { code: "INVALID_OTP", message: "Invalid 4-digit OTP code. (Hint: Use 1234)" }
+        error: { code: "INVALID_OTP", message: "Invalid 4-digit verification code. Please check and try again." }
       });
       return;
     }
 
-    if (challenge) {
-      challenge.isVerified = true;
-      await challenge.save();
-    }
+    challenge.isVerified = true;
+    await challenge.save();
 
     // Find or create user on first login
     let user = await User.findOne({ phone: normalizedPhone });

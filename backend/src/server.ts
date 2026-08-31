@@ -4,6 +4,7 @@ import { env } from "./config/env";
 import { connectDatabase, disconnectDatabase } from "./database/connect";
 import { initSocketServer } from "./sockets/socket-server";
 import { startBackgroundWorkers } from "./jobs/cleanupWorker";
+import { seedAdminUsers } from "./database/seeders/adminSeeder";
 
 const server = http.createServer(app);
 
@@ -12,6 +13,7 @@ export const io = initSocketServer(server);
 
 async function startServer() {
   await connectDatabase();
+  await seedAdminUsers();
 
   startBackgroundWorkers();
 

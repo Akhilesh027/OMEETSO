@@ -288,12 +288,6 @@ function OtpPage() {
             </div>
           </div>
 
-          {/* Demo OTP Hint Pill */}
-          <div className="mx-auto flex w-fit items-center gap-1.5 rounded-full bg-yellow-brand/15 px-3.5 py-1 text-xs font-bold text-navy ring-1 ring-yellow-brand/40 shadow-sm">
-            <ShieldCheck className="h-4 w-4 text-orange-brand" />
-            Demo Code: <span className="font-black">1234</span>
-          </div>
-
           {/* 4-Digit Inputs */}
           <div
             role="group"
