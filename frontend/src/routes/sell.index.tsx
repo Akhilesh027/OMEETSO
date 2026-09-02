@@ -10,7 +10,7 @@ import {
 } from "lucide-react";
 import { listDrafts, seedIfEmpty } from "@/lib/listings";
 import { fetchLiveUserStores, type Store } from "@/lib/stores";
-import { getTrustScore, getVerifications } from "@/lib/account";
+import { getTrustScore, getTrustScoreBreakdown, getVerifications } from "@/lib/account";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 
@@ -40,6 +40,7 @@ function SellHome() {
   }, []);
 
   const trustScore = getTrustScore();
+  const breakdown = getTrustScoreBreakdown();
   const MIN_SCORE = 35; // Phone Verification status unlocks listing
   const isEligible = trustScore >= MIN_SCORE;
   const verifs = getVerifications();
@@ -186,7 +187,7 @@ function SellHome() {
           <div className="mx-auto max-w-6xl px-6 py-10">
             <nav className="text-xs text-muted-foreground flex items-center gap-2">
               <Link to="/home" className="hover:text-foreground">Home</Link>
-              <span>/</span>
+              <ChevronRight className="h-3.5 w-3.5 text-muted-foreground/50 shrink-0" />
               <span className="text-foreground font-semibold">Publish & Sell</span>
             </nav>
             <div className="mt-3 flex flex-col md:flex-row md:items-center justify-between gap-4">
@@ -389,29 +390,38 @@ function SellHome() {
                   Verification Required to Sell Products
                 </h3>
                 <p className="text-xs text-muted-foreground leading-relaxed px-2">
-                  Your current Trust Score is <strong className="text-foreground">{trustScore} Pts</strong>. A minimum score of <strong className="text-emerald-600">750 Pts</strong> is mandatory to list physical products on Omeetso. Services and Jobs are exempt.
+                  Your current Trust Score is <strong className="text-foreground">{trustScore} Pts</strong>. A minimum score of <strong className="text-emerald-600">{MIN_SCORE} Pts</strong> is mandatory to list physical products on Omeetso. Services and Jobs are exempt.
                 </p>
               </div>
 
               {/* Requirement Checklist */}
               <div className="p-4 rounded-2xl bg-secondary/70 border border-border text-left text-xs space-y-2">
-                <div className="font-bold text-foreground mb-1">Seller Verification Checklist (100 Pts):</div>
+                <div className="flex items-center justify-between font-bold text-foreground mb-1">
+                  <span>Seller Verification Checklist (100 Pts):</span>
+                  <span className="text-indigo-brand font-black">{trustScore} / 100 Pts</span>
+                </div>
                 <div className="flex items-center justify-between text-muted-foreground">
                   <span>📱 Mobile OTP Verification (Required to list):</span>
-                  <span className={verifs.mobile.status === "verified" ? "font-bold text-emerald-600" : "text-amber-600 font-bold"}>
-                    {verifs.mobile.status === "verified" ? "+35 Pts ✓" : "+35 Pts (Pending)"}
+                  <span className={breakdown.mobile > 0 ? "font-bold text-emerald-600" : "text-amber-600 font-bold"}>
+                    {breakdown.mobile > 0 ? "+35 Pts ✓" : "+35 Pts (Pending)"}
+                  </span>
+                </div>
+                <div className="flex items-center justify-between text-muted-foreground">
+                  <span>✉️ Email Address OTP Verification:</span>
+                  <span className={breakdown.email > 0 ? "font-bold text-emerald-600" : "text-muted-foreground"}>
+                    {breakdown.email > 0 ? "+15 Pts ✓" : "+15 Pts"}
                   </span>
                 </div>
                 <div className="flex items-center justify-between text-muted-foreground">
                   <span>🪪 Govt ID KYC (Aadhaar / PAN / DL):</span>
-                  <span className={verifs.identity.status === "verified" ? "font-bold text-emerald-600" : "text-indigo-600 font-bold"}>
-                    {verifs.identity.status === "verified" ? "+35 Pts ✓" : "+35 Pts (Recommended)"}
+                  <span className={breakdown.identity === 35 ? "font-bold text-emerald-600" : breakdown.identity > 0 ? "text-amber-600 font-bold" : "text-indigo-600 font-bold"}>
+                    {breakdown.identity === 35 ? "+35 Pts ✓" : breakdown.identity > 0 ? "+15 Pts (Under Review)" : "+35 Pts (Recommended)"}
                   </span>
                 </div>
                 <div className="flex items-center justify-between text-muted-foreground">
-                  <span>📍 Address / Location Proof:</span>
-                  <span className={verifs.address?.status === "verified" ? "font-bold text-emerald-600" : "text-muted-foreground"}>
-                    {verifs.address?.status === "verified" ? "+15 Pts ✓" : "+15 Pts"}
+                  <span>📍 Address & Assigned Location Proof:</span>
+                  <span className={breakdown.address > 0 ? "font-bold text-emerald-600" : "text-muted-foreground"}>
+                    {breakdown.address > 0 ? "+15 Pts ✓" : "+15 Pts"}
                   </span>
                 </div>
               </div>

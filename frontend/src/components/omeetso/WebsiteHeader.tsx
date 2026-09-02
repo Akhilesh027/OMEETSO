@@ -58,7 +58,7 @@ export function WebsiteHeader() {
   // Load Header Notifications
   const loadHeaderNotifs = useCallback(async () => {
     const res = await getNotificationsApi(1, 10);
-    if (res.success && res.data && res.data.length > 0) {
+    if (res.success && Array.isArray(res.data)) {
       setNotifList(res.data);
     } else {
       const local = listNotifications();
@@ -418,7 +418,7 @@ export function WebsiteHeader() {
 
           {/* Action Icons & Real-time Badges */}
           <div className="flex items-center gap-1 sm:gap-1.5 shrink-0">
-            <IconLink to="/saved" label="Saved" badge={savedCount}>
+            <IconLink to="/saved" label="Saved">
               <Heart className="h-4.5 w-4.5" />
             </IconLink>
             <IconLink to="/chats" label="Chats" badge={unreadChats}>
@@ -433,14 +433,6 @@ export function WebsiteHeader() {
                 className="relative grid h-9.5 w-9.5 place-items-center rounded-full text-muted-foreground hover:bg-secondary hover:text-foreground transition-all duration-200 hover:scale-105 active:scale-95 cursor-pointer"
               >
                 <Bell className="h-4.5 w-4.5" />
-                {unreadNotifCount > 0 ? (
-                  <span className="absolute -top-0.5 -right-0.5 flex items-center justify-center">
-                    <span className="absolute h-4 w-4 rounded-full bg-amber-400 opacity-75 animate-ping" />
-                    <span className="relative grid h-4 min-w-4 place-items-center rounded-full bg-amber-500 px-1 text-[10px] font-black text-slate-950 shadow-xs border border-amber-300">
-                      {unreadNotifCount}
-                    </span>
-                  </span>
-                ) : null}
               </button>
 
               {/* Notification Popover Dropdown Modal */}

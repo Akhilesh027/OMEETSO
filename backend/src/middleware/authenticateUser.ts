@@ -22,7 +22,7 @@ export async function authenticateUser(
           accountType: "individual",
           status: UserStatus.ACTIVE,
           profile: { name: "Omeetso Seller", city: "Hyderabad", pincode: "500081", area: "Madhapur" },
-          verificationSummary: { mobileVerified: true, emailVerified: true, identityVerified: true, businessVerified: false }
+          verificationSummary: { mobileVerified: true, emailVerified: false, identityVerified: false, businessVerified: false }
         });
       }
       req.user = defaultUser;
@@ -54,7 +54,7 @@ export async function authenticateUser(
           accountType: "individual",
           status: UserStatus.ACTIVE,
           profile: { name: "Omeetso User", city: "Hyderabad", pincode: "500081", area: "Madhapur" },
-          verificationSummary: { mobileVerified: true, emailVerified: true, identityVerified: true, businessVerified: false }
+          verificationSummary: { mobileVerified: true, emailVerified: false, identityVerified: false, businessVerified: false }
         });
       } catch {
         // Fallback to default user if _id creation fails
@@ -65,7 +65,7 @@ export async function authenticateUser(
             accountType: "individual",
             status: UserStatus.ACTIVE,
             profile: { name: "Omeetso User", city: "Hyderabad", pincode: "500081", area: "Madhapur" },
-            verificationSummary: { mobileVerified: true, emailVerified: true, identityVerified: true, businessVerified: false }
+            verificationSummary: { mobileVerified: true, emailVerified: false, identityVerified: false, businessVerified: false }
           });
         }
       }

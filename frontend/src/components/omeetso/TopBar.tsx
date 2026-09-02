@@ -2,7 +2,6 @@ import { useState, useEffect } from "react";
 import { Link } from "@tanstack/react-router";
 import { Bell, Heart, MessageCircle, MapPin, ChevronDown, ArrowLeft, User } from "lucide-react";
 import type { ReactNode } from "react";
-import { NOTIFICATIONS } from "@/lib/mock";
 import { getSaved, subscribe as subscribeSaved } from "@/lib/saved";
 import { getThreads, subscribe as subscribeChat, seedIfEmpty } from "@/lib/chat";
 import { LocationModal } from "@/components/omeetso/LocationModal";
@@ -20,7 +19,6 @@ export function LocationTopBar({
   const [unreadChats, setUnreadChats] = useState(0);
   const [activeArea, setActiveArea] = useState(area || "");
   const [activePin, setActivePin] = useState(pincode || "");
-  const unreadNotifications = NOTIFICATIONS.filter((n) => !n.read).length;
 
   useEffect(() => {
     if (area) setActiveArea(area);
@@ -81,11 +79,6 @@ export function LocationTopBar({
             className="relative grid h-8.5 w-8.5 place-items-center rounded-full bg-white/15 hover:bg-white/25 transition-colors"
           >
             <Heart className="h-4 w-4 text-white" />
-            {savedCount > 0 && (
-              <span className="absolute -top-0.5 -right-0.5 grid h-3.5 min-w-3.5 place-items-center rounded-full bg-amber-400 px-1 text-[9px] font-black text-slate-950 shadow-2xs">
-                {savedCount}
-              </span>
-            )}
           </Link>
 
           <Link
@@ -107,11 +100,6 @@ export function LocationTopBar({
             className="relative grid h-8.5 w-8.5 place-items-center rounded-full bg-white/15 hover:bg-white/25 transition-colors"
           >
             <Bell className="h-4 w-4 text-white" />
-            {unreadNotifications > 0 && (
-              <span className="absolute -top-0.5 -right-0.5 grid h-3.5 min-w-3.5 place-items-center rounded-full bg-amber-400 px-1 text-[9px] font-black text-slate-950 shadow-2xs">
-                {unreadNotifications}
-              </span>
-            )}
           </Link>
 
           <Link

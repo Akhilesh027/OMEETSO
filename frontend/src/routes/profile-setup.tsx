@@ -6,6 +6,9 @@ import {
 } from "lucide-react";
 import { API_BASE } from "@/config/api";
 import { registerUserApi } from "@/api/auth.api";
+import { DEFAULT_AVATARS } from "@/lib/account";
+import { uploadImageToCloudinary } from "@/lib/upload";
+import { toast } from "sonner";
 
 export const Route = createFileRoute("/profile-setup")({
   head: () => ({
@@ -31,13 +34,14 @@ function ProfileSetup() {
   const [account, setAccount] = useState<Account>("individual");
   const [gender, setGender] = useState<"male" | "female" | "other">("male");
 
-  const GENDER_AVATARS = {
-    male: "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&w=200&h=200&q=80",
-    female: "https://images.unsplash.com/photo-1494790108377-be9c29b29330?auto=format&fit=crop&w=200&h=200&q=80",
-    other: "https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=200&h=200&q=80"
-  };
+  const GENDER_AVATARS = DEFAULT_AVATARS;
 
   const currentAvatar = avatar || GENDER_AVATARS[gender];
+
+  const handleSelectGender = (g: "male" | "female" | "other") => {
+    setGender(g);
+    setAvatar(DEFAULT_AVATARS[g]);
+  };
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -62,12 +66,22 @@ function ProfileSetup() {
   const emailValid = !emailTrimmed || /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(emailTrimmed);
   const canSubmit = name.trim().length >= 2 && phoneValid && emailValid && pincode.length === 6 && city.trim().length >= 2;
 
-  const pickAvatar = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const pickAvatar = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
-    const reader = new FileReader();
-    reader.onload = () => setAvatar(String(reader.result));
-    reader.readAsDataURL(file);
+    try {
+      const url = await uploadImageToCloudinary(file, "profile");
+      setAvatar(url);
+      setGender("other");
+      toast.success("Profile photo uploaded!");
+    } catch {
+      const reader = new FileReader();
+      reader.onload = () => {
+        setAvatar(String(reader.result));
+        setGender("other");
+      };
+      reader.readAsDataURL(file);
+    }
   };
 
   const submit = async () => {
@@ -178,9 +192,12 @@ function ProfileSetup() {
                 <button
                   key={g.key}
                   type="button"
-                  onClick={() => setGender(g.key as any)}
-                  className={`rounded-full px-4 py-1.5 text-xs font-bold transition-all ${gender === g.key ? "bg-navy text-white shadow-sm" : "bg-secondary text-muted-foreground hover:bg-secondary/80"
-                    }`}
+                  onClick={() => handleSelectGender(g.key as any)}
+                  className={`rounded-full px-4 py-1.5 text-xs font-bold transition-all cursor-pointer ${
+                    (gender === g.key || avatar === DEFAULT_AVATARS[g.key as keyof typeof DEFAULT_AVATARS])
+                      ? "bg-navy text-white shadow-sm"
+                      : "bg-secondary text-muted-foreground hover:bg-secondary/80"
+                  }`}
                 >
                   {g.label}
                 </button>

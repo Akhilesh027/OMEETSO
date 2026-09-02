@@ -1,5 +1,5 @@
 import { Link } from "@tanstack/react-router";
-import { Star, ShieldCheck, Sparkles } from "lucide-react";
+import { Star, ShieldCheck, Sparkles, ArrowRight } from "lucide-react";
 import { useState } from "react";
 import type { Store } from "@/lib/mock";
 
@@ -88,8 +88,9 @@ export function StoreCard({ s, className }: { s: Store; className?: string }) {
             </span>
           )}
 
-          <span className="font-bold text-primary hover:underline">
-            Visit Store →
+          <span className="inline-flex items-center gap-1.5 font-bold text-primary hover:underline">
+            <span>Visit Store</span>
+            <ArrowRight className="h-3.5 w-3.5 transition-transform group-hover:translate-x-0.5" />
           </span>
         </div>
       </div>

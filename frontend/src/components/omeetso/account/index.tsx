@@ -22,7 +22,7 @@ export function MenuRow({
   badge?: string | number; chevron?: boolean; sub?: string;
 }) {
   const inner = (
-    <div className="flex min-h-11 items-center gap-3 border-b border-border px-4 py-3 last:border-b-0 active:bg-muted">
+    <div className="group flex min-h-11 items-center gap-3 border-b border-border px-4 py-3 last:border-b-0 active:bg-muted">
       {Icon && (
         <div className="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-secondary text-primary">
           <Icon className="h-4 w-4" />
@@ -35,7 +35,7 @@ export function MenuRow({
       {badge != null && badge !== "" && (
         <span className="rounded-full bg-orange-brand px-2 py-0.5 text-[10px] font-bold text-navy">{badge}</span>
       )}
-      {chevron && <ChevronRight className="h-4 w-4 text-muted-foreground" />}
+      {chevron && <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground transition-transform group-hover:translate-x-0.5" />}
     </div>
   );
   if (to) return <Link to={to} params={params}>{inner}</Link>;

@@ -659,134 +659,45 @@ export function computeTotals(baseAmount: number, creditsAvailable: number, opts
 // ---------- Seeding ----------
 export function seedRevenueIfEmpty() {
   if (!isB) return;
-  if (!localStorage.getItem(LS.wallet)) setWallet({ balance: 1250, refundBalance: 99 });
-  if (!localStorage.getItem(LS.credits)) {
-    write(LS.credits, [
-      { id: "CR_WELCOME", amount: 300, source: "Welcome Promotion Credit",
-        expiresAt: Date.now() + 90 * 86400000, eligibleFor: ["boost", "store_promotion"] },
-    ] as PromoCredit[]);
-  }
-  if (!localStorage.getItem(LS.txns)) {
-    const now = Date.now();
-    write(LS.txns, [
-      { id: "TXN1", type: "recharge", direction: "credit", amount: 1000, status: "successful", createdAt: now - 5 * 86400000, title: "Wallet recharge", paymentMethod: "UPI", paymentId: "PAYA1" },
-      { id: "TXN2", type: "advertisement", direction: "debit", amount: 350, status: "successful", createdAt: now - 3 * 86400000, title: "Madhapur Furniture Sale", paymentMethod: "Omeetso Wallet", paymentId: "PAYA2", campaignId: "CMP_SEED_FUR" },
-      { id: "TXN3", type: "credit", direction: "credit", amount: 300, status: "successful", createdAt: now - 30 * 86400000, title: "Welcome Promotion Credit", paymentMethod: "Promo" },
-      { id: "TXN4", type: "refund", direction: "credit", amount: 99, status: "successful", createdAt: now - 2 * 86400000, title: "Refund — cancelled promotion", paymentMethod: "Omeetso Wallet" },
-    ] as WalletTxn[]);
-  }
-  if (!localStorage.getItem(LS.campaigns)) {
-    const now = Date.now();
-    const seed: Campaign[] = [
-      {
-        id: "CMP_SEED_FUR", name: "Madhapur Furniture Sale", objective: "store_visits",
-        source: { kind: "store", refId: "satish-furniture" },
-        creative: {
-          name: "Madhapur Furniture Sale",
-          headline: "Premium Furniture Sale Near You",
-          description: "Explore sofas, beds and dining sets from a verified local store.",
-          cta: "Visit Store", advertiserDisplayName: "Sri Sai Furniture Hub",
-          destination: "store", imageUrl: "https://images.unsplash.com/photo-1555041469-a586c61ea9bc?auto=format&fit=crop&w=800&h=600&q=80",
-        },
-        audience: { pincodes: ["500081", "500084", "500032"], areas: ["Madhapur", "Kondapur", "Gachibowli"], radiusKm: 5, categories: ["furniture"], intents: ["searched", "recent_views"], languages: ["English", "Telugu"] },
-        placements: ["HOME_HERO", "HOME_SPONSORED_STORE", "CATEGORY_HERO"],
-        schedule: { dailyBudget: 700, totalBudget: 5000, startAt: now - 3 * 86400000, endAt: now + 4 * 86400000, startNow: true },
-        frequency: { maxImpressionsPerUser: 3, maxClicksPerUser: 2, dailyFrequency: 1 },
-        status: "active", createdAt: now - 3 * 86400000, updatedAt: now,
-        amountSpent: 2140, paymentId: "PAYA2", analytics: seedCampaignAnalytics(5000, 2140),
-      },
-      {
-        id: "CMP_SEED_TV", name: "Smart TV Local Offer", objective: "promote_product",
-        source: { kind: "store_product", refId: "LSEEDTV43", storeId: "satish-electronics" },
-        creative: {
-          name: "Smart TV Local Offer",
-          headline: "Smart TVs and Appliances on Offer",
-          description: "Shop electronics from a verified store near Ameerpet.",
-          cta: "View Product", advertiserDisplayName: "Satish Electronics",
-          destination: "product", imageUrl: "https://images.unsplash.com/photo-1593359677879-a4bb92f829d1?auto=format&fit=crop&w=800&h=600&q=80",
-        },
-        audience: { pincodes: ["500016", "500018"], areas: ["Ameerpet", "SR Nagar"], radiusKm: 10, categories: ["electronics"], intents: ["saved", "searched"], languages: ["English", "Hindi"] },
-        placements: ["SEARCH_NATIVE_RESULT", "CATEGORY_NATIVE_FEED", "STORE_FEATURED_OFFER"],
-        schedule: { dailyBudget: 400, totalBudget: 3500, startAt: now - 86400000, endAt: now + 6 * 86400000, startNow: true },
-        frequency: { maxImpressionsPerUser: 3, maxClicksPerUser: 2, dailyFrequency: 1 },
-        status: "under_review", createdAt: now - 86400000, updatedAt: now,
-        amountSpent: 0, analytics: emptyCampaignAnalytics(),
-      },
-      {
-        id: "CMP_SEED_CAR", name: "Car Service Near Kukatpally", objective: "calls",
-        source: { kind: "custom", advertiserBusiness: { name: "AutoCare Kukatpally", contact: "+91 98765 43200" } },
-        creative: {
-          name: "Car Service Near Kukatpally",
-          headline: "Trusted Car Service Near You",
-          description: "Book inspection and maintenance from local professionals.",
-          cta: "Call Now", advertiserDisplayName: "AutoCare Kukatpally",
-          destination: "chat",
-        },
-        audience: { pincodes: ["500072"], areas: ["Kukatpally"], radiusKm: 5, categories: ["services"], intents: [], languages: ["English", "Telugu"] },
-        placements: ["HOME_NATIVE_FEED", "SEARCH_NATIVE_RESULT"],
-        schedule: { dailyBudget: 200, totalBudget: 1500, startAt: now, endAt: now + 7 * 86400000, startNow: true },
-        frequency: { maxImpressionsPerUser: 3, maxClicksPerUser: 2, dailyFrequency: 1 },
-        status: "draft", createdAt: now - 86400000, updatedAt: now,
-        amountSpent: 0, analytics: emptyCampaignAnalytics(), step: 4,
-      },
-      {
-        id: "CMP_SEED_RENT", name: "Rental Homes in Kondapur", objective: "chats",
-        source: { kind: "custom", advertiserBusiness: { name: "Kondapur Rentals", contact: "+91 98765 43299" } },
-        creative: {
-          name: "Rental Homes in Kondapur",
-          headline: "Rental Homes in Your Area",
-          description: "Discover rental properties near your preferred location.",
-          cta: "Chat Now", advertiserDisplayName: "Kondapur Rentals",
-          destination: "chat", imageUrl: "https://images.unsplash.com/photo-1560448204-e02f11c3d0e2?auto=format&fit=crop&w=800&h=600&q=80",
-        },
-        audience: { pincodes: ["500084"], areas: ["Kondapur"], radiusKm: 5, categories: ["properties"], intents: ["searched"], languages: ["English"] },
-        placements: ["HOME_NATIVE_FEED", "CATEGORY_HERO"],
-        schedule: { dailyBudget: 300, totalBudget: 2500, startAt: now - 20 * 86400000, endAt: now - 10 * 86400000, startNow: true },
-        frequency: { maxImpressionsPerUser: 3, maxClicksPerUser: 2, dailyFrequency: 1 },
-        status: "completed", createdAt: now - 20 * 86400000, updatedAt: now - 10 * 86400000,
-        amountSpent: 2450, analytics: seedCampaignAnalytics(2500, 2450),
-      },
-    ];
-    write(LS.campaigns, seed);
-  }
-  if (!localStorage.getItem(LS.promotions)) {
-    const now = Date.now();
-    const seed: Promotion[] = [
-      {
-        id: "PR_SEED_SOFA", target: { kind: "listing", refId: "LSEEDSOFA1" },
-        objective: "views", packageId: "popular", packageName: "Popular Boost",
-        duration: 7, placements: ["SEARCH_TOP", "CATEGORY_FEATURED", "HIGHLIGHTED_CARD"],
-        areas: ["Miyapur", "Kukatpally"], radiusKm: 5,
-        startAt: now - 2 * 86400000, endAt: now + 5 * 86400000,
-        baseAmount: 249, tax: 45, creditsApplied: 100, totalAmount: 194,
-        paymentMethod: "Omeetso Wallet", paymentId: "PAYPR1",
-        status: "active", createdAt: now - 2 * 86400000, updatedAt: now, amountSpent: 96,
-        analytics: seedPromotionAnalytics(0.6),
-      },
-    ];
-    write(LS.promotions, seed);
-  }
-  if (!localStorage.getItem(LS.invoices)) {
-    const now = Date.now();
-    write(LS.invoices, [
-      {
-        id: "INV1", number: "OMS/2026/000012", createdAt: now - 3 * 86400000,
-        service: "Advertisement Campaign", campaignId: "CMP_SEED_FUR",
-        baseAmount: 5000, tax: 900, discount: 0, creditsUsed: 0, total: 5900,
-        paymentMethod: "Omeetso Wallet", status: "paid", billing: {},
-      },
-      {
-        id: "INV2", number: "OMS/2026/000018", createdAt: now - 2 * 86400000,
-        service: "Listing Boost", promotionId: "PR_SEED_SOFA",
-        baseAmount: 249, tax: 45, discount: 0, creditsUsed: 100, total: 194,
-        paymentMethod: "Omeetso Wallet", status: "paid", billing: {},
-      },
-    ] as Invoice[]);
-  }
-  if (!localStorage.getItem(LS.refunds)) {
-    write(LS.refunds, [
-      { id: "RF1", amount: 99, reason: "Duplicate payment reversed", destination: "wallet",
-        status: "completed", requestedAt: Date.now() - 2 * 86400000 },
-    ] as Refund[]);
-  }
+  if (!localStorage.getItem(LS.wallet)) setWallet({ balance: 0, refundBalance: 0 });
+  if (!localStorage.getItem(LS.credits)) write(LS.credits, [] as PromoCredit[]);
+  if (!localStorage.getItem(LS.txns)) write(LS.txns, [] as WalletTxn[]);
+  if (!localStorage.getItem(LS.campaigns)) write(LS.campaigns, [] as Campaign[]);
+  if (!localStorage.getItem(LS.promotions)) write(LS.promotions, [] as Promotion[]);
+  if (!localStorage.getItem(LS.invoices)) write(LS.invoices, [] as Invoice[]);
+  clearMockSeedData();
+}
+
+export function clearMockSeedData() {
+  if (!isB) return;
+  try {
+    const rawCamps = localStorage.getItem(LS.campaigns);
+    if (rawCamps && (rawCamps.includes("CMP_SEED_") || rawCamps.includes("Madhapur Furniture Sale") || rawCamps.includes("Smart TV Local Offer"))) {
+      write(LS.campaigns, []);
+    }
+    const rawDrafts = localStorage.getItem(LS.drafts);
+    if (rawDrafts && (rawDrafts.includes("CMP_SEED_") || rawDrafts.includes("Car Service Near Kukatpally"))) {
+      write(LS.drafts, []);
+    }
+    const rawPromos = localStorage.getItem(LS.promotions);
+    if (rawPromos && (rawPromos.includes("PR_SEED_") || rawPromos.includes("Popular Boost"))) {
+      write(LS.promotions, []);
+    }
+    const rawInvs = localStorage.getItem(LS.invoices);
+    if (rawInvs && (rawInvs.includes("CMP_SEED_") || rawInvs.includes("OMS/2026/000012"))) {
+      write(LS.invoices, []);
+    }
+    const rawCredits = localStorage.getItem(LS.credits);
+    if (rawCredits && rawCredits.includes("CR_WELCOME")) {
+      write(LS.credits, []);
+    }
+    const rawRefunds = localStorage.getItem(LS.refunds);
+    if (rawRefunds && rawRefunds.includes("RF1")) {
+      write(LS.refunds, []);
+    }
+    const rawTxns = localStorage.getItem(LS.txns);
+    if (rawTxns && (rawTxns.includes("PAYA1") || rawTxns.includes("PAYA2") || rawTxns.includes("TXN1"))) {
+      write(LS.txns, []);
+    }
+  } catch {}
 }

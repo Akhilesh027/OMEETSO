@@ -21,11 +21,12 @@ function resolveAbsoluteUrl(url?: string, defaultBase?: string): string {
   if (url.startsWith("http://") || url.startsWith("https://")) {
     return url;
   }
-  const base = defaultBase || env.CLIENT_USER_URL.replace(/\/$/, "");
-  return `${base}${url.startsWith("/") ? "" : "/"}${url}`;
+  const cleanBase = defaultBase || (env.CLIENT_USER_URL || "").split(",")[0].trim().replace(/\/$/, "");
+  return `${cleanBase}${url.startsWith("/") ? "" : "/"}${url}`;
 }
 
 export async function getProductOpenGraphPreview(req: Request, res: Response): Promise<void> {
+  // Fresh OpenGraph renderer for WhatsApp & social bots
   try {
     const rawId = req.params.id || req.params.listingId;
     const listingId = Array.isArray(rawId) ? rawId[0] : rawId;
@@ -36,21 +37,37 @@ export async function getProductOpenGraphPreview(req: Request, res: Response): P
       listing = await Listing.findById(listingId).lean();
     }
     if (!listing && listingId) {
-      listing = await Listing.findOne({ _id: listingId as any }).lean();
+      try {
+        listing = await Listing.findOne({
+          $or: [
+            ...(mongoose.Types.ObjectId.isValid(listingId) ? [{ _id: new mongoose.Types.ObjectId(listingId) }] : []),
+            { customId: listingId },
+            { id: listingId }
+          ]
+        }).lean();
+      } catch {
+        // Safe fallback
+      }
     }
 
     // Determine host url for relative links
     const protocol = req.headers["x-forwarded-proto"] || req.protocol || "https";
     const host = req.headers["x-forwarded-host"] || req.headers.host || "omeetso.in";
     const requestBase = `${protocol}://${host}`;
-    const clientBase = (env.CLIENT_USER_URL && !env.CLIENT_USER_URL.includes("localhost"))
-      ? env.CLIENT_USER_URL.replace(/\/$/, "")
-      : (requestBase.includes("localhost") ? env.CLIENT_USER_URL : "https://omeetso.in");
+    const clientBase = (requestBase.includes("localhost") || requestBase.includes("127.0.0.1"))
+      ? "http://localhost:5173"
+      : "https://omeetso.in";
 
-    let title = "Discover Hyperlocal Products · Omeetso";
-    let description = "Buy nearby and sell quickly on Omeetso hyperlocal marketplace.";
-    let imageUrl = "https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=1200&h=630&fit=crop&q=85";
-    let priceFormatted = "";
+    // Optional query overrides (for instant, reliable dynamic social shares)
+    const qTitle = req.query.title ? String(req.query.title).trim() : "";
+    const qDesc = req.query.desc ? String(req.query.desc).trim() : "";
+    const qImg = req.query.img ? String(req.query.img).trim() : "";
+    const qPrice = req.query.price ? String(req.query.price).trim() : "";
+
+    let title = qTitle || "Discover Hyperlocal Products · Omeetso";
+    let description = qDesc || "Buy nearby and sell quickly on Omeetso hyperlocal marketplace.";
+    let imageUrl = qImg || "https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=1200&h=630&fit=crop&q=85";
+    let priceFormatted = qPrice || "";
     let priceNumeric = 0;
     let canonicalUrl = `${clientBase}/product/${listingId || ""}`;
 
@@ -65,17 +82,27 @@ export async function getProductOpenGraphPreview(req: Request, res: Response): P
         ? (listing.images[coverIdx] || listing.images[0])
         : listing.image || listing.coverUrl;
 
-      imageUrl = resolveAbsoluteUrl(rawImg, requestBase);
-      title = `${listing.title} · ${priceFormatted} | Omeetso`;
+      if (!qImg) {
+        imageUrl = resolveAbsoluteUrl(rawImg, requestBase);
+      }
+      if (!qTitle) {
+        title = `${listing.title} · ${priceFormatted} | Omeetso`;
+      }
       
-      const details = [
-        `Price: ${priceFormatted}`,
-        listing.condition ? `Condition: ${listing.condition}` : null,
-        listing.area || listing.city ? `Location: ${[listing.area, listing.city].filter(Boolean).join(", ")}` : null,
-        listing.description ? listing.description.replace(/\s+/g, " ").trim() : "Buy nearby on Omeetso"
-      ].filter(Boolean).join(" · ");
+      if (!qDesc) {
+        const details = [
+          `Price: ${priceFormatted}`,
+          listing.condition ? `Condition: ${listing.condition}` : null,
+          listing.area || listing.city ? `Location: ${[listing.area, listing.city].filter(Boolean).join(", ")}` : null,
+          listing.description ? listing.description.replace(/\s+/g, " ").trim() : "Buy nearby on Omeetso"
+        ].filter(Boolean).join(" · ");
 
-      description = details.length > 250 ? `${details.slice(0, 247)}...` : details;
+        description = details.length > 250 ? `${details.slice(0, 247)}...` : details;
+      }
+    } else if (qTitle || qImg) {
+      if (qPrice && !title.includes("₹")) {
+        title = `${qTitle} · ₹${qPrice} | Omeetso`;
+      }
     } else {
       title = `Listing Details · Omeetso`;
       description = `View verified listing details on Omeetso — Hyperlocal marketplace.`;
@@ -87,16 +114,16 @@ export async function getProductOpenGraphPreview(req: Request, res: Response): P
     const safeUrl = escapeHtml(canonicalUrl);
 
     const html = `<!DOCTYPE html>
-<html lang="en">
+<html lang="en" prefix="og: https://ogp.me/ns#">
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>${safeTitle}</title>
   <meta name="description" content="${safeDesc}" />
 
-  <!-- Open Graph / Facebook / WhatsApp / Telegram / Discord -->
-  <meta property="og:type" content="product" />
+  <!-- Critical WhatsApp & Social Media Preview Meta Tags -->
   <meta property="og:site_name" content="Omeetso" />
+  <meta property="og:type" content="product" />
   <meta property="og:title" content="${safeTitle}" />
   <meta property="og:description" content="${safeDesc}" />
   <meta property="og:url" content="${safeUrl}" />
@@ -106,6 +133,11 @@ export async function getProductOpenGraphPreview(req: Request, res: Response): P
   <meta property="og:image:type" content="image/jpeg" />
   <meta property="og:image:width" content="1200" />
   <meta property="og:image:height" content="630" />
+  
+  <!-- WhatsApp & Search Engine Fallbacks -->
+  <link rel="image_src" href="${safeImg}" />
+  <meta itemprop="image" content="${safeImg}" />
+  <meta itemprop="name" content="${safeTitle}" />
   ${priceNumeric > 0 ? `<meta property="product:price:amount" content="${priceNumeric}" />
   <meta property="product:price:currency" content="INR" />` : ""}
 

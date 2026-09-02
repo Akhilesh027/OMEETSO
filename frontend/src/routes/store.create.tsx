@@ -16,7 +16,7 @@ import {
   ChevronRight, ImagePlus, Check, Sparkles,
   Store as StoreIcon, MapPin, Clock, Truck, ShieldCheck, Eye, Wand2,
   Phone, MessageSquare, Building2, Upload, X, LocateFixed, Loader2,
-  Camera, Navigation, Mail, User, Globe, ChevronDown
+  Camera, Navigation, Mail, User, Globe, ChevronDown, ArrowLeft
 } from "lucide-react";
 
 export const Route = createFileRoute("/store/create")({
@@ -656,9 +656,10 @@ function CreateStore() {
                     type="button"
                     onClick={prev}
                     disabled={step === 0}
-                    className="px-5 py-2.5 rounded-2xl border border-border bg-card text-xs font-bold text-muted-foreground hover:bg-secondary disabled:opacity-30 transition-all"
+                    className="inline-flex items-center gap-1.5 px-5 py-2.5 rounded-2xl border border-border bg-card text-xs font-bold text-muted-foreground hover:bg-secondary disabled:opacity-30 transition-all cursor-pointer"
                   >
-                    ← Back
+                    <ArrowLeft className="h-4 w-4" />
+                    <span>Back</span>
                   </button>
                   <button
                     type="button"

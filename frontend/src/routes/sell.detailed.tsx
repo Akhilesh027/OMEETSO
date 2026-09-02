@@ -28,7 +28,7 @@ import { useRef } from "react";
 import {
   Sparkles, ClipboardList, ShieldCheck, MapPin, Tag, Eye,
   Wand2, Image as ImageIcon, Layers, Phone, MessageSquare, CheckCircle2, X,
-  RefreshCw, Clock, Trash2,
+  RefreshCw, Clock, Trash2, ArrowRight,
 } from "lucide-react";
 
 export const Route = createFileRoute("/sell/detailed")({
@@ -569,7 +569,10 @@ function DetailedSellPage() {
                         className="w-full text-left p-2.5 rounded-xl bg-secondary/50 border border-border text-xs font-medium text-foreground hover:bg-indigo-brand/10 hover:border-indigo-brand/30 transition-all flex items-center justify-between group"
                       >
                         <span className="truncate pr-2">{st}</span>
-                        <span className="text-[10px] font-bold text-indigo-brand opacity-0 group-hover:opacity-100 transition-opacity">Apply →</span>
+                        <span className="inline-flex items-center gap-1 text-[10px] font-bold text-indigo-brand opacity-0 group-hover:opacity-100 transition-opacity">
+                          <span>Apply</span>
+                          <ArrowRight className="h-2.5 w-2.5" />
+                        </span>
                       </button>
                     ))}
                   </div>

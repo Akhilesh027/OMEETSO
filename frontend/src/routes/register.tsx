@@ -8,6 +8,8 @@ import {
 } from "lucide-react";
 import { registerUserApi, checkPhoneStatusApi, requestUserOtp, verifyUserOtp, RegisterPayload } from "@/api/auth.api";
 import { toast } from "sonner";
+import { DEFAULT_AVATARS } from "@/lib/account";
+import { uploadImageToCloudinary } from "@/lib/upload";
 
 export const Route = createFileRoute("/register")({
   component: RegisterPage,
@@ -52,13 +54,14 @@ function RegisterPage() {
   const [errorMessage, setErrorMessage] = useState("");
   const otpInputRef = useRef<HTMLInputElement>(null);
 
-  const GENDER_AVATARS = {
-    male: "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&w=200&h=200&q=80",
-    female: "https://images.unsplash.com/photo-1494790108377-be9c29b29330?auto=format&fit=crop&w=200&h=200&q=80",
-    other: "https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=200&h=200&q=80"
-  };
+  const GENDER_AVATARS = DEFAULT_AVATARS;
 
   const currentAvatar = avatar || GENDER_AVATARS[gender];
+
+  const handleSelectGender = (g: "male" | "female" | "other") => {
+    setGender(g);
+    setAvatar(DEFAULT_AVATARS[g]);
+  };
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -92,12 +95,22 @@ function RegisterPage() {
 
   const canSubmitDetails = nameValid && phoneValid && emailValid && pincodeValid && cityValid && !isSubmitting;
 
-  const pickAvatar = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const pickAvatar = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
-    const reader = new FileReader();
-    reader.onload = () => setAvatar(String(reader.result));
-    reader.readAsDataURL(file);
+    try {
+      const url = await uploadImageToCloudinary(file, "profile");
+      setAvatar(url);
+      setGender("other");
+      toast.success("Profile photo uploaded!");
+    } catch {
+      const reader = new FileReader();
+      reader.onload = () => {
+        setAvatar(String(reader.result));
+        setGender("other");
+      };
+      reader.readAsDataURL(file);
+    }
   };
 
   // STEP 1 -> SEND OTP
@@ -390,9 +403,11 @@ function RegisterPage() {
                         <button
                           key={g.key}
                           type="button"
-                          onClick={() => setGender(g.key as any)}
+                          onClick={() => handleSelectGender(g.key as any)}
                           className={`rounded-full px-3 py-1 text-[11px] font-bold transition-all cursor-pointer ${
-                            gender === g.key ? "bg-indigo-brand text-white shadow-xs" : "bg-card border border-border text-muted-foreground hover:bg-secondary"
+                            (gender === g.key || avatar === DEFAULT_AVATARS[g.key as keyof typeof DEFAULT_AVATARS])
+                              ? "bg-indigo-brand text-white shadow-xs"
+                              : "bg-card border border-border text-muted-foreground hover:bg-secondary"
                           }`}
                         >
                           {g.label}

@@ -2,7 +2,7 @@ import { createFileRoute, Link, notFound, useNavigate } from "@tanstack/react-ro
 import { useState, useEffect } from "react";
 import {
   ArrowLeft, Building2, MapPin, ShieldCheck, Share2, Heart, MessageCircle, Phone,
-  Clock, Calendar, CheckCircle2, AlertTriangle, ShieldAlert, Sparkles, Footprints, Flag
+  Clock, Calendar, CheckCircle2, AlertTriangle, ShieldAlert, Sparkles, Footprints, Flag, ArrowRight
 } from "lucide-react";
 import { MobileFrame } from "@/components/omeetso/MobileFrame";
 import { JobCard } from "@/components/omeetso/jobs/JobCard";
@@ -304,8 +304,9 @@ function JobDetailPage() {
               </div>
             </div>
             {job.storeId && (
-              <Link to="/store/$id" params={{ id: job.storeId }} className="inline-flex text-xs font-bold text-indigo-brand hover:underline pt-2">
-                View Business Profile →
+              <Link to="/store/$id" params={{ id: job.storeId }} className="group inline-flex items-center gap-1 text-xs font-bold text-indigo-brand hover:underline pt-2">
+                <span>View Business Profile</span>
+                <ArrowRight className="h-3 w-3 transition-transform group-hover:translate-x-0.5" />
               </Link>
             )}
           </div>

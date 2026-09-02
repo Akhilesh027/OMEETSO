@@ -24,6 +24,7 @@ import {
   getCampaignAnalytics,
   getAdminRevenueAnalytics
 } from "../controllers/revenue.controller";
+import { createRazorpayOrder, verifyRazorpayPayment } from "../controllers/razorpay.controller";
 import { authenticateUser } from "../../../middleware/authenticateUser";
 import { authenticateAdmin } from "../../../middleware/authenticateAdmin";
 import { requirePermission } from "../../../middleware/requirePermission";
@@ -33,6 +34,10 @@ export const revenueRouter = Router();
 // Public & User Ad Routes
 revenueRouter.get("/wallet", authenticateUser, getMyWallet);
 revenueRouter.post("/wallet/recharge", authenticateUser, rechargeWallet);
+revenueRouter.post("/create-order", authenticateUser, createRazorpayOrder);
+revenueRouter.post("/verify-payment", authenticateUser, verifyRazorpayPayment);
+revenueRouter.post("/wallet/create-order", authenticateUser, createRazorpayOrder);
+revenueRouter.post("/wallet/verify-payment", authenticateUser, verifyRazorpayPayment);
 revenueRouter.get("/ad-products", getAdProducts);
 revenueRouter.get("/ad-placements", getAdPlacements);
 revenueRouter.get("/ads/serve", serveAds);

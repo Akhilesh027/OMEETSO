@@ -102,7 +102,7 @@ function CategoriesPage() {
           <div className="mx-auto max-w-[1440px] px-6 lg:px-10 py-10 relative z-10">
             <nav className="text-xs font-semibold text-slate-400 flex items-center gap-2">
               <Link to="/home" className="hover:text-amber-400 transition-colors">Home</Link>
-              <span>/</span>
+              <ChevronRight className="h-3.5 w-3.5 text-slate-500 shrink-0" />
               <span className="text-white font-bold">Browse Categories</span>
             </nav>
 
@@ -293,9 +293,10 @@ function CategoriesPage() {
                           <button
                             type="button"
                             onClick={() => setModalCategory(c)}
-                            className="rounded-xl border border-primary/30 bg-primary/10 hover:bg-primary hover:text-white px-2.5 py-1 text-[11px] font-black text-primary transition-all cursor-pointer shadow-2xs"
+                            className="inline-flex items-center gap-1 rounded-xl border border-primary/30 bg-primary/10 hover:bg-primary hover:text-white px-2.5 py-1 text-[11px] font-black text-primary transition-all cursor-pointer shadow-2xs"
                           >
-                            +{subList.length > 5 ? subList.length - 5 : 0} More & Brands →
+                            <span>+{subList.length > 5 ? subList.length - 5 : 0} More & Brands</span>
+                            <ArrowRight className="h-3 w-3" />
                           </button>
                         </div>
                       </div>

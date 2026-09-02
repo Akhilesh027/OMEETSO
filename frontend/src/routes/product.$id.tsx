@@ -3,7 +3,7 @@ import { useEffect, useState, useMemo } from "react";
 import {
   ArrowLeft, Heart, Share2, Phone, MessageCircle, HandCoins, ShieldCheck,
   MapPin, Flag, ChevronLeft, ChevronRight, Truck, Package, PackageCheck, Play, Star,
-  Video, Camera, Maximize2,
+  Video, Camera, Maximize2, ArrowRight,
 } from "lucide-react";
 
 function getEmbedUrl(url: string) {
@@ -247,17 +247,81 @@ function ProductPage() {
     );
   }
 
-  const share = async (title: string) => {
-    const url = typeof window !== "undefined" ? window.location.href : "";
-    if (typeof navigator !== "undefined" && navigator.share) {
-      try { await navigator.share({ title, text: title, url }); return; } catch { /* fallthrough */ }
+  const getShareDetails = () => {
+    const rawCover = (displayImages && displayImages[0]) || product.image || "";
+    const coverUrl = rawCover
+      ? (rawCover.startsWith("http") ? rawCover : `${typeof window !== "undefined" ? window.location.origin : ""}${rawCover.startsWith("/") ? "" : "/"}${rawCover}`)
+      : "";
+
+    let shareUrl = typeof window !== "undefined" ? window.location.href : "";
+    try {
+      if (typeof window !== "undefined") {
+        const u = new URL(window.location.href);
+        if (coverUrl && !u.searchParams.has("img")) {
+          u.searchParams.set("img", coverUrl);
+        }
+        if (product.price && !u.searchParams.has("price")) {
+          u.searchParams.set("price", String(product.price));
+        }
+        shareUrl = u.toString();
+      }
+    } catch {
+      // fallback
     }
+
+    const priceText = product.price ? ` · ₹${Number(product.price).toLocaleString("en-IN")}` : "";
+    const shareTitle = `${product.title}${priceText}`;
+    const shareText = `Check out "${product.title}"${priceText} on Omeetso Hyperlocal Marketplace:\n${shareUrl}`;
+
+    return { coverUrl, shareUrl, shareTitle, shareText };
+  };
+
+  const share = async (title: string) => {
+    const { coverUrl, shareUrl, shareTitle, shareText } = getShareDetails();
+
+    // 1. Try Native Web Share with photo file attachment (WhatsApp displays actual product photo!)
+    if (typeof navigator !== "undefined" && navigator.share) {
+      try {
+        if (coverUrl && typeof navigator.canShare === "function") {
+          try {
+            const imgRes = await fetch(coverUrl, { mode: "cors" });
+            if (imgRes.ok) {
+              const blob = await imgRes.blob();
+              const safeName = `${title.replace(/[^a-zA-Z0-9]/g, "_").slice(0, 20) || "product"}.jpg`;
+              const file = new File([blob], safeName, { type: blob.type || "image/jpeg" });
+              if (navigator.canShare({ files: [file] })) {
+                await navigator.share({
+                  title: shareTitle,
+                  text: shareText,
+                  files: [file]
+                });
+                return;
+              }
+            }
+          } catch {
+            // fallback to standard share
+          }
+        }
+        await navigator.share({ title: shareTitle, text: shareText, url: shareUrl });
+        return;
+      } catch {
+        /* user dismissed or fallback */
+      }
+    }
+
+    // 2. Fallback: Copy to clipboard
     if (typeof navigator !== "undefined" && navigator.clipboard) {
       try {
-        await navigator.clipboard.writeText(url);
+        await navigator.clipboard.writeText(shareUrl);
         toastCopy();
       } catch { /* ignore */ }
     }
+  };
+
+  const shareToWhatsApp = () => {
+    const { shareUrl, shareTitle } = getShareDetails();
+    const msg = encodeURIComponent(`Check out *${shareTitle}* on Omeetso:\n${shareUrl}`);
+    window.open(`https://api.whatsapp.com/send?text=${msg}`, "_blank");
   };
 
   const videoUrl = product.videoUrl || product.video;
@@ -374,9 +438,9 @@ function ProductPage() {
                   setIdx((i) => (i - 1 + mediaItems.length) % mediaItems.length);
                 }}
                 aria-label="Previous media"
-                className="absolute left-3 top-1/2 grid h-10 w-10 -translate-y-1/2 place-items-center rounded-full bg-card/90 border border-border text-foreground shadow-md transition-all hover:bg-card hover:scale-105"
+                className="absolute left-3 top-1/2 grid h-10 w-10 -translate-y-1/2 place-items-center rounded-full bg-card/90 border border-border text-foreground shadow-md transition-all hover:bg-card hover:scale-105 cursor-pointer"
               >
-                <ChevronLeft className="h-5 w-5" />
+                <ChevronLeft className="h-5 w-5 -ml-0.5" />
               </button>
               <button
                 onClick={(e) => {
@@ -384,9 +448,9 @@ function ProductPage() {
                   setIdx((i) => (i + 1) % mediaItems.length);
                 }}
                 aria-label="Next media"
-                className="absolute right-3 top-1/2 grid h-10 w-10 -translate-y-1/2 place-items-center rounded-full bg-card/90 border border-border text-foreground shadow-md transition-all hover:bg-card hover:scale-105"
+                className="absolute right-3 top-1/2 grid h-10 w-10 -translate-y-1/2 place-items-center rounded-full bg-card/90 border border-border text-foreground shadow-md transition-all hover:bg-card hover:scale-105 cursor-pointer"
               >
-                <ChevronRight className="h-5 w-5" />
+                <ChevronRight className="h-5 w-5 -mr-0.5" />
               </button>
             </>
           )}
@@ -504,7 +568,7 @@ function ProductPage() {
                         <p className="text-xs font-black text-slate-950 dark:text-white group-hover:text-white transition-colors">{formatINR(offerVal)}</p>
                         <p className="text-[10px] font-bold text-blue-700 dark:text-blue-400 group-hover:text-white transition-colors flex items-center justify-between">
                           <span>-{pct}% Offer</span>
-                          <span className="font-bold">→</span>
+                          <ArrowRight className="h-3 w-3 shrink-0 transition-transform group-hover:translate-x-0.5" />
                         </p>
                       </button>
                     );
@@ -649,12 +713,21 @@ function ProductPage() {
                 </a>
 
                 <div className="flex items-center justify-between pt-2 text-xs text-muted-foreground font-semibold">
-                  <button onClick={toggle} className="inline-flex items-center gap-1.5 hover:text-foreground">
+                  <button onClick={toggle} className="inline-flex items-center gap-1.5 hover:text-foreground cursor-pointer">
                     <Heart className={"h-4 w-4 " + (saved ? "fill-blue-600 text-blue-600" : "")} /> {saved ? "Saved" : "Save Listing"}
                   </button>
-                  <button onClick={() => share(product.title)} className="inline-flex items-center gap-1.5 hover:text-foreground">
-                    <Share2 className="h-4 w-4 text-blue-600" /> Share Listing
-                  </button>
+                  <div className="flex items-center gap-3">
+                    <button
+                      onClick={shareToWhatsApp}
+                      className="inline-flex items-center gap-1 text-emerald-600 hover:text-emerald-700 font-bold cursor-pointer"
+                      title="Share to WhatsApp"
+                    >
+                      <MessageCircle className="h-4 w-4 text-emerald-600" /> WhatsApp
+                    </button>
+                    <button onClick={() => share(product.title)} className="inline-flex items-center gap-1 hover:text-foreground cursor-pointer">
+                      <Share2 className="h-4 w-4 text-blue-600" /> Share
+                    </button>
+                  </div>
                 </div>
               </div>
 

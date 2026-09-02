@@ -110,12 +110,6 @@ export const SPEC_CONFIG: Record<string, SpecField[]> = {
     { key: "Response Time", label: "Guaranteed Response Time", type: "select", options: ["Within 1 Hour", "Same Day Service", "Within 24 Hours", "Appointment Only"] },
     { key: "Warranty Offered", label: "Service Warranty / Guarantee", type: "select", options: ["30 Days Guarantee", "90 Days Warranty", "Satisfaction Guarantee", "No Warranty"] },
   ],
-  pets: [
-    { key: "Pet Category", label: "Pet Category", type: "select", options: ["Dogs", "Cats", "Birds", "Fish & Aquarium", "Pet Food & Accessories"], required: true },
-    { key: "Breed / Name", label: "Breed / Item Name", type: "text", required: true },
-    { key: "Age", label: "Age", type: "text", placeholder: "e.g. 3 Months / 1 Year" },
-    { key: "Vaccinated", label: "Vaccinated & Health Certificate", type: "select", options: ["Yes - Fully Vaccinated", "Partially Vaccinated", "Not Vaccinated", "N/A (Accessories)"] },
-  ],
 };
 
 export const GENERIC_SPEC: SpecField[] = [

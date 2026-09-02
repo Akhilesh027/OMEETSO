@@ -8,7 +8,7 @@ import {
   Plus, Receipt, Gift, FileText,
   ArrowDownLeft, ArrowUpRight, Loader2
 } from "lucide-react";
-import { formatINR, formatDate } from "@/lib/revenue";
+import { formatINR, formatDate, totalCredits } from "@/lib/revenue";
 
 export const Route = createFileRoute("/wallet")({
   head: () => ({
@@ -41,6 +41,7 @@ function WalletPage() {
   const availableBalance = walletData ? walletData.availableBalanceInPaise / 100 : 0;
   const heldBalance = walletData ? walletData.heldBalanceInPaise / 100 : 0;
   const refunds = walletData ? walletData.refundBalanceInPaise / 100 : 0;
+  const credits = walletData?.promoCreditsInPaise !== undefined ? walletData.promoCreditsInPaise / 100 : totalCredits();
   const txns = walletData?.transactions || [];
 
   return (
@@ -50,7 +51,7 @@ function WalletPage() {
 
         <div className="px-4">
           <Link to="/add/wallet">
-            <WalletBalanceCard balance={balance} credits={0} refunds={refunds} />
+            <WalletBalanceCard balance={balance} credits={credits} refunds={refunds} />
           </Link>
         </div>
 

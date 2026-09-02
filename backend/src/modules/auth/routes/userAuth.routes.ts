@@ -7,8 +7,13 @@ import {
   loginUserDirect,
   refreshUserSession,
   logoutUser,
-  getUserSession
+  getUserSession,
+  resetUserPin
 } from "../controllers/userAuth.controller";
+import {
+  requestEmailOtp,
+  verifyEmailOtp
+} from "../controllers/emailAuth.controller";
 import { validateBody } from "../../../middleware/validateRequest";
 import { authenticateUser } from "../../../middleware/authenticateUser";
 import { RequestOtpSchema, VerifyOtpSchema } from "../../../contracts";
@@ -20,6 +25,10 @@ userAuthRouter.post("/register", registerUser);
 userAuthRouter.post("/login", loginUserDirect);
 userAuthRouter.post("/otp/request", validateBody(RequestOtpSchema), requestOtp);
 userAuthRouter.post("/otp/verify", validateBody(VerifyOtpSchema), verifyOtp);
+userAuthRouter.post("/email-otp/request", requestEmailOtp);
+userAuthRouter.post("/email-otp/verify", verifyEmailOtp);
+userAuthRouter.post("/reset-pin", resetUserPin);
+userAuthRouter.post("/forgot-pin", resetUserPin);
 userAuthRouter.post("/refresh", refreshUserSession);
 userAuthRouter.post("/logout", logoutUser);
 userAuthRouter.get("/session", authenticateUser, getUserSession);

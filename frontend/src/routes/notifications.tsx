@@ -60,11 +60,14 @@ function NotifList() {
     setLoading(true);
     const res = await getNotificationsApi(1, 50);
     setLoading(false);
-    if (res.success && res.data && res.data.length > 0) {
+    if (res.success && Array.isArray(res.data)) {
       setNotifications(res.data);
-      if (typeof res.unreadCount === "number") setUnreadCount(res.unreadCount);
+      if (typeof res.unreadCount === "number") {
+        setUnreadCount(res.unreadCount);
+      } else {
+        setUnreadCount(res.data.filter((item) => !item.isRead).length);
+      }
     } else {
-      // Local fallback notifications if API has no notifications
       const local = listNotifications();
       const mapped: NotificationItem[] = local.map((n) => ({
         id: n.id,

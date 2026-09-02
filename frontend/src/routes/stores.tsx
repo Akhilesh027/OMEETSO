@@ -9,7 +9,7 @@ import { getPublicStoresApi } from "@/api/stores.api";
 import { serveAdsApi } from "@/api/adCampaigns.api";
 import {
   Loader2, RefreshCw, Megaphone, Search, MapPin, Store as StoreIcon,
-  ShieldCheck, Sparkles, Plus, ChevronRight, SlidersHorizontal
+  ShieldCheck, Sparkles, Plus, ChevronRight, SlidersHorizontal, ArrowRight
 } from "lucide-react";
 
 export const Route = createFileRoute("/stores")({
@@ -149,10 +149,10 @@ function Stores() {
         {/* Desktop Hero Header */}
         <div className="border-b border-border bg-gradient-to-r from-navy via-slate-900 to-indigo-950 text-white">
           <div className="mx-auto max-w-[1440px] px-4 sm:px-6 md:px-8 lg:px-10 xl:px-12 py-6 md:py-8">
-            <nav className="flex items-center gap-2 text-xs font-semibold text-white/70">
-              <Link to="/home" className="hover:text-white transition-colors">Home</Link>
-              <span>/</span>
-              <span className="text-white font-bold">Stores Directory</span>
+            <nav className="text-xs font-semibold text-slate-400 flex items-center gap-2">
+              <Link to="/home" className="hover:text-amber-400 transition-colors">Home</Link>
+              <ChevronRight className="h-3.5 w-3.5 text-slate-500 shrink-0" />
+              <span className="text-white font-bold">Local Showrooms</span>
             </nav>
 
             <div className="mt-3 flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
@@ -275,9 +275,10 @@ function Stores() {
                 </p>
                 <Link
                   to="/store/create"
-                  className="block text-center w-full py-2.5 rounded-2xl bg-amber-500 hover:bg-amber-400 text-slate-950 font-black text-xs shadow-md transition-all"
+                  className="group inline-flex items-center justify-center gap-1.5 w-full py-2.5 rounded-2xl bg-amber-500 hover:bg-amber-400 text-slate-950 font-black text-xs shadow-md transition-all"
                 >
-                  Create Store Profile →
+                  <span>Create Store Profile</span>
+                  <ArrowRight className="h-3.5 w-3.5 transition-transform group-hover:translate-x-0.5" />
                 </Link>
               </div>
             </aside>
@@ -343,8 +344,9 @@ function Stores() {
                           Tap to explore exclusive products & store offers
                         </p>
                       </div>
-                      <span className="rounded-2xl bg-amber-500 px-4 py-2.5 text-xs font-black text-slate-950 shadow group-hover:bg-amber-400 transition-colors shrink-0">
-                        View Deal →
+                      <span className="inline-flex items-center gap-1.5 rounded-2xl bg-amber-500 px-4 py-2.5 text-xs font-black text-slate-950 shadow group-hover:bg-amber-400 transition-colors shrink-0">
+                        <span>View Deal</span>
+                        <ArrowRight className="h-3.5 w-3.5 transition-transform group-hover:translate-x-0.5" />
                       </span>
                     </div>
                   </div>

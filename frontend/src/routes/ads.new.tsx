@@ -9,7 +9,7 @@ import {
 import {
   CAMPAIGN_OBJECTIVES, PLACEMENTS, computeTotals, totalCredits, getWallet,
   upsertCampaign, saveCampaignDraft, deleteCampaignDraft, getCampaignDraft, getCampaign,
-  newId, formatINR, seedRevenueIfEmpty, debitWallet, consumeCredits, addInvoice, getBilling,
+  newId, formatINR, clearMockSeedData, debitWallet, consumeCredits, addInvoice, getBilling,
   type Campaign, type PlacementId, type CampaignObjective, type CampaignCreative,
   type CampaignAudience, type CampaignSchedule, type CampaignSource,
 } from "@/lib/revenue";
@@ -76,7 +76,7 @@ function NewCampaign() {
   const [payMethod, setPayMethod] = useState<"wallet" | "upi" | "card">("wallet");
 
   useEffect(() => {
-    seedRevenueIfEmpty();
+    clearMockSeedData();
     if (search.id) {
       const draft = getCampaignDraft(search.id) ?? getCampaign(search.id);
       if (draft) { setC(draft); if (draft.step) setStep(draft.step); }

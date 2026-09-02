@@ -5,7 +5,7 @@ import { BackBar } from "@/components/omeetso/TopBar";
 import { BillingSummary, SectionTitle, PlacementRow } from "@/components/omeetso/revenue";
 import {
   computeTotals, totalCredits, getWallet, upsertPromotion, newId, formatINR,
-  seedRevenueIfEmpty, debitWallet, consumeCredits, addInvoice, getBilling,
+  clearMockSeedData, debitWallet, consumeCredits, addInvoice, getBilling,
   PLACEMENTS, type PlacementId,
 } from "@/lib/revenue";
 import { getListing } from "@/lib/listings";
@@ -14,14 +14,12 @@ import { toast } from "sonner";
 import { useEffect } from "react";
 import { cn } from "@/lib/utils";
 
-type SearchParams = { listingId?: string; storeId?: string; productId?: string; kind?: "listing" | "store" | "store_product" };
+type SearchParams = { targetId?: string; kind?: "listing" | "store" | "store_product" };
 
 export const Route = createFileRoute("/promotions/custom")({
   head: () => ({ meta: [{ title: "Custom promotion — Omeetso" }] }),
   validateSearch: (s: Record<string, unknown>): SearchParams => ({
-    listingId: s.listingId as string | undefined,
-    storeId: s.storeId as string | undefined,
-    productId: s.productId as string | undefined,
+    targetId: s.targetId as string | undefined,
     kind: (s.kind as any) ?? "listing",
   }),
   component: CustomPromotion,
@@ -30,7 +28,7 @@ export const Route = createFileRoute("/promotions/custom")({
 function CustomPromotion() {
   const s = useSearch({ from: "/promotions/custom" });
   const nav = useNavigate();
-  useEffect(() => { seedRevenueIfEmpty(); }, []);
+  useEffect(() => { clearMockSeedData(); }, []);
 
   const [duration, setDuration] = useState(7);
   const [dailyBudget, setDailyBudget] = useState(100);

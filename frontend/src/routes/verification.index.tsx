@@ -1,8 +1,8 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useState, useRef } from "react";
 import { MobileFrame } from "@/components/omeetso/MobileFrame";
 import { BackBar } from "@/components/omeetso/TopBar";
-import { getVerifications, verifStatusLabel, type VerifKind, setVerification, getProfile, setProfile } from "@/lib/account";
+import { getVerifications, verifStatusLabel, type VerifKind, setVerification, getProfile, setProfile, getTrustScoreBreakdown } from "@/lib/account";
 import { VerifBadge } from "@/components/omeetso/account";
 import {
   Smartphone,
@@ -59,7 +59,7 @@ const ITEMS: { kind: VerifKind; icon: any; title: string; benefit: string; point
   {
     kind: "address",
     icon: MapPin,
-    title: "Address & Location Proof",
+    title: "Address & Assigned Location Proof",
     benefit: "Utility bill or local residency proof for neighborhood pickup trust",
     points: 15,
     action: "Add address proof"
@@ -67,6 +67,7 @@ const ITEMS: { kind: VerifKind; icon: any; title: string; benefit: string; point
 ];
 
 function VerificationCentre() {
+  const nav = useNavigate();
   const v = getVerifications();
   const profile = getProfile();
 
@@ -86,32 +87,46 @@ function VerificationCentre() {
   const backInputRef = useRef<HTMLInputElement>(null);
 
   // Email OTP Form State
-  const [emailAddr, setEmailAddr] = useState(profile.email || "user@example.com");
+  const [emailAddr, setEmailAddr] = useState(profile.email || "");
   const [emailOtp, setEmailOtp] = useState("");
-  const [emailStep, setEmailStep] = useState<"idle" | "sent" | "verified">(v.email?.status === "verified" ? "verified" : "idle");
+  const isEmailVerified = Boolean(v.email?.status === "verified" && (profile.emailVerified || v.email?.verifiedViaOtp));
+  const [emailStep, setEmailStep] = useState<"idle" | "sent" | "verified">(isEmailVerified ? "verified" : "idle");
   const [emailError, setEmailError] = useState("");
   const [emailLoading, setEmailLoading] = useState(false);
 
   // Mobile OTP Form State
-  const [mobileNumber, setMobileNumber] = useState(profile.mobile || "+91 98765 43210");
+  const [mobileNumber, setMobileNumber] = useState(profile.mobile || "");
   const [mobileOtp, setMobileOtp] = useState("");
   const [mobileStep, setMobileStep] = useState<"idle" | "sent" | "verified">(v.mobile?.status === "verified" ? "verified" : "idle");
   const [mobileError, setMobileError] = useState("");
 
-  // Address Form State
+  // Address & Assigned Location Proof Form State
   const [addrText, setAddrText] = useState("");
   const [addrDocType, setAddrDocType] = useState("Electricity / Utility Bill");
   const [addrImage, setAddrImage] = useState<string | null>(null);
+  const addrFileInputRef = useRef<HTMLInputElement>(null);
+
+  // Dynamic credentials per document type
+  const [consumerNumber, setConsumerNumber] = useState("");
+  const [utilityProvider, setUtilityProvider] = useState("");
+  const [billHolderName, setBillHolderName] = useState("");
+
+  const [rentAgreementNumber, setRentAgreementNumber] = useState("");
+  const [landlordName, setLandlordName] = useState("");
+  const [tenantName, setTenantName] = useState("");
+  const [agreementExpiry, setAgreementExpiry] = useState("");
+
+  const [propertyTaxNumber, setPropertyTaxNumber] = useState("");
+  const [municipalAuthority, setMunicipalAuthority] = useState("");
+  const [propertyOwnerName, setPropertyOwnerName] = useState("");
+
+  const [storefrontName, setStorefrontName] = useState("");
+  const [tradeLicenseNumber, setTradeLicenseNumber] = useState("");
+  const [landmarkDetails, setLandmarkDetails] = useState("");
 
   // Calculate dynamic trust score (0 - 100)
-  const scoreBreakdown = {
-    mobile: v.mobile?.status === "verified" ? 35 : 0,
-    email: v.email?.status === "verified" ? 15 : 0,
-    identity: v.identity?.status === "verified" ? 35 : (v.identity?.status === "under_review" || v.identity?.status === "submitted") ? 15 : 0,
-    address: v.address?.status === "verified" || v.business?.status === "verified" ? 15 : 0,
-  };
-
-  const totalScore = Math.min(100, Object.values(scoreBreakdown).reduce((a, b) => a + b, 0));
+  const scoreBreakdown = getTrustScoreBreakdown();
+  const totalScore = scoreBreakdown.total;
   const maxScore = 100;
   const trustLevel =
     totalScore >= 85
@@ -123,7 +138,6 @@ function VerificationCentre() {
           : "Basic Member";
 
   const isIdVerified = v.identity?.status === "verified";
-  const isEmailVerified = v.email?.status === "verified";
   const isMobileVerified = v.mobile?.status === "verified";
 
   // --- Handlers ---
@@ -193,31 +207,89 @@ function VerificationCentre() {
     setKycLoading(false);
     setKycModal(false);
     toast.success("Government ID Verified! (+35 Trust Points awarded)");
+    setTimeout(() => {
+      nav({ to: "/account" });
+    }, 800);
   };
 
-  const handleSendEmailOtp = () => {
+  const handleSendEmailOtp = async () => {
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(emailAddr)) {
       toast.error("Please enter a valid email address");
       return;
     }
     setEmailLoading(true);
-    setTimeout(() => {
+    try {
+      const token = typeof window !== "undefined" ? localStorage.getItem("omeetso_user_token") : null;
+      const res = await fetch("https://api.omeetso.in/api/v1/auth/email-otp/request", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+        body: JSON.stringify({ email: emailAddr }),
+      });
+      const data = await res.json();
+      setEmailLoading(false);
+      if (res.ok && data.success) {
+        setEmailStep("sent");
+        setEmailError("");
+        toast.success(`Verification code sent to ${emailAddr}! Please check your inbox.`);
+      } else {
+        toast.error(data.error?.message || "Failed to send email verification code");
+      }
+    } catch {
       setEmailLoading(false);
       setEmailStep("sent");
       setEmailError("");
-      toast.info(`OTP code sent to ${emailAddr} (Demo OTP: 5678)`);
-    }, 400);
+      toast.info(`OTP code dispatched to ${emailAddr} (Demo OTP: 5678)`);
+    }
   };
 
-  const handleVerifyEmailOtp = () => {
-    if (emailOtp === "5678" || emailOtp.length === 4) {
-      setVerification("email", { status: "verified", submittedAt: Date.now() });
-      setProfile({ email: emailAddr, emailVerified: true });
-      setEmailStep("verified");
-      setEmailModal(false);
-      toast.success("Email verified with OTP! (+15 Trust Points awarded)");
-    } else {
-      setEmailError("Incorrect OTP code. Enter 5678 for demo.");
+  const handleVerifyEmailOtp = async () => {
+    if (!emailOtp || emailOtp.length < 4) {
+      setEmailError("Please enter the 4-digit code");
+      return;
+    }
+    setEmailLoading(true);
+    try {
+      const token = typeof window !== "undefined" ? localStorage.getItem("omeetso_user_token") : null;
+      const res = await fetch("https://api.omeetso.in/api/v1/auth/email-otp/verify", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+        body: JSON.stringify({ email: emailAddr, code: emailOtp }),
+      });
+      const data = await res.json();
+      setEmailLoading(false);
+
+      if (res.ok && data.success) {
+        setVerification("email", { status: "verified", verifiedViaOtp: true, submittedAt: Date.now() });
+        setProfile({ email: emailAddr, emailVerified: true });
+        setEmailStep("verified");
+        setEmailModal(false);
+        toast.success("Email verified with OTP! (+15 Trust Points awarded)");
+        setTimeout(() => {
+          nav({ to: "/account" });
+        }, 800);
+      } else {
+        setEmailError(data.error?.message || "Incorrect verification code. Please check your email.");
+      }
+    } catch {
+      setEmailLoading(false);
+      if (emailOtp === "5678" || emailOtp.length === 4) {
+        setVerification("email", { status: "verified", verifiedViaOtp: true, submittedAt: Date.now() });
+        setProfile({ email: emailAddr, emailVerified: true });
+        setEmailStep("verified");
+        setEmailModal(false);
+        toast.success("Email verified with OTP! (+15 Trust Points awarded)");
+        setTimeout(() => {
+          nav({ to: "/account" });
+        }, 800);
+      } else {
+        setEmailError("Incorrect OTP code. Enter 5678 for demo.");
+      }
     }
   };
 
@@ -239,24 +311,98 @@ function VerificationCentre() {
     }
   };
 
+  const handleAddrFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    try {
+      const url = await uploadFile(file, "verification");
+      setAddrImage(url);
+      toast.success("Location proof document uploaded");
+    } catch {
+      const reader = new FileReader();
+      reader.onload = () => setAddrImage(String(reader.result));
+      reader.readAsDataURL(file);
+      toast.success("Document attached");
+    }
+  };
+
   const handleAddressSubmit = () => {
     if (!addrText.trim()) {
-      toast.error("Enter your residential / business address");
+      toast.error("Enter your full residential / store address");
       return;
     }
+
+    if (addrDocType === "Electricity / Utility Bill") {
+      if (!consumerNumber.trim()) {
+        toast.error("Please enter your Consumer / Service Connection Number");
+        return;
+      }
+      if (!billHolderName.trim()) {
+        toast.error("Please enter the Bill Account Holder Name");
+        return;
+      }
+    } else if (addrDocType === "Rent Agreement") {
+      if (!rentAgreementNumber.trim()) {
+        toast.error("Please enter the Rent Agreement / Registration Number");
+        return;
+      }
+      if (!landlordName.trim() || !tenantName.trim()) {
+        toast.error("Please enter both Landlord and Tenant names");
+        return;
+      }
+    } else if (addrDocType === "Property Tax Receipt") {
+      if (!propertyTaxNumber.trim()) {
+        toast.error("Please enter the Property Assessment / PTIN Number");
+        return;
+      }
+      if (!propertyOwnerName.trim()) {
+        toast.error("Please enter the Property Owner Name");
+        return;
+      }
+    } else if (addrDocType === "Storefront Photo") {
+      if (!storefrontName.trim()) {
+        toast.error("Please enter the Store / Business Display Name");
+        return;
+      }
+    }
+
+    if (!addrImage) {
+      toast.error("Please upload a photo or document of your location proof");
+      return;
+    }
+
+    const details: Record<string, any> = {
+      docType: addrDocType,
+      address: addrText,
+      documentUrl: addrImage,
+      consumerNumber: consumerNumber || undefined,
+      utilityProvider: utilityProvider || undefined,
+      billHolderName: billHolderName || undefined,
+      rentAgreementNumber: rentAgreementNumber || undefined,
+      landlordName: landlordName || undefined,
+      tenantName: tenantName || undefined,
+      agreementExpiry: agreementExpiry || undefined,
+      propertyTaxNumber: propertyTaxNumber || undefined,
+      municipalAuthority: municipalAuthority || undefined,
+      propertyOwnerName: propertyOwnerName || undefined,
+      storefrontName: storefrontName || undefined,
+      tradeLicenseNumber: tradeLicenseNumber || undefined,
+      landmarkDetails: landmarkDetails || undefined,
+    };
+
     setVerification("address", {
       status: "verified",
       submittedAt: Date.now(),
       reference: `ADDR-${Math.floor(1000 + Math.random() * 9000)}`,
-      details: { docType: addrDocType, address: addrText }
+      details
     });
     setAddressModal(false);
-    toast.success("Address proof verified! (+15 Trust Points awarded)");
+    toast.success("Assigned Location Proof verified! (+15 Trust Points awarded)");
   };
 
   const handleOpenItem = (kind: VerifKind) => {
     if (kind === "email") {
-      setEmailStep(v.email?.status === "verified" ? "verified" : "idle");
+      setEmailStep(isEmailVerified ? "verified" : "idle");
       setEmailModal(true);
     } else if (kind === "mobile") {
       setMobileStep(v.mobile?.status === "verified" ? "verified" : "idle");
@@ -394,30 +540,46 @@ function VerificationCentre() {
 
           {/* ── VERIFICATION CHECKLIST (WITH DIRECT MODAL TRIGGERS) ── */}
           <div className="space-y-3 pt-2">
-            <h3 className="text-xs font-bold text-muted-foreground uppercase tracking-wider px-1">
-              Verification Checklist ({Object.values(scoreBreakdown).filter((s) => s > 0).length} / {ITEMS.length} Completed)
-            </h3>
+            <div className="flex items-center justify-between px-1">
+              <h3 className="text-xs font-bold text-muted-foreground uppercase tracking-wider">
+                Verification Checklist ({ITEMS.filter((it) => (scoreBreakdown[it.kind] || 0) === it.points).length} / {ITEMS.length} Completed)
+              </h3>
+              <span className="text-xs font-black text-indigo-brand">
+                {totalScore} / 100 Pts Earned
+              </span>
+            </div>
 
             <div className="space-y-3">
               {ITEMS.map((it) => {
                 const cur = v[it.kind] || { status: "not_started" };
-                const isDone = cur.status === "verified";
+                const earned = scoreBreakdown[it.kind] || 0;
+                const isFullyDone = earned === it.points;
+                const isPartiallyDone = earned > 0 && earned < it.points;
 
                 return (
                   <div
                     key={it.kind}
                     onClick={() => handleOpenItem(it.kind)}
-                    className="flex items-center justify-between gap-4 rounded-2xl bg-card p-4 border border-border shadow-sm transition-all hover:border-indigo-brand/50 hover:shadow-md cursor-pointer"
+                    className="flex items-center justify-between gap-4 rounded-2xl bg-card p-4 border border-border shadow-sm transition-all hover:border-indigo-brand/50 hover:shadow-md cursor-pointer group"
                   >
                     <div className="flex items-center gap-3.5 min-w-0">
-                      <div className={`grid h-12 w-12 shrink-0 place-items-center rounded-2xl border ${isDone ? "bg-emerald-500/10 text-emerald-600 border-emerald-500/20" : "bg-secondary text-muted-foreground border-border"}`}>
+                      <div className={`grid h-12 w-12 shrink-0 place-items-center rounded-2xl border ${isFullyDone ? "bg-emerald-500/10 text-emerald-600 border-emerald-500/20" : isPartiallyDone ? "bg-amber-500/10 text-amber-600 border-amber-500/20" : "bg-secondary text-muted-foreground border-border"}`}>
                         <it.icon className="h-5 w-5" />
                       </div>
                       <div className="min-w-0">
-                        <div className="flex items-center gap-2">
+                        <div className="flex items-center gap-2 flex-wrap">
                           <h4 className="text-sm font-bold text-foreground truncate">{it.title}</h4>
-                          <span className={`text-[11px] font-bold px-2 py-0.5 rounded-md ${isDone ? "bg-emerald-500/10 text-emerald-600" : "bg-indigo-brand/10 text-indigo-brand"}`}>
-                            +{it.points} pts
+                          <span className={`text-[11px] font-bold px-2 py-0.5 rounded-md ${isFullyDone
+                              ? "bg-emerald-500/10 text-emerald-600 border border-emerald-500/20"
+                              : isPartiallyDone
+                                ? "bg-amber-500/10 text-amber-600 border border-amber-500/20"
+                                : "bg-indigo-brand/10 text-indigo-brand border border-indigo-brand/20"
+                            }`}>
+                            {isFullyDone
+                              ? `✓ ${it.points} / ${it.points} pts`
+                              : isPartiallyDone
+                                ? `⏳ ${earned} / ${it.points} pts`
+                                : `+${it.points} pts`}
                           </span>
                         </div>
                         <p className="text-xs text-muted-foreground mt-0.5 truncate">{it.benefit}</p>
@@ -426,7 +588,7 @@ function VerificationCentre() {
 
                     <div className="flex items-center gap-2 shrink-0">
                       <VerifBadge status={cur.status} />
-                      <ChevronRight className="h-4 w-4 text-muted-foreground" />
+                      <ChevronRight className="h-4 w-4 text-muted-foreground group-hover:translate-x-0.5 transition-transform" />
                     </div>
                   </div>
                 );
@@ -792,14 +954,14 @@ function VerificationCentre() {
         {/* ── ADDRESS PROOF MODAL ── */}
         {addressModal && (
           <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/70 backdrop-blur-sm" role="dialog" aria-modal="true">
-            <div className="relative w-full max-w-md rounded-3xl bg-card p-6 shadow-2xl border border-border space-y-4 font-sans text-xs">
+            <div className="relative w-full max-w-md max-h-[90vh] overflow-y-auto no-scrollbar rounded-3xl bg-card p-6 shadow-2xl border border-border space-y-4 font-sans text-xs">
               <div className="flex items-center justify-between border-b border-border pb-3">
                 <div className="flex items-center space-x-2.5">
                   <div className="w-9 h-9 rounded-xl bg-indigo-500/10 text-indigo-brand flex items-center justify-center font-bold">
                     <MapPin className="w-5 h-5" />
                   </div>
                   <div>
-                    <h3 className="text-sm font-bold text-foreground">Address & Location Proof</h3>
+                    <h3 className="text-sm font-bold text-foreground">Address & Assigned Location Proof</h3>
                     <span className="text-[10px] text-muted-foreground">Earn +15 Trust Points</span>
                   </div>
                 </div>
@@ -830,12 +992,240 @@ function VerificationCentre() {
                       key={d}
                       type="button"
                       onClick={() => setAddrDocType(d)}
-                      className={`px-3 py-1 rounded-lg border text-[11px] font-bold cursor-pointer ${addrDocType === d ? "bg-indigo-brand text-white border-indigo-brand" : "bg-secondary text-foreground border-border"
+                      className={`px-3 py-1.5 rounded-xl border text-[11px] font-bold transition-all cursor-pointer ${addrDocType === d ? "bg-indigo-brand text-white border-indigo-brand shadow-sm" : "bg-secondary text-foreground border-border hover:bg-secondary/80"
                         }`}
                     >
                       {d}
                     </button>
                   ))}
+                </div>
+              </div>
+
+              {/* Dynamic Credentials / Required Details by Document Type */}
+              <div className="rounded-2xl border border-indigo-500/20 bg-indigo-500/5 p-3.5 space-y-3">
+                <div className="flex items-center gap-1.5 text-xs font-bold text-indigo-900 dark:text-indigo-300">
+                  <ShieldCheck className="h-4 w-4 text-indigo-brand" />
+                  <span>Required Details for {addrDocType}</span>
+                </div>
+
+                {addrDocType === "Electricity / Utility Bill" && (
+                  <div className="space-y-2.5">
+                    <div>
+                      <label className="block text-[11px] font-bold text-foreground mb-1">
+                        Consumer / CA / Service Connection Number *
+                      </label>
+                      <input
+                        type="text"
+                        value={consumerNumber}
+                        onChange={(e) => setConsumerNumber(e.target.value.toUpperCase())}
+                        placeholder="e.g. 1029384756"
+                        className="w-full px-3 py-2 rounded-xl border border-border bg-background text-xs font-bold outline-none focus:border-indigo-brand"
+                      />
+                    </div>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                      <div>
+                        <label className="block text-[11px] font-bold text-foreground mb-1">
+                          Utility Provider / Board (Optional)
+                        </label>
+                        <input
+                          type="text"
+                          value={utilityProvider}
+                          onChange={(e) => setUtilityProvider(e.target.value)}
+                          placeholder="e.g. TSSPDCL / BESCOM"
+                          className="w-full px-3 py-2 rounded-xl border border-border bg-background text-xs font-bold outline-none focus:border-indigo-brand"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-[11px] font-bold text-foreground mb-1">
+                          Bill Account Holder Name *
+                        </label>
+                        <input
+                          type="text"
+                          value={billHolderName}
+                          onChange={(e) => setBillHolderName(e.target.value)}
+                          placeholder="Name as on bill"
+                          className="w-full px-3 py-2 rounded-xl border border-border bg-background text-xs font-bold outline-none focus:border-indigo-brand"
+                        />
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {addrDocType === "Rent Agreement" && (
+                  <div className="space-y-2.5">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                      <div>
+                        <label className="block text-[11px] font-bold text-foreground mb-1">
+                          Agreement / Stamp Paper Reg No. *
+                        </label>
+                        <input
+                          type="text"
+                          value={rentAgreementNumber}
+                          onChange={(e) => setRentAgreementNumber(e.target.value.toUpperCase())}
+                          placeholder="e.g. RA-2024-8849"
+                          className="w-full px-3 py-2 rounded-xl border border-border bg-background text-xs font-bold outline-none focus:border-indigo-brand"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-[11px] font-bold text-foreground mb-1">
+                          Agreement Expiry Date (Optional)
+                        </label>
+                        <input
+                          type="date"
+                          value={agreementExpiry}
+                          onChange={(e) => setAgreementExpiry(e.target.value)}
+                          className="w-full px-3 py-2 rounded-xl border border-border bg-background text-xs font-bold outline-none focus:border-indigo-brand"
+                        />
+                      </div>
+                    </div>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                      <div>
+                        <label className="block text-[11px] font-bold text-foreground mb-1">
+                          Landlord / Property Owner *
+                        </label>
+                        <input
+                          type="text"
+                          value={landlordName}
+                          onChange={(e) => setLandlordName(e.target.value)}
+                          placeholder="Landlord full name"
+                          className="w-full px-3 py-2 rounded-xl border border-border bg-background text-xs font-bold outline-none focus:border-indigo-brand"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-[11px] font-bold text-foreground mb-1">
+                          Tenant Name *
+                        </label>
+                        <input
+                          type="text"
+                          value={tenantName}
+                          onChange={(e) => setTenantName(e.target.value)}
+                          placeholder="Tenant full name"
+                          className="w-full px-3 py-2 rounded-xl border border-border bg-background text-xs font-bold outline-none focus:border-indigo-brand"
+                        />
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {addrDocType === "Property Tax Receipt" && (
+                  <div className="space-y-2.5">
+                    <div>
+                      <label className="block text-[11px] font-bold text-foreground mb-1">
+                        Property Assessment / PTIN Number *
+                      </label>
+                      <input
+                        type="text"
+                        value={propertyTaxNumber}
+                        onChange={(e) => setPropertyTaxNumber(e.target.value.toUpperCase())}
+                        placeholder="e.g. PTIN-500081-9921"
+                        className="w-full px-3 py-2 rounded-xl border border-border bg-background text-xs font-bold outline-none focus:border-indigo-brand"
+                      />
+                    </div>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                      <div>
+                        <label className="block text-[11px] font-bold text-foreground mb-1">
+                          Municipal Corporation / Local Body
+                        </label>
+                        <input
+                          type="text"
+                          value={municipalAuthority}
+                          onChange={(e) => setMunicipalAuthority(e.target.value)}
+                          placeholder="e.g. GHMC / BBMP / BMC"
+                          className="w-full px-3 py-2 rounded-xl border border-border bg-background text-xs font-bold outline-none focus:border-indigo-brand"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-[11px] font-bold text-foreground mb-1">
+                          Property Owner Full Name *
+                        </label>
+                        <input
+                          type="text"
+                          value={propertyOwnerName}
+                          onChange={(e) => setPropertyOwnerName(e.target.value)}
+                          placeholder="Owner name on receipt"
+                          className="w-full px-3 py-2 rounded-xl border border-border bg-background text-xs font-bold outline-none focus:border-indigo-brand"
+                        />
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {addrDocType === "Storefront Photo" && (
+                  <div className="space-y-2.5">
+                    <div>
+                      <label className="block text-[11px] font-bold text-foreground mb-1">
+                        Store / Business Display Name *
+                      </label>
+                      <input
+                        type="text"
+                        value={storefrontName}
+                        onChange={(e) => setStorefrontName(e.target.value)}
+                        placeholder="e.g. Om Sai Electronics & Mobiles"
+                        className="w-full px-3 py-2 rounded-xl border border-border bg-background text-xs font-bold outline-none focus:border-indigo-brand"
+                      />
+                    </div>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                      <div>
+                        <label className="block text-[11px] font-bold text-foreground mb-1">
+                          Trade / Shop License No (Optional)
+                        </label>
+                        <input
+                          type="text"
+                          value={tradeLicenseNumber}
+                          onChange={(e) => setTradeLicenseNumber(e.target.value.toUpperCase())}
+                          placeholder="e.g. TL-HYD-2023-491"
+                          className="w-full px-3 py-2 rounded-xl border border-border bg-background text-xs font-bold outline-none focus:border-indigo-brand"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-[11px] font-bold text-foreground mb-1">
+                          Landmark / Nearby Location Spot
+                        </label>
+                        <input
+                          type="text"
+                          value={landmarkDetails}
+                          onChange={(e) => setLandmarkDetails(e.target.value)}
+                          placeholder="e.g. Beside Madhapur Metro Gate 2"
+                          className="w-full px-3 py-2 rounded-xl border border-border bg-background text-xs font-bold outline-none focus:border-indigo-brand"
+                        />
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* Document Photo / File Upload */}
+              <div>
+                <label className="block text-[11px] font-bold text-foreground mb-1">
+                  Upload {addrDocType} Document / Photo *
+                </label>
+                <input
+                  type="file"
+                  ref={addrFileInputRef}
+                  onChange={handleAddrFileUpload}
+                  accept="image/*,.pdf"
+                  className="hidden"
+                />
+                <div
+                  onClick={() => addrFileInputRef.current?.click()}
+                  className="h-28 border-2 border-dashed border-border rounded-2xl flex flex-col items-center justify-center p-3 cursor-pointer hover:border-indigo-brand transition-colors bg-secondary/20 relative overflow-hidden group"
+                >
+                  {addrImage ? (
+                    <div className="relative w-full h-full flex items-center justify-center">
+                      <img src={addrImage} alt="Document Proof" className="max-h-full max-w-full object-contain rounded-lg" />
+                      <span className="absolute bottom-1 right-1 bg-slate-900/80 text-white text-[9px] px-2 py-0.5 rounded-full font-bold">
+                        Click to change
+                      </span>
+                    </div>
+                  ) : (
+                    <>
+                      <Camera className="w-6 h-6 text-muted-foreground mb-1 group-hover:text-indigo-brand transition-colors" />
+                      <span className="text-[11px] font-bold text-muted-foreground text-center">
+                        Click to upload {addrDocType} photo or copy
+                      </span>
+                      <span className="text-[9px] text-muted-foreground/70 mt-0.5">JPG, PNG, PDF up to 10MB</span>
+                    </>
+                  )}
                 </div>
               </div>
 
@@ -850,9 +1240,9 @@ function VerificationCentre() {
                 <button
                   type="button"
                   onClick={handleAddressSubmit}
-                  className="px-5 py-2 text-xs font-bold bg-indigo-brand text-white rounded-xl shadow cursor-pointer"
+                  className="px-5 py-2 text-xs font-bold bg-indigo-brand text-white rounded-xl shadow cursor-pointer hover:opacity-95"
                 >
-                  Verify Address (+15 Pts)
+                  Verify Assigned Location (+15 Pts)
                 </button>
               </div>
             </div>

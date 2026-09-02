@@ -29,7 +29,6 @@ const CATEGORY_TINT_MAP: Record<string, string> = {
   appliances: "bg-teal-500/10 text-teal-600",
   jobs: "bg-indigo-500/10 text-indigo-600",
   services: "bg-rose-500/10 text-rose-600",
-  pets: "bg-yellow-500/10 text-yellow-600",
   "commercial-vehicles": "bg-cyan-500/10 text-cyan-600",
   commercial: "bg-cyan-500/10 text-cyan-600",
   "books-sports": "bg-lime-500/10 text-lime-600",
@@ -50,7 +49,6 @@ const CATEGORY_ICON_NAME_MAP: Record<string, string> = {
   appliances: "Tv",
   jobs: "Briefcase",
   services: "Wrench",
-  pets: "PawPrint",
   "commercial-vehicles": "Truck",
   commercial: "Truck",
   "books-sports": "BookOpen",
@@ -65,21 +63,26 @@ export async function fetchLiveCategories(): Promise<LiveCategory[]> {
     const json = await res.json();
 
     if (json.success && Array.isArray(json.data) && json.data.length > 0) {
-      const mapped: LiveCategory[] = json.data.map((item: any) => {
-        const catId = (item.id || item.categoryId || item._id || "").toString().toLowerCase();
-        const mockFallback = MOCK_CATEGORIES.find((c) => c.id.toLowerCase() === catId);
+      const mapped: LiveCategory[] = json.data
+        .filter((item: any) => {
+          const catId = (item.id || item.categoryId || item._id || "").toString().toLowerCase();
+          return catId !== "pets" && item.name?.toLowerCase() !== "pets";
+        })
+        .map((item: any) => {
+          const catId = (item.id || item.categoryId || item._id || "").toString().toLowerCase();
+          const mockFallback = MOCK_CATEGORIES.find((c) => c.id.toLowerCase() === catId);
 
-        return {
-          id: item.id || item.categoryId || item._id,
-          name: item.name || mockFallback?.name || catId,
-          icon: item.iconName || item.icon || CATEGORY_ICON_NAME_MAP[catId] || mockFallback?.icon || "Package",
-          count: item.count ?? 0,
-          tint: CATEGORY_TINT_MAP[catId] || mockFallback?.tint || "bg-primary/10 text-primary",
-          subcategories: Array.isArray(item.subcategories) && item.subcategories.length > 0
-            ? item.subcategories
-            : (MOCK_SUBCATEGORIES[catId] || ["General"])
-        };
-      });
+          return {
+            id: item.id || item.categoryId || item._id,
+            name: item.name || mockFallback?.name || catId,
+            icon: item.iconName || item.icon || CATEGORY_ICON_NAME_MAP[catId] || mockFallback?.icon || "Package",
+            count: item.count ?? 0,
+            tint: CATEGORY_TINT_MAP[catId] || mockFallback?.tint || "bg-primary/10 text-primary",
+            subcategories: Array.isArray(item.subcategories) && item.subcategories.length > 0
+              ? item.subcategories
+              : (MOCK_SUBCATEGORIES[catId] || ["General"])
+          };
+        });
 
       cachedCategories = mapped;
       notify();

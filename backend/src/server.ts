@@ -29,6 +29,7 @@ async function startServer() {
     console.log(`[Server] Omeetso Modular Monolith Backend listening on port ${env.PORT} (${env.NODE_ENV})`);
     console.log(`[Server] Health check available at: http://localhost:${env.PORT}/health`);
     console.log(`[Socket.IO] Real-Time Gateway initialized`);
+    console.log(`[OG] Dynamic OpenGraph Social Previews mounted`);
   });
 }
 

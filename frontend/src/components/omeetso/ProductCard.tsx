@@ -1,5 +1,5 @@
 import { Link, useNavigate } from "@tanstack/react-router";
-import { Heart, ShieldCheck, MapPin, Sparkles, Ban, Zap, Eye, Star } from "lucide-react";
+import { Heart, ShieldCheck, MapPin, Sparkles, Ban, Zap, Star } from "lucide-react";
 import { formatINR, type Product } from "@/lib/mock";
 import { useSaved } from "@/hooks/useSaved";
 import { cn } from "@/lib/utils";
@@ -167,20 +167,6 @@ export function ProductCard({
             className="aspect-[4/3] sm:aspect-[16/11] h-40 sm:h-48 w-full object-cover group-hover:scale-108 transition-transform duration-500 ease-out"
           />
           <div className="absolute right-2.5 top-2.5 flex items-center gap-1.5 z-10">
-            {onPreview && (
-              <button
-                type="button"
-                aria-label="Quick view"
-                onClick={(e) => {
-                  e.preventDefault();
-                  e.stopPropagation();
-                  onPreview(p);
-                }}
-                className="grid h-8.5 w-8.5 place-items-center rounded-full bg-white/95 text-slate-900 shadow-md hover:scale-110 active:scale-95 transition-transform"
-              >
-                <Eye className="h-4 w-4 text-primary" />
-              </button>
-            )}
             <SaveButton id={p.id} />
           </div>
           {isQuickSale ? (

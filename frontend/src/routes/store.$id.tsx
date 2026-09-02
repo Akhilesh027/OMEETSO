@@ -4,7 +4,7 @@ import { emptyStore, type Store } from "@/lib/stores";
 import { listListings, formatINR } from "@/lib/listings";
 import {
   ShieldCheck, Star, Phone, MessageCircle, Navigation, Store as StoreIcon,
-  Package, Sparkles, Share2, Heart, Zap, ExternalLink, Clock, MapPin, CheckCircle2, Copy
+  Package, Sparkles, Share2, Heart, Zap, ExternalLink, Clock, MapPin, CheckCircle2, Copy, ArrowRight
 } from "lucide-react";
 import { ProductCard } from "@/components/omeetso/ProductCard";
 import { useEffect, useState } from "react";
@@ -197,10 +197,22 @@ function StorePage() {
   };
 
   const handleShareStore = async () => {
-    const shareUrl = window.location.href;
+    let shareUrl = window.location.href;
+    const storeImg = store.cover || store.logo;
+    try {
+      const u = new URL(shareUrl);
+      if (storeImg && !u.searchParams.has("img")) {
+        const fullImg = storeImg.startsWith("http") ? storeImg : `${window.location.origin}${storeImg.startsWith("/") ? "" : "/"}${storeImg}`;
+        u.searchParams.set("img", fullImg);
+      }
+      shareUrl = u.toString();
+    } catch {
+      // fallback
+    }
+
     const shareData = {
       title: `${store.name} on Omeetso`,
-      text: `Check out ${store.name} (${store.primaryCategory}) in ${store.area}, ${store.city} on Omeetso!`,
+      text: `Check out ${store.name} (${store.primaryCategory}) in ${store.area}, ${store.city} on Omeetso!\n${shareUrl}`,
       url: shareUrl
     };
 
@@ -231,9 +243,9 @@ function StorePage() {
           <div className="absolute inset-0 p-4 sm:p-6 md:p-8 lg:p-10 xl:p-12 flex flex-col justify-between max-w-[1440px] mx-auto w-full pointer-events-none">
             <nav className="hidden md:flex items-center gap-2 text-xs font-semibold text-white/80 pointer-events-auto">
               <Link to="/home" className="hover:text-white transition-colors">Home</Link>
-              <span>/</span>
+              <ChevronRight className="h-3.5 w-3.5 text-white/50 shrink-0" />
               <Link to="/stores" className="hover:text-white transition-colors">Stores</Link>
-              <span>/</span>
+              <ChevronRight className="h-3.5 w-3.5 text-white/50 shrink-0" />
               <span className="text-white font-bold">{store.name}</span>
             </nav>
 
@@ -410,9 +422,10 @@ function StorePage() {
                     </div>
                     <button
                       onClick={() => nav({ to: `/listing/${sponsoredAd.listingId || store.id}` as any })}
-                      className="shrink-0 rounded-2xl bg-amber-500 text-slate-950 font-black text-xs px-4 py-2 shadow-xs hover:bg-amber-400 transition-colors"
+                      className="group shrink-0 inline-flex items-center gap-1 rounded-2xl bg-amber-500 text-slate-950 font-black text-xs px-4 py-2 shadow-xs hover:bg-amber-400 transition-colors"
                     >
-                      View Deal →
+                      <span>View Deal</span>
+                      <ArrowRight className="h-3.5 w-3.5 transition-transform group-hover:translate-x-0.5" />
                     </button>
                   </div>
                 </div>

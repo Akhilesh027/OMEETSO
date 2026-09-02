@@ -1,4 +1,4 @@
-import { ShieldCheck, Star, MapPin, Store as StoreIcon, User } from "lucide-react";
+import { ShieldCheck, Star, MapPin, Store as StoreIcon, User, ArrowRight } from "lucide-react";
 import { Link } from "@tanstack/react-router";
 import type { Seller } from "@/lib/mock";
 
@@ -117,9 +117,10 @@ export function SellerSummary({
         <Link
           to="/seller/$id"
           params={{ id: seller.id }}
-          className="text-primary font-extrabold text-xs hover:underline"
+          className="group inline-flex items-center gap-1 text-primary font-extrabold text-xs hover:underline"
         >
-          View Profile →
+          <span>View Profile</span>
+          <ArrowRight className="h-3 w-3 transition-transform group-hover:translate-x-0.5" />
         </Link>
       </div>
     </div>

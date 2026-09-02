@@ -12,7 +12,7 @@ import {
 } from "@/lib/listings";
 import {
   Edit3, PauseCircle, PlayCircle, RefreshCw, Trash2, Share2, BadgeCheck,
-  BarChart3, Sparkles, Store as StoreIcon, ChevronRight, AlertCircle, Eye, MessageSquare, Heart, ShieldCheck, CheckCircle2, XCircle
+  BarChart3, Sparkles, Store as StoreIcon, ChevronRight, AlertCircle, Eye, MessageSquare, Heart, ShieldCheck, CheckCircle2, XCircle, ArrowRight
 } from "lucide-react";
 import { toast } from "sonner";
 import { BoostAdWizard } from "@/components/omeetso/promotions/BoostAdWizard";
@@ -168,8 +168,9 @@ function Manage() {
                   <h2 className="text-sm font-extrabold uppercase tracking-wide flex items-center gap-2 text-foreground">
                     <BarChart3 className="h-4 w-4 text-indigo-brand" /> Listing Performance
                   </h2>
-                  <Link to="/listing/$id/analytics" params={{ id }} className="text-xs font-bold text-indigo-brand hover:underline">
-                    Detailed Stats →
+                  <Link to="/listing/$id/analytics" params={{ id }} className="group inline-flex items-center gap-1 text-xs font-bold text-indigo-brand hover:underline">
+                    <span>Detailed Stats</span>
+                    <ArrowRight className="h-3 w-3 transition-transform group-hover:translate-x-0.5" />
                   </Link>
                 </div>
 

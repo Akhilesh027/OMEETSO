@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Star, X, Check, ShieldCheck } from "lucide-react";
+import { Star, X, Check, ShieldCheck, ArrowRight } from "lucide-react";
 import { toast } from "sonner";
 
 interface ReviewModalProps {
@@ -156,7 +156,8 @@ export function ReviewModal({ isOpen, onClose, targetId, targetType, targetName,
             disabled={isSubmitting}
             className="w-full py-3.5 rounded-2xl bg-primary text-primary-foreground font-black text-xs uppercase tracking-wider hover:bg-electric transition-all shadow-md flex items-center justify-center gap-2"
           >
-            {isSubmitting ? "Submitting Review..." : "Submit Review →"}
+            <span>{isSubmitting ? "Submitting Review..." : "Submit Review"}</span>
+            {!isSubmitting && <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" />}
           </button>
         </form>
       </div>

@@ -5,7 +5,7 @@ import { BackBar } from "@/components/omeetso/TopBar";
 import { BottomNav } from "@/components/omeetso/BottomNav";
 import { CampaignCard, SectionTitle, RevenueEmpty } from "@/components/omeetso/revenue";
 import { getMyWalletApi, getMyAdCampaignsApi } from "@/api/adCampaigns.api";
-import { listCampaigns, listCampaignDrafts, seedRevenueIfEmpty, subscribe, formatINR, getWallet } from "@/lib/revenue";
+import { clearMockSeedData, subscribe, formatINR, getWallet } from "@/lib/revenue";
 import { Megaphone, Plus, TrendingUp, MousePointerClick, MessageCircle, Wallet, Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -60,7 +60,7 @@ function AdsDashboard() {
   }, []);
 
   useEffect(() => {
-    seedRevenueIfEmpty();
+    clearMockSeedData();
     loadRealData();
     const unsub = subscribe(() => {
       setTick((n) => n + 1);
@@ -69,11 +69,8 @@ function AdsDashboard() {
     return () => { unsub(); };
   }, [loadRealData]);
 
-  const localCamps = listCampaigns();
-  const localDrafts = listCampaignDrafts();
-
-  // Combine real MongoDB campaigns with local storage objects
-  const combined = liveCampaigns.length > 0 ? liveCampaigns : [...localCamps, ...localDrafts];
+  // Strictly use real MongoDB campaigns
+  const combined = liveCampaigns;
 
   const mapStatus = (stRaw?: string): string => {
     const st = (stRaw || "").toLowerCase();

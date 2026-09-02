@@ -24,7 +24,6 @@ const CATEGORY_ICONS_MAP: Record<string, Lucide.LucideIcon> = {
   appliances: Refrigerator,
   jobs: Briefcase,
   services: Wrench,
-  pets: PawPrint,
   commercial: Truck,
   books: BookOpen,
   agri: Sprout,
@@ -42,7 +41,6 @@ const CATEGORY_TINTS_MAP: Record<string, { bg: string; text: string; gradient: s
   appliances: { bg: "bg-teal-100 text-teal-600 dark:bg-teal-950/50 dark:text-teal-400", text: "text-teal-600", gradient: "from-sky-700 via-blue-700 to-indigo-700", accent: "text-teal-500" },
   jobs: { bg: "bg-violet-100 text-violet-600 dark:bg-violet-950/50 dark:text-violet-400", text: "text-violet-600", gradient: "from-indigo-700 via-purple-700 to-violet-700", accent: "text-violet-500" },
   services: { bg: "bg-rose-100 text-rose-600 dark:bg-rose-950/50 dark:text-rose-400", text: "text-rose-600", gradient: "from-rose-700 via-pink-700 to-orange-700", accent: "text-rose-500" },
-  pets: { bg: "bg-yellow-100 text-yellow-700 dark:bg-yellow-950/50 dark:text-yellow-400", text: "text-yellow-700", gradient: "from-amber-700 via-yellow-700 to-orange-700", accent: "text-yellow-500" },
   commercial: { bg: "bg-cyan-100 text-cyan-600 dark:bg-cyan-950/50 dark:text-cyan-400", text: "text-cyan-600", gradient: "from-slate-800 via-slate-900 to-zinc-900", accent: "text-cyan-500" },
   books: { bg: "bg-lime-100 text-lime-600 dark:bg-lime-950/50 dark:text-lime-400", text: "text-lime-600", gradient: "from-lime-700 via-emerald-700 to-teal-700", accent: "text-lime-500" },
   agri: { bg: "bg-green-100 text-green-600 dark:bg-green-950/50 dark:text-green-400", text: "text-green-600", gradient: "from-green-700 via-emerald-700 to-lime-700", accent: "text-green-500" },
@@ -121,13 +119,6 @@ const SUBCATEGORY_IMAGES: Record<string, string> = {
   "Tutors": "https://images.unsplash.com/photo-1434030216411-0b793f4b4173?w=600&auto=format&fit=crop&q=80",
   "Movers": "https://images.unsplash.com/photo-1600518464441-9154a4dea21b?w=600&auto=format&fit=crop&q=80",
   "Photography": "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=600&auto=format&fit=crop&q=80",
-
-  // Pets
-  "Dogs": "https://images.unsplash.com/photo-1543466835-00a7907e9de1?w=600&auto=format&fit=crop&q=80",
-  "Cats": "https://images.unsplash.com/photo-1514888286974-6c03e2ca1dba?w=600&auto=format&fit=crop&q=80",
-  "Birds": "https://images.unsplash.com/photo-1444464666168-49d633b86797?w=600&auto=format&fit=crop&q=80",
-  "Fish": "https://images.unsplash.com/photo-1522069169874-c58ec4b76be5?w=600&auto=format&fit=crop&q=80",
-  "Pet Food & Accessories": "https://images.unsplash.com/photo-1583337130417-3346a1be7dee?w=600&auto=format&fit=crop&q=80",
 
   // Commercial
   "Auto Rickshaws": "https://images.unsplash.com/photo-1596707323863-7185bb8b6f3c?w=600&auto=format&fit=crop&q=80",
@@ -376,13 +367,6 @@ const SUBCATEGORY_ICONS_MAP: Record<string, Lucide.LucideIcon> = {
   "Women": Sparkles,
   "Kids": Baby,
   "Bags & Luggage": ShoppingBag,
-
-  // Pets
-  "Dogs": PawPrint,
-  "Cats": PawPrint,
-  "Birds": Sparkles,
-  "Fish": Droplets,
-  "Pet Food & Accessories": Package,
 };
 
 export function CategoryDetailModal({

@@ -3,14 +3,14 @@ import mongoose, { Schema, Document } from "mongoose";
 export interface IWalletTransaction extends Document {
   _id: mongoose.Types.ObjectId;
   walletId: mongoose.Types.ObjectId;
-  userId: mongoose.Types.ObjectId;
-  type: "CREDIT" | "DEBIT";
+  userId?: mongoose.Types.ObjectId;
+  type: string;
   amountInPaise: number;
   description: string;
-  referenceType: "PROMOTION" | "AD_CAMPAIGN" | "REFUND" | "TOPUP";
+  referenceType?: string;
   referenceId?: string;
-  idempotencyKey: string;
-  status: "SUCCESS" | "FAILED" | "PENDING";
+  idempotencyKey?: string;
+  status: string;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -18,14 +18,14 @@ export interface IWalletTransaction extends Document {
 const WalletTransactionSchema = new Schema<IWalletTransaction>(
   {
     walletId: { type: Schema.Types.ObjectId, ref: "Wallet", required: true, index: true },
-    userId: { type: Schema.Types.ObjectId, ref: "User", required: true, index: true },
-    type: { type: String, enum: ["CREDIT", "DEBIT"], required: true },
+    userId: { type: Schema.Types.ObjectId, ref: "User", index: true },
+    type: { type: String, required: true },
     amountInPaise: { type: Number, required: true },
     description: { type: String, required: true },
-    referenceType: { type: String, enum: ["PROMOTION", "AD_CAMPAIGN", "REFUND", "TOPUP"], required: true },
+    referenceType: { type: String, default: "TOPUP" },
     referenceId: { type: String },
-    idempotencyKey: { type: String, required: true, unique: true, index: true },
-    status: { type: String, enum: ["SUCCESS", "FAILED", "PENDING"], default: "PENDING", index: true }
+    idempotencyKey: { type: String, sparse: true, index: true },
+    status: { type: String, default: "SUCCESS", index: true }
   },
   { timestamps: true }
 );

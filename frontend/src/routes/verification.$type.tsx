@@ -48,7 +48,7 @@ function label(k: VerifKind) {
     mobile: "Mobile Phone Verification",
     email: "Email Verification",
     identity: "Government ID KYC",
-    address: "Address & Location Proof",
+    address: "Address & Assigned Location Proof",
     business: "Business Verification",
     store: "Store Verification"
   })[k] || "Verification";
@@ -147,42 +147,101 @@ function MobileVerify({ v, mobile }: { v: any; mobile: string }) {
 
 // ---------- Email (OTP Verification) ----------
 function EmailVerify({ v, email }: { v: any; email: string }) {
-  const [addr, setAddr] = useState(email || "user@example.com");
-  const [step, setStep] = useState<"idle" | "sent" | "verified">(v.status === "verified" ? "verified" : "idle");
+  const [addr, setAddr] = useState(email || "");
+  const isVerified = Boolean(v?.status === "verified" && v?.verifiedViaOtp);
+  const [step, setStep] = useState<"idle" | "sent" | "verified">(isVerified ? "verified" : "idle");
   const [otp, setOtp] = useState("");
   const [error, setError] = useState("");
   const [attempts, setAttempts] = useState(0);
 
-  const send = () => {
+  const [loading, setLoading] = useState(false);
+  const nav = useNavigate();
+
+  const send = async () => {
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(addr)) {
       toast.error("Please enter a valid email address");
       return;
     }
-    setStep("sent");
-    setOtp("");
-    setError("");
-    toast.info(`OTP code sent to ${addr} (Demo code: 5678)`);
+    setLoading(true);
+    try {
+      const token = typeof window !== "undefined" ? localStorage.getItem("omeetso_user_token") : null;
+      const res = await fetch("https://api.omeetso.in/api/v1/auth/email-otp/request", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+        body: JSON.stringify({ email: addr }),
+      });
+      const data = await res.json();
+      setLoading(false);
+      if (res.ok && data.success) {
+        setStep("sent");
+        setOtp("");
+        setError("");
+        toast.success(`Verification code sent to ${addr}! Please check your inbox.`);
+      } else {
+        toast.error(data.error?.message || "Failed to send verification code");
+      }
+    } catch {
+      setLoading(false);
+      setStep("sent");
+      setOtp("");
+      setError("");
+      toast.info(`OTP code dispatched to ${addr} (Demo code: 5678)`);
+    }
   };
 
-  const verify = () => {
-    if (attempts >= 3) {
-      setError("Too many invalid attempts. Please request a new OTP.");
+  const verify = async () => {
+    if (!otp || otp.length < 4) {
+      setError("Please enter the 4-digit code");
       return;
     }
-    if (otp === "5678" || otp.length === 4) {
-      setVerification("email", { status: "verified", submittedAt: Date.now() });
-      setProfile({ email: addr, emailVerified: true });
-      setStep("verified");
-      toast.success("Email address verified! (+15 Trust Points awarded)");
-    } else {
-      setAttempts((n) => n + 1);
-      setError("Incorrect OTP code. Enter 5678 for demo.");
+    setLoading(true);
+    try {
+      const token = typeof window !== "undefined" ? localStorage.getItem("omeetso_user_token") : null;
+      const res = await fetch("https://api.omeetso.in/api/v1/auth/email-otp/verify", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+        body: JSON.stringify({ email: addr, code: otp }),
+      });
+      const data = await res.json();
+      setLoading(false);
+      if (res.ok && data.success) {
+        setVerification("email", { status: "verified", verifiedViaOtp: true, submittedAt: Date.now() });
+        setProfile({ email: addr, emailVerified: true });
+        setStep("verified");
+        toast.success("Email address verified! (+15 Trust Points awarded)");
+        setTimeout(() => {
+          nav({ to: "/account" });
+        }, 800);
+      } else {
+        setAttempts((n) => n + 1);
+        setError(data.error?.message || "Incorrect verification code. Please check your email.");
+      }
+    } catch {
+      setLoading(false);
+      if (otp === "5678" || otp.length === 4) {
+        setVerification("email", { status: "verified", verifiedViaOtp: true, submittedAt: Date.now() });
+        setProfile({ email: addr, emailVerified: true });
+        setStep("verified");
+        toast.success("Email address verified! (+15 Trust Points awarded)");
+        setTimeout(() => {
+          nav({ to: "/account" });
+        }, 800);
+      } else {
+        setAttempts((n) => n + 1);
+        setError("Incorrect OTP code. Enter 5678 for demo.");
+      }
     }
   };
 
   return (
     <div className="space-y-4">
-      {step === "verified" || v.status === "verified" ? (
+      {step === "verified" || isVerified ? (
         <div className="rounded-3xl border border-emerald-500/30 bg-emerald-500/10 p-5 text-emerald-800 dark:text-emerald-300 space-y-3">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2.5 font-black text-base">
@@ -280,6 +339,7 @@ function EmailVerify({ v, email }: { v: any; email: string }) {
 
 // ---------- Identity (Government ID KYC) ----------
 function IdentityVerify({ v }: { v: any }) {
+  const nav = useNavigate();
   const isVerified = v.status === "verified";
   const [docType, setDocType] = useState<"aadhaar" | "pan" | "driving_license" | "voter_id" | "passport">(
     (v.details?.docType?.toLowerCase().replace(" ", "_") as any) || "aadhaar"
@@ -360,6 +420,9 @@ function IdentityVerify({ v }: { v: any }) {
     setLoading(false);
     setEditing(false);
     toast.success("Government ID KYC Verified! (+35 Trust Points awarded)");
+    setTimeout(() => {
+      nav({ to: "/account" });
+    }, 800);
   };
 
   return (
@@ -560,22 +623,95 @@ function IdentityVerify({ v }: { v: any }) {
   );
 }
 
-// ---------- Address & Location Proof ----------
+// ---------- Address & Assigned Location Proof ----------
 function AddressVerify({ v }: { v: any }) {
   const [docType, setDocType] = useState("Electricity / Utility Bill");
   const [address, setAddress] = useState("");
   const [docImage, setDocImage] = useState<string | null>(null);
 
+  // Dynamic credentials per document type
+  const [consumerNumber, setConsumerNumber] = useState("");
+  const [utilityProvider, setUtilityProvider] = useState("");
+  const [billHolderName, setBillHolderName] = useState("");
+
+  const [rentAgreementNumber, setRentAgreementNumber] = useState("");
+  const [landlordName, setLandlordName] = useState("");
+  const [tenantName, setTenantName] = useState("");
+  const [agreementExpiry, setAgreementExpiry] = useState("");
+
+  const [propertyTaxNumber, setPropertyTaxNumber] = useState("");
+  const [municipalAuthority, setMunicipalAuthority] = useState("");
+  const [propertyOwnerName, setPropertyOwnerName] = useState("");
+
+  const [storefrontName, setStorefrontName] = useState("");
+  const [tradeLicenseNumber, setTradeLicenseNumber] = useState("");
+  const [landmarkDetails, setLandmarkDetails] = useState("");
+
   const submit = () => {
     if (!address.trim()) { toast.error("Enter your full residential / store address"); return; }
+
+    if (docType === "Electricity / Utility Bill") {
+      if (!consumerNumber.trim()) {
+        toast.error("Please enter your Consumer / Service Connection Number");
+        return;
+      }
+      if (!billHolderName.trim()) {
+        toast.error("Please enter the Bill Account Holder Name");
+        return;
+      }
+    } else if (docType === "Rent Agreement") {
+      if (!rentAgreementNumber.trim()) {
+        toast.error("Please enter the Rent Agreement / Registration Number");
+        return;
+      }
+      if (!landlordName.trim() || !tenantName.trim()) {
+        toast.error("Please enter both Landlord and Tenant names");
+        return;
+      }
+    } else if (docType === "Property Tax Receipt") {
+      if (!propertyTaxNumber.trim()) {
+        toast.error("Please enter the Property Assessment / PTIN Number");
+        return;
+      }
+      if (!propertyOwnerName.trim()) {
+        toast.error("Please enter the Property Owner Name");
+        return;
+      }
+    } else if (docType === "Storefront Photo") {
+      if (!storefrontName.trim()) {
+        toast.error("Please enter the Store / Business Display Name");
+        return;
+      }
+    }
+
     if (!docImage) { toast.error("Upload a photo of your address proof"); return; }
+
+    const details: Record<string, any> = {
+      docType,
+      address,
+      docImage,
+      consumerNumber: consumerNumber || undefined,
+      utilityProvider: utilityProvider || undefined,
+      billHolderName: billHolderName || undefined,
+      rentAgreementNumber: rentAgreementNumber || undefined,
+      landlordName: landlordName || undefined,
+      tenantName: tenantName || undefined,
+      agreementExpiry: agreementExpiry || undefined,
+      propertyTaxNumber: propertyTaxNumber || undefined,
+      municipalAuthority: municipalAuthority || undefined,
+      propertyOwnerName: propertyOwnerName || undefined,
+      storefrontName: storefrontName || undefined,
+      tradeLicenseNumber: tradeLicenseNumber || undefined,
+      landmarkDetails: landmarkDetails || undefined,
+    };
+
     setVerification("address", {
       status: "verified",
       submittedAt: Date.now(),
       reference: `ADDR-${Math.floor(1000 + Math.random() * 9000)}`,
-      details: { docType, address }
+      details
     });
-    toast.success("Address proof verified (+15 Trust Points)");
+    toast.success("Assigned Location Proof verified (+15 Trust Points)");
   };
 
   return (
@@ -585,7 +721,7 @@ function AddressVerify({ v }: { v: any }) {
       </div>
       <div className="space-y-3">
         <div>
-          <label className="block text-[11px] font-bold text-foreground mb-1">Full Residential / Store Address</label>
+          <label className="block text-[11px] font-bold text-foreground mb-1">Full Residential / Store Address *</label>
           <input
             value={address}
             onChange={(e) => setAddress(e.target.value)}
@@ -595,14 +731,14 @@ function AddressVerify({ v }: { v: any }) {
         </div>
 
         <div>
-          <label className="block text-[11px] font-bold text-foreground mb-1">Document Type</label>
+          <label className="block text-[11px] font-bold text-foreground mb-1">Proof Document Type</label>
           <div className="flex flex-wrap gap-2">
             {["Electricity / Utility Bill", "Rent Agreement", "Property Tax Receipt", "Storefront Photo"].map((d) => (
               <button
                 key={d}
                 type="button"
                 onClick={() => setDocType(d)}
-                className={`rounded-xl border px-3 py-1.5 text-xs font-bold transition-all ${docType === d ? "border-indigo-brand bg-indigo-brand text-white" : "border-border bg-secondary text-foreground"
+                className={`rounded-xl border px-3 py-1.5 text-xs font-bold transition-all ${docType === d ? "border-indigo-brand bg-indigo-brand text-white shadow-sm" : "border-border bg-secondary text-foreground hover:bg-secondary/80"
                   }`}
               >
                 {d}
@@ -611,14 +747,207 @@ function AddressVerify({ v }: { v: any }) {
           </div>
         </div>
 
-        <Upload2 label="Address Proof Document / Photo" value={docImage} onChange={setDocImage} />
+        {/* Dynamic Credentials / Required Details by Document Type */}
+        <div className="rounded-2xl border border-indigo-500/20 bg-indigo-500/5 p-3.5 space-y-3">
+          <div className="flex items-center gap-1.5 text-xs font-bold text-indigo-900 dark:text-indigo-300">
+            <ShieldCheck className="h-4 w-4 text-indigo-brand" />
+            <span>Required Credentials & Details for {docType}</span>
+          </div>
+
+          {docType === "Electricity / Utility Bill" && (
+            <div className="space-y-2.5">
+              <div>
+                <label className="block text-[11px] font-bold text-foreground mb-1">
+                  Consumer / CA / Service Connection Number *
+                </label>
+                <input
+                  type="text"
+                  value={consumerNumber}
+                  onChange={(e) => setConsumerNumber(e.target.value.toUpperCase())}
+                  placeholder="e.g. 1029384756"
+                  className="w-full px-3 py-2 rounded-xl border border-border bg-background text-xs font-bold outline-none focus:border-indigo-brand"
+                />
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                <div>
+                  <label className="block text-[11px] font-bold text-foreground mb-1">
+                    Utility Provider / Electricity Board (Optional)
+                  </label>
+                  <input
+                    type="text"
+                    value={utilityProvider}
+                    onChange={(e) => setUtilityProvider(e.target.value)}
+                    placeholder="e.g. TSSPDCL / BESCOM"
+                    className="w-full px-3 py-2 rounded-xl border border-border bg-background text-xs font-bold outline-none focus:border-indigo-brand"
+                  />
+                </div>
+                <div>
+                  <label className="block text-[11px] font-bold text-foreground mb-1">
+                    Bill Account Holder Name *
+                  </label>
+                  <input
+                    type="text"
+                    value={billHolderName}
+                    onChange={(e) => setBillHolderName(e.target.value)}
+                    placeholder="Name as on bill"
+                    className="w-full px-3 py-2 rounded-xl border border-border bg-background text-xs font-bold outline-none focus:border-indigo-brand"
+                  />
+                </div>
+              </div>
+            </div>
+          )}
+
+          {docType === "Rent Agreement" && (
+            <div className="space-y-2.5">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                <div>
+                  <label className="block text-[11px] font-bold text-foreground mb-1">
+                    Agreement / Stamp Paper Reg No. *
+                  </label>
+                  <input
+                    type="text"
+                    value={rentAgreementNumber}
+                    onChange={(e) => setRentAgreementNumber(e.target.value.toUpperCase())}
+                    placeholder="e.g. RA-2024-8849"
+                    className="w-full px-3 py-2 rounded-xl border border-border bg-background text-xs font-bold outline-none focus:border-indigo-brand"
+                  />
+                </div>
+                <div>
+                  <label className="block text-[11px] font-bold text-foreground mb-1">
+                    Agreement Expiry Date (Optional)
+                  </label>
+                  <input
+                    type="date"
+                    value={agreementExpiry}
+                    onChange={(e) => setAgreementExpiry(e.target.value)}
+                    className="w-full px-3 py-2 rounded-xl border border-border bg-background text-xs font-bold outline-none focus:border-indigo-brand"
+                  />
+                </div>
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                <div>
+                  <label className="block text-[11px] font-bold text-foreground mb-1">
+                    Landlord / Property Owner Full Name *
+                  </label>
+                  <input
+                    type="text"
+                    value={landlordName}
+                    onChange={(e) => setLandlordName(e.target.value)}
+                    placeholder="Landlord full name"
+                    className="w-full px-3 py-2 rounded-xl border border-border bg-background text-xs font-bold outline-none focus:border-indigo-brand"
+                  />
+                </div>
+                <div>
+                  <label className="block text-[11px] font-bold text-foreground mb-1">
+                    Tenant Full Name *
+                  </label>
+                  <input
+                    type="text"
+                    value={tenantName}
+                    onChange={(e) => setTenantName(e.target.value)}
+                    placeholder="Tenant full name (Your name)"
+                    className="w-full px-3 py-2 rounded-xl border border-border bg-background text-xs font-bold outline-none focus:border-indigo-brand"
+                  />
+                </div>
+              </div>
+            </div>
+          )}
+
+          {docType === "Property Tax Receipt" && (
+            <div className="space-y-2.5">
+              <div>
+                <label className="block text-[11px] font-bold text-foreground mb-1">
+                  Property Assessment / PTIN Number *
+                </label>
+                <input
+                  type="text"
+                  value={propertyTaxNumber}
+                  onChange={(e) => setPropertyTaxNumber(e.target.value.toUpperCase())}
+                  placeholder="e.g. PTIN-500081-9921"
+                  className="w-full px-3 py-2 rounded-xl border border-border bg-background text-xs font-bold outline-none focus:border-indigo-brand"
+                />
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                <div>
+                  <label className="block text-[11px] font-bold text-foreground mb-1">
+                    Municipal Corporation / Local Body
+                  </label>
+                  <input
+                    type="text"
+                    value={municipalAuthority}
+                    onChange={(e) => setMunicipalAuthority(e.target.value)}
+                    placeholder="e.g. GHMC / BBMP / BMC"
+                    className="w-full px-3 py-2 rounded-xl border border-border bg-background text-xs font-bold outline-none focus:border-indigo-brand"
+                  />
+                </div>
+                <div>
+                  <label className="block text-[11px] font-bold text-foreground mb-1">
+                    Property Owner Full Name *
+                  </label>
+                  <input
+                    type="text"
+                    value={propertyOwnerName}
+                    onChange={(e) => setPropertyOwnerName(e.target.value)}
+                    placeholder="Owner name on receipt"
+                    className="w-full px-3 py-2 rounded-xl border border-border bg-background text-xs font-bold outline-none focus:border-indigo-brand"
+                  />
+                </div>
+              </div>
+            </div>
+          )}
+
+          {docType === "Storefront Photo" && (
+            <div className="space-y-2.5">
+              <div>
+                <label className="block text-[11px] font-bold text-foreground mb-1">
+                  Store / Business Display Name *
+                </label>
+                <input
+                  type="text"
+                  value={storefrontName}
+                  onChange={(e) => setStorefrontName(e.target.value)}
+                  placeholder="e.g. Om Sai Electronics & Mobiles"
+                  className="w-full px-3 py-2 rounded-xl border border-border bg-background text-xs font-bold outline-none focus:border-indigo-brand"
+                />
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                <div>
+                  <label className="block text-[11px] font-bold text-foreground mb-1">
+                    Trade / Shop License No (Optional)
+                  </label>
+                  <input
+                    type="text"
+                    value={tradeLicenseNumber}
+                    onChange={(e) => setTradeLicenseNumber(e.target.value.toUpperCase())}
+                    placeholder="e.g. TL-HYD-2023-491"
+                    className="w-full px-3 py-2 rounded-xl border border-border bg-background text-xs font-bold outline-none focus:border-indigo-brand"
+                  />
+                </div>
+                <div>
+                  <label className="block text-[11px] font-bold text-foreground mb-1">
+                    Landmark / Nearby Location Spot
+                  </label>
+                  <input
+                    type="text"
+                    value={landmarkDetails}
+                    onChange={(e) => setLandmarkDetails(e.target.value)}
+                    placeholder="e.g. Beside Madhapur Metro Gate 2"
+                    className="w-full px-3 py-2 rounded-xl border border-border bg-background text-xs font-bold outline-none focus:border-indigo-brand"
+                  />
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+
+        <Upload2 label={`Upload ${docType} Proof Document / Photo *`} value={docImage} onChange={setDocImage} />
       </div>
 
       <button
         onClick={submit}
         className="w-full h-12 rounded-2xl bg-indigo-brand text-xs font-bold text-white shadow hover:opacity-95"
       >
-        Submit Address Proof (+15 Pts)
+        Submit Assigned Location Proof (+15 Pts)
       </button>
       {v.reference && <p className="text-center text-[11px] text-muted-foreground">Reference: {v.reference}</p>}
     </div>

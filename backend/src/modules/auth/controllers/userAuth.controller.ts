@@ -401,6 +401,7 @@ export async function registerUser(req: Request, res: Response, next: NextFuncti
       user = await User.create({
         phone: normalizedPhone,
         email: email ? email.trim() : undefined,
+        emailVerified: false,
         accountType: accountType === "business" ? "business" : "individual",
         passwordHash,
         profile: {
@@ -414,7 +415,7 @@ export async function registerUser(req: Request, res: Response, next: NextFuncti
         },
         verificationSummary: {
           mobileVerified: true,
-          emailVerified: Boolean(email),
+          emailVerified: false,
           identityVerified: false,
           businessVerified: accountType === "business"
         }
@@ -527,6 +528,135 @@ export async function loginUserDirect(req: Request, res: Response, next: NextFun
 
     res.status(200).json({
       success: true,
+      data: {
+        accessToken,
+        user: {
+          id: user._id.toString(),
+          phone: user.phone,
+          email: user.email,
+          accountType: user.accountType,
+          status: user.status,
+          profile: user.profile,
+          verificationSummary: user.verificationSummary
+        }
+      }
+    });
+  } catch (error) {
+    next(error);
+  }
+}
+
+export async function resetUserPin(req: Request, res: Response, next: NextFunction): Promise<void> {
+  try {
+    const { phone, code, otp, newPin, pin } = req.body;
+    const otpCode = (code || otp || "").trim();
+    const desiredPin = (newPin || pin || "").trim();
+
+    if (!phone) {
+      res.status(400).json({ success: false, error: { code: "VALIDATION_ERROR", message: "Mobile number is required" } });
+      return;
+    }
+
+    const cleanDigits = phone.replace(/\D/g, "");
+    const tenDigitPhone = cleanDigits.slice(-10);
+    const normalizedPhone = `+91${tenDigitPhone}`;
+
+    if (tenDigitPhone.length !== 10) {
+      res.status(400).json({ success: false, error: { code: "INVALID_PHONE", message: "Please enter a valid 10-digit mobile number" } });
+      return;
+    }
+
+    if (!otpCode || otpCode.length !== 4) {
+      res.status(400).json({ success: false, error: { code: "INVALID_OTP", message: "Please enter the valid 4-digit OTP" } });
+      return;
+    }
+
+    const cleanPin = desiredPin.replace(/\D/g, "");
+    if (!cleanPin || cleanPin.length !== 4) {
+      res.status(400).json({ success: false, error: { code: "INVALID_PIN", message: "New PIN must be exactly 4 numeric digits" } });
+      return;
+    }
+
+    // Verify OTP Challenge
+    const codeHash = crypto.createHash("sha256").update(otpCode).digest("hex");
+
+    const challenge = await OtpChallenge.findOne({
+      phone: normalizedPhone,
+      expiresAt: { $gt: new Date() },
+      isVerified: false
+    }).sort({ createdAt: -1 });
+
+    if (!challenge) {
+      res.status(400).json({
+        success: false,
+        error: { code: "OTP_EXPIRED", message: "OTP has expired or is invalid. Please request a new code." }
+      });
+      return;
+    }
+
+    if (challenge.attempts >= 5) {
+      res.status(429).json({
+        success: false,
+        error: { code: "TOO_MANY_ATTEMPTS", message: "Maximum OTP verification attempts reached. Please request a new OTP." }
+      });
+      return;
+    }
+
+    if (challenge.codeHash !== codeHash) {
+      challenge.attempts += 1;
+      await challenge.save();
+      res.status(400).json({
+        success: false,
+        error: { code: "INVALID_OTP", message: "Incorrect OTP code. Please check and try again." }
+      });
+      return;
+    }
+
+    challenge.isVerified = true;
+    await challenge.save();
+
+    // Find User
+    let user = await User.findOne({ phone: normalizedPhone });
+    if (!user) {
+      res.status(404).json({
+        success: false,
+        error: { code: "USER_NOT_FOUND", message: "No account found with this phone number." }
+      });
+      return;
+    }
+
+    // Update PIN (passwordHash)
+    const passwordHash = crypto.createHash("sha256").update(cleanPin).digest("hex");
+    (user as any).passwordHash = passwordHash;
+    await user.save();
+
+    console.log(`[Auth] PIN successfully reset and updated for ${normalizedPhone}`);
+
+    // Create session and issue tokens
+    const accessToken = generateUserAccessToken(user._id.toString());
+    const rawRefreshToken = generateOpaqueToken();
+    const refreshTokenHash = hashToken(rawRefreshToken);
+    const refreshExpiresAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
+
+    await UserSession.create({
+      userId: user._id,
+      refreshTokenHash,
+      ipAddress: req.ip,
+      userAgent: req.get("user-agent"),
+      expiresAt: refreshExpiresAt
+    });
+
+    res.cookie(USER_REFRESH_COOKIE, rawRefreshToken, {
+      httpOnly: true,
+      secure: env.NODE_ENV === "production",
+      sameSite: "strict",
+      path: "/api/v1/auth",
+      expires: refreshExpiresAt
+    });
+
+    res.status(200).json({
+      success: true,
+      message: "PIN updated successfully! You are now signed in.",
       data: {
         accessToken,
         user: {

@@ -7,7 +7,7 @@ import {
   listListings, seedIfEmpty, formatINR, timeAgo, type Listing,
 } from "@/lib/listings";
 import { getAnalytics } from "@/lib/listings";
-import { Search, Filter, Package, ChevronRight, Zap, CheckCircle2, AlertCircle, Eye, MousePointerClick } from "lucide-react";
+import { Search, Filter, Package, ChevronRight, Zap, CheckCircle2, AlertCircle, Eye, MousePointerClick, ArrowRight } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { getUserAccessToken } from "@/api/auth.api";
 
@@ -195,8 +195,9 @@ function SelectListing() {
                     <p className="font-bold text-foreground line-clamp-1">{l.title}</p>
                     <p className="text-[11px] text-muted-foreground mt-0.5">Must be approved & active before boosting ({l.status.replace("_", " ")})</p>
                   </div>
-                  <Link to="/listings" className="shrink-0 text-xs font-extrabold text-indigo-brand hover:underline">
-                    Manage →
+                  <Link to="/listings" className="group shrink-0 inline-flex items-center gap-1 text-xs font-extrabold text-indigo-brand hover:underline">
+                    <span>Manage</span>
+                    <ArrowRight className="h-3 w-3 transition-transform group-hover:translate-x-0.5" />
                   </Link>
                 </div>
               ))}

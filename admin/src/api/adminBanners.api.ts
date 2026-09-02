@@ -1,7 +1,7 @@
 import { AdminAuthService } from "@/services/adminAuthService";
 
 const API_BASE = (typeof window !== "undefined" && window.location.hostname === "localhost")
-  ? "http://localhost:3000/api/v1/banners"
+  ? "https://api.omeetso.in/api/v1/banners"
   : "https://api.omeetso.in/api/v1/banners";
 
 function getHeaders(): Record<string, string> {

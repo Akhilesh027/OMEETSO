@@ -68,6 +68,12 @@ export type Profile = {
   responseTime?: string;
 };
 
+export const DEFAULT_AVATARS = {
+  male: "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&w=250&h=250&q=85",
+  female: "https://images.unsplash.com/photo-1494790108377-be9c29b29330?auto=format&fit=crop&w=250&h=250&q=85",
+  other: "https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=250&h=250&q=85"
+};
+
 const DEFAULT_PROFILE: Profile = {
   name: "Omeetso User",
   email: "",
@@ -79,7 +85,7 @@ const DEFAULT_PROFILE: Profile = {
   area: "Madhapur",
   language: "en",
   bio: "",
-  avatar: "",
+  avatar: DEFAULT_AVATARS.male,
   accountType: "individual",
   businessEnabled: false,
   memberSince: Date.now(),
@@ -103,17 +109,23 @@ export function getProfile(): Profile {
     const validStored = isSameUser ? stored : null;
     const formattedMobile = liveUser.phone ? (liveUser.phone.startsWith("+91") ? liveUser.phone : `+91${liveUser.phone.replace(/\D/g, "").slice(-10)}`) : "";
 
+    const resolvedAvatar =
+      liveUser.profile?.avatar ||
+      liveUser.avatar ||
+      validStored?.avatar ||
+      DEFAULT_AVATARS.male;
+
     return {
       ...DEFAULT_PROFILE,
       name: liveUser.profile?.name || validStored?.name || (formattedMobile ? `User (${formattedMobile})` : "Omeetso User"),
       mobile: formattedMobile || validStored?.mobile || "",
       mobileVerified: Boolean(liveUser.verificationSummary?.mobileVerified ?? true),
       email: liveUser.email || validStored?.email || "",
-      emailVerified: Boolean(liveUser.verificationSummary?.emailVerified),
+      emailVerified: Boolean(liveUser.emailVerified === true && liveUser.verificationSummary?.emailVerified === true),
       city: liveUser.profile?.city || validStored?.city || "Hyderabad",
       pincode: liveUser.profile?.pincode || validStored?.pincode || "500081",
       area: liveUser.profile?.area || validStored?.area || "Madhapur",
-      avatar: liveUser.profile?.avatar || validStored?.avatar || "",
+      avatar: resolvedAvatar,
       bio: liveUser.profile?.bio || validStored?.bio || "",
       accountType: liveUser.accountType || validStored?.accountType || "individual",
       memberSince: liveUser.createdAt ? new Date(liveUser.createdAt).getTime() : Date.now(),
@@ -132,8 +144,15 @@ export function setProfile(p: Partial<Profile>) {
       const raw = localStorage.getItem("omeetso_user");
       if (raw) {
         const u = JSON.parse(raw);
+        if (!u.profile) u.profile = {};
         u.profile = { ...(u.profile || {}), name: next.name, avatar: next.avatar, city: next.city, pincode: next.pincode, area: next.area, bio: next.bio };
-        if (next.email) u.email = next.email;
+        u.avatar = next.avatar;
+        if (next.email !== undefined) u.email = next.email;
+        if (next.emailVerified !== undefined) {
+          u.emailVerified = next.emailVerified;
+          if (!u.verificationSummary) u.verificationSummary = {};
+          u.verificationSummary.emailVerified = next.emailVerified;
+        }
         localStorage.setItem("omeetso_user", JSON.stringify(u));
       }
     } catch {}
@@ -190,11 +209,6 @@ export const getVerifications = (): VerificationMap => {
   const localSaved = read<Partial<VerificationMap>>(AK.verification, {});
   const base: VerificationMap = { ...DEFAULT_VERIF, ...localSaved };
 
-  // Sanity check: identity is only verified/under_review if actual doc details exist
-  if (base.identity && base.identity.status !== "not_started" && !base.identity.documentUrl && !base.identity.details?.docNumber) {
-    base.identity = { status: "not_started" };
-  }
-
   // Check live logged-in user state from localStorage
   if (typeof window !== "undefined") {
     try {
@@ -204,11 +218,31 @@ export const getVerifications = (): VerificationMap => {
         if (u.phoneVerified || u.mobileVerified || u.isPhoneVerified || u.verificationSummary?.mobileVerified) {
           base.mobile = { status: "verified", updatedAt: Date.now() };
         }
-        if (u.emailVerified || u.verificationSummary?.emailVerified) {
-          base.email = { status: "verified", updatedAt: Date.now() };
+
+        // Email is ONLY verified if user explicitly completed email OTP (verifiedViaOtp) or backend confirmed emailVerified === true
+        const isExplicitEmailVerified = Boolean(
+          (u.emailVerified === true && u.verificationSummary?.emailVerified === true) ||
+          localSaved.email?.verifiedViaOtp === true
+        );
+
+        if (isExplicitEmailVerified && u.email) {
+          base.email = { status: "verified", verifiedViaOtp: true, updatedAt: Date.now() };
+        } else {
+          // Self-heal: purge incorrect default verification from localStorage
+          base.email = { status: "not_started" };
+          if (u.verificationSummary?.emailVerified && !isExplicitEmailVerified) {
+            u.verificationSummary.emailVerified = false;
+            u.emailVerified = false;
+            localStorage.setItem("omeetso_user", JSON.stringify(u));
+          }
+          if (localSaved.email && localSaved.email.status === "verified" && !localSaved.email.verifiedViaOtp) {
+            delete localSaved.email;
+            write(AK.verification, localSaved);
+          }
         }
-        if (u.verificationSummary?.identityVerified && (base.identity.documentUrl || base.identity.details?.docNumber)) {
-          base.identity = { status: "verified", updatedAt: Date.now() };
+
+        if (u.verificationSummary?.identityVerified || u.identityVerified) {
+          base.identity = { ...base.identity, status: "verified", updatedAt: Date.now() };
         }
       }
     } catch { /* ignore */ }
@@ -220,18 +254,63 @@ export const getVerifications = (): VerificationMap => {
 export const getVerification = (k: VerifKind) => getVerifications()[k];
 export const setVerification = (k: VerifKind, v: Partial<Verification>) => {
   const cur = getVerifications();
-  write(AK.verification, { ...cur, [k]: { ...cur[k], ...v, updatedAt: Date.now() } });
+  const updated = { ...cur, [k]: { ...cur[k], ...v, updatedAt: Date.now() } };
+  write(AK.verification, updated);
+
+  if (typeof window !== "undefined") {
+    try {
+      const rawUser = localStorage.getItem("omeetso_user");
+      if (rawUser) {
+        const u = JSON.parse(rawUser);
+        if (!u.verificationSummary) u.verificationSummary = {};
+        if (k === "identity") {
+          const isVer = v.status === "verified";
+          u.verificationSummary.identityVerified = isVer;
+          u.identityVerified = isVer;
+        }
+        if (k === "mobile") {
+          const isVer = v.status === "verified";
+          u.verificationSummary.mobileVerified = isVer;
+          u.phoneVerified = isVer;
+          u.isPhoneVerified = isVer;
+        }
+        if (k === "email") {
+          const isVer = v.status === "verified";
+          u.verificationSummary.emailVerified = isVer;
+          u.emailVerified = isVer;
+        }
+        localStorage.setItem("omeetso_user", JSON.stringify(u));
+      }
+      window.dispatchEvent(new Event("storage"));
+      window.dispatchEvent(new CustomEvent("omeetso_verification_updated", { detail: { kind: k, data: v } }));
+    } catch { /* ignore */ }
+  }
 };
 
-export function getTrustScore(): number {
+export function getTrustScoreBreakdown() {
   const v = getVerifications();
-  let score = 0;
-  if (v.mobile?.status === "verified") score += 35;
-  if (v.identity?.status === "verified") score += 35;
-  else if (v.identity?.status === "under_review" || v.identity?.status === "submitted") score += 15;
-  if (v.email?.status === "verified") score += 15;
-  if (v.address?.status === "verified" || v.business?.status === "verified" || v.store?.status === "verified") score += 15;
-  return Math.min(100, score);
+  const profile = getProfile();
+  const isEmailVerified = Boolean(
+    v.email?.status === "verified" && (profile.emailVerified || v.email?.verifiedViaOtp)
+  );
+
+  const mobile = v.mobile?.status === "verified" ? 35 : 0;
+  const email = isEmailVerified ? 15 : 0;
+  const identity = v.identity?.status === "verified" ? 35 : (v.identity?.status === "under_review" || v.identity?.status === "submitted") ? 15 : 0;
+  const address = (v.address?.status === "verified" || v.business?.status === "verified" || v.store?.status === "verified") ? 15 : 0;
+
+  return {
+    mobile,
+    email,
+    identity,
+    address,
+    total: Math.min(100, mobile + email + identity + address),
+    max: 100,
+  };
+}
+
+export function getTrustScore(): number {
+  return getTrustScoreBreakdown().total;
 }
 
 export const verifStatusLabel: Record<VerifStatus, string> = {
@@ -258,22 +337,28 @@ export type Notification = {
   thumbnail?: string;
 };
 
-const DEFAULT_NOTIFS: Notification[] = [
-  { id: "N1", category: "messages", title: "New message from Ramesh Kumar", body: "Yes, the phone is still available.", time: Date.now() - 20 * 60 * 1000, read: false, destination: "/chats", destinationLabel: "Open chat" },
-  { id: "N2", category: "offers", title: "New offer received", body: "Sanjay offered ₹11,000 for your Wooden Sofa Set.", time: Date.now() - 2 * 3600 * 1000, read: false, destination: "/offers", destinationLabel: "View offer" },
-  { id: "N3", category: "listings", title: "Your listing is now active", body: "Premium Wooden Sofa Set is visible to nearby buyers.", time: Date.now() - 5 * 3600 * 1000, read: false, destination: "/listings", destinationLabel: "View listing" },
-  { id: "N4", category: "stores", title: "Your store has been approved", body: "Satish Electronics is now live on Omeetso.", time: Date.now() - 26 * 3600 * 1000, read: true, destination: "/stores", destinationLabel: "Open store" },
-  { id: "N5", category: "promotions", title: "Your promotion has started", body: "The 7-day Popular Boost is now active.", time: Date.now() - 28 * 3600 * 1000, read: true, destination: "/promotions", destinationLabel: "View promotion" },
-  { id: "N6", category: "payments", title: "Wallet recharge successful", body: "₹1,000 was added to your Omeetso Wallet.", time: Date.now() - 3 * 86400000, read: true, destination: "/wallet", destinationLabel: "Open wallet" },
-  { id: "N7", category: "system", title: "New login on this device", body: "A sign-in was detected on your account.", time: Date.now() - 4 * 86400000, read: true },
-  { id: "N8", category: "promotions", title: "Local deal near Madhapur", body: "Up to 30% off on select mobile accessories this weekend.", time: Date.now() - 12 * 3600 * 1000, read: false, promoted: true, advertiser: "Sample Advertiser", destination: "/home", destinationLabel: "Explore deals" },
-];
+const DEFAULT_NOTIFS: Notification[] = [];
 
 export function listNotifications(): Notification[] {
   const stored = read<Notification[] | null>(AK.notifications, null);
-  if (stored && stored.length) return stored;
-  write(AK.notifications, DEFAULT_NOTIFS);
-  return DEFAULT_NOTIFS;
+  if (!stored || !Array.isArray(stored) || stored.length === 0) return [];
+
+  // Automatically filter out and purge mock notifications
+  const clean = stored.filter(
+    (n) =>
+      !n.id.startsWith("N") &&
+      !n.title?.includes("Ramesh Kumar") &&
+      !n.title?.includes("Sanjay") &&
+      !n.body?.includes("Wooden Sofa Set") &&
+      !n.body?.includes("Satish Electronics") &&
+      !n.body?.includes("Popular Boost") &&
+      !n.advertiser?.includes("Sample Advertiser")
+  );
+
+  if (clean.length !== stored.length) {
+    write(AK.notifications, clean);
+  }
+  return clean;
 }
 export function getNotification(id: string) { return listNotifications().find((n) => n.id === id); }
 export function markRead(id: string, read = true) {

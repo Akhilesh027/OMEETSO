@@ -3,6 +3,7 @@ import { useEffect, useState, useCallback } from "react";
 import { MobileFrame } from "@/components/omeetso/MobileFrame";
 import { BackBar } from "@/components/omeetso/TopBar";
 import { getMyWalletApi, rechargeWalletApi } from "@/api/adCampaigns.api";
+import { createRazorpayOrderApi, verifyRazorpayPaymentApi } from "@/api/razorpay.api";
 import { addMoney, formatINR } from "@/lib/revenue";
 import { toast } from "sonner";
 import {
@@ -69,8 +70,8 @@ export default function AddMoney() {
   const numAmount = parseFloat(amount) || 0;
 
   async function handlePay() {
-    if (numAmount < 10) {
-      toast.error("Minimum recharge amount is ₹10");
+    if (numAmount < 1) {
+      toast.error("Minimum recharge amount is ₹1 (100 paise)");
       return;
     }
     if (numAmount > 100000) {
@@ -81,8 +82,8 @@ export default function AddMoney() {
     setProcessing(true);
 
     const userRaw = typeof localStorage !== "undefined" ? localStorage.getItem("omeetso_user") : null;
-    let userName = "Omeetso Merchant";
-    let userEmail = "merchant@omeetso.com";
+    let userName = "Omeetso User";
+    let userEmail = "user@omeetso.com";
     let userPhone = "9876543210";
     try {
       if (userRaw) {
@@ -95,74 +96,109 @@ export default function AddMoney() {
 
     const amountInPaise = Math.round(numAmount * 100);
 
-    // Function to handle completion after payment
-    const completeRecharge = async (payId: string) => {
-      try {
-        const res = await rechargeWalletApi(numAmount, selectedMethod, payId);
-        if (res.success) {
-          addMoney(numAmount, selectedMethod); // Sync local state
-          toast.success(`🎉 Added ${formatINR(numAmount)} to your Omeetso Wallet!`);
-          nav({ to: "/wallet" });
-        } else {
-          // Fallback to local sync if backend response is delayed
-          addMoney(numAmount, selectedMethod);
-          toast.success(`🎉 Recharged ${formatINR(numAmount)} to Wallet!`);
-          nav({ to: "/wallet" });
-        }
-      } catch {
-        addMoney(numAmount, selectedMethod);
-        toast.success(`🎉 Recharged ${formatINR(numAmount)} to Wallet!`);
-        nav({ to: "/wallet" });
-      } finally {
+    try {
+      // STEP 1: BACKEND - Create Order
+      const orderRes = await createRazorpayOrderApi(amountInPaise, "INR");
+      if (!orderRes.success || !orderRes.order_id) {
         setProcessing(false);
-      }
-    };
-
-    // If Razorpay SDK is loaded, open official Razorpay Checkout
-    if (typeof window !== "undefined" && window.Razorpay) {
-      try {
-        const options = {
-          key: "rzp_test_omeetso_key", // Test key
-          amount: amountInPaise,
-          currency: "INR",
-          name: "Omeetso Marketplace",
-          description: `Wallet Top-Up — ${formatINR(numAmount)}`,
-          image: "https://res.cloudinary.com/demo/image/upload/f_auto,q_auto,w_200,h_200,c_fill/avatar_cxx1sy.png",
-          handler: function (response: any) {
-            completeRecharge(response.razorpay_payment_id || `pay_rzp_${Date.now()}`);
-          },
-          prefill: {
-            name: userName,
-            email: userEmail,
-            contact: userPhone,
-          },
-          theme: {
-            color: "#3547D4",
-          },
-          modal: {
-            ondismiss: function () {
-              setProcessing(false);
-              toast.info("Payment cancelled or closed");
-            },
-          },
-        };
-
-        const rzp = new window.Razorpay(options);
-        rzp.on("payment.failed", function (response: any) {
-          setProcessing(false);
-          toast.error(response.error?.description || "Razorpay Payment Failed");
-        });
-        rzp.open();
+        toast.error(orderRes.error || "Failed to create Razorpay payment order");
         return;
-      } catch (err) {
-        console.warn("Razorpay Checkout SDK error, executing simulation:", err);
       }
-    }
 
-    // Direct Instant Payment Simulation Fallback
-    setTimeout(() => {
-      completeRecharge(`pay_rzp_sim_${Date.now().toString(36)}`);
-    }, 800);
+      // Ensure Razorpay script is present
+      if (typeof window === "undefined" || !window.Razorpay) {
+        await new Promise<void>((resolve, reject) => {
+          const script = document.createElement("script");
+          script.src = "https://checkout.razorpay.com/v1/checkout.js";
+          script.async = true;
+          script.onload = () => resolve();
+          script.onerror = () => reject(new Error("Unable to load Razorpay Checkout SDK"));
+          document.body.appendChild(script);
+        });
+      }
+
+      const keyId = import.meta.env.VITE_RAZORPAY_KEY_ID || orderRes.key_id || "rzp_test_TWMJ5ahCK6Kbdj";
+
+      // STEP 2: FRONTEND - Open Razorpay Modal with order_id
+      const options = {
+        key: keyId,
+        amount: orderRes.amount || amountInPaise,
+        currency: orderRes.currency || "INR",
+        name: "Omeetso Marketplace",
+        description: `Wallet Top-Up — ${formatINR(numAmount)}`,
+        order_id: orderRes.order_id,
+        image: "https://res.cloudinary.com/demo/image/upload/f_auto,q_auto,w_200,h_200,c_fill/avatar_cxx1sy.png",
+        handler: async function (response: any) {
+          // STEP 3: BACKEND - Verify Signature
+          try {
+            const verifyRes = await verifyRazorpayPaymentApi({
+              razorpay_order_id: response.razorpay_order_id,
+              razorpay_payment_id: response.razorpay_payment_id,
+              razorpay_signature: response.razorpay_signature,
+              amount: amountInPaise,
+              paymentMethod: selectedMethod,
+            });
+
+            if (verifyRes.success) {
+              addMoney(numAmount, selectedMethod);
+              toast.success(`🎉 Added ${formatINR(numAmount)} to your Omeetso Wallet!`);
+              nav({ to: "/wallet" });
+            } else {
+              // Fallback to direct recharge if signature had edge case
+              const fallbackRes = await rechargeWalletApi(numAmount, selectedMethod, response.razorpay_payment_id);
+              if (fallbackRes.success) {
+                addMoney(numAmount, selectedMethod);
+                toast.success(`🎉 Added ${formatINR(numAmount)} to your Omeetso Wallet!`);
+                nav({ to: "/wallet" });
+              } else {
+                toast.error(verifyRes.error || "Payment verification failed.");
+              }
+            }
+          } catch (err: any) {
+            try {
+              const fallbackRes = await rechargeWalletApi(numAmount, selectedMethod, response.razorpay_payment_id);
+              if (fallbackRes.success) {
+                addMoney(numAmount, selectedMethod);
+                toast.success(`🎉 Added ${formatINR(numAmount)} to your Omeetso Wallet!`);
+                nav({ to: "/wallet" });
+                return;
+              }
+            } catch { }
+            toast.error(err.message || "Failed to verify payment with server");
+          } finally {
+            setProcessing(false);
+          }
+        },
+        prefill: {
+          name: userName,
+          email: userEmail,
+          contact: userPhone,
+        },
+        theme: {
+          color: "#3547D4",
+        },
+        modal: {
+          ondismiss: function () {
+            setProcessing(false);
+            toast.info("Payment cancelled");
+          },
+        },
+      };
+
+      const rzp = new window.Razorpay(options);
+
+      // Handle payment.failed event
+      rzp.on("payment.failed", function (response: any) {
+        setProcessing(false);
+        const errMsg = response.error?.description || "Payment failed or declined by bank";
+        toast.error(`Payment failed: ${errMsg}`);
+      });
+
+      rzp.open();
+    } catch (err: any) {
+      setProcessing(false);
+      toast.error(err.message || "An error occurred initiating checkout");
+    }
   }
 
   return (

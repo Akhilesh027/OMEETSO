@@ -209,7 +209,10 @@ function HeroProductShowcase({ items }: { items?: any[] }) {
                   <div className="min-w-0 flex-1">
                     <div className="flex items-center justify-between">
                       <span className="text-[10px] font-black text-amber-300 uppercase tracking-wider">{item.tag}</span>
-                      <span className="text-[10px] font-bold text-amber-400 hover:underline">Click to swap →</span>
+                      <span className="inline-flex items-center gap-1 text-[10px] font-bold text-amber-400 hover:underline">
+                        <span>Click to swap</span>
+                        <ArrowRight className="h-2.5 w-2.5" />
+                      </span>
                     </div>
                     <h5 className="text-xs font-extrabold text-white truncate">{item.title}</h5>
                     <p className="text-xs font-black text-amber-300">{formatINR(item.price)}</p>
@@ -236,7 +239,10 @@ function HeroProductShowcase({ items }: { items?: any[] }) {
                   <div className="min-w-0 flex-1">
                     <div className="flex items-center justify-between">
                       <span className="text-[10px] font-black text-amber-300 uppercase tracking-wider">{item.tag}</span>
-                      <span className="text-[10px] font-bold text-amber-400 hover:underline">Click to swap →</span>
+                      <span className="inline-flex items-center gap-1 text-[10px] font-bold text-amber-400 hover:underline">
+                        <span>Click to swap</span>
+                        <ArrowRight className="h-2.5 w-2.5" />
+                      </span>
                     </div>
                     <h5 className="text-xs font-extrabold text-white truncate">{item.title}</h5>
                     <p className="text-xs font-black text-amber-300">{formatINR(item.price)}</p>
@@ -438,7 +444,7 @@ function Home() {
 
     // Fetch Admin-curated Home Hero Showcase & Banners
     const bannerFetchUrl = (typeof window !== "undefined" && window.location.hostname === "localhost")
-      ? `http://localhost:3000/api/v1/banners${activeCity ? `?city=${encodeURIComponent(activeCity)}` : ""}`
+      ? `https://api.omeetso.in/api/v1/banners${activeCity ? `?city=${encodeURIComponent(activeCity)}` : ""}`
       : `https://api.omeetso.in/api/v1/banners${activeCity ? `?city=${encodeURIComponent(activeCity)}` : ""}`;
 
     fetch(bannerFetchUrl)
@@ -1168,8 +1174,9 @@ function Home() {
                     Verified Merchants
                   </span>
                 </div>
-                <Link to="/stores" className="text-xs font-extrabold text-primary hover:underline">
-                  See All ({storesToDisplay.length}) →
+                <Link to="/stores" className="group inline-flex items-center gap-1 text-xs font-extrabold text-primary hover:underline">
+                  <span>See All ({storesToDisplay.length})</span>
+                  <ArrowRight className="h-3.5 w-3.5 transition-transform group-hover:translate-x-0.5" />
                 </Link>
               </div>
 

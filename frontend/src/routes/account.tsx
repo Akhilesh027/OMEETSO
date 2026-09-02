@@ -7,11 +7,11 @@ import {
   Package, Heart, Bell, Wallet, Megaphone, Store, ShieldCheck, HelpCircle, Settings,
   LogOut, ChevronRight, User, FileText, Eye, CreditCard, Receipt, Gift, PieChart, BadgeCheck,
   Users, Flag, Lock, LifeBuoy, MessagesSquare, HandCoins, CheckCircle, Star, X, Camera,
-  Wrench, Briefcase, Plus, Calendar, Building
+  Wrench, Briefcase, Plus, Calendar, Building, ArrowRight
 } from "lucide-react";
 import {
   getProfile, setProfile, completionPct, unreadCount, subscribeAccount,
-  getBusinessProfile, getVerifications, getTrustScore, logoutMock
+  getBusinessProfile, getVerifications, getTrustScore, logoutMock, DEFAULT_AVATARS
 } from "@/lib/account";
 import { SectionTitle, MenuGroup, MenuRow, Stat, VerifBadge, ConfirmModal } from "@/components/omeetso/account";
 import { toast } from "sonner";
@@ -86,8 +86,19 @@ function Account() {
         setLoading(false);
       });
 
-    const u = subscribeAccount(() => setTick((n) => n + 1));
-    return () => { u(); };
+    const syncVerifs = () => setTick((n) => n + 1);
+    const u = subscribeAccount(syncVerifs);
+    window.addEventListener("storage", syncVerifs);
+    window.addEventListener("focus", syncVerifs);
+    window.addEventListener("visibilitychange", syncVerifs);
+    window.addEventListener("omeetso_verification_updated", syncVerifs);
+    return () => {
+      u();
+      window.removeEventListener("storage", syncVerifs);
+      window.removeEventListener("focus", syncVerifs);
+      window.removeEventListener("visibilitychange", syncVerifs);
+      window.removeEventListener("omeetso_verification_updated", syncVerifs);
+    };
   }, []);
 
   const p = getProfile();
@@ -267,9 +278,9 @@ function Account() {
                         <span className="inline-flex items-center gap-1 text-[10px] font-extrabold text-emerald-400 bg-emerald-500/20 px-2 py-0.5 rounded-full border border-emerald-500/30">
                           🛡️ ID Verified Seller
                         </span>
-                      ) : verifs.mobile?.status === "verified" ? (
+                      ) : getTrustScore() > 0 ? (
                         <span className="inline-flex items-center gap-1 text-[10px] font-extrabold text-indigo-300 bg-indigo-500/20 px-2 py-0.5 rounded-full border border-indigo-500/30">
-                          📱 Phone Verified (+35 Pts)
+                          ✓ {getTrustScore()} Pts Earned
                         </span>
                       ) : (
                         <span className="inline-flex items-center gap-1 text-[10px] font-extrabold text-amber-300 bg-amber-500/20 px-2 py-0.5 rounded-full border border-amber-500/30">
@@ -287,9 +298,10 @@ function Account() {
 
                 <Link
                   to="/verification"
-                  className="shrink-0 text-xs font-bold text-white bg-indigo-brand px-3.5 py-2 rounded-xl hover:opacity-90 transition-opacity"
+                  className="group shrink-0 inline-flex items-center gap-1.5 text-xs font-bold text-white bg-indigo-brand px-3.5 py-2 rounded-xl hover:opacity-90 transition-opacity"
                 >
-                  {verifs.identity.status === "verified" ? "View Score" : "Verify ID →"}
+                  <span>{verifs.identity?.status === "verified" ? "View Score" : "Verify ID"}</span>
+                  <ArrowRight className="h-3.5 w-3.5 transition-transform group-hover:translate-x-0.5" />
                 </Link>
               </div>
             </section>
@@ -384,7 +396,7 @@ function Account() {
                     <MenuRow icon={User} label="Edit Profile" to="/account/edit" />
                     <MenuRow icon={Eye} label="Public Profile Preview" to="/account/public" />
                     <MenuRow icon={BadgeCheck} label="Verification" to="/verification" />
-                    <MenuRow icon={Bell} label="Notifications" to="/notifications" badge={unread > 0 ? unread : undefined} />
+                    <MenuRow icon={Bell} label="Notifications" to="/notifications" />
                     <MenuRow icon={Settings} label="Settings" to="/settings" />
                     <MenuRow icon={Lock} label="Privacy" to="/settings/privacy" />
                     <MenuRow icon={Users} label="Blocked Users" to="/settings/blocked" />
@@ -442,17 +454,11 @@ function EditProfileModal({ open, onClose, profile, onSaved }: { open: boolean; 
   const [area, setArea] = useState(profile.area || "Madhapur");
   const [pincode, setPincode] = useState(profile.pincode || "500081");
   const [bio, setBio] = useState(profile.bio || "");
-  const [avatar, setAvatar] = useState(profile.avatar || "");
-  const [gender, setGender] = useState<"male" | "female" | "other">("male");
+  const [avatar, setAvatar] = useState(profile.avatar || DEFAULT_AVATARS.male);
+  const [gender, setGender] = useState<"male" | "female" | "other">(
+    profile.avatar?.includes("494790108377") ? "female" : "male"
+  );
   const [saving, setSaving] = useState(false);
-
-  const GENDER_AVATARS = {
-    male: "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&w=200&h=200&q=80",
-    female: "https://images.unsplash.com/photo-1494790108377-be9c29b29330?auto=format&fit=crop&w=200&h=200&q=80",
-    other: "https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=200&h=200&q=80"
-  };
-
-  const currentAvatar = avatar || GENDER_AVATARS[gender];
 
   useEffect(() => {
     setName(profile.name || "");
@@ -461,7 +467,15 @@ function EditProfileModal({ open, onClose, profile, onSaved }: { open: boolean; 
     setArea(profile.area || "Madhapur");
     setPincode(profile.pincode || "500081");
     setBio(profile.bio || "");
-    setAvatar(profile.avatar || "");
+    const initialAvatar = profile.avatar || DEFAULT_AVATARS.male;
+    setAvatar(initialAvatar);
+    if (initialAvatar.includes("494790108377")) {
+      setGender("female");
+    } else if (initialAvatar.includes("1535713875002")) {
+      setGender("male");
+    } else {
+      setGender("other");
+    }
   }, [profile, open]);
 
   if (!open) return null;
@@ -470,13 +484,25 @@ function EditProfileModal({ open, onClose, profile, onSaved }: { open: boolean; 
   const emailValid = !emailTrimmed || /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(emailTrimmed);
   const canSave = name.trim().length >= 2 && emailValid && pincode.length === 6;
 
+  const handleSelectGender = (g: "male" | "female" | "other") => {
+    setGender(g);
+    setAvatar(DEFAULT_AVATARS[g]);
+  };
+
   const pickAvatar = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const f = e.target.files?.[0]; if (!f) return;
     try {
       const url = await uploadImageToCloudinary(f, "profile");
       setAvatar(url);
+      setGender("other");
+      toast.success("Profile photo uploaded!");
     } catch {
-      const r = new FileReader(); r.onload = () => setAvatar(String(r.result)); r.readAsDataURL(f);
+      const r = new FileReader();
+      r.onload = () => {
+        setAvatar(String(r.result));
+        setGender("other");
+      };
+      r.readAsDataURL(f);
     }
   };
 
@@ -487,7 +513,7 @@ function EditProfileModal({ open, onClose, profile, onSaved }: { open: boolean; 
       return;
     }
     setSaving(true);
-    const finalAvatar = currentAvatar;
+    const finalAvatar = avatar || DEFAULT_AVATARS[gender];
     const token = typeof window !== "undefined" ? (getUserAccessToken() || localStorage.getItem("omeetso_user_token")) : null;
 
     if (token) {
@@ -519,6 +545,19 @@ function EditProfileModal({ open, onClose, profile, onSaved }: { open: boolean; 
 
     setProfile({ name: name.trim(), email: emailTrimmed, city, pincode, area, bio, avatar: finalAvatar });
 
+    if (typeof window !== "undefined") {
+      try {
+        const raw = localStorage.getItem("omeetso_user");
+        if (raw) {
+          const u = JSON.parse(raw);
+          if (!u.profile) u.profile = {};
+          u.profile.avatar = finalAvatar;
+          u.avatar = finalAvatar;
+          localStorage.setItem("omeetso_user", JSON.stringify(u));
+        }
+      } catch { }
+    }
+
     setSaving(false);
     toast.success("Profile updated successfully");
     onSaved();
@@ -538,24 +577,44 @@ function EditProfileModal({ open, onClose, profile, onSaved }: { open: boolean; 
         <div className="mt-4 space-y-4">
           <div className="flex flex-col items-center">
             <label className="relative cursor-pointer">
-              <img src={currentAvatar} alt="Profile" className="h-20 w-20 rounded-full object-cover border-4 border-card shadow-md" />
+              <img src={avatar || DEFAULT_AVATARS[gender]} alt="Profile" className="h-20 w-20 rounded-full object-cover border-4 border-card shadow-md" />
               <span className="absolute -bottom-1 -right-1 grid h-7 w-7 place-items-center rounded-full bg-navy text-white shadow">
                 <Camera className="h-3.5 w-3.5" />
               </span>
               <input type="file" accept="image/*" className="hidden" onChange={pickAvatar} />
             </label>
-            <div className="mt-2 flex items-center gap-1.5">
-              {(["male", "female", "other"] as const).map((g) => (
-                <button
-                  key={g}
-                  type="button"
-                  onClick={() => setGender(g)}
-                  className={`rounded-full px-2.5 py-0.5 text-[11px] font-bold capitalize transition-all ${gender === g ? "bg-navy text-white shadow-sm" : "bg-secondary text-muted-foreground"
-                    }`}
-                >
-                  {g}
-                </button>
-              ))}
+            <p className="mt-1 text-[11px] text-muted-foreground">Click camera to upload custom photo</p>
+            <div className="mt-2.5 flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => handleSelectGender("male")}
+                className={`rounded-full px-3 py-1 text-xs font-bold transition-all cursor-pointer ${(gender === "male" || avatar === DEFAULT_AVATARS.male)
+                    ? "bg-navy text-white shadow-sm ring-2 ring-primary/30"
+                    : "bg-secondary text-muted-foreground hover:bg-secondary/80"
+                  }`}
+              >
+                Male Avatar
+              </button>
+              <button
+                type="button"
+                onClick={() => handleSelectGender("female")}
+                className={`rounded-full px-3 py-1 text-xs font-bold transition-all cursor-pointer ${(gender === "female" || avatar === DEFAULT_AVATARS.female)
+                    ? "bg-navy text-white shadow-sm ring-2 ring-primary/30"
+                    : "bg-secondary text-muted-foreground hover:bg-secondary/80"
+                  }`}
+              >
+                Female Avatar
+              </button>
+              <button
+                type="button"
+                onClick={() => handleSelectGender("other")}
+                className={`rounded-full px-3 py-1 text-xs font-bold transition-all cursor-pointer ${(gender === "other" && avatar !== DEFAULT_AVATARS.male && avatar !== DEFAULT_AVATARS.female)
+                    ? "bg-navy text-white shadow-sm ring-2 ring-primary/30"
+                    : "bg-secondary text-muted-foreground hover:bg-secondary/80"
+                  }`}
+              >
+                Neutral
+              </button>
             </div>
           </div>
 

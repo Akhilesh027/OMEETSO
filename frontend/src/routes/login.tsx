@@ -6,7 +6,7 @@ import {
   Compass, Store, Lock, Eye, EyeOff, AlertCircle, Sparkles,
   MessageSquare, Zap, CheckCircle2, Star, Users, UserPlus, KeyRound, Phone, UserX
 } from "lucide-react";
-import { loginUserApi, checkPhoneStatusApi, requestUserOtp, verifyUserOtp } from "@/api/auth.api";
+import { loginUserApi, checkPhoneStatusApi, requestUserOtp, verifyUserOtp, resetUserPinApi } from "@/api/auth.api";
 import { toast } from "sonner";
 
 export const Route = createFileRoute("/login")({
@@ -22,7 +22,7 @@ export const Route = createFileRoute("/login")({
   }),
 });
 
-type LoginStep = "phone" | "pin" | "not_registered" | "otp_fallback";
+type LoginStep = "phone" | "pin" | "not_registered" | "otp_fallback" | "forgot_pin";
 
 function LoginPage() {
   const nav = useNavigate();
@@ -34,6 +34,14 @@ function LoginPage() {
   // PIN step
   const [pin, setPin] = useState("");
   const [showPin, setShowPin] = useState(true);
+
+  // Forgot PIN step
+  const [forgotOtp, setForgotOtp] = useState("");
+  const [newPin, setNewPin] = useState("");
+  const [confirmPin, setConfirmPin] = useState("");
+  const [showNewPin, setShowNewPin] = useState(false);
+  const [showConfirmPin, setShowConfirmPin] = useState(false);
+  const [resendCountdown, setResendCountdown] = useState(0);
 
   // OTP Fallback
   const [otpCode, setOtpCode] = useState("");
@@ -52,6 +60,14 @@ function LoginPage() {
     const pendingPhone = localStorage.getItem("omeetso_pending_phone");
     if (pendingPhone) setPhone(pendingPhone.replace(/\D/g, "").slice(-10));
   }, []);
+
+  useEffect(() => {
+    if (resendCountdown <= 0) return;
+    const timer = setInterval(() => {
+      setResendCountdown((prev) => (prev > 0 ? prev - 1 : 0));
+    }, 1000);
+    return () => clearInterval(timer);
+  }, [resendCountdown]);
 
   // STEP 1: CHECK PHONE NUMBER
   const handleCheckPhone = async (e: React.FormEvent) => {
@@ -144,6 +160,72 @@ function LoginPage() {
       nav({ to: "/home" });
     } else {
       setErrorMessage(res.error || "Invalid OTP code");
+    }
+  };
+
+  // STEP 3: FORGOT PIN & RESET FLOW
+  const handleStartForgotPin = async () => {
+    setIsLoading(true);
+    setErrorMessage("");
+    setForgotOtp("");
+    setNewPin("");
+    setConfirmPin("");
+    const res = await requestUserOtp(cleanPhone);
+    setIsLoading(false);
+    if (res.success) {
+      toast.success(`Verification OTP sent to +91 ${cleanPhone}.`);
+      setStep("forgot_pin");
+      setResendCountdown(30);
+    } else {
+      toast.error(res.error || "Failed to send OTP to mobile");
+      setErrorMessage(res.error || "Failed to send OTP");
+    }
+  };
+
+  const handleResendForgotOtp = async () => {
+    if (resendCountdown > 0 || isLoading) return;
+    setIsLoading(true);
+    const res = await requestUserOtp(cleanPhone);
+    setIsLoading(false);
+    if (res.success) {
+      toast.success(`New verification OTP sent to +91 ${cleanPhone}.`);
+      setResendCountdown(30);
+    } else {
+      toast.error(res.error || "Failed to resend OTP");
+    }
+  };
+
+  const handleResetAndSavePin = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const cleanOtp = forgotOtp.replace(/\D/g, "");
+    const cleanNewPin = newPin.replace(/\D/g, "");
+    const cleanConfirm = confirmPin.replace(/\D/g, "");
+
+    if (cleanOtp.length !== 4) {
+      setErrorMessage("Please enter the 4-digit verification code sent to your mobile.");
+      return;
+    }
+    if (cleanNewPin.length !== 4) {
+      setErrorMessage("New PIN must be exactly 4 digits.");
+      return;
+    }
+    if (cleanNewPin !== cleanConfirm) {
+      setErrorMessage("New PIN and Confirm PIN do not match. Please re-enter.");
+      return;
+    }
+
+    setIsLoading(true);
+    setErrorMessage("");
+
+    const res = await resetUserPinApi(cleanPhone, cleanOtp, cleanNewPin);
+    setIsLoading(false);
+
+    if (res.success) {
+      toast.success("🎉 PIN updated successfully! Welcome to Omeetso.");
+      nav({ to: "/home" });
+    } else {
+      setErrorMessage(res.error || "Failed to update PIN. Please check your OTP and try again.");
+      toast.error(res.error || "Failed to reset PIN");
     }
   };
 
@@ -451,7 +533,7 @@ function LoginPage() {
                     </label>
                     <button
                       type="button"
-                      onClick={handleSendOtpFallback}
+                      onClick={handleStartForgotPin}
                       className="text-[11px] font-bold text-indigo-brand hover:underline cursor-pointer"
                     >
                       Forgot PIN?
@@ -498,6 +580,158 @@ function LoginPage() {
                     </>
                   )}
                 </button>
+              </form>
+            </div>
+          )}
+
+          {/* ========================================================================= */}
+          {/* STEP 3B: FORGOT PIN & RESET NEW PIN                                       */}
+          {/* ========================================================================= */}
+          {step === "forgot_pin" && (
+            <div className="space-y-6 animate-in fade-in-50 duration-200">
+              <div className="space-y-1.5 text-center md:text-left">
+                <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-indigo-brand/10 text-indigo-brand text-xs font-bold mb-1">
+                  <KeyRound className="h-3.5 w-3.5" />
+                  <span>Reset Security PIN</span>
+                </div>
+                <h1 className="text-2xl sm:text-3xl font-black tracking-tight text-foreground">
+                  Create New 4-Digit PIN
+                </h1>
+                <p className="text-xs sm:text-sm text-muted-foreground">
+                  Enter the 4-digit code sent to <span className="font-bold text-foreground font-mono">+91 {cleanPhone}</span> and set your new PIN.
+                </p>
+              </div>
+
+              <form onSubmit={handleResetAndSavePin} className="space-y-4">
+                {/* OTP Input */}
+                <div>
+                  <div className="flex items-center justify-between mb-1.5">
+                    <label className="block text-xs font-bold text-foreground">
+                      Enter 4-Digit OTP *
+                    </label>
+                    <button
+                      type="button"
+                      disabled={resendCountdown > 0 || isLoading}
+                      onClick={handleResendForgotOtp}
+                      className="text-[11px] font-bold text-indigo-brand hover:underline disabled:text-muted-foreground cursor-pointer disabled:cursor-not-allowed"
+                    >
+                      {resendCountdown > 0 ? `Resend code in ${resendCountdown}s` : "Resend OTP"}
+                    </button>
+                  </div>
+                  <div className="flex items-center gap-2.5 rounded-2xl border border-border bg-card px-3.5 py-3 focus-within:border-indigo-brand focus-within:ring-2 focus-within:ring-indigo-brand/20 transition-all">
+                    <ShieldCheck className="h-4 w-4 text-muted-foreground shrink-0" />
+                    <input
+                      type="tel"
+                      inputMode="numeric"
+                      maxLength={4}
+                      autoFocus
+                      required
+                      placeholder="Enter 4-digit OTP"
+                      value={forgotOtp}
+                      onChange={(e) => setForgotOtp(e.target.value.replace(/\D/g, "").slice(0, 4))}
+                      className="w-full bg-transparent text-base font-bold text-foreground outline-none font-mono tracking-widest placeholder:tracking-normal placeholder:font-normal placeholder:text-muted-foreground"
+                    />
+                  </div>
+                </div>
+
+                {/* New PIN Input */}
+                <div>
+                  <label className="block text-xs font-bold text-foreground mb-1.5">
+                    Set New 4-Digit PIN *
+                  </label>
+                  <div className="flex items-center gap-2.5 rounded-2xl border border-border bg-card px-3.5 py-3 focus-within:border-indigo-brand focus-within:ring-2 focus-within:ring-indigo-brand/20 transition-all">
+                    <KeyRound className="h-4 w-4 text-muted-foreground shrink-0" />
+                    <input
+                      type={showNewPin ? "text" : "password"}
+                      inputMode="numeric"
+                      maxLength={4}
+                      required
+                      placeholder="Enter new 4-digit PIN"
+                      value={newPin}
+                      onChange={(e) => setNewPin(e.target.value.replace(/\D/g, "").slice(0, 4))}
+                      className="w-full bg-transparent text-base font-bold text-foreground outline-none font-mono tracking-widest placeholder:tracking-normal placeholder:font-normal placeholder:text-muted-foreground"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowNewPin(!showNewPin)}
+                      className="text-muted-foreground hover:text-foreground cursor-pointer"
+                    >
+                      {showNewPin ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                    </button>
+                  </div>
+                </div>
+
+                {/* Confirm PIN Input */}
+                <div>
+                  <div className="flex items-center justify-between mb-1.5">
+                    <label className="block text-xs font-bold text-foreground">
+                      Confirm New 4-Digit PIN *
+                    </label>
+                    {newPin && confirmPin && newPin === confirmPin && (
+                      <span className="text-[11px] font-bold text-emerald-600 flex items-center gap-1">
+                        <CheckCircle2 className="h-3 w-3" /> PINs match
+                      </span>
+                    )}
+                  </div>
+                  <div className="flex items-center gap-2.5 rounded-2xl border border-border bg-card px-3.5 py-3 focus-within:border-indigo-brand focus-within:ring-2 focus-within:ring-indigo-brand/20 transition-all">
+                    <Lock className="h-4 w-4 text-muted-foreground shrink-0" />
+                    <input
+                      type={showConfirmPin ? "text" : "password"}
+                      inputMode="numeric"
+                      maxLength={4}
+                      required
+                      placeholder="Confirm new 4-digit PIN"
+                      value={confirmPin}
+                      onChange={(e) => setConfirmPin(e.target.value.replace(/\D/g, "").slice(0, 4))}
+                      className="w-full bg-transparent text-base font-bold text-foreground outline-none font-mono tracking-widest placeholder:tracking-normal placeholder:font-normal placeholder:text-muted-foreground"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowConfirmPin(!showConfirmPin)}
+                      className="text-muted-foreground hover:text-foreground cursor-pointer"
+                    >
+                      {showConfirmPin ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                    </button>
+                  </div>
+                </div>
+
+                {/* Submit button */}
+                <button
+                  type="submit"
+                  disabled={forgotOtp.length !== 4 || newPin.length !== 4 || confirmPin.length !== 4 || isLoading}
+                  className="relative flex h-[52px] w-full items-center justify-center gap-2 overflow-hidden rounded-2xl bg-indigo-brand text-sm font-bold text-white shadow-md transition-all active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-50 hover:bg-indigo-brand/90 cursor-pointer"
+                >
+                  {isLoading ? (
+                    <>
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                      <span>Saving PIN & Signing In…</span>
+                    </>
+                  ) : (
+                    <>
+                      <span>Save New PIN & Sign In</span>
+                      <ArrowRight className="h-4 w-4" />
+                    </>
+                  )}
+                </button>
+
+                {/* Switchers */}
+                <div className="flex items-center justify-between pt-1">
+                  <button
+                    type="button"
+                    onClick={() => { setErrorMessage(""); setStep("pin"); }}
+                    className="group inline-flex items-center gap-1.5 text-xs font-bold text-indigo-brand hover:underline cursor-pointer"
+                  >
+                    <ArrowLeft className="h-3.5 w-3.5 transition-transform group-hover:-translate-x-0.5" />
+                    <span>Back to PIN Sign In</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => { setErrorMessage(""); setStep("otp_fallback"); }}
+                    className="text-xs font-bold text-muted-foreground hover:text-foreground hover:underline cursor-pointer"
+                  >
+                    Sign in with OTP only
+                  </button>
+                </div>
               </form>
             </div>
           )}

@@ -111,17 +111,17 @@ function GalleryPage() {
           <>
             <button
               onClick={() => setIdx((i) => (i - 1 + mediaList.length) % mediaList.length)}
-              className="absolute left-2 grid h-10 w-10 place-items-center rounded-full bg-white/10"
+              className="absolute left-3 top-1/2 -translate-y-1/2 grid h-10 w-10 place-items-center rounded-full bg-black/60 hover:bg-black/80 border border-white/20 text-white shadow-lg transition-all cursor-pointer"
               aria-label="Previous"
             >
-              <ChevronLeft className="h-5 w-5" />
+              <ChevronLeft className="h-5 w-5 -ml-0.5" />
             </button>
             <button
               onClick={() => setIdx((i) => (i + 1) % mediaList.length)}
-              className="absolute right-2 grid h-10 w-10 place-items-center rounded-full bg-white/10"
+              className="absolute right-3 top-1/2 -translate-y-1/2 grid h-10 w-10 place-items-center rounded-full bg-black/60 hover:bg-black/80 border border-white/20 text-white shadow-lg transition-all cursor-pointer"
               aria-label="Next"
             >
-              <ChevronRight className="h-5 w-5" />
+              <ChevronRight className="h-5 w-5 -mr-0.5" />
             </button>
           </>
         )}

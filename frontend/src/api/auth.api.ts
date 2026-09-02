@@ -188,6 +188,38 @@ export async function verifyUserOtp(phone: string, code: string): Promise<{ succ
   }
 }
 
+export async function resetUserPinApi(
+  phone: string,
+  code: string,
+  newPin: string
+): Promise<{ success: boolean; data?: UserAuthResponse; message?: string; error?: string }> {
+  try {
+    const res = await fetch(`${API_BASE}/reset-pin`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      credentials: "include",
+      body: JSON.stringify({ phone, code, otp: code, newPin, pin: newPin })
+    });
+    const json = await res.json();
+    if (!res.ok || !json.success) {
+      return { success: false, error: json.error?.message || json.message || "Failed to reset PIN" };
+    }
+
+    if (json.data?.accessToken) {
+      setUserAccessToken(json.data.accessToken);
+    }
+    if (typeof localStorage !== "undefined" && json.data?.user) {
+      localStorage.setItem("omeetso_user", JSON.stringify(json.data.user));
+      localStorage.setItem("omeetso_profile", "1");
+      localStorage.removeItem("omeetso_guest");
+      localStorage.removeItem("omeetso_guest_session");
+    }
+    return { success: true, data: json.data, message: json.message };
+  } catch (error: any) {
+    return { success: false, error: error.message || "Network error: Unable to connect to backend server" };
+  }
+}
+
 export async function refreshUserSession(): Promise<{ success: boolean; data?: UserAuthResponse }> {
   try {
     const res = await fetch(`${API_BASE}/refresh`, {

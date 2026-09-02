@@ -161,8 +161,9 @@ function Dashboard() {
         <div className="mt-5 px-4 space-y-2">
           <div className="flex items-center justify-between text-xs">
             <h2 className="font-bold uppercase tracking-wider text-muted-foreground text-[10px]">Catalog Inventory</h2>
-            <Link to="/store/manage/$id/products" params={{ id }} className="font-bold text-primary text-[11px] hover:underline">
-              View catalog →
+            <Link to="/store/manage/$id/products" params={{ id }} className="group inline-flex items-center gap-1 font-bold text-primary text-[11px] hover:underline">
+              <span>View catalog</span>
+              <ArrowRight className="h-3 w-3 transition-transform group-hover:translate-x-0.5" />
             </Link>
           </div>
           <div className="grid grid-cols-4 gap-2 text-center">

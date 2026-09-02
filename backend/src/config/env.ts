@@ -27,7 +27,15 @@ const EnvSchema = z.object({
   COMBIRDS_MESSAGE_TEMPLATE: z.string().optional().default(""),
   COMBIRDS_ROUTE: z.string().optional().default("otp"),
   RENFLAIR_SMS_API_KEY: z.string().optional().default(""),
-  SMS_GATEWAY_URL: z.string().optional().default("https://sms.renflair.in/V1.php")
+  SMS_GATEWAY_URL: z.string().optional().default("https://sms.renflair.in/V1.php"),
+  RAZORPAY_KEY_ID: z.string().default("rzp_test_TWMJ5ahCK6Kbdj"),
+  RAZORPAY_KEY_SECRET: z.string().default("kNxXdfgIU1nomAo8lriS75Lg"),
+  SMTP_HOST: z.string().optional().default("smtp.hostinger.com"),
+  SMTP_PORT: z.coerce.number().optional().default(465),
+  SMTP_USER: z.string().optional().default("info@omeetso.in"),
+  SMTP_PASS: z.string().optional().default("Dlns@2021"),
+  SMTP_FROM: z.string().optional().default("info@omeetso.in"),
+  SMTP_FROM_NAME: z.string().optional().default("Omeetso Verification")
 });
 
 export const env = EnvSchema.parse(process.env);

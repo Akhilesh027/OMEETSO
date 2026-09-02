@@ -2,7 +2,8 @@ import { createFileRoute, Link, useBlocker, useNavigate } from "@tanstack/react-
 import { useMemo, useState } from "react";
 import { MobileFrame } from "@/components/omeetso/MobileFrame";
 import { BackBar } from "@/components/omeetso/TopBar";
-import { getProfile, setProfile, type AccountType } from "@/lib/account";
+import { getProfile, setProfile, type AccountType, DEFAULT_AVATARS } from "@/lib/account";
+import { uploadImageToCloudinary } from "@/lib/upload";
 import { Camera, Trash2, User as UserIcon, MapPin, Briefcase, Shield, ChevronRight } from "lucide-react";
 import { toast } from "sonner";
 import { ConfirmModal, SectionTitle, Toggle } from "@/components/omeetso/account";
@@ -115,9 +116,15 @@ function EditProfile() {
     nav({ to: "/account" });
   };
 
-  const pickAvatar = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const pickAvatar = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const f = e.target.files?.[0]; if (!f) return;
-    const r = new FileReader(); r.onload = () => setAvatar(String(r.result)); r.readAsDataURL(f);
+    try {
+      const url = await uploadImageToCloudinary(f, "profile");
+      setAvatar(url);
+      toast.success("Profile photo uploaded!");
+    } catch {
+      const r = new FileReader(); r.onload = () => setAvatar(String(r.result)); r.readAsDataURL(f);
+    }
   };
 
   const scrollTo = (id: string) => {
@@ -134,7 +141,7 @@ function EditProfile() {
           <div className="mx-auto max-w-[1200px] px-6 py-4">
             <div className="flex items-center gap-2 text-xs text-muted-foreground">
               <Link to="/account" className="hover:text-foreground">Account</Link>
-              <span>/</span>
+              <ChevronRight className="h-3.5 w-3.5 text-muted-foreground/50 shrink-0" />
               <span className="font-semibold text-foreground">Edit profile</span>
             </div>
             <h1 className="mt-1 text-2xl font-bold tracking-tight">Edit profile</h1>
@@ -171,21 +178,45 @@ function EditProfile() {
 
               <div className="flex flex-col items-center md:flex-row md:items-center md:gap-6">
                 <label className="relative cursor-pointer">
-                  <img src={avatar || "https://api.dicebear.com/7.x/initials/svg?seed=" + encodeURIComponent(name || "U")}
-                    alt="Profile" className="h-24 w-24 rounded-full border-4 border-card object-cover md:h-28 md:w-28" />
-                  <span className="absolute -bottom-1 -right-1 grid h-8 w-8 place-items-center rounded-full bg-primary text-primary-foreground">
+                  <img src={avatar || DEFAULT_AVATARS.male}
+                    alt="Profile" className="h-24 w-24 rounded-full border-4 border-card object-cover md:h-28 md:w-28 shadow-sm" />
+                  <span className="absolute -bottom-1 -right-1 grid h-8 w-8 place-items-center rounded-full bg-primary text-primary-foreground shadow">
                     <Camera className="h-4 w-4" />
                   </span>
                   <input type="file" accept="image/*" className="hidden" onChange={pickAvatar} aria-label="Change profile photo" />
                 </label>
-                <div className="mt-2 md:mt-0">
-                  <p className="text-sm font-semibold">Profile photo</p>
-                  <p className="text-xs text-muted-foreground">JPG or PNG, up to 5 MB. Square works best.</p>
-                  {avatar && (
-                    <button onClick={() => setAvatar("")} className="mt-2 inline-flex items-center gap-1 text-xs font-semibold text-rose-700">
-                      <Trash2 className="h-3 w-3" /> Remove photo
+                <div className="mt-2 text-center md:text-left">
+                  <p className="text-sm font-bold">Profile photo / Avatar</p>
+                  <p className="text-xs text-muted-foreground">Upload your photo or choose a male/female avatar.</p>
+                  <div className="mt-2.5 flex flex-wrap items-center justify-center md:justify-start gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setAvatar(DEFAULT_AVATARS.male)}
+                      className={`rounded-full px-3 py-1 text-xs font-bold transition-all cursor-pointer ${
+                        avatar === DEFAULT_AVATARS.male
+                          ? "bg-primary text-primary-foreground shadow-sm ring-2 ring-primary/30"
+                          : "bg-secondary text-foreground hover:bg-secondary/80"
+                      }`}
+                    >
+                      Male Avatar
                     </button>
-                  )}
+                    <button
+                      type="button"
+                      onClick={() => setAvatar(DEFAULT_AVATARS.female)}
+                      className={`rounded-full px-3 py-1 text-xs font-bold transition-all cursor-pointer ${
+                        avatar === DEFAULT_AVATARS.female
+                          ? "bg-primary text-primary-foreground shadow-sm ring-2 ring-primary/30"
+                          : "bg-secondary text-foreground hover:bg-secondary/80"
+                      }`}
+                    >
+                      Female Avatar
+                    </button>
+                    {avatar && avatar !== DEFAULT_AVATARS.male && (
+                      <button onClick={() => setAvatar(DEFAULT_AVATARS.male)} className="inline-flex items-center gap-1 text-xs font-semibold text-rose-700 hover:underline">
+                        <Trash2 className="h-3 w-3" /> Reset
+                      </button>
+                    )}
+                  </div>
                 </div>
               </div>
 

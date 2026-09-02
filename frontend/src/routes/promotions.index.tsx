@@ -6,10 +6,9 @@ import { BottomNav } from "@/components/omeetso/BottomNav";
 import { WalletBalanceCard, SectionTitle } from "@/components/omeetso/revenue";
 import { getMyWalletApi, getMyAdCampaignsApi } from "@/api/adCampaigns.api";
 import {
-  seedRevenueIfEmpty, getWallet, totalCredits, subscribe,
-  listPromotions, listCampaigns, formatINR,
+  clearMockSeedData, getWallet, totalCredits, subscribe, formatINR,
 } from "@/lib/revenue";
-import { Package, Store, Sparkles, Megaphone, ChevronRight, Wallet as WalletIcon, Eye, MousePointerClick, TrendingUp, Clock, CheckCircle2, MessageSquare, PhoneCall, ExternalLink, RefreshCw, Zap, ShieldCheck } from "lucide-react";
+import { Package, Store, Sparkles, Megaphone, ChevronRight, Wallet as WalletIcon, Eye, MousePointerClick, TrendingUp, Clock, CheckCircle2, MessageSquare, PhoneCall, ExternalLink, RefreshCw, Zap, ShieldCheck, ArrowRight } from "lucide-react";
 
 export const Route = createFileRoute("/promotions/")({
   head: () => ({
@@ -59,7 +58,7 @@ function PromotionsHub() {
   }, []);
 
   useEffect(() => {
-    seedRevenueIfEmpty();
+    clearMockSeedData();
     loadRealData();
     const unsub = subscribe(() => {
       setTick((n) => n + 1);
@@ -69,11 +68,8 @@ function PromotionsHub() {
   }, [loadRealData]);
 
   const credits = totalCredits();
-  const localPromos = listPromotions();
-  const localCamps = listCampaigns();
-
-  // Combine real backend campaigns with local state if no backend campaigns exist yet
-  const allCampaigns = liveCampaigns.length > 0 ? liveCampaigns : [...localCamps, ...localPromos];
+  // Strictly use real backend campaigns
+  const allCampaigns = liveCampaigns;
 
   const activeBoosts = allCampaigns.filter((c) => {
     const st = (c.status || "").toUpperCase();
@@ -217,8 +213,10 @@ function PromotionsHub() {
                     {/* Action Links */}
                     <div className="flex items-center justify-between pt-1 text-xs">
                       {listingId ? (
-                        <Link to="/listing/$id/manage" params={{ id: String(listingId) }} className="inline-flex items-center gap-1 font-bold text-indigo-brand hover:underline">
-                          <Zap className="h-3.5 w-3.5" /> Manage Item Leads & Stats →
+                        <Link to="/listing/$id/manage" params={{ id: String(listingId) }} className="group inline-flex items-center gap-1 font-bold text-indigo-brand hover:underline">
+                          <Zap className="h-3.5 w-3.5" />
+                          <span>Manage Item Leads & Stats</span>
+                          <ArrowRight className="h-3.5 w-3.5 transition-transform group-hover:translate-x-0.5" />
                         </Link>
                       ) : (
                         <span className="text-[11px] text-muted-foreground">Banner Campaign Active</span>

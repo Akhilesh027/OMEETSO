@@ -21,7 +21,60 @@ export async function getMyWallet(req: AuthenticatedUserRequest, res: Response, 
 
     let wallet = await Wallet.findOne({ userId: req.user._id });
     if (!wallet) {
-      wallet = await Wallet.create({ userId: req.user._id, balanceInPaise: 500000, refundBalanceInPaise: 0 }); // Initial ₹5,000 promo credit
+      wallet = await Wallet.create({ userId: req.user._id, balanceInPaise: 0, refundBalanceInPaise: 0 });
+    }
+
+    // Retrieve all valid transactions for this wallet
+    const allCompletedTxns = await WalletTransaction.find({
+      walletId: wallet._id,
+      status: { $in: ["COMPLETED", "SUCCESS", "completed", "success"] }
+    }).sort({ createdAt: -1 });
+
+    if (allCompletedTxns.length > 0) {
+      // Deduplicate any repeated transactions caused by duplicate network calls or double submission
+      const seenPaymentKeys = new Set<string>();
+      const duplicateIds: mongoose.Types.ObjectId[] = [];
+      const validTxns: any[] = [];
+
+      for (const t of allCompletedTxns) {
+        const match = t.description?.match(/#([a-zA-Z0-9_-]+)/);
+        const payRef = match ? match[1] : (t.referenceId || null);
+        const dedupKey = payRef
+          ? `pay_${payRef}`
+          : `amt_${t.type}_${t.amountInPaise}_${Math.floor(new Date(t.createdAt).getTime() / 5000)}`;
+
+        if (seenPaymentKeys.has(dedupKey)) {
+          duplicateIds.push(t._id as mongoose.Types.ObjectId);
+        } else {
+          seenPaymentKeys.add(dedupKey);
+          validTxns.push(t);
+        }
+      }
+
+      if (duplicateIds.length > 0) {
+        await WalletTransaction.deleteMany({ _id: { $in: duplicateIds } });
+      }
+
+      // Always compute accurate balance strictly from genuine completed transactions
+      // (This automatically strips away any ghost/default 5,000 that was in the balance without a transaction)
+      const computedTxnBalance = validTxns.reduce((sum, t) => {
+        const isCredit = (t.type || "").toUpperCase() === "CREDIT" || t.type === "credit";
+        const isDebit = (t.type || "").toUpperCase() === "DEBIT" || t.type === "debit";
+        if (isCredit) return sum + t.amountInPaise;
+        if (isDebit) return sum - t.amountInPaise;
+        return sum;
+      }, 0);
+
+      if (wallet.balanceInPaise !== computedTxnBalance) {
+        wallet.balanceInPaise = Math.max(0, computedTxnBalance);
+        await wallet.save();
+      }
+    } else {
+      // 0 transactions: clear legacy ₹5,000 default promo credit if still sitting on document
+      if (wallet.balanceInPaise === 500000) {
+        wallet.balanceInPaise = 0;
+        await wallet.save();
+      }
     }
 
     const [transactions, holds] = await Promise.all([
@@ -36,12 +89,13 @@ export async function getMyWallet(req: AuthenticatedUserRequest, res: Response, 
       data: {
         id: wallet._id.toString(),
         balanceInPaise: wallet.balanceInPaise,
-        availableBalanceInPaise: wallet.balanceInPaise - totalHeldInPaise,
+        availableBalanceInPaise: Math.max(0, wallet.balanceInPaise - totalHeldInPaise),
         heldBalanceInPaise: totalHeldInPaise,
         refundBalanceInPaise: wallet.refundBalanceInPaise,
+        promoCreditsInPaise: (wallet as any).promoCreditsInPaise || 0,
         transactions: transactions.map((t) => ({
           id: t._id.toString(),
-          type: t.type,
+          type: (t.type || "credit").toLowerCase(),
           amountInPaise: t.amountInPaise,
           description: t.description,
           referenceType: t.referenceType,
@@ -85,11 +139,14 @@ export async function rechargeWallet(req: AuthenticatedUserRequest, res: Respons
 
     const transaction = await WalletTransaction.create({
       walletId: wallet._id,
+      userId: req.user._id,
       type: "credit",
       amountInPaise,
       description: `Wallet top-up via Razorpay${methodStr} #${pId.slice(-8)}`,
-      referenceType: "direct_deposit",
-      status: "COMPLETED"
+      referenceType: "TOPUP",
+      referenceId: pId,
+      idempotencyKey: `recharge_${pId}_${Date.now()}`,
+      status: "SUCCESS"
     });
 
     res.status(200).json({
@@ -879,7 +936,7 @@ export async function submitAdCampaign(req: AuthenticatedUserRequest, res: Respo
 
     let wallet = await Wallet.findOne({ userId: req.user._id });
     if (!wallet) {
-      wallet = await Wallet.create({ userId: req.user._id, balanceInPaise: 500000, refundBalanceInPaise: 0 });
+      wallet = await Wallet.create({ userId: req.user._id, balanceInPaise: 0, refundBalanceInPaise: 0 });
     }
 
     const existingHolds = await WalletHold.find({ userId: req.user._id, status: "HELD" });
