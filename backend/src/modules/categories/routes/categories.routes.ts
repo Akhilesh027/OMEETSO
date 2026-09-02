@@ -5,12 +5,14 @@ import {
   getCategoryFormSchema,
   createCategory,
   updateCategory,
-  deleteCategory
+  deleteCategory,
+  seedCategoriesController
 } from "../controllers/categories.controller";
 
 export const categoriesRouter = Router();
 
 categoriesRouter.get("/", getCategories);
+categoriesRouter.post("/seed", seedCategoriesController);
 categoriesRouter.get("/:categoryId", getCategoryById);
 categoriesRouter.get("/:categoryId/form-schema", getCategoryFormSchema);
 

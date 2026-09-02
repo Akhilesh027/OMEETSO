@@ -6,7 +6,8 @@ import {
   createCategoryApi,
   updateCategoryApi,
   deleteCategoryApi,
-  uploadCategoryImageApi
+  uploadCategoryImageApi,
+  seedCategoriesApi
 } from "@/api/adminCategories.api";
 import {
   Car,
@@ -167,6 +168,25 @@ export default function CategoriesPage() {
     }
     setLoading(false);
     setIsRefreshing(false);
+  };
+
+  const [isSeeding, setIsSeeding] = useState(false);
+
+  const handleSeedCategories = async () => {
+    setIsSeeding(true);
+    try {
+      const res = await seedCategoriesApi();
+      if (res.success) {
+        showToast("success", res.message || "Categories seeded successfully!");
+        await loadCategoriesFromDb(true);
+      } else {
+        showToast("error", res.error || "Failed to seed categories");
+      }
+    } catch (err: any) {
+      showToast("error", err.message || "Network error while seeding");
+    } finally {
+      setIsSeeding(false);
+    }
   };
 
   useEffect(() => {
@@ -433,8 +453,16 @@ export default function CategoriesPage() {
         primaryAction={
           <div className="flex items-center space-x-2">
             <button
+              onClick={handleSeedCategories}
+              disabled={isSeeding || isRefreshing}
+              className="inline-flex items-center space-x-1.5 px-3.5 py-2 rounded-xl text-xs font-semibold bg-indigo-50 dark:bg-indigo-950/40 text-[#3547D4] dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800 hover:bg-indigo-100 transition-colors shadow-sm disabled:opacity-60"
+            >
+              <Database className={`w-3.5 h-3.5 ${isSeeding ? "animate-spin text-amber-500" : "text-[#3547D4]"}`} />
+              <span>{isSeeding ? "Seeding..." : "Seed 13 Categories"}</span>
+            </button>
+            <button
               onClick={() => loadCategoriesFromDb(true)}
-              disabled={isRefreshing}
+              disabled={isRefreshing || isSeeding}
               className="inline-flex items-center space-x-1.5 px-3.5 py-2 rounded-xl text-xs font-semibold bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 border border-slate-200 dark:border-slate-700 hover:bg-slate-50 transition-colors shadow-sm disabled:opacity-60"
             >
               <RefreshCw className={`w-3.5 h-3.5 ${isRefreshing ? "animate-spin text-[#3547D4]" : ""}`} />
@@ -547,18 +575,28 @@ export default function CategoriesPage() {
           )}
 
           {categories.length === 0 && !fetchError && (
-            <div className="p-12 text-center bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 space-y-3">
+            <div className="p-12 text-center bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 space-y-4">
               <Database className="w-10 h-10 text-slate-300 mx-auto" />
               <h4 className="text-sm font-bold text-slate-800 dark:text-slate-100">No Categories Found in MongoDB</h4>
               <p className="text-xs text-slate-500 max-w-sm mx-auto">
-                Create a category to get started or seed categories on demand.
+                Your database currently has 0 categories. Click below to automatically seed all 13 authoritative master categories.
               </p>
-              <button
-                onClick={openCreateModal}
-                className="px-4 py-2 bg-[#3547D4] text-white text-xs font-bold rounded-xl shadow hover:bg-[#111E4D]"
-              >
-                + Add First Category
-              </button>
+              <div className="flex items-center justify-center gap-3">
+                <button
+                  onClick={handleSeedCategories}
+                  disabled={isSeeding}
+                  className="px-4 py-2.5 bg-emerald-600 text-white text-xs font-bold rounded-xl shadow hover:bg-emerald-700 transition-colors inline-flex items-center gap-2"
+                >
+                  <Database className={`w-4 h-4 ${isSeeding ? "animate-spin" : ""}`} />
+                  <span>{isSeeding ? "Seeding Categories..." : "⚡ Seed 13 Master Categories"}</span>
+                </button>
+                <button
+                  onClick={openCreateModal}
+                  className="px-4 py-2.5 bg-[#3547D4] text-white text-xs font-bold rounded-xl shadow hover:bg-[#111E4D] transition-colors"
+                >
+                  + Add Custom Category
+                </button>
+              </div>
             </div>
           )}
         </div>

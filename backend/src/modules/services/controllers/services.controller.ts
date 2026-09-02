@@ -3,12 +3,17 @@ import { Service } from "../models/Service";
 import { ServiceInquiry } from "../models/ServiceInquiry";
 import { ServiceCategory } from "../models/ServiceCategory";
 import { ServiceProviderProfile } from "../models/ServiceProviderProfile";
+import { seedInitialServices } from "../../../database/seeders/serviceSeeder";
 import mongoose from "mongoose";
 
 // 1. Get Service Categories
 export const getServiceCategories = async (req: Request, res: Response) => {
   try {
-    const categories = await ServiceCategory.find({ isActive: true }).sort({ displayOrder: 1 });
+    let categories = await ServiceCategory.find({ isActive: true }).sort({ displayOrder: 1 });
+    if (categories.length === 0) {
+      await seedInitialServices();
+      categories = await ServiceCategory.find({ isActive: true }).sort({ displayOrder: 1 });
+    }
     res.json({ success: true, data: categories });
   } catch (error: any) {
     res.status(500).json({ success: false, error: error.message });
@@ -350,5 +355,14 @@ export const updateProviderProfile = async (req: Request, res: Response) => {
     res.json({ success: true, data: updated });
   } catch (error: any) {
     res.status(400).json({ success: false, error: error.message });
+  }
+};
+
+export const seedServicesController = async (req: Request, res: Response) => {
+  try {
+    await seedInitialServices();
+    res.json({ success: true, message: "Services and service categories seeded successfully" });
+  } catch (error: any) {
+    res.status(500).json({ success: false, error: error.message });
   }
 };

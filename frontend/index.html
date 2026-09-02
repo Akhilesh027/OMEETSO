@@ -31,7 +31,7 @@
   <div id="omeetso-splash-loader">
     <div class="splash-bg-glow"></div>
     <div class="splash-container">
-      
+
       <!-- Phase 1: Infinity Animation -->
       <div class="infinity-wrapper" id="splash-infinity">
         <svg class="infinity-svg" viewBox="0 0 160 90" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -53,34 +53,20 @@
           </defs>
 
           <!-- Background soft trace -->
-          <path
-            class="infinity-track"
+          <path class="infinity-track"
             d="M 80,45 C 60,15 25,15 25,45 C 25,75 60,75 80,45 C 100,15 135,15 135,45 C 135,75 100,75 80,45 Z"
-            stroke="#E0F2FE"
-            stroke-width="5.5"
-            stroke-linecap="round"
-            stroke-linejoin="round"
-          />
+            stroke="#E0F2FE" stroke-width="5.5" stroke-linecap="round" stroke-linejoin="round" />
 
           <!-- Animated Glowing Infinity Stroke -->
-          <path
-            class="infinity-draw"
+          <path class="infinity-draw"
             d="M 80,45 C 60,15 25,15 25,45 C 25,75 60,75 80,45 C 100,15 135,15 135,45 C 135,75 100,75 80,45 Z"
-            stroke="url(#inf-gradient)"
-            stroke-width="5.5"
-            stroke-linecap="round"
-            stroke-linejoin="round"
-            filter="url(#inf-glow)"
-          />
+            stroke="url(#inf-gradient)" stroke-width="5.5" stroke-linecap="round" stroke-linejoin="round"
+            filter="url(#inf-glow)" />
 
           <!-- Shimmer Lead Head -->
-          <path
-            class="infinity-shimmer"
+          <path class="infinity-shimmer"
             d="M 80,45 C 60,15 25,15 25,45 C 25,75 60,75 80,45 C 100,15 135,15 135,45 C 135,75 100,75 80,45 Z"
-            stroke="url(#inf-light)"
-            stroke-width="3"
-            stroke-linecap="round"
-          />
+            stroke="url(#inf-light)" stroke-width="3" stroke-linecap="round" />
         </svg>
       </div>
 
@@ -88,7 +74,7 @@
       <div class="brand-reveal-wrapper" id="splash-brand">
         <!-- Floating Glow behind Icon -->
         <div class="icon-pulse-glow"></div>
-        
+
         <!-- App Icon -->
         <div class="icon-box">
           <img src="/iconpng.png" alt="Omeetso Icon" class="splash-icon-img" />
@@ -146,8 +132,15 @@
     }
 
     @keyframes splashPulseGlow {
-      0% { transform: scale(0.9) translateY(0); opacity: 0.7; }
-      100% { transform: scale(1.18) translateY(-10px); opacity: 1; }
+      0% {
+        transform: scale(0.9) translateY(0);
+        opacity: 0.7;
+      }
+
+      100% {
+        transform: scale(1.18) translateY(-10px);
+        opacity: 1;
+      }
     }
 
     .splash-container {
@@ -196,9 +189,11 @@
       0% {
         stroke-dashoffset: 290;
       }
+
       50% {
         stroke-dashoffset: 0;
       }
+
       100% {
         stroke-dashoffset: -290;
       }
@@ -208,6 +203,7 @@
       0% {
         stroke-dashoffset: 290;
       }
+
       100% {
         stroke-dashoffset: -290;
       }
@@ -219,18 +215,22 @@
         opacity: 0;
         transform: scale(0.7) translateY(0);
       }
+
       25% {
         opacity: 1;
         transform: scale(1) translateY(0);
       }
+
       72% {
         opacity: 1;
         transform: scale(1.05) translateY(0);
       }
+
       90% {
         opacity: 0.2;
         transform: scale(0.65) translateY(-10px);
       }
+
       100% {
         opacity: 0;
         transform: scale(0.4) translateY(-15px);
@@ -253,6 +253,7 @@
         opacity: 0;
         transform: scale(0.85) translateY(12px);
       }
+
       100% {
         opacity: 1;
         transform: scale(1) translateY(0);
@@ -295,13 +296,25 @@
     }
 
     @keyframes iconFloat {
-      0% { transform: translateY(0); }
-      100% { transform: translateY(-5px); }
+      0% {
+        transform: translateY(0);
+      }
+
+      100% {
+        transform: translateY(-5px);
+      }
     }
 
     @keyframes iconGlow {
-      0% { opacity: 0.5; transform: scale(0.95); }
-      100% { opacity: 0.9; transform: scale(1.15); }
+      0% {
+        opacity: 0.5;
+        transform: scale(0.95);
+      }
+
+      100% {
+        opacity: 0.9;
+        transform: scale(1.15);
+      }
     }
 
     /* Brand Text */
@@ -374,15 +387,25 @@
     }
 
     @keyframes progressSlide {
-      0% { left: -45%; width: 40%; }
-      50% { width: 60%; }
-      100% { left: 100%; width: 40%; }
+      0% {
+        left: -45%;
+        width: 40%;
+      }
+
+      50% {
+        width: 60%;
+      }
+
+      100% {
+        left: 100%;
+        width: 40%;
+      }
     }
   </style>
 
   <script>
     // Tab Session Check: Only play full splash animation when portal is opened in a new tab
-    (function() {
+    (function () {
       var loader = document.getElementById('omeetso-splash-loader');
       if (!loader) return;
       try {
@@ -395,18 +418,18 @@
         }
         // Mark as seen for this tab session
         sessionStorage.setItem('omeetso_tab_session_seen', 'true');
-      } catch(e) {}
+      } catch (e) { }
     })();
 
     // Smooth dismiss helper for first tab load
-    window.__dismissOmeetsoSplash = function(minDelay) {
+    window.__dismissOmeetsoSplash = function (minDelay) {
       var loader = document.getElementById('omeetso-splash-loader');
       if (!loader || loader.__isDismissed) return;
       loader.__isDismissed = true;
       var delay = typeof minDelay === 'number' ? minDelay : 2800;
-      setTimeout(function() {
+      setTimeout(function () {
         loader.classList.add('splash-fade-out');
-        setTimeout(function() {
+        setTimeout(function () {
           if (loader.parentNode) {
             loader.parentNode.removeChild(loader);
           }
@@ -415,7 +438,7 @@
     };
 
     // Auto dismiss fallback
-    window.addEventListener('load', function() {
+    window.addEventListener('load', function () {
       window.__dismissOmeetsoSplash(2800);
     });
   </script>

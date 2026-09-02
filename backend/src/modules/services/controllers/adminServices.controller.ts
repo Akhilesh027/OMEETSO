@@ -2,6 +2,7 @@ import { Request, Response } from "express";
 import { Service } from "../models/Service";
 import { ServiceCategory } from "../models/ServiceCategory";
 import { Notification } from "../../notifications/models/Notification";
+import { seedInitialServices } from "../../../database/seeders/serviceSeeder";
 
 // Admin: Get all services with filtering & moderation
 export const getAdminServices = async (req: Request, res: Response) => {
@@ -90,7 +91,11 @@ export const updateAdminServiceStatus = async (req: Request, res: Response) => {
 // Admin: Get Service Categories
 export const getAdminServiceCategories = async (req: Request, res: Response) => {
   try {
-    const categories = await ServiceCategory.find().sort({ displayOrder: 1 });
+    let categories = await ServiceCategory.find().sort({ displayOrder: 1 });
+    if (categories.length === 0) {
+      await seedInitialServices();
+      categories = await ServiceCategory.find().sort({ displayOrder: 1 });
+    }
     res.json({ success: true, data: categories });
   } catch (error: any) {
     res.status(500).json({ success: false, error: error.message });

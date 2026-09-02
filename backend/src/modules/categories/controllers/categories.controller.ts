@@ -1,15 +1,23 @@
 import { Request, Response, NextFunction } from "express";
 import { Category } from "../models/Category";
 import { Listing } from "../../listings/models/Listing";
+import { seedCategories } from "../../../database/seeders/categorySeeder";
 
 export async function getCategories(req: Request, res: Response, next: NextFunction): Promise<void> {
   try {
     const includeInactive = req.query.all === "true" || req.query.includeInactive === "true";
     const filter = includeInactive ? {} : { isActive: true };
 
-    const categories = await Category.find(filter)
+    let categories = await Category.find(filter)
       .sort({ row: 1, name: 1 })
       .lean();
+
+    if (categories.length === 0) {
+      await seedCategories();
+      categories = await Category.find(filter)
+        .sort({ row: 1, name: 1 })
+        .lean();
+    }
 
     // Aggregate active listing counts per category from MongoDB
     const countsAggregate = await Listing.aggregate([
@@ -318,6 +326,20 @@ export async function deleteCategory(req: Request, res: Response, next: NextFunc
         message: `Category "${category.name}" disabled successfully`
       });
     }
+  } catch (error) {
+    next(error);
+  }
+}
+
+export async function seedCategoriesController(req: Request, res: Response, next: NextFunction): Promise<void> {
+  try {
+    await seedCategories();
+    const count = await Category.countDocuments({ isActive: true });
+    res.status(200).json({
+      success: true,
+      message: `Successfully seeded ${count} master categories into MongoDB`,
+      count
+    });
   } catch (error) {
     next(error);
   }

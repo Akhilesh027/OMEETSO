@@ -5,6 +5,10 @@ import { connectDatabase, disconnectDatabase } from "./database/connect";
 import { initSocketServer } from "./sockets/socket-server";
 import { startBackgroundWorkers } from "./jobs/cleanupWorker";
 import { seedAdminUsers } from "./database/seeders/adminSeeder";
+import { seedCategories } from "./database/seeders/categorySeeder";
+import { seedApprovedListings } from "./database/seeders/listingSeeder";
+import { seedInitialServices } from "./database/seeders/serviceSeeder";
+import { seedBannersAndAds } from "./database/seeders/bannerAdSeeder";
 
 const server = http.createServer(app);
 
@@ -14,6 +18,10 @@ export const io = initSocketServer(server);
 async function startServer() {
   await connectDatabase();
   await seedAdminUsers();
+  await seedCategories();
+  await seedApprovedListings();
+  await seedInitialServices();
+  await seedBannersAndAds();
 
   startBackgroundWorkers();
 

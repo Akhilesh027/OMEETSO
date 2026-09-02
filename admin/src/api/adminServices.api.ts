@@ -12,31 +12,32 @@ function getHeaders(): Record<string, string> {
 }
 
 export async function getAdminServicesQueueApi(params?: Record<string, any>): Promise<{ success: boolean; data?: any[]; pagination?: any; error?: string }> {
-  try {
-    const query = new URLSearchParams(params || {}).toString();
-    const url = query ? `${API_BASE}?${query}` : API_BASE;
+  const query = new URLSearchParams(params || {}).toString();
+  const endpoints = [
+    query ? `${API_BASE}?${query}` : API_BASE,
+    query ? `https://api.omeetso.in/api/v1/admin/services?${query}` : "https://api.omeetso.in/api/v1/admin/services",
+    query ? `${PUBLIC_API_BASE}?${query}` : PUBLIC_API_BASE,
+    query ? `https://api.omeetso.in/api/v1/services?${query}` : "https://api.omeetso.in/api/v1/services",
+  ];
 
-    const res = await fetch(url, {
-      headers: getHeaders(),
-      credentials: "include",
-    });
-
-    const json = await res.json();
-    if (!res.ok || !json.success) {
-      return { success: false, error: json.error?.message || "Failed to fetch admin services queue" };
-    }
-    return { success: true, data: json.data, pagination: json.pagination };
-  } catch (error) {
-    // Fallback: try public API or return mock
+  for (const url of endpoints) {
     try {
-      const res2 = await fetch(PUBLIC_API_BASE);
-      const json2 = await res2.json();
-      if (json2.success) return { success: true, data: json2.data };
+      const res = await fetch(url, {
+        headers: getHeaders(),
+        credentials: "include",
+      });
+      if (res.ok) {
+        const json = await res.json();
+        if (json.success && Array.isArray(json.data)) {
+          return { success: true, data: json.data, pagination: json.pagination };
+        }
+      }
     } catch {
-      // ignore
+      // try next endpoint
     }
-    return { success: false, error: "Network error: Unable to fetch services queue" };
   }
+
+  return { success: false, error: "Unable to reach services API" };
 }
 
 export async function updateServiceStatusApi(
@@ -62,22 +63,31 @@ export async function updateServiceStatusApi(
 }
 
 export async function getAdminServiceCategoriesApi(): Promise<{ success: boolean; data?: any[]; error?: string }> {
-  try {
-    const res = await fetch(`${API_BASE}/categories`, {
-      headers: getHeaders(),
-      credentials: "include",
-    });
-    const json = await res.json();
-    return json;
-  } catch {
+  const endpoints = [
+    `${API_BASE}/categories`,
+    "https://api.omeetso.in/api/v1/admin/services/categories",
+    `${PUBLIC_API_BASE}/categories`,
+    "https://api.omeetso.in/api/v1/services/categories",
+  ];
+
+  for (const url of endpoints) {
     try {
-      const res2 = await fetch(`${PUBLIC_API_BASE}/categories`);
-      const json2 = await res2.json();
-      return json2;
+      const res = await fetch(url, {
+        headers: getHeaders(),
+        credentials: "include",
+      });
+      if (res.ok) {
+        const json = await res.json();
+        if (json.success && Array.isArray(json.data)) {
+          return json;
+        }
+      }
     } catch {
-      return { success: false, error: "Failed to load categories" };
+      // try next
     }
   }
+
+  return { success: false, error: "Failed to load service categories" };
 }
 
 export async function upsertAdminServiceCategoryApi(categoryData: any): Promise<{ success: boolean; data?: any; error?: string }> {
@@ -93,4 +103,24 @@ export async function upsertAdminServiceCategoryApi(categoryData: any): Promise<
   } catch {
     return { success: false, error: "Failed to save service category" };
   }
+}
+
+export async function seedServicesApi(): Promise<{ success: boolean; message?: string; error?: string }> {
+  const endpoints = [
+    "https://api.omeetso.in/api/v1/services/seed",
+    "https://api.omeetso.in/api/v1/services/seed",
+  ];
+
+  for (const url of endpoints) {
+    try {
+      const res = await fetch(url, {
+        method: "POST",
+        headers: getHeaders(),
+      });
+      if (res.ok) {
+        return await res.json();
+      }
+    } catch { }
+  }
+  return { success: false, error: "Failed to trigger service seed" };
 }

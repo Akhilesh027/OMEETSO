@@ -201,6 +201,17 @@ export function WebsiteHeader() {
     } catch { /* noop */ }
   }, [path, showLocModal]);
 
+  // Real-time location change event listener across modals and tabs
+  useEffect(() => {
+    const handleLocChanged = (e: any) => {
+      if (e.detail?.area) {
+        setLoc({ area: e.detail.area, pincode: e.detail.pincode });
+      }
+    };
+    window.addEventListener("omeetso_location_changed", handleLocChanged);
+    return () => window.removeEventListener("omeetso_location_changed", handleLocChanged);
+  }, []);
+
   // Click outside to close search overlay
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {

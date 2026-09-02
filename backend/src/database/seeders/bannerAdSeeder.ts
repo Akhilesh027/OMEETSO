@@ -12,7 +12,7 @@ export async function seedBannersAndAds(): Promise<{
   productsCount: number;
   campaignsCount: number;
 }> {
-  console.log("[Seeder] Starting Banners & Ads seeding...");
+  console.log("[BannerSeeder] Starting Banners & Ads seeding...");
 
   if (mongoose.connection.readyState !== 1) {
     await connectDatabase();
@@ -95,17 +95,17 @@ export async function seedBannersAndAds(): Promise<{
       { upsert: true, new: true }
     );
   }
-  console.log(`[Seeder] Seeded ${placements.length} Ad Placements.`);
+  console.log(`[BannerSeeder] Seeded ${placements.length} Ad Placements.`);
 
-  // 2. Seed Ad Products / Pricing Plans
+  // 2. Seed Ad Pricing Products
   const products = [
     {
       name: "⚡ Starter Quick Boost (3 Days)",
       description: "Promote your listing card with a FEATURED badge and category top placement for 3 days of quick exposure.",
       campaignType: "LISTING_BOOST",
       durationDays: 3,
-      priceInPaise: 9900, // ₹99
-      originalPriceInPaise: 14900, // ₹149
+      priceInPaise: 9900,
+      originalPriceInPaise: 14900,
       badge: "⚡ Quick Sale",
       features: [
         "FEATURED Ribbon Badge on Card",
@@ -123,8 +123,8 @@ export async function seedBannersAndAds(): Promise<{
       description: "Top search ranking, SPONSORED badge, and category header placement for 7 days. Most popular seller choice!",
       campaignType: "LISTING_BOOST",
       durationDays: 7,
-      priceInPaise: 24900, // ₹249
-      originalPriceInPaise: 39900, // ₹399
+      priceInPaise: 24900,
+      originalPriceInPaise: 39900,
       badge: "🔥 Most Popular",
       features: [
         "#1 Top Rank on Search Results",
@@ -143,8 +143,8 @@ export async function seedBannersAndAds(): Promise<{
       description: "Homepage hero carousel, guaranteed top search spot, URGENT badge, and 10× visibility boost for 15 days.",
       campaignType: "LISTING_BOOST",
       durationDays: 15,
-      priceInPaise: 49900, // ₹499
-      originalPriceInPaise: 79900, // ₹799
+      priceInPaise: 49900,
+      originalPriceInPaise: 79900,
       badge: "👑 Max Exposure",
       features: [
         "Homepage Hero Carousel Feature",
@@ -163,8 +163,8 @@ export async function seedBannersAndAds(): Promise<{
       description: "Custom promotional banner image featured prominently on the main Omeetso Homepage Hero Carousel with direct link.",
       campaignType: "BANNER_AD",
       durationDays: 7,
-      priceInPaise: 49900, // ₹499
-      originalPriceInPaise: 79900, // ₹799
+      priceInPaise: 49900,
+      originalPriceInPaise: 79900,
       badge: "Best for Stores",
       features: [
         "Full-Width Main Homepage Carousel",
@@ -182,8 +182,8 @@ export async function seedBannersAndAds(): Promise<{
       description: "Top header banner displayed across all category search pages targeting active local shoppers for 14 days.",
       campaignType: "BANNER_AD",
       durationDays: 14,
-      priceInPaise: 89900, // ₹899
-      originalPriceInPaise: 149900, // ₹1,499
+      priceInPaise: 89900,
+      originalPriceInPaise: 149900,
       badge: "High Conversion",
       features: [
         "Pinned at Top of Specific Category",
@@ -201,8 +201,8 @@ export async function seedBannersAndAds(): Promise<{
       description: "Complete brand takeover featuring your banner across Homepage Hero, Category Top Headers, and Store Spotlight sections.",
       campaignType: "BANNER_AD",
       durationDays: 30,
-      priceInPaise: 199900, // ₹1,999
-      originalPriceInPaise: 349900, // ₹3,499
+      priceInPaise: 199900,
+      originalPriceInPaise: 349900,
       badge: "💎 Enterprise Plan",
       features: [
         "Rotating Banner on Homepage Hero",
@@ -220,19 +220,19 @@ export async function seedBannersAndAds(): Promise<{
 
   await AdProduct.deleteMany({});
   await AdProduct.insertMany(products);
-  console.log(`[Seeder] Seeded ${products.length} Ad Pricing Products.`);
+  console.log(`[BannerSeeder] Seeded ${products.length} Ad Pricing Products.`);
 
-  // 3. Seed Clean Omeetso Promotional Fallback Banners (Shown ONLY when no active advertiser ads are running)
+  // 3. Seed High-Converting Home Banners
   const sampleBanners = [
     {
-      bannerId: "bnr_hero_fallback",
+      bannerId: "bnr_hero_01",
       type: "hero_showcase",
-      title: "Sell Anything in 30 Seconds with 0% Commission on Omeetso",
+      title: "Sell Any Item in 30 Seconds with 0% Commission on Omeetso",
       subtitle: "Connect directly with verified local buyers in your neighborhood with instant chat & 100% free buyer leads",
       tag: "⚡ Post 100% Free on Omeetso",
       price: 0,
       originalPrice: 0,
-      image: "https://images.unsplash.com/photo-1556742049-0a67e557b683?w=1200",
+      image: "https://images.unsplash.com/photo-1556742049-0a67e557b683?w=1600",
       sellerName: "Omeetso Community",
       initials: "OM",
       location: "Local Marketplace",
@@ -242,12 +242,12 @@ export async function seedBannersAndAds(): Promise<{
       isActive: true
     },
     {
-      bannerId: "bnr_promo_stores",
-      type: "category_strip",
-      title: "Discover Verified Local Business Stores & Showrooms on Omeetso",
+      bannerId: "bnr_hero_02",
+      type: "hero_showcase",
+      title: "Discover 500+ Verified Local Business Stores & Showrooms",
       subtitle: "Shop genuine warranty products directly from top-rated neighborhood merchants with same-day doorstep pickup",
       tag: "🏬 Omeetso Store Spotlight",
-      image: "https://images.unsplash.com/photo-1441986300917-64674bd600d8?w=1200",
+      image: "https://images.unsplash.com/photo-1441986300917-64674bd600d8?w=1600",
       sellerName: "Omeetso Store Network",
       initials: "OS",
       location: "Verified Merchants",
@@ -256,43 +256,151 @@ export async function seedBannersAndAds(): Promise<{
       isActive: true
     },
     {
-      bannerId: "bnr_promo_direct",
+      bannerId: "bnr_hero_03",
+      type: "hero_showcase",
+      title: "Book Trusted Doorstep Home Services — AC Care, Cleaning & Electricians",
+      subtitle: "Verified doorstep professionals at fixed honest pricing with 30-day service warranty",
+      tag: "🛠️ 30-Min Rapid Arrival",
+      image: "https://images.unsplash.com/photo-1581578731548-c64695cc6952?w=1600",
+      sellerName: "Omeetso Home Services",
+      initials: "OH",
+      location: "Doorstep Pros",
+      targetUrl: "/services",
+      order: 3,
+      isActive: true
+    },
+    {
+      bannerId: "bnr_hero_04",
+      type: "hero_showcase",
+      title: "Up to 70% Off Certified Pre-Owned Smartphones & Gadgets",
+      subtitle: "Inspected devices with invoice, 100% battery health & physical condition check video",
+      tag: "📱 Certified Pre-Owned",
+      image: "https://images.unsplash.com/photo-1511707171634-5f897ff02aa9?w=1600",
+      sellerName: "TechZone Hub",
+      initials: "TZ",
+      location: "Hyderabad",
+      targetUrl: "/results?category=electronics",
+      order: 4,
+      isActive: true
+    },
+    {
+      bannerId: "bnr_strip_01",
+      type: "category_strip",
+      title: "Direct Used Cars & Two-Wheelers from Real Verified Owners",
+      subtitle: "Inspect vehicles locally with company service records and zero dealer commission",
+      tag: "🚗 Direct Owner Deals",
+      image: "https://images.unsplash.com/photo-1533473359331-0135ef1b58bf?w=1600",
+      sellerName: "Omeetso Auto",
+      initials: "OA",
+      location: "Local Vehicles",
+      targetUrl: "/results?category=cars",
+      order: 5,
+      isActive: true
+    },
+    {
+      bannerId: "bnr_strip_02",
+      type: "category_strip",
+      title: "Solid Sheesham Wood Furniture & Luxury Home Decor Clearance",
+      subtitle: "Direct factory pricing from verified craft stores with same-day doorstep delivery",
+      tag: "🛋️ Factory Direct",
+      image: "https://images.unsplash.com/photo-1555041469-a586c61ea9bc?w=1600",
+      sellerName: "Royal Crafts",
+      initials: "RC",
+      location: "Craft District",
+      targetUrl: "/results?category=furniture",
+      order: 6,
+      isActive: true
+    },
+    {
+      bannerId: "bnr_deal_01",
       type: "quick_deal",
       title: "Direct In-App Buyer Chat & 0% Middleman Fees on Omeetso",
       subtitle: "Deal safely face-to-face with verified buyers and sellers in your city without commission cuts",
       tag: "🛡️ Omeetso Safe Trade",
-      image: "https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?w=1200",
+      image: "https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?w=1600",
       sellerName: "Omeetso Buyer Shield",
       initials: "OS",
       location: "Hyperlocal Network",
       targetUrl: "/results",
-      order: 3,
+      order: 7,
+      isActive: true
+    },
+    {
+      bannerId: "bnr_deal_02",
+      type: "quick_deal",
+      title: "Post Local Job Vacancies & Hire Nearby Verified Talent",
+      subtitle: "Connect with skilled drivers, delivery staff, technicians, retail staff, and professionals nearby",
+      tag: "💼 Hyperlocal Hiring",
+      image: "https://images.unsplash.com/photo-1521737711867-e3b97375f902?w=1600",
+      sellerName: "Omeetso Jobs",
+      initials: "OJ",
+      location: "Local Opportunities",
+      targetUrl: "/jobs",
+      order: 8,
       isActive: true
     }
   ];
 
   await HomeBanner.deleteMany({});
   await HomeBanner.insertMany(sampleBanners);
-  console.log(`[Seeder] Seeded ${sampleBanners.length} Omeetso Promotional Fallback Banners.`);
+  console.log(`[BannerSeeder] Seeded ${sampleBanners.length} Home Banners in MongoDB.`);
+
+  // 4. Seed Active AdCampaigns for Homepage Hero
+  let advertiser = await User.findOne({ email: "admin@digitalness.co.in" });
+  if (!advertiser) advertiser = await User.findOne({});
+  const advertiserUserId = advertiser ? advertiser._id : new mongoose.Types.ObjectId();
+
+  await AdCampaign.deleteMany({ bannerUrl: { $exists: true } });
+  const sampleCampaigns = [
+    {
+      campaignType: "BANNER_AD",
+      advertiserUserId,
+      targetType: "STORE",
+      placementIds: ["HOMEPAGE_HERO"],
+      bannerUrl: "https://images.unsplash.com/photo-1556742049-0a67e557b683?w=1600",
+      targeting: { city: "Hyderabad" },
+      pricing: { amountInPaise: 49900, taxInPaise: 8982, totalInPaise: 58882 },
+      paymentStatus: "PAID",
+      status: "ACTIVE",
+      startAt: new Date(Date.now() - 86400000),
+      endAt: new Date(Date.now() + 30 * 86400000),
+      analytics: { impressions: 1420, clicks: 185 }
+    },
+    {
+      campaignType: "BANNER_AD",
+      advertiserUserId,
+      targetType: "STORE",
+      placementIds: ["HOMEPAGE_HERO", "STORE_BANNER"],
+      bannerUrl: "https://images.unsplash.com/photo-1441986300917-64674bd600d8?w=1600",
+      targeting: { city: "Hyderabad" },
+      pricing: { amountInPaise: 89900, taxInPaise: 16182, totalInPaise: 106082 },
+      paymentStatus: "PAID",
+      status: "ACTIVE",
+      startAt: new Date(Date.now() - 86400000),
+      endAt: new Date(Date.now() + 30 * 86400000),
+      analytics: { impressions: 2150, clicks: 310 }
+    }
+  ];
+  await AdCampaign.insertMany(sampleCampaigns);
+  console.log(`[BannerSeeder] Seeded ${sampleCampaigns.length} Active Banner Ad Campaigns in MongoDB.`);
 
   return {
     bannersCount: sampleBanners.length,
     placementsCount: placements.length,
     productsCount: products.length,
-    campaignsCount: 0
+    campaignsCount: sampleCampaigns.length
   };
 }
 
-// Run directly if invoked from command line
 if (require.main === module) {
   seedBannersAndAds()
     .then(async (res) => {
-      console.log(`[Seeder] Successfully finished seeding banners & ads:`, res);
+      console.log(`[BannerSeeder] Successfully finished seeding banners & ads:`, res);
       await disconnectDatabase();
       process.exit(0);
     })
     .catch((err) => {
-      console.error("[Seeder] Fatal error during seeding:", err);
+      console.error("[BannerSeeder] Fatal error during seeding:", err);
       process.exit(1);
     });
 }

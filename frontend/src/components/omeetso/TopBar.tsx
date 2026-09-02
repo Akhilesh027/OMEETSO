@@ -18,8 +18,35 @@ export function LocationTopBar({
   const [openModal, setOpenModal] = useState(false);
   const [savedCount, setSavedCount] = useState(0);
   const [unreadChats, setUnreadChats] = useState(0);
-  const hasLocation = Boolean(area);
+  const [activeArea, setActiveArea] = useState(area || "");
+  const [activePin, setActivePin] = useState(pincode || "");
   const unreadNotifications = NOTIFICATIONS.filter((n) => !n.read).length;
+
+  useEffect(() => {
+    if (area) setActiveArea(area);
+    if (pincode) setActivePin(pincode);
+    if (!area) {
+      try {
+        const stored = localStorage.getItem("omeetso_selected_location") || localStorage.getItem("omeetso_location");
+        if (stored) {
+          const parsed = JSON.parse(stored);
+          if (parsed.area) setActiveArea(parsed.area);
+          if (parsed.pincode) setActivePin(parsed.pincode);
+        }
+      } catch {}
+    }
+  }, [area, pincode]);
+
+  useEffect(() => {
+    const handleLocChanged = (e: any) => {
+      if (e.detail?.area) {
+        setActiveArea(e.detail.area);
+        if (e.detail.pincode) setActivePin(e.detail.pincode);
+      }
+    };
+    window.addEventListener("omeetso_location_changed", handleLocChanged);
+    return () => window.removeEventListener("omeetso_location_changed", handleLocChanged);
+  }, []);
 
   useEffect(() => {
     setSavedCount(getSaved().length);
@@ -106,7 +133,7 @@ export function LocationTopBar({
         <div className="flex items-center gap-2 min-w-0">
           <MapPin className="h-4 w-4 text-amber-400 shrink-0" />
           <span className="truncate font-bold text-white text-xs sm:text-sm">
-            {hasLocation ? `${area}${pincode ? `, ${pincode}` : ""}` : "Set your location"}
+            {activeArea ? `${activeArea}${activePin ? `, ${activePin}` : ""}` : "Set your location"}
           </span>
         </div>
         <ChevronDown className="h-3.5 w-3.5 shrink-0 text-white/80" />

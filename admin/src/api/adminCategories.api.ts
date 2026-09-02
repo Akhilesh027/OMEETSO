@@ -27,12 +27,29 @@ export interface CategoryMutationResponse {
 
 export async function fetchCategoriesFromDbApi(): Promise<FetchCategoriesResponse> {
   try {
-    const res = await fetch(`${API_BASE}?all=true`, {
+    let res = await fetch(`${API_BASE}?all=true`, {
       headers: getHeaders()
-    });
+    }).catch(() => null);
+
+    // Fallback to localhost if production domain is unreachable during local development
+    if (!res || !res.ok) {
+      const localRes = await fetch("https://api.omeetso.in/api/v1/categories?all=true", {
+        headers: getHeaders()
+      }).catch(() => null);
+      if (localRes && localRes.ok) {
+        res = localRes;
+      }
+    }
+
+    if (!res) {
+      return {
+        success: false,
+        error: "Network error: Unable to connect to backend on https://api.omeetso.in or https://api.omeetso.in"
+      };
+    }
 
     const json = await res.json();
-    if (!res.ok || !json.success || !Array.isArray(json.data)) {
+    if (!json.success || !Array.isArray(json.data)) {
       return {
         success: false,
         error: json.error?.message || "Failed to fetch categories from MongoDB"
@@ -48,6 +65,28 @@ export async function fetchCategoriesFromDbApi(): Promise<FetchCategoriesRespons
       success: false,
       error: error.message || "Network error: Unable to connect to backend"
     };
+  }
+}
+
+export async function seedCategoriesApi(): Promise<{ success: boolean; message?: string; count?: number; error?: string }> {
+  try {
+    let res = await fetch(`${API_BASE}/seed`, {
+      method: "POST",
+      headers: getHeaders()
+    }).catch(() => null);
+
+    if (!res || !res.ok) {
+      res = await fetch("https://api.omeetso.in/api/v1/categories/seed", {
+        method: "POST",
+        headers: getHeaders()
+      }).catch(() => null);
+    }
+
+    if (!res) throw new Error("Could not reach backend API");
+    const json = await res.json();
+    return json;
+  } catch (error: any) {
+    return { success: false, error: error.message || "Failed to trigger category seeding" };
   }
 }
 

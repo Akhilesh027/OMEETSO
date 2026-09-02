@@ -437,7 +437,11 @@ function Home() {
       .catch(() => { });
 
     // Fetch Admin-curated Home Hero Showcase & Banners
-    fetch("https://api.omeetso.in/api/v1/banners" + (activeCity ? `?city=${encodeURIComponent(activeCity)}` : ""))
+    const bannerFetchUrl = (typeof window !== "undefined" && window.location.hostname === "localhost")
+      ? `http://localhost:3000/api/v1/banners${activeCity ? `?city=${encodeURIComponent(activeCity)}` : ""}`
+      : `https://api.omeetso.in/api/v1/banners${activeCity ? `?city=${encodeURIComponent(activeCity)}` : ""}`;
+
+    fetch(bannerFetchUrl)
       .then((res) => res.json())
       .then((json) => {
         if (json.success && Array.isArray(json.data) && json.data.length > 0) {

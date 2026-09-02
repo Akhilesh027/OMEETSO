@@ -14,11 +14,13 @@ import {
   updateInquiryStatus,
   getProviderProfile,
   updateProviderProfile,
+  seedServicesController,
 } from "../controllers/services.controller";
 
 export const servicesRouter = Router();
 
 // Public routes
+servicesRouter.post("/seed", seedServicesController);
 servicesRouter.get("/categories", getServiceCategories);
 servicesRouter.get("/", getPublicServices);
 servicesRouter.get("/:id", getServiceById);

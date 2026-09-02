@@ -27,6 +27,11 @@ import {
   Star
 } from "lucide-react";
 import { useToast } from "@/contexts/ToastContext";
+import {
+  getAdminServicesQueueApi,
+  getAdminServiceCategoriesApi,
+  updateServiceStatusApi
+} from "@/api/adminServices.api";
 
 type ServiceStatus = "all" | "pending_approval" | "active" | "paused" | "rejected";
 
@@ -37,6 +42,7 @@ export function ServicesPage() {
   const [services, setServices] = useState<any[]>([]);
   const [categories, setCategories] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [isLiveDb, setIsLiveDb] = useState(false);
 
   // Inspector & Action Modals
   const [selectedService, setSelectedService] = useState<any | null>(null);
@@ -65,139 +71,37 @@ export function ServicesPage() {
 
   const loadAdminServices = async () => {
     setLoading(true);
-    let loaded = false;
-
-    // Try port 3000 then 5000
-    for (const port of [3000, 5000]) {
-      try {
-        const token = typeof localStorage !== "undefined" ? localStorage.getItem("omeetso_admin_token") : null;
-        const res = await fetch(
-          `http://localhost:${port}/api/v1/admin/services?status=${statusFilter === "all" ? "ALL" : statusFilter.toUpperCase()}&q=${encodeURIComponent(searchQuery)}`,
-          {
-            headers: { ...(token ? { Authorization: `Bearer ${token}` } : {}) },
-          }
-        );
-        const json = await res.json();
-        if (json.success && Array.isArray(json.data) && json.data.length > 0) {
-          setServices(json.data);
-          loaded = true;
-          break;
-        }
-      } catch {
-        // try next
-      }
-    }
-
-    if (!loaded) {
-      // Fallback seed services
-      const defaultServices = [
-        {
-          _id: "srv-ac-001",
-          id: "srv-ac-001",
-          businessName: "CoolBreeze AC Care & HVAC Solutions",
-          providerName: "Ramesh Sharma (Certified Master Tech)",
-          providerPhone: "+91 98765 43210",
-          title: "Complete Jet Pump AC Servicing & Gas Refill",
-          serviceCategoryId: "appliance_repair",
-          subcategoryId: "AC Service & Gas Refill",
-          serviceType: "DOORSTEP",
-          pricing: { amount: 499, priceUnit: "per service", priceType: "STARTING_AT" },
-          location: { area: "Madhapur", city: "Hyderabad", pincode: "500081" },
-          status: "ACTIVE",
-          isFeatured: true,
-          isEmergency: true,
-          isVerifiedProvider: true,
-          stats: { rating: 4.9, reviewsCount: 68, inquiriesCount: 182 },
-          serviceDetails: {
-            description: "High-pressure jet pump deep clean for Split and Window ACs. Flushes all dust, fungal choke, and drain trays.",
-            warranty: "60 Days Cooling & Leak Guarantee",
-            guaranteedResponseTime: "Within 60 Mins",
-          },
-          inclusions: ["Indoor & Outdoor Unit Jet Wash", "Gas Leakage Check", "Filter Sanitization"],
-          exclusions: ["Spare part replacement costs", "Copper pipe rewiring"],
-        },
-        {
-          _id: "srv-clean-002",
-          id: "srv-clean-002",
-          businessName: "SparkleClean Pro Home & Office Deep Cleaners",
-          providerName: "Pooja & Clean Crew",
-          providerPhone: "+91 98765 43211",
-          title: "Full Apartment & Villa Deep Cleaning Service",
-          serviceCategoryId: "home_services",
-          subcategoryId: "Deep Home Cleaning",
-          serviceType: "DOORSTEP",
-          pricing: { amount: 2499, priceUnit: "per service", priceType: "STARTING_AT" },
-          location: { area: "Gachibowli", city: "Hyderabad", pincode: "500032" },
-          status: "ACTIVE",
-          isFeatured: true,
-          isEmergency: false,
-          isVerifiedProvider: true,
-          stats: { rating: 4.85, reviewsCount: 42, inquiriesCount: 96 },
-          serviceDetails: {
-            description: "Top-to-bottom mechanized deep sanitization with German Taski chemicals, bathroom descaling & balcony scrubbing.",
-            warranty: "100% Re-clean Guarantee",
-            guaranteedResponseTime: "Same Day Slots",
-          },
-          inclusions: ["Floor Mechanized Scrubbing", "Kitchen Chimney & Tile Degreasing", "Full Bathroom Descaling"],
-          exclusions: ["Terrace roof cleaning", "Interior wall painting"],
-        },
-        {
-          _id: "srv-elec-003",
-          id: "srv-elec-003",
-          businessName: "VoltMaster 24/7 Electrician & Emergency Plumbing",
-          providerName: "K. Venkatesh (Master Wireman)",
-          providerPhone: "+91 98765 43212",
-          title: "24/7 Emergency Electrician & Plumbing Fix",
-          serviceCategoryId: "home_services",
-          subcategoryId: "Electrician & Wiring",
-          serviceType: "DOORSTEP",
-          pricing: { amount: 199, priceUnit: "per visit", priceType: "VISITATION_FEE" },
-          location: { area: "Kukatpally", city: "Hyderabad", pincode: "500072" },
-          status: "PENDING_APPROVAL",
-          isFeatured: false,
-          isEmergency: true,
-          isVerifiedProvider: true,
-          stats: { rating: 4.95, reviewsCount: 114, inquiriesCount: 310 },
-          serviceDetails: {
-            description: "Rapid 30-minute doorstep emergency response for electrical power cuts, MCB short-circuit, and high-pressure pipe leaks.",
-            warranty: "30 Days Service Warranty",
-            guaranteedResponseTime: "Under 30 Mins",
-          },
-          inclusions: ["Multi-meter Diagnosis", "Fault Detection", "Immediate First Aid Fix"],
-          exclusions: ["New wire bundle costs", "New MCB hardware unit"],
-        },
-      ];
-
-      if (statusFilter === "all") {
-        setServices(defaultServices);
+    try {
+      const res = await getAdminServicesQueueApi({
+        status: statusFilter === "all" ? "ALL" : statusFilter.toUpperCase(),
+        q: searchQuery,
+      });
+      if (res.success && Array.isArray(res.data)) {
+        setServices(res.data);
+        setIsLiveDb(true);
       } else {
-        setServices(defaultServices.filter((s) => s.status.toLowerCase() === statusFilter.toLowerCase()));
+        setServices([]);
+        setIsLiveDb(false);
       }
+    } catch {
+      setServices([]);
+      setIsLiveDb(false);
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
   };
 
   const loadAdminCategories = async () => {
-    for (const port of [3000, 5000]) {
-      try {
-        const res = await fetch(`http://localhost:${port}/api/v1/services/categories`);
-        const json = await res.json();
-        if (json.success && Array.isArray(json.data) && json.data.length > 0) {
-          setCategories(json.data);
-          return;
-        }
-      } catch {
-        // try next
+    try {
+      const res = await getAdminServiceCategoriesApi();
+      if (res.success && Array.isArray(res.data)) {
+        setCategories(res.data);
+      } else {
+        setCategories([]);
       }
+    } catch {
+      setCategories([]);
     }
-
-    setCategories([
-      { id: "appliance_repair", name: "Appliance Repair", icon: "Wrench", subcategories: ["AC Service & Repair", "Washing Machine", "Refrigerator", "Microwave"] },
-      { id: "home_services", name: "Home Cleaning & Repair", icon: "Home", subcategories: ["Deep Home Cleaning", "Electrician & Wiring", "Plumbing", "Carpentry", "Pest Control"] },
-      { id: "beauty_salon", name: "Beauty & Wellness", icon: "Sparkles", subcategories: ["Salon at Doorstep", "Bridal Makeup", "Massage Therapy"] },
-      { id: "tutors_trainers", name: "Tutors & Lessons", icon: "BookOpen", subcategories: ["Maths & Science Tutor", "Music Lessons", "Fitness Trainer"] },
-      { id: "vehicle_care", name: "Vehicle Care & Towing", icon: "Car", subcategories: ["Car Wash at Doorstep", "24/7 Breakdown Towing", "Bike Servicing"] },
-    ]);
   };
 
   useEffect(() => {
@@ -207,30 +111,15 @@ export function ServicesPage() {
 
   const handleUpdateStatus = async (serviceId: string, status: string, reason?: string) => {
     try {
-      const token = typeof localStorage !== "undefined" ? localStorage.getItem("omeetso_admin_token") : null;
-      for (const port of [3000, 5000]) {
-        try {
-          await fetch(`http://localhost:${port}/api/v1/admin/services/${serviceId}/status`, {
-            method: "PATCH",
-            headers: {
-              "Content-Type": "application/json",
-              ...(token ? { Authorization: `Bearer ${token}` } : {}),
-            },
-            body: JSON.stringify({ status, rejectionReason: reason }),
-          });
-          break;
-        } catch { }
+      const res = await updateServiceStatusApi(serviceId, { status, rejectionReason: reason });
+      if (res.success) {
+        showSuccess(`Service status updated to ${status}`);
+        await loadAdminServices();
+      } else {
+        showError(res.error || "Failed to update service status");
       }
-    } catch { }
-
-    setServices((prev) =>
-      prev.map((s) => (s.id === serviceId || s._id === serviceId ? { ...s, status, rejectionReason: reason } : s))
-    );
-
-    if (status === "ACTIVE") {
-      showSuccess(`Service verified & published live! Provider notified.`);
-    } else if (status === "REJECTED") {
-      showSuccess(`Service rejected. Moderation feedback dispatched to provider.`);
+    } catch {
+      showError("Error updating service status");
     }
   };
 
@@ -294,6 +183,14 @@ export function ServicesPage() {
         description="Moderate doorstep service technicians, verified rate cards, warranty badges, and service categories."
         primaryAction={
           <div className="flex items-center gap-2">
+            <span className={`px-2.5 py-1 text-[11px] font-bold rounded-full border hidden sm:inline-flex items-center gap-1 ${
+              isLiveDb
+                ? "bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-950/50 dark:text-emerald-300 dark:border-emerald-800"
+                : "bg-slate-50 text-slate-700 border-slate-200 dark:bg-slate-900 dark:text-slate-300 dark:border-slate-800"
+            }`}>
+              <span className={`w-1.5 h-1.5 rounded-full ${isLiveDb ? "bg-emerald-500" : "bg-slate-400"}`} />
+              {isLiveDb ? "MongoDB Live" : "Database Ready"}
+            </span>
             <button
               onClick={() => {
                 setCatForm({
@@ -440,8 +337,12 @@ export function ServicesPage() {
                 <RefreshCw className="w-5 h-5 animate-spin text-rose-600" /> Loading services queue...
               </div>
             ) : filteredServices.length === 0 ? (
-              <div className="p-12 text-center text-xs text-gray-500">
-                No services found matching the current search & status filter.
+              <div className="p-16 text-center text-gray-500 space-y-3">
+                <Wrench className="w-10 h-10 text-gray-300 dark:text-gray-600 mx-auto" />
+                <h4 className="text-sm font-bold text-gray-800 dark:text-gray-200">No Services in Database</h4>
+                <p className="text-xs text-gray-500 dark:text-gray-400 max-w-sm mx-auto">
+                  There are currently no services listed. Services submitted by registered doorstep service providers will appear here for moderation.
+                </p>
               </div>
             ) : (
               <div className="overflow-x-auto">

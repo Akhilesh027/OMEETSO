@@ -43,6 +43,9 @@ export function LocationModal({
     const payload = JSON.stringify({ ...loc, savedAt: Date.now() });
     localStorage.setItem("omeetso_location", payload);
     localStorage.setItem("omeetso_selected_location", payload);
+    if (typeof window !== "undefined") {
+      window.dispatchEvent(new CustomEvent("omeetso_location_changed", { detail: loc }));
+    }
     setCurrentLoc(loc);
     if (onSelect) onSelect(loc);
   };
@@ -54,9 +57,9 @@ export function LocationModal({
       const displayArea = loc.area && loc.city && loc.area.toLowerCase() !== loc.city.toLowerCase()
         ? `${loc.area}, ${loc.city}`
         : loc.area || loc.city;
-      const item = { area: displayArea, pincode: loc.pincode };
+      const item = { area: displayArea, pincode: loc.pincode || "" };
       saveLocation(item);
-      toast.success(`Location detected: ${displayArea} (${loc.pincode})`);
+      toast.success(`Location detected: ${displayArea}${loc.pincode ? ` (${loc.pincode})` : ""}`);
       onClose();
     } catch {
       toast.error("Could not automatically detect location. Please enter your area or pincode below.");
@@ -150,7 +153,7 @@ export function LocationModal({
             className="w-full flex items-center justify-center gap-2.5 rounded-2xl bg-blue-500/10 border-2 border-blue-500/30 p-3.5 text-xs font-black text-blue-700 dark:text-blue-400 hover:bg-blue-500/20 transition-all active:scale-[0.99] disabled:opacity-50"
           >
             {fetchingGeo ? <Loader2 className="h-4 w-4 animate-spin text-blue-600" /> : <LocateFixed className="h-4 w-4 text-blue-600" />}
-            <span>{fetchingGeo ? "Detecting Live Location..." : "📍 Auto-Detect Location (GPS & IP)"}</span>
+            <span>{fetchingGeo ? "Detecting Live Location..." : "📍 Auto-Detect Live Location"}</span>
           </button>
 
           <div className="flex items-center gap-3">

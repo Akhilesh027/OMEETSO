@@ -282,6 +282,9 @@ export function LocationSelector({
           const payload = JSON.stringify({ area: `${finalArea}, ${detectedCity}`, pincode: detectedPin, coords: { lat, lng }, savedAt: Date.now() });
           localStorage.setItem("omeetso_location", payload);
           localStorage.setItem("omeetso_selected_location", payload);
+          if (typeof window !== "undefined") {
+            window.dispatchEvent(new CustomEvent("omeetso_location_changed", { detail: { area: `${finalArea}, ${detectedCity}`, pincode: detectedPin } }));
+          }
 
           toast.success(`Live GPS location set: ${finalArea}, ${detectedCity} (${detectedPin})`);
         } catch {

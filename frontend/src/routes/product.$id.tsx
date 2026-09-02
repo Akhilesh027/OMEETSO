@@ -1,9 +1,19 @@
 import { createFileRoute, Link, notFound, useNavigate } from "@tanstack/react-router";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo } from "react";
 import {
   ArrowLeft, Heart, Share2, Phone, MessageCircle, HandCoins, ShieldCheck,
   MapPin, Flag, ChevronLeft, ChevronRight, Truck, Package, PackageCheck, Play, Star,
+  Video, Camera, Maximize2,
 } from "lucide-react";
+
+function getEmbedUrl(url: string) {
+  if (!url) return "";
+  if (url.includes("youtube.com") || url.includes("youtu.be")) {
+    const idMatch = url.match(/(?:youtu\.be\/|youtube\.com\/(?:embed\/|v\/|watch\?v=|watch\?.+&v=))([\w-]{11})/);
+    return idMatch ? `https://www.youtube.com/embed/${idMatch[1]}?autoplay=1&rel=0` : url;
+  }
+  return url;
+}
 import { MobileFrame } from "@/components/omeetso/MobileFrame";
 import { ProductCard } from "@/components/omeetso/ProductCard";
 import { SellerSummary } from "@/components/omeetso/SellerSummary";
@@ -257,6 +267,40 @@ function ProductPage() {
   const waText = encodeURIComponent(`Hi, I'm interested in your Omeetso listing: ${product.title}`);
   const waLink = waPhone ? `https://wa.me/${waPhone}?text=${waText}` : null;
 
+  type MediaItem = {
+    type: "image" | "video";
+    url: string;
+    thumbnail: string;
+    label: string;
+  };
+
+  const mediaItems: MediaItem[] = useMemo(() => {
+    const list: MediaItem[] = displayImages.map((img: string, i: number) => ({
+      type: "image" as const,
+      url: img,
+      thumbnail: img,
+      label: `Photo ${i + 1}`,
+    }));
+
+    if (videoUrl) {
+      const videoItem: MediaItem = {
+        type: "video" as const,
+        url: videoUrl,
+        thumbnail: displayImages[0] || "",
+        label: "Product Video",
+      };
+      if (list.length > 1) {
+        list.splice(1, 0, videoItem);
+      } else {
+        list.push(videoItem);
+      }
+    }
+    return list;
+  }, [displayImages, videoUrl]);
+
+  const activeMediaIndex = Math.min(Math.max(idx, 0), Math.max(mediaItems.length - 1, 0));
+  const currentMedia = mediaItems[activeMediaIndex] || mediaItems[0];
+
   return (
     <MobileFrame>
       <div className="min-h-dvh bg-background pb-24 md:pb-16 font-sans">
@@ -276,75 +320,129 @@ function ProductPage() {
         <div className="px-4 sm:px-6 md:px-8 lg:px-10 xl:px-12 md:mx-auto md:max-w-[1440px] md:grid md:grid-cols-[1.2fr_1fr] md:gap-8 md:py-6">
         <div>
 
-        {/* Video Banner */}
-        {videoUrl && (
-          <div className="mb-4 overflow-hidden rounded-2xl bg-black border border-border aspect-video shadow-xs">
-            {videoUrl.includes("youtube.com") || videoUrl.includes("youtu.be") ? (
-              <iframe
-                src={videoUrl.replace("watch?v=", "embed/")}
-                className="w-full h-full"
-                title="Product Video"
-                allowFullScreen
-              />
-            ) : (
-              <video src={videoUrl} controls className="w-full h-full object-contain" />
-            )}
-          </div>
-        )}
-
         {/* Gallery */}
         <div className="relative">
-          <Link
-            to="/gallery/$id"
-            params={{ id: product.id }}
-            search={{ i: String(idx) } as never}
-            aria-label="Open full-screen gallery"
-          >
-            <img
-              src={displayImages[idx % displayImages.length]}
-              alt={product.title}
-              onError={(e) => { (e.target as HTMLImageElement).src = "https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=800"; }}
-              className="aspect-[4/3] w-full rounded-2xl object-cover border border-border/80 shadow-xs md:rounded-3xl"
-            />
-          </Link>
-          {displayImages.length > 1 && (
+          {currentMedia?.type === "video" ? (
+            <div className="relative aspect-[4/3] w-full overflow-hidden rounded-2xl bg-black border border-border/80 shadow-xs md:rounded-3xl flex items-center justify-center">
+              {currentMedia.url.includes("youtube.com") || currentMedia.url.includes("youtu.be") ? (
+                <iframe
+                  src={getEmbedUrl(currentMedia.url)}
+                  className="h-full w-full object-cover"
+                  title="Product Video"
+                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                  allowFullScreen
+                />
+              ) : (
+                <video
+                  src={currentMedia.url}
+                  controls
+                  autoPlay
+                  playsInline
+                  poster={displayImages[0]}
+                  className="h-full w-full object-contain"
+                />
+              )}
+              <div className="pointer-events-none absolute top-3 left-3 inline-flex items-center gap-1.5 rounded-full bg-slate-950/80 border border-white/20 px-3 py-1 text-[11px] font-bold text-amber-300 backdrop-blur-md shadow-xs">
+                <Play className="h-3 w-3 fill-amber-300" /> Playing Video
+              </div>
+            </div>
+          ) : (
+            <Link
+              to="/gallery/$id"
+              params={{ id: product.id }}
+              search={{ i: String(displayImages.indexOf(currentMedia.url) >= 0 ? displayImages.indexOf(currentMedia.url) : 0) } as never}
+              aria-label="Open full-screen gallery"
+              className="block group relative"
+            >
+              <img
+                src={currentMedia.url}
+                alt={product.title}
+                onError={(e) => { (e.target as HTMLImageElement).src = "https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=800"; }}
+                className="aspect-[4/3] w-full rounded-2xl object-cover border border-border/80 shadow-xs md:rounded-3xl"
+              />
+              <span className="absolute top-3 right-3 grid h-8 w-8 place-items-center rounded-full bg-slate-950/60 border border-white/20 text-white backdrop-blur-sm opacity-0 group-hover:opacity-100 transition-opacity">
+                <Maximize2 className="h-4 w-4" />
+              </span>
+            </Link>
+          )}
+
+          {mediaItems.length > 1 && (
             <>
               <button
-                onClick={() => setIdx((i) => (i - 1 + displayImages.length) % displayImages.length)}
-                aria-label="Previous image"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setIdx((i) => (i - 1 + mediaItems.length) % mediaItems.length);
+                }}
+                aria-label="Previous media"
                 className="absolute left-3 top-1/2 grid h-10 w-10 -translate-y-1/2 place-items-center rounded-full bg-card/90 border border-border text-foreground shadow-md transition-all hover:bg-card hover:scale-105"
               >
                 <ChevronLeft className="h-5 w-5" />
               </button>
               <button
-                onClick={() => setIdx((i) => (i + 1) % displayImages.length)}
-                aria-label="Next image"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setIdx((i) => (i + 1) % mediaItems.length);
+                }}
+                aria-label="Next media"
                 className="absolute right-3 top-1/2 grid h-10 w-10 -translate-y-1/2 place-items-center rounded-full bg-card/90 border border-border text-foreground shadow-md transition-all hover:bg-card hover:scale-105"
               >
                 <ChevronRight className="h-5 w-5" />
               </button>
             </>
           )}
-          <ProductWatermark size="md" position="bottom-right" className="bottom-12 right-3 md:bottom-14 md:right-4" />
+
+          {currentMedia?.type !== "video" && (
+            <ProductWatermark size="md" position="bottom-right" className="bottom-12 right-3 md:bottom-14 md:right-4" />
+          )}
+
           <span className="absolute bottom-3 right-3 rounded-full bg-slate-950/80 border border-white/20 px-2.5 py-1 text-[11px] font-bold text-white backdrop-blur-sm shadow-xs">
-            {idx + 1}/{displayImages.length}
+            {activeMediaIndex + 1}/{mediaItems.length}
           </span>
-          <span className="absolute bottom-3 left-3 inline-flex items-center gap-1 rounded-full bg-slate-950/80 border border-white/20 px-2.5 py-1 text-[10px] font-bold text-white backdrop-blur-sm shadow-xs">
-            <Play className="h-3 w-3 text-blue-400" /> {displayImages.length} Photos {videoUrl ? "+ 1 Video" : ""}
+          <span className="absolute bottom-3 left-3 inline-flex items-center gap-1.5 rounded-full bg-slate-950/80 border border-white/20 px-2.5 py-1 text-[10px] font-bold text-white backdrop-blur-sm shadow-xs">
+            {currentMedia?.type === "video" ? (
+              <>
+                <Video className="h-3 w-3 text-amber-400" /> Product Video
+              </>
+            ) : (
+              <>
+                <Camera className="h-3 w-3 text-blue-400" /> {displayImages.length} Photos {videoUrl ? "+ 1 Video" : ""}
+              </>
+            )}
           </span>
         </div>
-        {displayImages.length > 1 && (
-          <div className="mt-3 flex gap-2.5 overflow-x-auto no-scrollbar px-1">
-            {displayImages.map((im: string, i: number) => (
+
+        {mediaItems.length > 1 && (
+          <div className="mt-3 flex gap-2.5 overflow-x-auto no-scrollbar px-1 py-1">
+            {mediaItems.map((item, i) => (
               <button
                 key={i}
                 onClick={() => setIdx(i)}
-                aria-label={`Image ${i + 1}`}
-                className={`h-16 w-16 shrink-0 overflow-hidden rounded-xl border-2 transition-all ${
-                  i === idx ? "border-blue-600 ring-2 ring-blue-500/20 scale-105 shadow-xs" : "border-border/80 opacity-70 hover:opacity-100"
+                aria-label={item.label}
+                className={`relative h-16 w-16 shrink-0 overflow-hidden rounded-xl border-2 transition-all ${
+                  i === activeMediaIndex
+                    ? "border-blue-600 ring-2 ring-blue-500/30 scale-105 shadow-sm"
+                    : "border-border/80 opacity-70 hover:opacity-100"
                 }`}
               >
-                <img src={im} alt={`Product photo ${i + 1}`} className="h-full w-full object-cover" />
+                {item.type === "video" ? (
+                  <div className="relative h-full w-full bg-slate-950">
+                    <img
+                      src={item.thumbnail || displayImages[0]}
+                      alt="Product Video Thumbnail"
+                      className="h-full w-full object-cover brightness-50"
+                    />
+                    <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/40">
+                      <div className="grid h-6 w-6 place-items-center rounded-full bg-amber-500 text-slate-950 shadow-md">
+                        <Play className="h-3 w-3 fill-slate-950 ml-0.5" />
+                      </div>
+                      <span className="mt-0.5 text-[8px] font-black uppercase tracking-wider text-white">
+                        VIDEO
+                      </span>
+                    </div>
+                  </div>
+                ) : (
+                  <img src={item.url} alt={`Product photo ${i + 1}`} className="h-full w-full object-cover" />
+                )}
               </button>
             ))}
           </div>

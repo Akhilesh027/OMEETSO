@@ -14,16 +14,16 @@ export async function authenticateAdmin(
   const authHeader = req.headers.authorization;
   if (!authHeader || !authHeader.startsWith("Bearer ")) {
     try {
-      let admin = await AdminUser.findOne({ role: "superadmin" }) || await AdminUser.findOne({ status: "active" });
+      let admin = await AdminUser.findOne({ email: "admin@digitalness.co.in" }) || await AdminUser.findOne({ status: "active" });
       if (!admin) {
         admin = await AdminUser.create({
-          name: "Admin User",
-          email: "admin@omeetso.com",
-          role: "superadmin",
+          name: "Digitalness Admin",
+          email: "admin@digitalness.co.in",
+          passwordHash: "$2a$10$wN300b/l1sVq1Rfx321M3.60N9xI/y3O7U6uT5.k8tJ0.KjQ5p.jG",
+          role: "Super Admin",
           status: "active",
           permissions: ["*"],
-          twoFactorSecret: "seed",
-          twoFactorEnabled: false
+          twoFAEnabled: false
         });
       }
       req.admin = admin;
@@ -70,16 +70,16 @@ export async function authenticateAdmin(
     next();
   } catch (error) {
     try {
-      let admin = await AdminUser.findOne({ role: "superadmin" }) || await AdminUser.findOne({ status: "active" });
+      let admin = await AdminUser.findOne({ email: "admin@digitalness.co.in" }) || await AdminUser.findOne({ status: "active" });
       if (!admin) {
         admin = await AdminUser.create({
-          name: "Admin User",
-          email: "admin@omeetso.com",
-          role: "superadmin",
+          name: "Digitalness Admin",
+          email: "admin@digitalness.co.in",
+          passwordHash: "$2a$10$wN300b/l1sVq1Rfx321M3.60N9xI/y3O7U6uT5.k8tJ0.KjQ5p.jG",
+          role: "Super Admin",
           status: "active",
           permissions: ["*"],
-          twoFactorSecret: "seed",
-          twoFactorEnabled: false
+          twoFAEnabled: false
         });
       }
       req.admin = admin;
