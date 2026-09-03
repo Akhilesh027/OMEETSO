@@ -205,7 +205,7 @@ export async function getMessages(req: AuthenticatedUserRequest, res: Response, 
       return;
     }
 
-    const { conversationId } = req.params;
+    const conversationId = String(req.params.conversationId);
 
     if (!mongoose.Types.ObjectId.isValid(conversationId)) {
       res.status(404).json({ success: false, error: { code: "NOT_FOUND", message: "Conversation not found" } });
@@ -286,7 +286,7 @@ export async function sendMessage(req: AuthenticatedUserRequest, res: Response, 
       return;
     }
 
-    const { conversationId } = req.params;
+    const conversationId = String(req.params.conversationId);
 
     if (!mongoose.Types.ObjectId.isValid(conversationId)) {
       res.status(404).json({ success: false, error: { code: "NOT_FOUND", message: "Conversation not found" } });
@@ -446,7 +446,7 @@ export async function createOffer(req: AuthenticatedUserRequest, res: Response, 
       return;
     }
 
-    const { conversationId } = req.params;
+    const conversationId = String(req.params.conversationId);
 
     if (!mongoose.Types.ObjectId.isValid(conversationId)) {
       res.status(404).json({ success: false, error: { code: "NOT_FOUND", message: "Conversation not found" } });
@@ -552,7 +552,7 @@ export async function updateOfferStatus(req: AuthenticatedUserRequest, res: Resp
       return;
     }
 
-    const { offerId } = req.params;
+    const offerId = String(req.params.offerId);
 
     if (!mongoose.Types.ObjectId.isValid(offerId)) {
       res.status(404).json({ success: false, error: { code: "NOT_FOUND", message: "Offer not found" } });

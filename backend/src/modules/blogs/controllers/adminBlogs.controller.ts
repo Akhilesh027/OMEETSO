@@ -157,7 +157,7 @@ export async function createAdminBlog(req: Request, res: Response, next: NextFun
 
 export async function updateAdminBlog(req: Request, res: Response, next: NextFunction): Promise<void> {
   try {
-    const { id } = req.params;
+    const id = String(req.params.id);
     if (!mongoose.Types.ObjectId.isValid(id)) {
       res.status(400).json({ success: false, error: { message: "Invalid article ID" } });
       return;
@@ -235,7 +235,7 @@ export async function updateAdminBlog(req: Request, res: Response, next: NextFun
 
 export async function updateAdminBlogStatus(req: Request, res: Response, next: NextFunction): Promise<void> {
   try {
-    const { id } = req.params;
+    const id = String(req.params.id);
     const { status } = req.body;
 
     if (!mongoose.Types.ObjectId.isValid(id)) {
@@ -272,7 +272,7 @@ export async function updateAdminBlogStatus(req: Request, res: Response, next: N
 
 export async function deleteAdminBlog(req: Request, res: Response, next: NextFunction): Promise<void> {
   try {
-    const { id } = req.params;
+    const id = String(req.params.id);
     if (!mongoose.Types.ObjectId.isValid(id)) {
       res.status(400).json({ success: false, error: { message: "Invalid article ID" } });
       return;

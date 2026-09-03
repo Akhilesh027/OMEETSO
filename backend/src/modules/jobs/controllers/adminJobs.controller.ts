@@ -60,7 +60,7 @@ export async function getAdminJobs(req: Request, res: Response, next: NextFuncti
 
 export async function updateAdminJobStatus(req: Request, res: Response, next: NextFunction): Promise<void> {
   try {
-    const { id } = req.params;
+    const id = String(req.params.id);
     if (!mongoose.Types.ObjectId.isValid(id)) {
       res.status(400).json({ success: false, error: { message: "Invalid job ID" } });
       return;
@@ -141,7 +141,7 @@ export async function upsertAdminJobCategory(req: Request, res: Response, next: 
 
 export async function getEmployerModerationHistory(req: Request, res: Response, next: NextFunction): Promise<void> {
   try {
-    const { employerId } = req.params;
+    const employerId = String(req.params.employerId);
     if (!mongoose.Types.ObjectId.isValid(employerId)) {
       res.status(400).json({ success: false, error: { message: "Invalid employer ID" } });
       return;

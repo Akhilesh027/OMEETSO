@@ -270,7 +270,7 @@ export async function duplicateJobListing(req: AuthenticatedUserRequest, res: Re
       res.status(401).json({ success: false, error: { message: "Unauthorized" } });
       return;
     }
-    const { id } = req.params;
+    const id = String(req.params.id);
     if (!mongoose.Types.ObjectId.isValid(id)) {
       res.status(400).json({ success: false, error: { message: "Invalid job ID" } });
       return;
@@ -308,7 +308,7 @@ export async function renewJobListing(req: AuthenticatedUserRequest, res: Respon
       res.status(401).json({ success: false, error: { message: "Unauthorized" } });
       return;
     }
-    const { id } = req.params;
+    const id = String(req.params.id);
     if (!mongoose.Types.ObjectId.isValid(id)) {
       res.status(400).json({ success: false, error: { message: "Invalid job ID" } });
       return;
@@ -335,7 +335,7 @@ export async function closeJobListing(req: AuthenticatedUserRequest, res: Respon
       res.status(401).json({ success: false, error: { message: "Unauthorized" } });
       return;
     }
-    const { id } = req.params;
+    const id = String(req.params.id);
     if (!mongoose.Types.ObjectId.isValid(id)) {
       res.status(400).json({ success: false, error: { message: "Invalid job ID" } });
       return;
@@ -492,7 +492,7 @@ export async function getJobApplicants(req: AuthenticatedUserRequest, res: Respo
       return;
     }
 
-    const { jobId } = req.params;
+    const jobId = String(req.params.jobId);
     const { status, q, sort } = req.query;
 
     const jobQueryIds: any[] = [jobId];
@@ -537,7 +537,7 @@ export async function updateApplicantStatus(req: AuthenticatedUserRequest, res: 
       return;
     }
 
-    const { applicationId } = req.params;
+    const applicationId = String(req.params.applicationId);
     const { status, interviewDetails, employerNotes } = req.body;
 
     const app = await JobApplication.findOneAndUpdate(

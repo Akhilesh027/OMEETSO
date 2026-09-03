@@ -71,7 +71,7 @@ export async function getFeaturedBlogs(req: Request, res: Response, next: NextFu
 
 export async function getBlogBySlug(req: Request, res: Response, next: NextFunction): Promise<void> {
   try {
-    const { slug } = req.params;
+    const slug = String(req.params.slug);
 
     const query: Record<string, any> = {
       $or: [{ slug: slug.toLowerCase() }]
@@ -118,7 +118,7 @@ export async function getBlogBySlug(req: Request, res: Response, next: NextFunct
 
 export async function likeBlog(req: Request, res: Response, next: NextFunction): Promise<void> {
   try {
-    const { id } = req.params;
+    const id = String(req.params.id);
 
     const query: Record<string, any> = {
       $or: [{ slug: id.toLowerCase() }]
