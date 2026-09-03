@@ -26,6 +26,7 @@ import {
   FileText
 } from "lucide-react";
 import { useToast } from "@/contexts/ToastContext";
+import { API_BASE } from "@/config/api";
 
 type JobStatus = "all" | "submitted" | "approved" | "active" | "paused" | "filled" | "expired" | "rejected";
 
@@ -44,68 +45,58 @@ export function JobsPage() {
   const [isRejectModalOpen, setIsRejectModalOpen] = useState(false);
   const [jobToReject, setJobToReject] = useState<any | null>(null);
 
+  // Category Edit / Create Modal
+  const [isCategoryModalOpen, setIsCategoryModalOpen] = useState(false);
+  const [editingCategory, setEditingCategory] = useState<any | null>(null);
+  const [catFormData, setCatFormData] = useState({
+    name: "",
+    icon: "Briefcase",
+    description: "",
+    subcategories: "Full Time, Remote, Internship, Walk-in",
+  });
+
   // Message to Employer modal
   const [isMessageModalOpen, setIsMessageModalOpen] = useState(false);
   const [messageRecipient, setMessageRecipient] = useState<any | null>(null);
   const [messageText, setMessageText] = useState("");
 
-  // Category Edit Modal
-  const [catModalOpen, setCatModalOpen] = useState(false);
-  const [catForm, setCatForm] = useState({
-    id: "",
-    name: "",
-    icon: "Briefcase",
-    order: 0,
-    isActive: true,
-    subcategories: "Full Time, Remote, Internship, Walk-in",
-  });
-
   const { showSuccess, showError } = useToast();
 
   const loadAdminJobs = async () => {
     setLoading(true);
-    let loaded = false;
-
-    // Fetch all jobs so stats and tabs filter seamlessly
-    for (const port of [3000, 5000]) {
-      try {
-        const token = typeof localStorage !== "undefined" ? localStorage.getItem("omeetso_admin_token") : null;
-        const res = await fetch(`http://localhost:${port}/api/v1/admin/jobs?status=ALL`, {
-          headers: { ...(token ? { Authorization: `Bearer ${token}` } : {}) },
-        });
-        if (res.ok) {
-          const json = await res.json();
-          if (json.success && Array.isArray(json.data)) {
-            setJobs(json.data);
-            loaded = true;
-            break;
-          }
+    try {
+      const token = typeof localStorage !== "undefined" ? localStorage.getItem("omeetso_admin_token") : null;
+      const res = await fetch(`${API_BASE}/admin/jobs?status=ALL`, {
+        headers: { ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+      });
+      if (res.ok) {
+        const json = await res.json();
+        if (json.success && Array.isArray(json.data)) {
+          setJobs(json.data);
+          setLoading(false);
+          return;
         }
-      } catch {
-        // try next
       }
+    } catch {
+      // fallback
     }
 
-    if (!loaded) {
-      setJobs([]);
-    }
+    setJobs([]);
     setLoading(false);
   };
 
   const loadAdminCategories = async () => {
-    for (const port of [3000, 5000]) {
-      try {
-        const res = await fetch(`http://localhost:${port}/api/v1/jobs/categories`);
-        if (res.ok) {
-          const json = await res.json();
-          if (json.success && Array.isArray(json.data)) {
-            setCategories(json.data);
-            return;
-          }
+    try {
+      const res = await fetch(`${API_BASE}/jobs/categories`);
+      if (res.ok) {
+        const json = await res.json();
+        if (json.success && Array.isArray(json.data)) {
+          setCategories(json.data);
+          return;
         }
-      } catch {
-        // try next
       }
+    } catch {
+      // fallback
     }
   };
 
@@ -117,19 +108,14 @@ export function JobsPage() {
   const handleUpdateJobStatus = async (jobId: string, status: string, reason?: string) => {
     try {
       const token = typeof localStorage !== "undefined" ? localStorage.getItem("omeetso_admin_token") : null;
-      for (const port of [3000, 5000]) {
-        try {
-          await fetch(`http://localhost:${port}/api/v1/admin/jobs/${jobId}/status`, {
-            method: "PATCH",
-            headers: {
-              "Content-Type": "application/json",
-              ...(token ? { Authorization: `Bearer ${token}` } : {}),
-            },
-            body: JSON.stringify({ status, rejectionReason: reason }),
-          });
-          break;
-        } catch { }
-      }
+      await fetch(`${API_BASE}/admin/jobs/${jobId}/status`, {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+        body: JSON.stringify({ status, rejectionReason: reason }),
+      });
     } catch { }
 
     // Update local state

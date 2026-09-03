@@ -57,7 +57,7 @@ export default function ListingsListPage() {
 
   const loadListings = async () => {
     try {
-      const res = await getAdminListingsQueueApi();
+      const res = await getAdminListingsQueueApi({ limit: 100 });
       if (res.success && Array.isArray(res.data) && res.data.length > 0) {
         const mapped: Listing[] = res.data.map((item: any) => ({
           id: item.id || item._id,
@@ -84,7 +84,7 @@ export default function ListingsListPage() {
     } catch { }
 
     try {
-      const res = await fetch("https://api.omeetso.in/api/v1/listings/feed");
+      const res = await fetch("https://api.omeetso.in/api/v1/listings?limit=100");
       const json = await res.json();
       if (json.success && Array.isArray(json.data)) {
         const mapped: Listing[] = json.data.map((item: any) => ({
@@ -94,7 +94,7 @@ export default function ListingsListPage() {
           price: item.priceInPaise ? item.priceInPaise / 100 : item.price || 0,
           currency: "INR",
           condition: item.condition || "Like New",
-          categoryId: item.categoryId || "general",
+          categoryId: item.categoryId || item.category || "general",
           subcategoryId: item.subcategoryId,
           sellerId: item.sellerId || "u_live",
           sellerName: item.sellerName || "Omeetso Seller",
