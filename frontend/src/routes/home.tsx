@@ -417,6 +417,7 @@ function Home() {
               condition: item.condition || "good",
               area: item.area || item.location || "",
               city: item.city || "",
+              pincode: item.pincode || "",
               distanceKm: calculatedDist,
               postedAgo: "Just now",
               image: item.images?.[0] || item.image || "https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=400",
@@ -430,6 +431,35 @@ function Home() {
               method: item.method || "quick",
             };
           });
+
+          // 🎯 Hyperlocal Priority Sorting:
+          // 1. Exact user pincode match first
+          // 2. Exact user area match second
+          // 3. Closest distance in km
+          const userPin = String(loc?.pincode || "").trim();
+          const userArea = (loc?.area || "").toLowerCase();
+
+          mapped.sort((a: any, b: any) => {
+            const pinA = String(a.pincode || "").trim();
+            const pinB = String(b.pincode || "").trim();
+
+            const isExactPinA = Boolean(userPin && pinA === userPin);
+            const isExactPinB = Boolean(userPin && pinB === userPin);
+            if (isExactPinA && !isExactPinB) return -1;
+            if (!isExactPinA && isExactPinB) return 1;
+
+            const areaA = (a.area || "").toLowerCase();
+            const areaB = (b.area || "").toLowerCase();
+            const isExactAreaA = Boolean(userArea && areaA && userArea.includes(areaA));
+            const isExactAreaB = Boolean(userArea && areaB && userArea.includes(areaB));
+            if (isExactAreaA && !isExactAreaB) return -1;
+            if (!isExactAreaA && isExactAreaB) return 1;
+
+            const distA = typeof a.distanceKm === "number" ? a.distanceKm : 9999;
+            const distB = typeof b.distanceKm === "number" ? b.distanceKm : 9999;
+            return distA - distB;
+          });
+
           setLiveProducts(mapped);
         } else {
           setLiveProducts([]);

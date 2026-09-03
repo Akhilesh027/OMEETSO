@@ -24,8 +24,6 @@ export const ADMIN_NAVIGATION: NavGroup[] = [
         route: "/admin/listings",
         iconName: "Package",
         permission: "listings.view",
-        badge: 184,
-        badgeColor: "warning",
       },
       {
         id: "categories",
@@ -40,8 +38,6 @@ export const ADMIN_NAVIGATION: NavGroup[] = [
         route: "/admin/stores",
         iconName: "Store",
         permission: "stores.view",
-        badge: 42,
-        badgeColor: "info",
       },
       {
         id: "jobs",
@@ -75,7 +71,7 @@ export const ADMIN_NAVIGATION: NavGroup[] = [
       },
       {
         id: "slot_specs",
-        label: "Slot Specs (6)",
+        label: "Slot Specs",
         route: "/admin/promotions/placements",
         iconName: "Layers",
         permission: "promotions.view",
@@ -121,8 +117,6 @@ export const ADMIN_NAVIGATION: NavGroup[] = [
         route: "/admin/safety-reports",
         iconName: "ShieldAlert",
         permissions: ["safety.view", "safety.investigate"],
-        badge: 8,
-        badgeColor: "error",
       },
       {
         id: "reviews",
@@ -137,8 +131,6 @@ export const ADMIN_NAVIGATION: NavGroup[] = [
         route: "/admin/support",
         iconName: "HelpCircle",
         permission: "support.view",
-        badge: 67,
-        badgeColor: "warning",
       },
     ],
   },

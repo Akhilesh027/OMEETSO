@@ -122,6 +122,7 @@ function Results() {
             condition: item.condition || "good",
             area: item.area || item.location || "",
             city: item.city || "",
+            pincode: item.pincode || "",
             distanceKm: calculatedDist,
             postedAgo: "Just now",
             image: item.images?.[0] || item.image || "https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=400",
@@ -236,12 +237,37 @@ function Results() {
       });
     }
 
+    const userPin = String(activeLoc?.pincode || "").trim();
+    const userArea = (activeLoc?.area || "").toLowerCase();
+
     switch (search.sort) {
       case "price-low": list = [...list].sort((a, b) => a.price - b.price); break;
       case "price-high": list = [...list].sort((a, b) => b.price - a.price); break;
       case "distance": list = [...list].sort((a, b) => (a.distanceKm ?? 999) - (b.distanceKm ?? 999)); break;
       case "newest":
       case "updated": list = [...list].reverse(); break;
+      default:
+        // Default Hyperlocal Relevance: exact user pincode match first, then closest distance
+        list = [...list].sort((a: any, b: any) => {
+          const pinA = String(a.pincode || "").trim();
+          const pinB = String(b.pincode || "").trim();
+          const isExactPinA = Boolean(userPin && pinA === userPin);
+          const isExactPinB = Boolean(userPin && pinB === userPin);
+          if (isExactPinA && !isExactPinB) return -1;
+          if (!isExactPinA && isExactPinB) return 1;
+
+          const areaA = (a.area || "").toLowerCase();
+          const areaB = (b.area || "").toLowerCase();
+          const isExactAreaA = Boolean(userArea && areaA && userArea.includes(areaA));
+          const isExactAreaB = Boolean(userArea && areaB && userArea.includes(areaB));
+          if (isExactAreaA && !isExactAreaB) return -1;
+          if (!isExactAreaA && isExactAreaB) return 1;
+
+          const distA = typeof a.distanceKm === "number" ? a.distanceKm : 9999;
+          const distB = typeof b.distanceKm === "number" ? b.distanceKm : 9999;
+          return distA - distB;
+        });
+        break;
     }
     return list;
   }, [allProducts, q, search.cat, search.cond, search.sort, search.verified, search.minP, search.maxP, search.quickSale, activeLoc]);

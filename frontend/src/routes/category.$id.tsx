@@ -218,6 +218,7 @@ function CategoryPage() {
           condition: item.condition || "good",
           area: item.area || item.location || "",
           city: item.city || "",
+          pincode: item.pincode || "",
           distanceKm: calculatedDist,
           postedAgo: "Recently",
           verified: true,
@@ -277,20 +278,16 @@ function CategoryPage() {
       area: item.area || "Hitec City",
       distanceKm: 2,
       postedAgo: "Recently",
+      verified: false,
+      sellerId: "me",
       image: item.images?.[item.cover || 0] || item.images?.[0] || "https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=400",
       images: item.images,
-      verified: true,
-      sellerId: "u_me",
-      method: item.method,
-      sponsored: false
+      specs: item.specs || {},
+      description: item.description,
+      method: item.method || "quick",
     }));
 
-    const source = [...liveProducts, ...localItems];
-    const uniqueMap = new Map<string, any>();
-    source.forEach((item) => {
-      if (!uniqueMap.has(item.id)) uniqueMap.set(item.id, item);
-    });
-    let list: Product[] = Array.from(uniqueMap.values());
+    let list = [...localItems, ...liveProducts];
 
     const q = search.q?.toLowerCase() ?? "";
     if (search.sub) list = list.filter((p) => (p.subcategory || "").toLowerCase() === search.sub?.toLowerCase());
@@ -346,12 +343,37 @@ function CategoryPage() {
       });
     }
 
+    const userPin = String(activeLoc?.pincode || "").trim();
+    const userArea = (activeLoc?.area || "").toLowerCase();
+
     switch (search.sort) {
       case "price-low": list = [...list].sort((a, b) => a.price - b.price); break;
       case "price-high": list = [...list].sort((a, b) => b.price - a.price); break;
       case "distance": list = [...list].sort((a, b) => (a.distanceKm ?? 999) - (b.distanceKm ?? 999)); break;
       case "newest":
       case "updated": list = [...list].reverse(); break;
+      default:
+        // Default Hyperlocal Relevance: exact user pincode match first, then closest distance
+        list = [...list].sort((a: any, b: any) => {
+          const pinA = String(a.pincode || "").trim();
+          const pinB = String(b.pincode || "").trim();
+          const isExactPinA = Boolean(userPin && pinA === userPin);
+          const isExactPinB = Boolean(userPin && pinB === userPin);
+          if (isExactPinA && !isExactPinB) return -1;
+          if (!isExactPinA && isExactPinB) return 1;
+
+          const areaA = (a.area || "").toLowerCase();
+          const areaB = (b.area || "").toLowerCase();
+          const isExactAreaA = Boolean(userArea && areaA && userArea.includes(areaA));
+          const isExactAreaB = Boolean(userArea && areaB && userArea.includes(areaB));
+          if (isExactAreaA && !isExactAreaB) return -1;
+          if (!isExactAreaA && isExactAreaB) return 1;
+
+          const distA = typeof a.distanceKm === "number" ? a.distanceKm : 9999;
+          const distB = typeof b.distanceKm === "number" ? b.distanceKm : 9999;
+          return distA - distB;
+        });
+        break;
     }
 
     return list;

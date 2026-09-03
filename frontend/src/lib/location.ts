@@ -207,10 +207,18 @@ export const KNOWN_PINCODE_MAP: Record<string, { area: string; city: string; sta
   "110001": { area: "Connaught Place", city: "New Delhi", state: "Delhi" },
   "110016": { area: "Hauz Khas", city: "New Delhi", state: "Delhi" },
   "110024": { area: "Lajpat Nagar", city: "New Delhi", state: "Delhi" },
-  "600001": { area: "George Town", city: "Chennai", state: "Tamil Nadu" },
-  "600017": { area: "T Nagar", city: "Chennai", state: "Tamil Nadu" },
-  "411001": { area: "Shivajinagar", city: "Pune", state: "Maharashtra" },
-  "700001": { area: "BBD Bagh", city: "Kolkata", state: "West Bengal" },
+  // Kerala Major Cities
+  "682001": { area: "Kochi", city: "Kochi", state: "Kerala" },
+  "682030": { area: "Kakkanad", city: "Kochi", state: "Kerala" },
+  "695001": { area: "Thiruvananthapuram", city: "Thiruvananthapuram", state: "Kerala" },
+  "673001": { area: "Kozhikode", city: "Kozhikode", state: "Kerala" },
+  "680001": { area: "Thrissur", city: "Thrissur", state: "Kerala" },
+  "670001": { area: "Kannur", city: "Kannur", state: "Kerala" },
+  "691001": { area: "Kollam", city: "Kollam", state: "Kerala" },
+  "686001": { area: "Kottayam", city: "Kottayam", state: "Kerala" },
+  "678001": { area: "Palakkad", city: "Palakkad", state: "Kerala" },
+  "676505": { area: "Malappuram", city: "Malappuram", state: "Kerala" },
+  "688001": { area: "Alappuzha", city: "Alappuzha", state: "Kerala" },
 };
 
 /**
@@ -367,13 +375,15 @@ export async function fetchAreaFromPincode(pincode: string): Promise<LocationRes
     return { area: `Hyderabad Zone ${cleanPin}`, pincode: cleanPin, city: "Hyderabad", state: "Telangana" };
   } else if (cleanPin.startsWith("501") || cleanPin.startsWith("502")) {
     return { area: "Telangana Region", pincode: cleanPin, city: "Telangana", state: "Telangana" };
+  } else if (cleanPin.startsWith("68") || cleanPin.startsWith("69") || cleanPin.startsWith("67")) {
+    return { area: "Kerala Region", pincode: cleanPin, city: "Kerala", state: "Kerala" };
   } else if (cleanPin.startsWith("560")) {
     return { area: "Bangalore", pincode: cleanPin, city: "Bangalore", state: "Karnataka" };
   } else if (cleanPin.startsWith("400")) {
     return { area: "Mumbai", pincode: cleanPin, city: "Mumbai", state: "Maharashtra" };
   }
 
-  return { area: `Pincode ${cleanPin}`, pincode: cleanPin, city: "Telangana", state: "Telangana" };
+  return { area: `Pincode ${cleanPin}`, pincode: cleanPin, city: "Local Area", state: "India" };
 }
 
 /**

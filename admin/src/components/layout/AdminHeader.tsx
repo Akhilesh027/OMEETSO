@@ -64,9 +64,6 @@ export const AdminHeader: React.FC<AdminHeaderProps> = ({
           title="Pending Actions"
         >
           <Clock className="w-5 h-5" />
-          <span className="absolute top-1 right-1 flex h-4 w-4 items-center justify-center rounded-full bg-[#FFB800] text-[9px] font-bold text-slate-900">
-            184
-          </span>
         </Link>
 
         {/* Critical Alerts Shortcut */}
@@ -76,9 +73,6 @@ export const AdminHeader: React.FC<AdminHeaderProps> = ({
           title="Critical Alerts"
         >
           <AlertTriangle className="w-5 h-5" />
-          <span className="absolute top-1 right-1 flex h-4 w-4 items-center justify-center rounded-full bg-[#DC3545] text-[9px] font-bold text-white">
-            8
-          </span>
         </Link>
 
         {/* Notification Menu Toggle */}
@@ -89,14 +83,12 @@ export const AdminHeader: React.FC<AdminHeaderProps> = ({
             aria-label="Notifications"
           >
             <Bell className="w-5 h-5" />
-            <span className="absolute top-1.5 right-1.5 w-2 h-2 rounded-full bg-[#3547D4]" />
           </button>
 
           {isNotifOpen && (
             <div className="absolute right-0 mt-2 w-80 bg-white rounded-2xl shadow-2xl border border-[#E2E8F0] p-4 space-y-3 z-30 animate-in fade-in-50">
               <div className="flex items-center justify-between border-b border-[#E2E8F0] pb-2">
                 <h4 className="text-xs font-bold text-[#111827]">System Notifications</h4>
-                <span className="text-[10px] text-[#3547D4] font-semibold">3 New</span>
               </div>
               <div className="space-y-2 text-xs">
                 <div className="p-2.5 rounded-xl bg-[#F5F7FC] space-y-0.5">

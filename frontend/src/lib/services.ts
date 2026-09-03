@@ -173,210 +173,8 @@ export const SERVICE_CATEGORIES: ServiceCategoryItem[] = [
   },
 ];
 
-// Seed initial 3 services for immediate rich fallback and storage
-export const SEED_SERVICES: ServiceItem[] = [
-  {
-    id: "srv-ac-001",
-    providerId: "user-provider-001",
-    businessName: "CoolBreeze AC Care & HVAC Solutions",
-    providerName: "Ramesh Sharma (Certified HVAC Technician)",
-    avatar: "https://images.unsplash.com/photo-1621905251189-08b45d6a269e?w=200&auto=format&fit=crop&q=80",
-    phone: "+91 98765 12001",
-    email: "ramesh.hvac@omeetso.com",
-    isVerifiedProvider: true,
-    providerBadge: "Top Rated AC Pro",
-    title: "Complete Jet Pump AC Servicing & Gas Refill",
-    serviceCategoryId: "appliance_repair",
-    subcategoryId: "AC Service & Gas Refill",
-    serviceType: "DOORSTEP",
-    pricing: {
-      priceType: "STARTING_AT",
-      amount: 499,
-      discountPrice: 699,
-      priceUnit: "per service",
-      isNegotiable: false,
-    },
-    location: {
-      area: "Madhapur",
-      city: "Hyderabad",
-      pincode: "500081",
-      serviceRadiusKm: 25,
-      servesAreas: ["Madhapur", "Hitec City", "Gachibowli", "Kondapur", "Jubilee Hills", "Banjara Hills", "Kukatpally"],
-      coordinates: [78.3869, 17.4483],
-    },
-    serviceDetails: {
-      description: "Professional high-pressure jet pump deep clean for Split and Window ACs. Eliminates 99.9% bacteria, foul odor, and improves cooling efficiency up to 40%. Complete gas check and electrical diagnostics included.",
-      inclusions: [
-        "High-pressure jet cleaning for indoor evaporator coils & filter mesh",
-        "Outdoor condenser unit power wash & coil cleanup",
-        "Drain pipe flushing to prevent water leakage",
-        "Comprehensive 10-point cooling and electrical safety diagnostic test",
-        "Refrigerant gas pressure measurement check",
-      ],
-      exclusions: [
-        "Spare parts replacement (PCB board, capacitor, copper tubing if needed)",
-        "Complete gas refilling / top-up billed additionally as per PSI requirement",
-      ],
-      images: [
-        "https://images.unsplash.com/photo-1621905251189-08b45d6a269e?w=800&auto=format&fit=crop&q=80",
-        "https://images.unsplash.com/photo-1581092160607-ee22621dd758?w=800&auto=format&fit=crop&q=80",
-        "https://images.unsplash.com/photo-1621905252507-b35492cc74b4?w=800&auto=format&fit=crop&q=80",
-      ],
-      experienceYears: 8,
-      guaranteedResponseTime: "Within 60 Mins",
-      warranty: "60 Days Cooling & Leak Guarantee",
-    },
-    availability: {
-      workingDays: ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"],
-      workingHours: "08:00 AM - 09:00 PM",
-      emergencyServiceAvailable: true,
-    },
-    status: "ACTIVE",
-    isFeatured: true,
-    isEmergency: true,
-    stats: {
-      viewsCount: 1240,
-      inquiriesCount: 182,
-      bookingsCount: 145,
-      rating: 4.9,
-      reviewsCount: 68,
-    },
-    createdAt: Date.now() - 86400000 * 2,
-  },
-  {
-    id: "srv-clean-002",
-    providerId: "user-provider-002",
-    businessName: "SparkleClean Pro Home & Office Deep Cleaners",
-    providerName: "Pooja & Clean Crew",
-    avatar: "https://images.unsplash.com/photo-1581578731548-c64695cc6952?w=200&auto=format&fit=crop&q=80",
-    phone: "+91 98765 12002",
-    email: "sparkle.clean@omeetso.com",
-    isVerifiedProvider: true,
-    providerBadge: "ISO Certified Partner",
-    title: "Full Apartment & Villa Deep Cleaning Service",
-    serviceCategoryId: "home_services",
-    subcategoryId: "Deep Home Cleaning",
-    serviceType: "DOORSTEP",
-    pricing: {
-      priceType: "STARTING_AT",
-      amount: 2499,
-      discountPrice: 3200,
-      priceUnit: "per service",
-      isNegotiable: true,
-    },
-    location: {
-      area: "Gachibowli",
-      city: "Hyderabad",
-      pincode: "500032",
-      serviceRadiusKm: 30,
-      servesAreas: ["Gachibowli", "Financial District", "Kokapet", "Manikonda", "Nanakramguda", "Tellapur", "Miyapur"],
-      coordinates: [78.3578, 17.4401],
-    },
-    serviceDetails: {
-      description: "Top-to-bottom mechanized deep sanitization for 1BHK/2BHK/3BHK apartments and independent houses. Uses eco-friendly German Taski chemicals, single-disc floor scrubbing machines, and industrial vacuum cleaners.",
-      inclusions: [
-        "Kitchen deep degreasing: chimney, exhaust, tiles, countertops, cabinet exteriors",
-        "Bathroom scrub & descaling: tiles, sanitary fittings, glass partitions, taps",
-        "Single-disc mechanized floor scrubbing & buffing across all rooms",
-        "Dry vacuuming of sofas, mattresses, and window channel debris extraction",
-        "Ceiling fan, switchboard, door, and balcony railing wipe down",
-      ],
-      exclusions: [
-        "Interior cupboard organization / personal item decluttering",
-        "Wall repainting or heavy cement stain scraping",
-      ],
-      images: [
-        "https://images.unsplash.com/photo-1581578731548-c64695cc6952?w=800&auto=format&fit=crop&q=80",
-        "https://images.unsplash.com/photo-1527515637462-cff94eecc1ac?w=800&auto=format&fit=crop&q=80",
-        "https://images.unsplash.com/photo-1584622650111-993a426fbf0a?w=800&auto=format&fit=crop&q=80",
-      ],
-      experienceYears: 6,
-      guaranteedResponseTime: "Same Day Slots",
-      warranty: "100% Re-clean Guarantee if unsatisfied",
-    },
-    availability: {
-      workingDays: ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"],
-      workingHours: "07:30 AM - 08:30 PM",
-      emergencyServiceAvailable: false,
-    },
-    status: "ACTIVE",
-    isFeatured: true,
-    isEmergency: false,
-    stats: {
-      viewsCount: 890,
-      inquiriesCount: 96,
-      bookingsCount: 82,
-      rating: 4.85,
-      reviewsCount: 42,
-    },
-    createdAt: Date.now() - 86400000 * 4,
-  },
-  {
-    id: "srv-elec-003",
-    providerId: "user-provider-003",
-    businessName: "VoltMaster 24/7 Electrician & Emergency Plumbing",
-    providerName: "K. Venkatesh (Master Wireman)",
-    avatar: "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=200&auto=format&fit=crop&q=80",
-    phone: "+91 98765 12003",
-    email: "voltmaster@omeetso.com",
-    isVerifiedProvider: true,
-    providerBadge: "Govt. Licensed Electrician",
-    title: "24/7 Emergency Electrician & Plumbing Fix",
-    serviceCategoryId: "home_services",
-    subcategoryId: "Electrician & Wiring",
-    serviceType: "DOORSTEP",
-    pricing: {
-      priceType: "VISITATION_FEE",
-      amount: 199,
-      priceUnit: "per visit",
-      isNegotiable: false,
-    },
-    location: {
-      area: "Kukatpally",
-      city: "Hyderabad",
-      pincode: "500072",
-      serviceRadiusKm: 20,
-      servesAreas: ["Kukatpally", "KPHB Colony", "Miyapur", "Nizampet", "Bachupally", "JNTU", "Moosapet"],
-      coordinates: [78.3995, 17.4938],
-    },
-    serviceDetails: {
-      description: "Rapid 30-minute doorstep emergency response for electrical power cuts, MCB tripping, short circuits, inverter wiring, ceiling fans, motor pump issues, and acute water leakage/drain blockages.",
-      inclusions: [
-        "Fast 30-45 min arrival across Kukatpally & Cyberabad zone",
-        "Thorough digital multimeter diagnostic & short-circuit tracing",
-        "First 30 minutes of labor & basic connection fixing included",
-        "Transparent upfront rate card for any additional work or replacements",
-      ],
-      exclusions: [
-        "Cost of heavy cables, MCB switches, submersible motors or copper pipes",
-      ],
-      images: [
-        "https://images.unsplash.com/photo-1544717305-2782549b5136?w=800&auto=format&fit=crop&q=80",
-        "https://images.unsplash.com/photo-1581244277943-fe4a9c777189?w=800&auto=format&fit=crop&q=80",
-        "https://images.unsplash.com/photo-1504307651254-35680f356dfd?w=800&auto=format&fit=crop&q=80",
-      ],
-      experienceYears: 10,
-      guaranteedResponseTime: "Under 30 Mins",
-      warranty: "30 Days Service Warranty",
-    },
-    availability: {
-      workingDays: ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"],
-      workingHours: "24 Hours Emergency",
-      emergencyServiceAvailable: true,
-    },
-    status: "ACTIVE",
-    isFeatured: true,
-    isEmergency: true,
-    stats: {
-      viewsCount: 2150,
-      inquiriesCount: 310,
-      bookingsCount: 278,
-      rating: 4.95,
-      reviewsCount: 114,
-    },
-    createdAt: Date.now() - 86400000 * 1,
-  },
-];
+// No mock services by default; real services come from backend or user creations
+export const SEED_SERVICES: ServiceItem[] = [];
 
 const LOCAL_STORAGE_SERVICES_KEY = "omeetso_local_services";
 const LOCAL_STORAGE_INQUIRIES_KEY = "omeetso_service_inquiries";
@@ -384,17 +182,22 @@ const LOCAL_STORAGE_SAVED_SERVICES_KEY = "omeetso_saved_service_ids";
 
 // Helper to get local services
 export function getLocalServices(): ServiceItem[] {
-  if (typeof window === "undefined") return SEED_SERVICES;
+  if (typeof window === "undefined") return [];
   try {
     const raw = localStorage.getItem(LOCAL_STORAGE_SERVICES_KEY);
-    if (!raw) {
-      localStorage.setItem(LOCAL_STORAGE_SERVICES_KEY, JSON.stringify(SEED_SERVICES));
-      return SEED_SERVICES;
-    }
+    if (!raw) return [];
     const parsed = JSON.parse(raw);
-    return Array.isArray(parsed) && parsed.length > 0 ? parsed : SEED_SERVICES;
+    if (!Array.isArray(parsed)) return [];
+    // Filter out old mock seed IDs if any exist in localStorage
+    const cleanList = parsed.filter(
+      (s: any) => s && s.id !== "srv-ac-001" && s.id !== "srv-clean-002" && s.id !== "srv-elec-003"
+    );
+    if (cleanList.length !== parsed.length) {
+      localStorage.setItem(LOCAL_STORAGE_SERVICES_KEY, JSON.stringify(cleanList));
+    }
+    return cleanList;
   } catch {
-    return SEED_SERVICES;
+    return [];
   }
 }
 
