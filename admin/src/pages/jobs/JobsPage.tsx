@@ -46,12 +46,13 @@ export function JobsPage() {
   const [jobToReject, setJobToReject] = useState<any | null>(null);
 
   // Category Edit / Create Modal
-  const [isCategoryModalOpen, setIsCategoryModalOpen] = useState(false);
-  const [editingCategory, setEditingCategory] = useState<any | null>(null);
-  const [catFormData, setCatFormData] = useState({
+  const [catModalOpen, setCatModalOpen] = useState(false);
+  const [catForm, setCatForm] = useState({
+    id: "",
     name: "",
     icon: "Briefcase",
-    description: "",
+    order: 0,
+    isActive: true,
     subcategories: "Full Time, Remote, Internship, Walk-in",
   });
 
@@ -144,7 +145,7 @@ export function JobsPage() {
     e.preventDefault();
     const subs = catForm.subcategories
       .split(",")
-      .map((s) => s.trim())
+      .map((s: string) => s.trim())
       .filter(Boolean);
 
     setCategories((prev) => [
