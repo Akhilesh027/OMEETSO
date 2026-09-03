@@ -1,15 +1,52 @@
+@import url("https://fonts.cdnfonts.com/css/glacial-indifference-2");
+@import url("https://fonts.cdnfonts.com/css/glacial-indifference");
 @import url("https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:ital,wght@0,300;0,400;0,500;0,600;0,700;0,800;1,400;1,600&family=Urbanist:ital,wght@0,400;0,500;0,600;0,700;0,800;0,900;1,500;1,700&display=swap");
 @import "tailwindcss" source(none);
 @source "../src";
 @import "tw-animate-css";
 
+/* Local Glacial Indifference font-face fallback declarations */
+@font-face {
+  font-family: "Glacial Indifference";
+  src: local("Glacial Indifference Regular"), local("GlacialIndifference-Regular"),
+       url("/fonts/GlacialIndifference-Regular.woff2") format("woff2"),
+       url("/fonts/GlacialIndifference-Regular.otf") format("opentype"),
+       url("/fonts/GlacialIndifference-Regular.ttf") format("truetype");
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "Glacial Indifference";
+  src: local("Glacial Indifference Bold"), local("GlacialIndifference-Bold"),
+       url("/fonts/GlacialIndifference-Bold.woff2") format("woff2"),
+       url("/fonts/GlacialIndifference-Bold.otf") format("opentype"),
+       url("/fonts/GlacialIndifference-Bold.ttf") format("truetype");
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "Glacial Indifference";
+  src: local("Glacial Indifference Italic"), local("GlacialIndifference-Italic"),
+       url("/fonts/GlacialIndifference-Italic.woff2") format("woff2"),
+       url("/fonts/GlacialIndifference-Italic.otf") format("opentype"),
+       url("/fonts/GlacialIndifference-Italic.ttf") format("truetype");
+  font-weight: 400;
+  font-style: italic;
+  font-display: swap;
+}
+
 @custom-variant dark (&:is(.dark *));
 
 /* Omeetso design system */
 @theme inline {
-  --font-sans: "Plus Jakarta Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, ui-sans-serif, sans-serif;
-  --font-display: "Urbanist", "Plus Jakarta Sans", -apple-system, BlinkMacSystemFont, sans-serif;
-  --font-heading: "Urbanist", "Plus Jakarta Sans", -apple-system, BlinkMacSystemFont, sans-serif;
+  --font-sans: "Glacial Indifference", "Plus Jakarta Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, ui-sans-serif, sans-serif;
+  --font-display: "Glacial Indifference", "Urbanist", "Plus Jakarta Sans", -apple-system, BlinkMacSystemFont, sans-serif;
+  --font-heading: "Glacial Indifference", "Urbanist", "Plus Jakarta Sans", -apple-system, BlinkMacSystemFont, sans-serif;
+  --font-glacial: "Glacial Indifference", -apple-system, BlinkMacSystemFont, sans-serif;
 
   --radius-sm: calc(var(--radius) - 4px);
   --radius-md: calc(var(--radius) - 2px);
@@ -150,15 +187,19 @@
 
 /* Utilities */
 @utility font-sans {
-  font-family: "Plus Jakarta Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif !important;
+  font-family: "Glacial Indifference", "Plus Jakarta Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif !important;
 }
 
 @utility font-display {
-  font-family: "Urbanist", "Plus Jakarta Sans", sans-serif !important;
+  font-family: "Glacial Indifference", "Urbanist", "Plus Jakarta Sans", sans-serif !important;
 }
 
 @utility font-heading {
-  font-family: "Urbanist", "Plus Jakarta Sans", sans-serif !important;
+  font-family: "Glacial Indifference", "Urbanist", "Plus Jakarta Sans", sans-serif !important;
+}
+
+@utility font-glacial {
+  font-family: "Glacial Indifference", sans-serif !important;
 }
 
 @utility safe-b {

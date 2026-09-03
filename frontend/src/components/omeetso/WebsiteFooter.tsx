@@ -42,7 +42,7 @@ export function WebsiteFooter() {
       ],
     },
     {
-      title: "Legal",
+      title: "Legal & Compliance",
       links: [
         { label: "Terms of Service", to: "/terms" },
         { label: "Privacy Policy", to: "/privacy" },
