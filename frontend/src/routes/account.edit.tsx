@@ -31,6 +31,7 @@ function EditProfile() {
   const nav = useNavigate();
   const p = useMemo(() => getProfile(), []);
   const [name, setName] = useState(p.name);
+  const [businessName, setBusinessName] = useState(p.businessName ?? "");
   const [email, setEmail] = useState(p.email ?? "");
   const [mobile] = useState(p.mobile);
   const [city, setCity] = useState(p.city);
@@ -46,7 +47,7 @@ function EditProfile() {
   const [confirmLeave, setConfirmLeave] = useState(false);
 
   const dirty =
-    name !== p.name || email !== (p.email ?? "") || city !== p.city ||
+    name !== p.name || businessName !== (p.businessName ?? "") || email !== (p.email ?? "") || city !== p.city ||
     pincode !== p.pincode || area !== (p.area ?? "") || lang !== p.language ||
     bio !== (p.bio ?? "") || avatar !== p.avatar || account !== p.accountType ||
     businessEnabled !== !!p.businessEnabled;
@@ -76,6 +77,7 @@ function EditProfile() {
           },
           body: JSON.stringify({
             name: name.trim(),
+            businessName: businessName.trim() || undefined,
             email: email.trim() || undefined,
             city,
             pincode,
@@ -90,17 +92,19 @@ function EditProfile() {
       }
     }
 
-    setProfile({ name: name.trim(), email: email.trim(), city, pincode, area, language: lang, bio, avatar, accountType: account, businessEnabled });
+    setProfile({ name: name.trim(), businessName: businessName.trim(), email: email.trim(), city, pincode, area, language: lang, bio, avatar, accountType: account, businessEnabled });
 
     if (typeof window !== "undefined") {
       try {
         const u = JSON.parse(localStorage.getItem("omeetso_user") || "{}");
         const updated = {
           ...u,
+          accountType: account,
           email: email.trim(),
           profile: {
             ...(u.profile || {}),
             name: name.trim(),
+            businessName: businessName.trim(),
             city,
             pincode,
             area,
@@ -290,6 +294,20 @@ function EditProfile() {
                   </button>
                 ))}
               </div>
+
+              {(account === "business" || businessEnabled) && (
+                <div className="mt-3">
+                  <Field
+                    label="Business Name / Store Name"
+                    value={businessName}
+                    onChange={setBusinessName}
+                    placeholder="e.g. Hyderabad Electronics, Sri Balaji Traders"
+                  />
+                  <p className="mt-1 text-[11px] text-muted-foreground">
+                    This business name will appear on all your product listings and public store page.
+                  </p>
+                </div>
+              )}
 
               <div className="mt-3 rounded-2xl border border-border bg-background p-3">
                 <Toggle checked={businessEnabled} onChange={setBusinessEnabled}

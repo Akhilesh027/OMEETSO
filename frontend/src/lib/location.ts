@@ -49,6 +49,9 @@ export const LOCAL_GPS_COORDINATES: GeoCoordinateItem[] = [
   { area: "SR Nagar", city: "Hyderabad", state: "Telangana", pincode: "500038", lat: 17.4428, lng: 78.4417 },
   { area: "Balanagar", city: "Hyderabad", state: "Telangana", pincode: "500037", lat: 17.4728, lng: 78.4412 },
   { area: "Quthbullapur", city: "Hyderabad", state: "Telangana", pincode: "500055", lat: 17.5060, lng: 78.4632 },
+  { area: "Kompally", city: "Hyderabad", state: "Telangana", pincode: "500100", lat: 17.5375, lng: 78.4862 },
+  { area: "Bowenpally", city: "Hyderabad", state: "Telangana", pincode: "500011", lat: 17.4716, lng: 78.4856 },
+  { area: "Jeedimetla", city: "Hyderabad", state: "Telangana", pincode: "500055", lat: 17.5140, lng: 78.4520 },
 
   // Hyderabad — Central, Banjara & Jubilee Hills
   { area: "Banjara Hills", city: "Hyderabad", state: "Telangana", pincode: "500034", lat: 17.4156, lng: 78.4350 },
@@ -65,6 +68,8 @@ export const LOCAL_GPS_COORDINATES: GeoCoordinateItem[] = [
   { area: "Vidyanagar", city: "Hyderabad", state: "Telangana", pincode: "500044", lat: 17.4010, lng: 78.5130 },
 
   // Secunderabad & Eastern Zone
+  { area: "Peerzadiguda", city: "Hyderabad", state: "Telangana", pincode: "500088", lat: 17.4042, lng: 78.5833 },
+  { area: "Zone 500088", city: "Hyderabad", state: "Telangana", pincode: "500088", lat: 17.4042, lng: 78.5833 },
   { area: "Secunderabad", city: "Hyderabad", state: "Telangana", pincode: "500003", lat: 17.4399, lng: 78.4983 },
   { area: "Tarnaka", city: "Hyderabad", state: "Telangana", pincode: "500017", lat: 17.4285, lng: 78.5312 },
   { area: "Uppal", city: "Hyderabad", state: "Telangana", pincode: "500039", lat: 17.4018, lng: 78.5602 },
@@ -121,6 +126,10 @@ export const LOCAL_GPS_COORDINATES: GeoCoordinateItem[] = [
 // ── 2. Local Pincode Dictionary ──
 export const KNOWN_PINCODE_MAP: Record<string, { area: string; city: string; state?: string }> = {
   // Hyderabad & Cyberabad
+  "500088": { area: "Peerzadiguda / Uppal Zone", city: "Hyderabad", state: "Telangana" },
+  "500100": { area: "Kompally", city: "Hyderabad", state: "Telangana" },
+  "500011": { area: "Bowenpally", city: "Hyderabad", state: "Telangana" },
+  "500014": { area: "Jeedimetla", city: "Hyderabad", state: "Telangana" },
   "500081": { area: "Madhapur", city: "Hyderabad", state: "Telangana" },
   "500084": { area: "Kondapur", city: "Hyderabad", state: "Telangana" },
   "500032": { area: "Gachibowli", city: "Hyderabad", state: "Telangana" },
@@ -384,6 +393,46 @@ export async function fetchAreaFromPincode(pincode: string): Promise<LocationRes
   }
 
   return { area: `Pincode ${cleanPin}`, pincode: cleanPin, city: "Local Area", state: "India" };
+}
+
+/**
+ * Universal City Resolver:
+ * Extracts true parent metro city from any locality, district, pincode, or compound area string.
+ */
+export function resolveCityFromLocation(loc?: { area?: string; city?: string; pincode?: string }): string | undefined {
+  if (!loc) return undefined;
+  const text = `${loc.city || ""} ${loc.area || ""} ${loc.pincode || ""}`.toLowerCase();
+
+  if (
+    /hyderabad|hyd|secunderabad|cyberabad|kompally|bowenpally|jeedimetla|medchal|shamshabad|trimulgherry|madhapur|gachibowli|hitec|kukatpally|ameerpet|kondapur|banjara|jubilee|uppal|nagole|lb nagar|begumpet|somajiguda|punjagutta|himayatnagar|mehdipatnam|abids|charminar|ecil|malkajgiri|alwal|sainikpuri|dilsukhnagar|kothapet|vidyanagar|kachiguda|miyapur|nizampet|chanda nagar|lingampally|manikonda|narsingi|tellapur|peerzadiguda|karmanghat|vanasthalipuram|balanagar|quthbullapur|sanathnagar|sr nagar|500\d{3}|501\d{3}|502\d{3}/i.test(
+      text
+    )
+  ) {
+    return "Hyderabad";
+  }
+
+  if (
+    /bangalore|bengaluru|benglure|whitefield|koramangala|indiranagar|hsr|marathahalli|electronic city|jayanagar|jp nagar|bellandur|yelahanka|hebbal|malleswaram|rajajinagar|btm|560\d{3}/i.test(
+      text
+    )
+  ) {
+    return "Bangalore";
+  }
+
+  if (
+    /mumbai|bombay|thane|navi mumbai|andheri|bandra|powai|borivali|dadar|juhu|goregaon|malad|kandivali|colaba|worli|kurla|ghatkopar|vashi|400\d{3}/i.test(
+      text
+    )
+  ) {
+    return "Mumbai";
+  }
+
+  if (loc.city && loc.city.trim().length > 0) return loc.city.trim();
+  if (loc.area && loc.area.includes(",")) {
+    const parts = loc.area.split(",").map((p) => p.trim());
+    return parts[1] || parts[0];
+  }
+  return loc.area ? loc.area.trim() : undefined;
 }
 
 /**

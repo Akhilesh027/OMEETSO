@@ -25,7 +25,15 @@ import {
 } from "lucide-react";
 import { useToast } from "@/contexts/ToastContext";
 
-import { getAdminListingsQueueApi, approveListingApi, rejectListingApi } from "@/api/adminListings.api";
+import {
+  getAdminListingsQueueApi,
+  approveListingApi,
+  rejectListingApi,
+  updateListingStatusApi,
+  createAdminListingApi,
+  updateAdminListingApi,
+  deleteAdminListingApi
+} from "@/api/adminListings.api";
 
 export default function ListingsListPage() {
   const navigate = useNavigate();
@@ -58,11 +66,11 @@ export default function ListingsListPage() {
   const loadListings = async () => {
     try {
       const res = await getAdminListingsQueueApi({ limit: 100 });
-      if (res.success && Array.isArray(res.data) && res.data.length > 0) {
+      if (res.success && Array.isArray(res.data)) {
         const mapped: Listing[] = res.data.map((item: any) => ({
           id: item.id || item._id,
           title: item.title,
-          description: item.description,
+          description: item.description || item.title,
           price: item.priceInPaise ? item.priceInPaise / 100 : item.price || 0,
           currency: "INR",
           condition: item.condition,
@@ -70,34 +78,6 @@ export default function ListingsListPage() {
           subcategoryId: item.subcategoryId,
           sellerId: item.seller?.id || item.sellerId || "user_1",
           sellerName: item.seller?.name || item.sellerName || "Omeetso Seller",
-          status: (item.status?.toLowerCase() || "active") as any,
-          images: item.images || [],
-          coverIndex: item.coverIndex || 0,
-          location: { city: item.city || "Hyderabad", area: item.area || "Madhapur", pincode: item.pincode || "500081" },
-          reportCount: 0,
-          createdAt: item.createdAt || new Date().toISOString(),
-          updatedAt: item.createdAt || new Date().toISOString()
-        }));
-        setListings(mapped);
-        return;
-      }
-    } catch { }
-
-    try {
-      const res = await fetch("https://api.omeetso.in/api/v1/listings?limit=100");
-      const json = await res.json();
-      if (json.success && Array.isArray(json.data)) {
-        const mapped: Listing[] = json.data.map((item: any) => ({
-          id: item.id || item._id,
-          title: item.title,
-          description: item.description || item.title,
-          price: item.priceInPaise ? item.priceInPaise / 100 : item.price || 0,
-          currency: "INR",
-          condition: item.condition || "Like New",
-          categoryId: item.categoryId || item.category || "general",
-          subcategoryId: item.subcategoryId,
-          sellerId: item.sellerId || "u_live",
-          sellerName: item.sellerName || "Omeetso Seller",
           status: (item.status?.toLowerCase() || "active") as any,
           images: item.images || [],
           coverIndex: item.coverIndex || 0,
@@ -142,39 +122,59 @@ export default function ListingsListPage() {
         await approveListingApi(listingId, reason);
       } else if (status === "rejected") {
         await rejectListingApi(listingId, reason || "Violates platform content policy");
+      } else {
+        await updateListingStatusApi(listingId, status, reason);
       }
+      showSuccess("Listing Updated", `Listing status changed to ${status.replace("_", " ")}.`);
     } catch (err) {
       console.error("Failed backend persistence:", err);
+      showError("Status Update Error", "Unable to update listing status on server.");
     }
 
-    const updated = MockDataService.updateListingStatus(listingId, status, reason);
-    setListings(updated);
     setIsInspectorOpen(false);
-    showSuccess("Listing Updated", `Listing status changed to ${status.replace("_", " ")}.`);
-    loadListings();
+    await loadListings();
   };
 
-  const handleSaveListing = (e: React.FormEvent) => {
+  const handleSaveListing = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (isAddOpen) {
-      const updated = MockDataService.addListing(formData);
-      setListings(updated);
-      setIsAddOpen(false);
-      showSuccess("Listing Created", "New product listing submitted successfully.");
-    } else if (isEditOpen && selectedListing) {
-      const updated = MockDataService.updateListing(selectedListing.id, formData);
-      setListings(updated);
-      setIsEditOpen(false);
-      showSuccess("Listing Updated", "Product listing updated successfully.");
+    try {
+      if (isAddOpen) {
+        const res = await createAdminListingApi(formData);
+        if (res.success) {
+          showSuccess("Listing Created", "New product listing created in database.");
+        } else {
+          showError("Creation Failed", res.error || "Could not save listing");
+        }
+        setIsAddOpen(false);
+      } else if (isEditOpen && selectedListing) {
+        const res = await updateAdminListingApi(selectedListing.id, formData);
+        if (res.success) {
+          showSuccess("Listing Updated", "Product listing updated in database.");
+        } else {
+          showError("Update Failed", res.error || "Could not update listing");
+        }
+        setIsEditOpen(false);
+      }
+    } catch (err) {
+      showError("Server Error", "Failed to persist listing changes");
     }
     setFormData({});
+    await loadListings();
   };
 
-  const handleDeleteListing = (listingId: string) => {
-    if (window.confirm("Are you sure you want to delete this listing record permanently?")) {
-      const updated = MockDataService.deleteListing(listingId);
-      setListings(updated);
-      showSuccess("Listing Deleted", "Listing record permanently removed.");
+  const handleDeleteListing = async (listingId: string) => {
+    if (window.confirm("Are you sure you want to delete/remove this listing record?")) {
+      try {
+        const res = await deleteAdminListingApi(listingId);
+        if (res.success) {
+          showSuccess("Listing Deleted", "Listing record removed from active catalog.");
+        } else {
+          showError("Delete Failed", res.error || "Could not remove listing");
+        }
+      } catch {
+        showError("Server Error", "Unable to remove listing");
+      }
+      await loadListings();
     }
   };
 

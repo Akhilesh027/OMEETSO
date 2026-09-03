@@ -340,9 +340,10 @@ function Account() {
                 <section id="jobs-vertical" className="space-y-3">
                   <SectionTitle>Jobs & Careers</SectionTitle>
                   <MenuGroup>
-                    <MenuRow icon={Briefcase} label="My Job Applications" to="/my/jobs" />
-                    <MenuRow icon={Building} label="Employer Job Management" to="/my/employer-jobs" />
+                    <MenuRow icon={Briefcase} label="My Applied Jobs" to="/my/jobs" />
+                    <MenuRow icon={Building} label="Employer Dashboard (Review Applications)" to="/my/employer/jobs" />
                     <MenuRow icon={Plus} label="Post a Job Opening" to="/jobs/new" />
+                    <MenuRow icon={User} label="Candidate Profile & Resume" to="/account/profile/jobs" />
                   </MenuGroup>
                 </section>
               )}
@@ -589,8 +590,8 @@ function EditProfileModal({ open, onClose, profile, onSaved }: { open: boolean; 
                 type="button"
                 onClick={() => handleSelectGender("male")}
                 className={`rounded-full px-3 py-1 text-xs font-bold transition-all cursor-pointer ${(gender === "male" || avatar === DEFAULT_AVATARS.male)
-                    ? "bg-navy text-white shadow-sm ring-2 ring-primary/30"
-                    : "bg-secondary text-muted-foreground hover:bg-secondary/80"
+                  ? "bg-navy text-white shadow-sm ring-2 ring-primary/30"
+                  : "bg-secondary text-muted-foreground hover:bg-secondary/80"
                   }`}
               >
                 Male Avatar
@@ -599,8 +600,8 @@ function EditProfileModal({ open, onClose, profile, onSaved }: { open: boolean; 
                 type="button"
                 onClick={() => handleSelectGender("female")}
                 className={`rounded-full px-3 py-1 text-xs font-bold transition-all cursor-pointer ${(gender === "female" || avatar === DEFAULT_AVATARS.female)
-                    ? "bg-navy text-white shadow-sm ring-2 ring-primary/30"
-                    : "bg-secondary text-muted-foreground hover:bg-secondary/80"
+                  ? "bg-navy text-white shadow-sm ring-2 ring-primary/30"
+                  : "bg-secondary text-muted-foreground hover:bg-secondary/80"
                   }`}
               >
                 Female Avatar
@@ -609,8 +610,8 @@ function EditProfileModal({ open, onClose, profile, onSaved }: { open: boolean; 
                 type="button"
                 onClick={() => handleSelectGender("other")}
                 className={`rounded-full px-3 py-1 text-xs font-bold transition-all cursor-pointer ${(gender === "other" && avatar !== DEFAULT_AVATARS.male && avatar !== DEFAULT_AVATARS.female)
-                    ? "bg-navy text-white shadow-sm ring-2 ring-primary/30"
-                    : "bg-secondary text-muted-foreground hover:bg-secondary/80"
+                  ? "bg-navy text-white shadow-sm ring-2 ring-primary/30"
+                  : "bg-secondary text-muted-foreground hover:bg-secondary/80"
                   }`}
               >
                 Neutral

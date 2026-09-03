@@ -11,6 +11,7 @@ export function WebsiteFooter() {
       title: "Omeetso",
       links: [
         { label: "About Us", to: "/about" },
+        { label: "Blogs & Guides", to: "/blogs" },
         { label: "Contact Us", to: "/contact" },
         { label: "Careers", to: "/careers" },
       ],

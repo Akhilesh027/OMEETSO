@@ -1,6 +1,8 @@
-import React, { useState } from "react";
-import { X, CheckCircle2, ArrowRight, ArrowLeft, Upload, FileText, ShieldAlert } from "lucide-react";
+import React, { useState, useRef, useEffect } from "react";
+import { X, CheckCircle2, ArrowRight, ArrowLeft, Upload, FileText, ShieldAlert, Loader2, Trash2 } from "lucide-react";
 import { JobItem, submitJobApplicationLocal } from "@/lib/jobs";
+import { uploadFile } from "@/lib/upload";
+import { toast } from "sonner";
 
 interface ApplyJobModalProps {
   job: JobItem;
@@ -12,24 +14,76 @@ interface ApplyJobModalProps {
 export function ApplyJobModal({ job, isOpen, onClose, onSuccess }: ApplyJobModalProps) {
   const [step, setStep] = useState<"form" | "screening" | "review" | "success">("form");
   const [loading, setLoading] = useState(false);
+  const [uploadingResume, setUploadingResume] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const [formData, setFormData] = useState({
-    name: "User",
-    phone: "+91 9876543210",
-    email: "user@example.com",
+    name: "",
+    phone: "",
+    email: "",
     city: "Hyderabad",
-    experience: job.candidateCriteria.experience || "2 Years",
-    currentRole: "Software Developer",
-    currentCompany: "Tech Corp",
-    currentSalary: 35000,
-    expectedSalary: 45000,
-    noticePeriod: "15 Days",
-    resumeUrl: "https://www.w3.org/WAI/ER/tests/xhtml/testfiles/resources/pdf/dummy.pdf",
+    experience: job.candidateCriteria.experience || "Fresher",
+    currentRole: "",
+    currentCompany: "",
+    currentSalary: 0,
+    expectedSalary: job.salary?.minSalary || 30000,
+    noticePeriod: "Immediate",
+    resumeUrl: "",
+    resumeFileName: "",
   });
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    try {
+      const u = JSON.parse(localStorage.getItem("omeetso_user") || "{}");
+      const rawLoc = localStorage.getItem("omeetso_location") || localStorage.getItem("omeetso_selected_location");
+      let activeCity = "";
+      if (rawLoc) {
+        const loc = JSON.parse(rawLoc);
+        activeCity = loc.city || (loc.area ? loc.area.split(",")[1]?.trim() : "");
+      }
+
+      setFormData((prev) => ({
+        ...prev,
+        name: u.profile?.name || u.name || prev.name || "Candidate",
+        phone: u.phone || u.mobile || prev.phone,
+        email: u.email || prev.email,
+        city: activeCity || u.profile?.city || prev.city || "Hyderabad",
+      }));
+    } catch { }
+  }, [isOpen]);
 
   const [screeningAnswers, setScreeningAnswers] = useState<Record<string, string>>({});
 
   if (!isOpen) return null;
+
+  const handleResumeFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setUploadingResume(true);
+    try {
+      const url = await uploadFile(file, "general");
+      setFormData((prev) => ({
+        ...prev,
+        resumeUrl: url,
+        resumeFileName: file.name,
+      }));
+      toast.success(`Resume "${file.name}" uploaded successfully!`);
+    } catch (err) {
+      console.warn("Resume upload fallback:", err);
+      const localUrl = URL.createObjectURL(file);
+      setFormData((prev) => ({
+        ...prev,
+        resumeUrl: localUrl,
+        resumeFileName: file.name,
+      }));
+      toast.success(`Resume "${file.name}" attached.`);
+    } finally {
+      setUploadingResume(false);
+      if (fileInputRef.current) fileInputRef.current.value = "";
+    }
+  };
 
   const handleScreeningAnswerChange = (q: string, val: string) => {
     setScreeningAnswers((prev) => ({ ...prev, [q]: val }));
@@ -50,12 +104,33 @@ export function ApplyJobModal({ job, isOpen, onClose, onSuccess }: ApplyJobModal
   const handleSubmitFinal = async () => {
     setLoading(true);
     try {
+      const token = typeof window !== "undefined" ? localStorage.getItem("omeetso_user_token") : null;
+      const formattedAnswers = Object.entries(screeningAnswers).map(([question, answer]) => ({ question, answer }));
+
+      try {
+        await fetch(`https://api.omeetso.in/api/v1/jobs/apply`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            ...(token ? { Authorization: `Bearer ${token}` } : {})
+          },
+          body: JSON.stringify({
+            jobId: job.id,
+            customSnapshot: formData,
+            screeningAnswers: formattedAnswers
+          })
+        });
+      } catch (err) {
+        console.warn("Backend job apply fallback:", err);
+      }
+
       submitJobApplicationLocal({
         jobId: job.id,
         employerId: job.employerId,
         job: { title: job.title, companyName: job.companyName, location: job.location, salary: job.salary },
         applicantProfileSnapshot: formData,
-        screeningAnswers: Object.entries(screeningAnswers).map(([question, answer]) => ({ question, answer }))
+        screeningAnswers: formattedAnswers,
+        status: "APPLIED"
       });
       setLoading(false);
       setStep("success");
@@ -68,7 +143,7 @@ export function ApplyJobModal({ job, isOpen, onClose, onSuccess }: ApplyJobModal
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm safe-t">
       <div className="w-full max-w-lg rounded-3xl border border-border bg-card p-6 shadow-2xl space-y-4 max-h-[90vh] overflow-y-auto font-sans">
-        
+
         {/* Header */}
         <div className="flex items-center justify-between border-b border-border pb-3">
           <div>
@@ -182,16 +257,66 @@ export function ApplyJobModal({ job, isOpen, onClose, onSuccess }: ApplyJobModal
             </div>
 
             <div>
-              <label className="block text-muted-foreground mb-1">Attached Resume</label>
-              <div className="flex items-center justify-between p-3 rounded-2xl border border-border bg-secondary/40">
-                <div className="flex items-center gap-2">
-                  <FileText className="h-5 w-5 text-indigo-brand" />
-                  <span className="font-bold text-foreground truncate max-w-[200px]">Candidate_Resume.pdf</span>
+              <label className="block text-muted-foreground mb-1">Resume / CV (PDF, DOCX)</label>
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept=".pdf,.doc,.docx"
+                className="hidden"
+                onChange={handleResumeFileChange}
+              />
+
+              {formData.resumeUrl ? (
+                <div className="flex items-center justify-between p-3 rounded-2xl border border-indigo-brand/30 bg-indigo-brand/5">
+                  <div className="flex items-center gap-2 min-w-0">
+                    <FileText className="h-5 w-5 text-indigo-brand shrink-0" />
+                    <span className="font-bold text-foreground truncate text-xs">
+                      {formData.resumeFileName || "Attached_Resume.pdf"}
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-2 shrink-0">
+                    <button
+                      type="button"
+                      onClick={() => fileInputRef.current?.click()}
+                      disabled={uploadingResume}
+                      className="text-xs font-extrabold text-indigo-brand hover:underline flex items-center gap-1"
+                    >
+                      {uploadingResume ? (
+                        <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                      ) : (
+                        <Upload className="h-3.5 w-3.5" />
+                      )}
+                      Replace
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setFormData((prev) => ({ ...prev, resumeUrl: "", resumeFileName: "" }))}
+                      className="text-xs font-extrabold text-rose-500 hover:underline flex items-center gap-0.5 ml-1"
+                    >
+                      <Trash2 className="h-3.5 w-3.5" /> Remove
+                    </button>
+                  </div>
                 </div>
-                <button type="button" className="text-xs font-extrabold text-indigo-brand hover:underline flex items-center gap-1">
-                  <Upload className="h-3.5 w-3.5" /> Replace
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => fileInputRef.current?.click()}
+                  disabled={uploadingResume}
+                  className="w-full flex items-center justify-center gap-2 p-3.5 rounded-2xl border-2 border-dashed border-border hover:border-indigo-brand hover:bg-indigo-brand/5 text-xs font-bold text-foreground transition-all cursor-pointer"
+                >
+                  {uploadingResume ? (
+                    <>
+                      <Loader2 className="h-4 w-4 animate-spin text-indigo-brand" />
+                      <span>Uploading resume...</span>
+                    </>
+                  ) : (
+                    <>
+                      <Upload className="h-4 w-4 text-indigo-brand" />
+                      <span>Upload Resume (PDF, DOC, DOCX)</span>
+                    </>
+                  )}
                 </button>
-              </div>
+              )}
             </div>
 
             <button
@@ -247,7 +372,7 @@ export function ApplyJobModal({ job, isOpen, onClose, onSuccess }: ApplyJobModal
               <div className="flex justify-between"><span className="text-muted-foreground">Experience:</span> <span className="font-bold text-foreground">{formData.experience}</span></div>
               <div className="flex justify-between"><span className="text-muted-foreground">Expected Salary:</span> <span className="font-bold text-emerald-600">₹{formData.expectedSalary?.toLocaleString("en-IN")} / Mo</span></div>
               <div className="flex justify-between"><span className="text-muted-foreground">Notice Period:</span> <span className="font-bold text-foreground">{formData.noticePeriod}</span></div>
-              <div className="flex justify-between"><span className="text-muted-foreground">Resume:</span> <span className="font-bold text-indigo-brand">Attached (PDF)</span></div>
+              <div className="flex justify-between"><span className="text-muted-foreground">Resume:</span> <span className="font-bold text-indigo-brand">{formData.resumeFileName || (formData.resumeUrl ? "Attached (PDF)" : "Not attached")}</span></div>
             </div>
 
             {Object.keys(screeningAnswers).length > 0 && (

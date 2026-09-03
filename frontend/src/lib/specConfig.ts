@@ -110,7 +110,37 @@ export const SPEC_CONFIG: Record<string, SpecField[]> = {
     { key: "Response Time", label: "Guaranteed Response Time", type: "select", options: ["Within 1 Hour", "Same Day Service", "Within 24 Hours", "Appointment Only"] },
     { key: "Warranty Offered", label: "Service Warranty / Guarantee", type: "select", options: ["30 Days Guarantee", "90 Days Warranty", "Satisfaction Guarantee", "No Warranty"] },
   ],
+  "commercial-vehicles": [
+    { key: "Vehicle Type", label: "Commercial Vehicle Type", type: "select", options: ["Mini Truck", "Pickup Truck", "Heavy Truck", "Tipper", "Trailer", "Bus", "Auto Rickshaw", "Tractor", "Van", "Other"], required: true },
+    { key: "Brand", label: "Brand", type: "text", required: true },
+    { key: "Model", label: "Model", type: "text", required: true },
+    { key: "Manufacturing Year", label: "Manufacturing Year", type: "select", options: YEARS, required: true },
+    { key: "Kilometres Driven", label: "Kilometres Driven", type: "number", required: true },
+    { key: "Payload Capacity", label: "Payload / Load Capacity (Tonnes)", type: "text" },
+    { key: "Fuel Type", label: "Fuel Type", type: "select", options: ["Diesel", "CNG", "Electric", "Petrol"], required: true },
+    { key: "Permit Type", label: "Permit Type", type: "select", options: ["National Permit", "All India Tourist Permit", "State Permit", "Local Goods Permit"] },
+  ],
+  "books-sports": [
+    { key: "Item Type", label: "Item Classification", type: "select", options: ["School / College Book", "Competitive Exam Book", "Novel / Fiction", "Gym & Fitness Equipment", "Cricket Equipment", "Cycling / Bicycle", "Badminton / Rackets", "Sports Gear", "Other"], required: true },
+    { key: "Title or Brand", label: "Book Title / Brand", type: "text", required: true },
+    { key: "Author or Model", label: "Author / Equipment Model", type: "text" },
+    { key: "Condition", label: "Item Condition", type: "select", options: ["New / Sealed", "Like New", "Gently Used", "Fair"], required: true },
+    { key: "Language", label: "Language (for Books)", type: "select", options: ["English", "Telugu", "Hindi", "Tamil", "Other"] },
+  ],
+  agriculture: [
+    { key: "Agriculture Category", label: "Category", type: "select", options: ["Farm Equipment & Machinery", "Tractors", "Seeds & Plants", "Fertilizers & Pesticides", "Irrigation Tools", "Livestock & Poultry", "Fresh Produce / Grains"], required: true },
+    { key: "Product / Variety Name", label: "Product / Seed Variety", type: "text", required: true },
+    { key: "Quantity Available", label: "Quantity & Measurement Unit", type: "text", placeholder: "e.g. 50 Bags, 10 Quintals, 2 Units" },
+    { key: "Condition or Age", label: "Condition / Age", type: "text" },
+    { key: "Organic Certified", label: "Organic Certified", type: "toggle" },
+  ]
 };
+
+// Map aliases
+SPEC_CONFIG["home-appliances"] = SPEC_CONFIG["appliances"];
+SPEC_CONFIG["commercial"] = SPEC_CONFIG["commercial-vehicles"];
+SPEC_CONFIG["books"] = SPEC_CONFIG["books-sports"];
+SPEC_CONFIG["agri"] = SPEC_CONFIG["agriculture"];
 
 export const GENERIC_SPEC: SpecField[] = [
   { key: "Brand", label: "Brand", type: "text" },
@@ -119,6 +149,6 @@ export const GENERIC_SPEC: SpecField[] = [
 ];
 
 export function specFieldsFor(category: string, subcategory?: string): SpecField[] {
-  const cat = (category || "").toLowerCase();
-  return SPEC_CONFIG[cat] ?? GENERIC_SPEC;
+  const cat = (category || "").toLowerCase().trim();
+  return SPEC_CONFIG[cat] ?? SPEC_CONFIG[cat.replace(/-/g, "_")] ?? SPEC_CONFIG[cat.replace(/-/g, "")] ?? GENERIC_SPEC;
 }

@@ -20,6 +20,8 @@ export type Product = {
   subcategory?: string;
   condition: string;
   area: string;
+  city?: string;
+  pincode?: string;
   distanceKm: number;
   postedAgo: string;
   image: string;
@@ -27,6 +29,11 @@ export type Product = {
   verified?: boolean;
   sponsored?: boolean;
   sellerId: ID;
+  sellerName?: string;
+  sellerOwnerName?: string;
+  businessName?: string;
+  storeName?: string;
+  sellerType?: "individual" | "business";
   storeId?: ID;
   description: string;
   specs?: Record<string, string>;
@@ -37,6 +44,8 @@ export type Product = {
 export type Seller = {
   id: ID;
   name: string;
+  businessName?: string;
+  ownerName?: string;
   avatar?: string;
   memberSince: string;
   rating: number;
@@ -116,40 +125,241 @@ export type Ad = {
 export const CATEGORIES: Category[] = [
   { id: "cars", name: "Cars", icon: "Car", count: 0, tint: "bg-blue-100" },
   { id: "bikes", name: "Bikes", icon: "Bike", count: 0, tint: "bg-orange-100" },
+  { id: "commercial-vehicles", name: "Commercial Vehicles", icon: "Truck", count: 0, tint: "bg-cyan-100" },
   { id: "mobiles", name: "Mobiles", icon: "Smartphone", count: 0, tint: "bg-indigo-100" },
-  { id: "electronics", name: "Electronics", icon: "Tv", count: 0, tint: "bg-sky-100" },
+  { id: "electronics", name: "Electronics", icon: "Laptop", count: 0, tint: "bg-sky-100" },
+  { id: "home-appliances", name: "Home Appliances", icon: "Tv", count: 0, tint: "bg-teal-100" },
   { id: "furniture", name: "Furniture", icon: "Sofa", count: 0, tint: "bg-amber-100" },
   { id: "properties", name: "Properties", icon: "Building2", count: 0, tint: "bg-emerald-100" },
-  { id: "fashion", name: "Fashion", icon: "Shirt", count: 0, tint: "bg-pink-100" },
-  { id: "appliances", name: "Home Appliances", icon: "Refrigerator", count: 0, tint: "bg-teal-100" },
   { id: "jobs", name: "Jobs", icon: "Briefcase", count: 0, tint: "bg-violet-100" },
   { id: "services", name: "Services", icon: "Wrench", count: 0, tint: "bg-rose-100" },
-  { id: "commercial", name: "Commercial Vehicles", icon: "Truck", count: 0, tint: "bg-cyan-100" },
-  { id: "books", name: "Books & Sports", icon: "BookOpen", count: 0, tint: "bg-lime-100" },
-  { id: "agri", name: "Agriculture", icon: "Sprout", count: 0, tint: "bg-green-100" },
-  { id: "other", name: "Other Products", icon: "Package", count: 0, tint: "bg-slate-100" },
+  { id: "fashion", name: "Fashion", icon: "Shirt", count: 0, tint: "bg-pink-100" },
+  { id: "books-sports", name: "Books & Sports", icon: "BookOpen", count: 0, tint: "bg-lime-100" },
+  { id: "agriculture", name: "Agriculture", icon: "Sprout", count: 0, tint: "bg-green-100" }
 ];
 
 export const SUBCATEGORIES: Record<string, string[]> = {
-  cars: ["Used Cars", "New Cars", "Car Accessories", "Spare Parts", "Car Services"],
-  bikes: ["Motorcycles", "Scooters", "Bicycles", "Spare Parts", "Bike Services"],
-  mobiles: ["Smartphones", "Tablets", "Accessories", "Smart Watches", "Repair"],
-  electronics: ["TVs", "Laptops", "Cameras", "Audio", "Gaming"],
-  furniture: ["Sofas", "Beds", "Dining Tables", "Wardrobes", "Chairs", "Office Furniture", "Other Furniture"],
-  properties: ["For Rent", "For Sale", "PG & Hostels", "Land & Plots", "Commercial"],
-  fashion: ["Men", "Women", "Kids", "Watches", "Bags & Luggage"],
-  appliances: ["Refrigerators", "Washing Machines", "ACs", "Kitchen Appliances", "Water Purifiers"],
-  jobs: ["Full time", "Part time", "Work from home", "Internships", "Freshers"],
-  services: ["Home Repair", "Cleaning", "Tutors", "Movers", "Photography"],
-  commercial: ["Auto Rickshaws", "Trucks", "Tractors", "Buses", "Spare Parts"],
-  books: ["Books", "Gym & Fitness", "Musical Instruments", "Sports Equipment", "Games & Toys"],
-  agri: ["Tractors", "Farm Equipment", "Seeds & Plants", "Livestock", "Land"],
-  other: ["Collectibles", "Art", "Household Items", "Miscellaneous"],
+  cars: ["Sedan", "SUV", "Hatchback", "Luxury", "MUV", "Coupe", "Convertible"],
+  bikes: [
+    "Commuter",
+    "Sports Bike",
+    "Cruiser",
+    "Scooter",
+    "Electric Bike",
+    "Adventure Bike",
+    "Off-Road Bike",
+    "Superbike",
+    "Touring Bike",
+    "Cafe Racer",
+    "Naked Street Bike"
+  ],
+  "commercial-vehicles": [
+    "Mini Trucks",
+    "Pickup Trucks",
+    "Heavy Trucks",
+    "Tippers",
+    "Trailers",
+    "Buses",
+    "School Buses",
+    "Vans",
+    "Auto Rickshaws",
+    "Taxi Vehicles",
+    "Tractors",
+    "Construction Vehicles",
+    "Refrigerated Vehicles",
+    "Other Commercial Vehicles"
+  ],
+  commercial: [
+    "Mini Trucks",
+    "Pickup Trucks",
+    "Heavy Trucks",
+    "Tippers",
+    "Trailers",
+    "Buses",
+    "Auto Rickshaws",
+    "Tractors",
+    "Other Commercial Vehicles"
+  ],
+  mobiles: [
+    "Apple iPhone",
+    "Samsung",
+    "OnePlus",
+    "Xiaomi / Redmi",
+    "Realme",
+    "Vivo",
+    "Oppo",
+    "Google Pixel",
+    "Motorola",
+    "Nothing",
+    "Poco",
+    "Other Brands"
+  ],
+  electronics: [
+    "Laptops & Notebooks",
+    "Desktop Computers",
+    "Gaming Consoles (PS5, Xbox)",
+    "Cameras & DSLRs",
+    "Audio & Headphones",
+    "Smartwatches & Wearables",
+    "Computer Accessories & Monitors"
+  ],
+  "home-appliances": [
+    "Refrigerators",
+    "Washing Machines",
+    "Air Conditioners",
+    "Televisions",
+    "Water Purifiers",
+    "Microwave Ovens",
+    "Induction Stoves",
+    "Gas Stoves",
+    "Mixers and Grinders",
+    "Vacuum Cleaners",
+    "Geysers",
+    "Fans and Air Coolers",
+    "Dishwashers",
+    "Small Kitchen Appliances",
+    "Other Home Appliances"
+  ],
+  appliances: [
+    "Refrigerators",
+    "Washing Machines",
+    "Air Conditioners",
+    "Televisions",
+    "Water Purifiers",
+    "Microwave Ovens",
+    "Geysers",
+    "Other Home Appliances"
+  ],
+  furniture: [
+    "Sofas",
+    "Beds",
+    "Dining Tables",
+    "Wardrobes",
+    "Office Furniture",
+    "Chairs",
+    "Tables",
+    "TV Units",
+    "Shoe Racks",
+    "Mattresses",
+    "Outdoor Furniture",
+    "Home Décor",
+    "Other Furniture"
+  ],
+  properties: [
+    "Apartments",
+    "Villas",
+    "Independent Houses",
+    "Open Plots",
+    "Agricultural Land",
+    "Commercial Spaces",
+    "Offices",
+    "Shops",
+    "Warehouses",
+    "Rentals",
+    "PG and Hostels"
+  ],
+  jobs: [
+    "IT & Software Development",
+    "Sales & Marketing",
+    "Customer Support & BPO",
+    "Accounting & Finance",
+    "Data Entry & Back Office",
+    "Delivery & Logistics",
+    "Teaching & Education",
+    "Healthcare & Nursing",
+    "Hotel & Restaurant",
+    "Retail & Store Staff"
+  ],
+  services: [
+    "Home Cleaning",
+    "Electricians",
+    "Plumbers",
+    "Carpenters",
+    "AC and Appliance Repair",
+    "Mobile and Laptop Repair",
+    "Tutors & Classes",
+    "Beauty and Salon",
+    "Photography and Videography",
+    "Event Services",
+    "Catering",
+    "Packers and Movers",
+    "Vehicle Repair",
+    "Legal Services",
+    "Digital and IT Services",
+    "Other Services"
+  ],
+  fashion: [
+    "Men’s Clothing",
+    "Women’s Clothing",
+    "Kids’ Clothing",
+    "Footwear",
+    "Watches",
+    "Bags & Backpacks",
+    "Jewellery & Accessories",
+    "Ethnic Wear",
+    "Western Wear",
+    "Sportswear",
+    "Bridal Wear"
+  ],
+  "books-sports": [
+    "School Books",
+    "College Books",
+    "Competitive Exam Books (JEE, NEET, UPSC)",
+    "Novels & Fiction",
+    "Children’s Books",
+    "Religious & Spiritual Books",
+    "Comics & Graphic Novels",
+    "Cricket Equipment",
+    "Football Equipment",
+    "Badminton Rackets",
+    "Fitness & Gym Equipment",
+    "Cycling & Bicycles",
+    "Indoor & Outdoor Games",
+    "Sportswear & Shoes"
+  ],
+  books: [
+    "School Books",
+    "College Books",
+    "Competitive Exam Books",
+    "Novels & Fiction",
+    "Fitness & Gym Equipment",
+    "Cricket & Sports Equipment",
+    "Cycling & Bicycles"
+  ],
+  agriculture: [
+    "Seeds",
+    "Fertilizers",
+    "Pesticides",
+    "Farm Equipment",
+    "Tractors",
+    "Irrigation Equipment",
+    "Dairy Equipment",
+    "Animal Feed",
+    "Fresh Produce",
+    "Grains and Pulses",
+    "Fruits and Vegetables",
+    "Plants and Saplings",
+    "Livestock",
+    "Poultry",
+    "Agricultural Land",
+    "Other Farm Supplies"
+  ],
+  agri: [
+    "Seeds",
+    "Fertilizers",
+    "Farm Equipment",
+    "Tractors",
+    "Irrigation Equipment",
+    "Fresh Produce",
+    "Plants and Saplings",
+    "Livestock",
+    "Agricultural Land"
+  ]
 };
 
 export function getSubcategoriesForCategory(catId: string): { id: string; name: string }[] {
   const key = (catId || "mobiles").toLowerCase();
-  const raw = SUBCATEGORIES[key] || ["General"];
+  const raw = SUBCATEGORIES[key] || SUBCATEGORIES[key.replace(/-/g, "")] || ["General"];
   return raw.map((item: any) => {
     if (typeof item === "string") {
       return { id: item.toLowerCase().replace(/\s+/g, "_"), name: item };

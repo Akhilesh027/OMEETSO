@@ -9,6 +9,7 @@ import { seedCategories } from "./database/seeders/categorySeeder";
 import { seedApprovedListings } from "./database/seeders/listingSeeder";
 import { seedInitialServices } from "./database/seeders/serviceSeeder";
 import { seedBannersAndAds } from "./database/seeders/bannerAdSeeder";
+import { seedBlogs } from "./database/seeders/blogSeeder";
 
 const server = http.createServer(app);
 
@@ -22,6 +23,7 @@ async function startServer() {
   await seedApprovedListings();
   await seedInitialServices();
   await seedBannersAndAds();
+  await seedBlogs();
 
   startBackgroundWorkers();
 

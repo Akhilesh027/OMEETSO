@@ -16,7 +16,7 @@ import { InfinityLoader } from "@/components/omeetso/InfinityLoader";
 import { serveAdsApi } from "@/api/adCampaigns.api";
 import { fetchLiveListingById } from "@/lib/listings";
 import { fetchLiveCategories, getCachedCategories, type LiveCategory } from "@/lib/categories";
-import { calculateDistanceBetweenLocations } from "@/lib/location";
+import { calculateDistanceBetweenLocations, resolveCityFromLocation } from "@/lib/location";
 import { getPublicListingsApi } from "@/api/listings.api";
 import { getPublicStoresApi } from "@/api/stores.api";
 import { listListings } from "@/lib/listings";
@@ -176,15 +176,13 @@ function CategoryPage() {
       }
     });
 
-    const activeCity = activeLoc?.city || (activeLoc?.area ? (activeLoc.area.includes(",") ? activeLoc.area.split(",")[1].trim() : (activeLoc.area.toLowerCase().includes("bangalore") || activeLoc.area.toLowerCase().includes("bengaluru") ? "Bangalore" : activeLoc.area.toLowerCase().includes("mumbai") ? "Mumbai" : activeLoc.area.toLowerCase().includes("hyderabad") || activeLoc.area.toLowerCase().includes("secunderabad") ? "Hyderabad" : activeLoc.area.split(",")[0].trim())) : undefined);
+    const activeCity = resolveCityFromLocation(activeLoc) || "Hyderabad";
 
     const [lRes, sRes] = await Promise.all([
       getPublicListingsApi({
         search: category.name,
         category: category.id,
         city: activeCity,
-        area: activeLoc?.area ? activeLoc.area.split(",")[0].trim() : undefined,
-        pincode: activeLoc?.pincode,
       }),
       getPublicStoresApi()
     ]);
@@ -200,7 +198,8 @@ function CategoryPage() {
         return cId === targetCat || cId.includes(targetCat) || targetName.includes(cId);
       });
 
-      const mappedP = matchingListings.map((item: any) => {
+      const finalCatListings = matchingListings.length > 0 ? matchingListings : lRes.data;
+      const mappedP = finalCatListings.map((item: any) => {
         const calculatedDist = calculateDistanceBetweenLocations(
           activeLoc ? { area: activeLoc.area, pincode: activeLoc.pincode, city: activeCity } : undefined,
           { area: item.area || item.location, pincode: item.pincode, city: item.city }
@@ -221,12 +220,49 @@ function CategoryPage() {
           pincode: item.pincode || "",
           distanceKm: calculatedDist,
           postedAgo: "Recently",
-          verified: true,
           sellerId: item.sellerId?._id || item.sellerId || "seller_1",
+          sellerName: item.businessName || item.storeName || item.sellerName || "Verified Local Seller",
+          sellerOwnerName: item.sellerOwnerName,
+          businessName: item.businessName || item.storeName,
+          storeName: item.storeName,
+          sellerType: item.sellerType || (item.businessName || item.storeName ? "business" : "individual"),
           method: item.method,
-          sponsored: false
+          sponsored: false,
+          createdAt: item.createdAt,
+          publishedAt: item.publishedAt,
         };
       });
+
+      // 🎯 Hyperlocal Priority Sorting (Exact Pin -> Exact Area -> Neighborhood Distance -> Newest)
+      const userPin = String(activeLoc?.pincode || "").replace(/\D/g, "").trim();
+      const userArea = (activeLoc?.area || "").toLowerCase().trim();
+
+      mappedP.sort((a: any, b: any) => {
+        const pinA = String(a.pincode || "").replace(/\D/g, "").trim();
+        const pinB = String(b.pincode || "").replace(/\D/g, "").trim();
+        const isExactPinA = Boolean(userPin && pinA && pinA === userPin);
+        const isExactPinB = Boolean(userPin && pinB && pinB === userPin);
+        if (isExactPinA && !isExactPinB) return -1;
+        if (!isExactPinA && isExactPinB) return 1;
+
+        const areaA = (a.area || "").toLowerCase().trim();
+        const areaB = (b.area || "").toLowerCase().trim();
+        const isExactAreaA = Boolean(userArea && areaA && (userArea.includes(areaA) || areaA.includes(userArea)));
+        const isExactAreaB = Boolean(userArea && areaB && (userArea.includes(areaB) || areaB.includes(userArea)));
+        if (isExactAreaA && !isExactAreaB) return -1;
+        if (!isExactAreaA && isExactAreaB) return 1;
+
+        const distA = typeof a.distanceKm === "number" ? a.distanceKm : 9999;
+        const distB = typeof b.distanceKm === "number" ? b.distanceKm : 9999;
+        if (distA !== distB) {
+          return distA - distB;
+        }
+
+        const timeA = new Date(a.createdAt || a.publishedAt || 0).getTime();
+        const timeB = new Date(b.createdAt || b.publishedAt || 0).getTime();
+        return timeB - timeA;
+      });
+
       setLiveProducts(mappedP);
     }
 

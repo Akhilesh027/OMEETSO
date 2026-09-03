@@ -57,6 +57,15 @@ export const ADMIN_NAVIGATION: NavGroup[] = [
         badge: "NEW",
         badgeColor: "error",
       },
+      {
+        id: "blogs",
+        label: "Blogs & Guides",
+        route: "/admin/blogs",
+        iconName: "BookOpen",
+        permission: "listings.view",
+        badge: "PRO",
+        badgeColor: "indigo",
+      },
     ],
   },
   {

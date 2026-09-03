@@ -53,6 +53,7 @@ import MaintenancePage from "@/pages/maintenance/MaintenancePage";
 import { JobsPage } from "@/pages/jobs/JobsPage";
 import { ServicesPage } from "@/pages/services/ServicesPage";
 import BannersPage from "@/pages/banners/BannersPage";
+import { BlogsPage } from "@/pages/blogs/BlogsPage";
 
 export default function AdminRoutes() {
   return (
@@ -117,6 +118,7 @@ export default function AdminRoutes() {
             <Route path="/admin/listings/:listingId" element={<ListingDetailPage />} />
             <Route path="/admin/jobs" element={<JobsPage />} />
             <Route path="/admin/services" element={<ServicesPage />} />
+            <Route path="/admin/blogs" element={<BlogsPage />} />
           </Route>
 
           {/* Categories Module */}

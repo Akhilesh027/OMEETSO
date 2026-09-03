@@ -52,6 +52,7 @@ export const timeAgo = (t: number) => {
 export type AccountType = "individual" | "business";
 export type Profile = {
   name: string;
+  businessName?: string;
   email?: string;
   emailVerified?: boolean;
   mobile: string;
@@ -76,6 +77,7 @@ export const DEFAULT_AVATARS = {
 
 const DEFAULT_PROFILE: Profile = {
   name: "Omeetso User",
+  businessName: "",
   email: "",
   emailVerified: false,
   mobile: "",

@@ -23,6 +23,7 @@ import {
   validateLocation, validateContact, validateSpecs,
 } from "@/lib/listingValidation";
 import { BRANDS_BY_CATEGORY, generateTitleSuggestions, generateAiDescription } from "@/lib/aiAssistance";
+import { createListingApi } from "@/api/listings.api";
 import { toast } from "sonner";
 import { useRef } from "react";
 import {
@@ -92,10 +93,11 @@ function DetailedSellPage() {
       const rawLoc = localStorage.getItem("omeetso_location") || localStorage.getItem("omeetso_selected_location");
       if (rawLoc) {
         const loc = JSON.parse(rawLoc);
+        if (loc.city) locCity = loc.city;
         if (loc.area) {
           const parts = loc.area.split(",").map((p: string) => p.trim());
           locArea = parts[0] || locArea;
-          if (parts[1]) locCity = parts[1];
+          if (parts[1] && !loc.city) locCity = parts[1];
         }
         if (loc.pincode) locPin = loc.pincode;
       }
@@ -109,14 +111,14 @@ function DetailedSellPage() {
     }
 
     setData((prev) => ({
-      area: locArea,
-      city: locCity,
-      pincode: locPin,
       ...prev,
+      ...d,
+      area: d?.area || locArea,
+      city: d?.city || locCity,
+      pincode: d?.pincode || locPin,
       sellerName: seller.name || "You",
       sellerPhone: seller.phone,
       sellerType: seller.type ?? "individual",
-      ...d,
     }));
     if (selStore) setStoreId(selStore);
 
@@ -252,7 +254,35 @@ function DetailedSellPage() {
       (data.images || []).map((img) => uploadImageToCloudinary(img, "listings"))
     );
     const now = Date.now();
-    const id = newId();
+    let id = newId();
+
+    try {
+      const res = await createListingApi({
+        title: data.title,
+        description: data.description || "Detailed product listing via Omeetso User Portal",
+        priceInPaise: Math.round((data.price || 0) * 100),
+        pricingType: data.negotiable ? "NEGOTIABLE" : "FIXED",
+        condition: (data.condition || "good").toLowerCase().replace(" ", "_"),
+        categoryId: data.category || "electronics",
+        subcategoryId: data.subcategory || data.category || "electronics",
+        images: uploadedImages && uploadedImages.length > 0 ? uploadedImages : ["https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=400"],
+        coverIndex: data.cover || 0,
+        videoUrl: data.videoUrl || data.video,
+        whatsappPhone: data.whatsappPhone,
+        enableWhatsapp: data.enableWhatsapp ?? true,
+        city: data.city || "Hyderabad",
+        area: data.area || "Hitec City",
+        pincode: data.pincode || "500081",
+        specs: data.specs || {}
+      });
+
+      if (res.success && res.data?.id) {
+        id = res.data.id;
+      }
+    } catch (err) {
+      console.warn("MongoDB listing save warning:", err);
+    }
+
     const listing: Listing = {
       id, title: data.title!, price: data.price ?? 0, negotiable: !!data.negotiable, free: !!data.free,
       condition: (data.condition ?? "good") as Condition,
@@ -270,46 +300,15 @@ function DetailedSellPage() {
       bestContactTime: (data.bestContactTime ?? "anytime") as BestContactTime,
       sellerName: data.sellerName ?? "You", sellerPhone: data.sellerPhone,
       sellerType: data.sellerType ?? "individual",
-      status: "under_review", createdAt: now, updatedAt: now, method: "detailed",
+      status: "active", createdAt: now, updatedAt: now, method: "detailed",
       storeId: storeId,
       storeMeta: storeId ? { stockStatus: "in_stock" } : undefined,
     };
 
-    try {
-      const token = typeof localStorage !== "undefined" ? localStorage.getItem("omeetso_user_token") : null;
-      await fetch("https://api.omeetso.in/api/v1/listings", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          ...(token ? { Authorization: `Bearer ${token}` } : {})
-        },
-        body: JSON.stringify({
-          title: data.title,
-          description: data.description || "Detailed product listing via Omeetso User Portal",
-          priceInPaise: Math.round((data.price || 0) * 100),
-          pricingType: data.negotiable ? "NEGOTIABLE" : "FIXED",
-          condition: (data.condition || "good").toLowerCase().replace(" ", "_"),
-          categoryId: data.category || "electronics",
-          subcategoryId: data.subcategory || data.category || "electronics",
-          images: uploadedImages && uploadedImages.length > 0 ? uploadedImages : ["https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=400"],
-          coverIndex: data.cover || 0,
-          videoUrl: data.videoUrl || data.video,
-          whatsappPhone: data.whatsappPhone,
-          enableWhatsapp: data.enableWhatsapp ?? true,
-          city: data.city || "Hyderabad",
-          area: data.area || "Hitec City",
-          pincode: data.pincode || "500081",
-          specs: data.specs || {}
-        })
-      });
-    } catch (err) {
-      console.warn("MongoDB listing save warning:", err);
-    }
-
     upsertListing(listing);
     localStorage.removeItem(DRAFT_KEY);
     setPublishing(false);
-    toast.success("Detailed listing submitted! Awaiting Admin approval.");
+    toast.success("Detailed listing published successfully!");
     nav({ to: "/listings" });
   }
 
@@ -434,13 +433,15 @@ function DetailedSellPage() {
                       value={data.category ?? "electronics"}
                       onChange={(e) => {
                         const cat = e.target.value;
-                        patch({ category: cat, subcategory: SUBCATEGORIES[cat]?.[0]?.id || cat, specs: {} });
+                        const subs = getSubcategoriesForCategory(cat);
+                        const firstSub = subs[0]?.id || cat;
+                        patch({ category: cat, subcategory: firstSub, specs: {} });
                         setSelectedBrand("");
                       }}
                       className="w-full h-11 rounded-2xl border border-border bg-background px-3 text-xs font-bold text-foreground outline-none focus:border-indigo-brand"
                     >
                       {CATEGORIES.map((c) => (
-                        <option key={c.id} value={c.id}>{c.icon} {c.name}</option>
+                        <option key={c.id} value={c.id}>{c.name}</option>
                       ))}
                     </select>
                   </div>

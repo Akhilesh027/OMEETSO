@@ -225,11 +225,23 @@ function SellerPage() {
             </div>
             <div className="min-w-0 flex-1">
               <div className="flex items-center gap-2">
-                <p className="truncate text-lg font-extrabold">{seller.name}</p>
+                <p className="truncate text-lg font-extrabold">{seller.businessName || seller.name}</p>
+                {seller.verified && <ShieldCheck className="h-4 w-4 text-emerald-600 shrink-0" />}
               </div>
-              <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+              {seller.businessName && seller.name && seller.businessName !== seller.name && (
+                <p className="text-xs font-semibold text-muted-foreground truncate">
+                  Owner: {seller.name}
+                </p>
+              )}
+              <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground mt-0.5">
                 <span className="inline-flex items-center gap-1 rounded-full bg-secondary px-2 py-0.5 font-semibold">
-                  {seller.type === "business" ? <><StoreIcon className="h-3 w-3" /> Business</> : <><User className="h-3 w-3" /> Individual</>}
+                  {seller.type === "business" || seller.businessName ? (
+                    <span className="inline-flex items-center gap-1 text-indigo-600 dark:text-indigo-400">
+                      <StoreIcon className="h-3 w-3" /> Business Owner
+                    </span>
+                  ) : (
+                    <><User className="h-3 w-3" /> Individual</>
+                  )}
                 </span>
                 <span className="inline-flex items-center gap-0.5"><Star className="h-3 w-3 fill-yellow-brand text-yellow-brand" /> {seller.rating} · {seller.reviews} reviews</span>
               </div>

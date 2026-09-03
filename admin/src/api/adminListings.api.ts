@@ -68,3 +68,79 @@ export async function rejectListingApi(listingId: string, reason: string): Promi
     return { success: false, error: "Network error: Unable to reject listing" };
   }
 }
+
+export async function updateListingStatusApi(listingId: string, status: string, reason?: string): Promise<{ success: boolean; data?: any; error?: string }> {
+  try {
+    const res = await fetch(`${API_BASE}/${listingId}/status`, {
+      method: "PATCH",
+      headers: getHeaders(),
+      credentials: "include",
+      body: JSON.stringify({ status, reason })
+    });
+
+    const json = await res.json();
+    if (!res.ok || !json.success) {
+      return { success: false, error: json.error?.message || "Failed to update listing status" };
+    }
+    return { success: true, data: json.data };
+  } catch (error) {
+    return { success: false, error: "Network error: Unable to update listing status" };
+  }
+}
+
+export async function createAdminListingApi(payload: Record<string, any>): Promise<{ success: boolean; data?: any; error?: string }> {
+  try {
+    const res = await fetch(API_BASE, {
+      method: "POST",
+      headers: getHeaders(),
+      credentials: "include",
+      body: JSON.stringify(payload)
+    });
+
+    const json = await res.json();
+    if (!res.ok || !json.success) {
+      return { success: false, error: json.error?.message || "Failed to create listing" };
+    }
+    return { success: true, data: json.data };
+  } catch (error) {
+    return { success: false, error: "Network error: Unable to create listing" };
+  }
+}
+
+export async function updateAdminListingApi(listingId: string, payload: Record<string, any>): Promise<{ success: boolean; data?: any; error?: string }> {
+  try {
+    const res = await fetch(`${API_BASE}/${listingId}`, {
+      method: "PATCH",
+      headers: getHeaders(),
+      credentials: "include",
+      body: JSON.stringify(payload)
+    });
+
+    const json = await res.json();
+    if (!res.ok || !json.success) {
+      return { success: false, error: json.error?.message || "Failed to update listing" };
+    }
+    return { success: true, data: json.data };
+  } catch (error) {
+    return { success: false, error: "Network error: Unable to update listing" };
+  }
+}
+
+export async function deleteAdminListingApi(listingId: string): Promise<{ success: boolean; data?: any; error?: string }> {
+  try {
+    const res = await fetch(`${API_BASE}/${listingId}`, {
+      method: "DELETE",
+      headers: getHeaders(),
+      credentials: "include"
+    });
+
+    const json = await res.json();
+    if (!res.ok || !json.success) {
+      return { success: false, error: json.error?.message || "Failed to delete listing" };
+    }
+    return { success: true, data: json.data };
+  } catch (error) {
+    return { success: false, error: "Network error: Unable to delete listing" };
+  }
+}
+

@@ -168,7 +168,10 @@ function JobsPage() {
   }, [loadData]);
 
   const filteredJobs = useMemo(() => {
-    let list = [...allJobs];
+    let list = allJobs.filter((j) => {
+      const st = (j.status || "").toUpperCase();
+      return st === "APPROVED" || st === "ACTIVE";
+    });
 
     const q = search.q?.toLowerCase() ?? "";
     if (q) {
@@ -436,6 +439,41 @@ function JobsPage() {
                 </div>
               )}
             </div>
+          </div>
+        </div>
+
+        {/* Quick Nav Bar for Job Seekers & Employers */}
+        <div className="border-b border-border bg-card/70 backdrop-blur-sm px-3 sm:px-6 py-2">
+          <div className="mx-auto max-w-7xl flex items-center justify-between gap-2 overflow-x-auto no-scrollbar">
+            <div className="flex items-center gap-2 shrink-0">
+              <Link
+                to="/my/jobs"
+                className="inline-flex items-center gap-1.5 rounded-full border border-border bg-background px-3 py-1 text-xs font-bold text-foreground hover:bg-secondary transition-colors"
+              >
+                <Briefcase className="h-3.5 w-3.5 text-indigo-brand" />
+                <span>My Applied Jobs</span>
+              </Link>
+              <Link
+                to="/my/employer/jobs"
+                className="inline-flex items-center gap-1.5 rounded-full border border-border bg-background px-3 py-1 text-xs font-bold text-foreground hover:bg-secondary transition-colors"
+              >
+                <Building2 className="h-3.5 w-3.5 text-indigo-brand" />
+                <span>Employer Dashboard</span>
+              </Link>
+              <Link
+                to="/account/profile/jobs"
+                className="inline-flex items-center gap-1.5 rounded-full border border-border bg-background px-3 py-1 text-xs font-bold text-foreground hover:bg-secondary transition-colors"
+              >
+                <GraduationCap className="h-3.5 w-3.5 text-indigo-brand" />
+                <span>Resume Profile</span>
+              </Link>
+            </div>
+            <Link
+              to="/jobs/new"
+              className="inline-flex items-center gap-1 rounded-full bg-indigo-brand text-white px-3.5 py-1 text-xs font-bold hover:bg-indigo-brand/90 transition-all shadow-sm shrink-0"
+            >
+              <span>+ Post a Job Opening</span>
+            </Link>
           </div>
         </div>
 

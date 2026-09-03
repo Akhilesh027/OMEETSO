@@ -570,10 +570,10 @@ function VerificationCentre() {
                         <div className="flex items-center gap-2 flex-wrap">
                           <h4 className="text-sm font-bold text-foreground truncate">{it.title}</h4>
                           <span className={`text-[11px] font-bold px-2 py-0.5 rounded-md ${isFullyDone
-                              ? "bg-emerald-500/10 text-emerald-600 border border-emerald-500/20"
-                              : isPartiallyDone
-                                ? "bg-amber-500/10 text-amber-600 border border-amber-500/20"
-                                : "bg-indigo-brand/10 text-indigo-brand border border-indigo-brand/20"
+                            ? "bg-emerald-500/10 text-emerald-600 border border-emerald-500/20"
+                            : isPartiallyDone
+                              ? "bg-amber-500/10 text-amber-600 border border-amber-500/20"
+                              : "bg-indigo-brand/10 text-indigo-brand border border-indigo-brand/20"
                             }`}>
                             {isFullyDone
                               ? `✓ ${it.points} / ${it.points} pts`

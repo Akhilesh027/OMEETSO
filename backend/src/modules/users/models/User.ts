@@ -3,6 +3,7 @@ import { UserStatus } from "../../../contracts";
 
 export interface IUserProfile {
   name: string;
+  businessName?: string;
   avatar?: string;
   bio?: string;
   city: string;
@@ -55,6 +56,7 @@ const UserSchema = new Schema<IUser>(
     status: { type: String, enum: Object.values(UserStatus), default: UserStatus.ACTIVE, index: true },
     profile: {
       name: { type: String, required: true, default: "Omeetso User" },
+      businessName: { type: String },
       avatar: { type: String },
       bio: { type: String },
       city: { type: String, required: true, default: "Hyderabad" },

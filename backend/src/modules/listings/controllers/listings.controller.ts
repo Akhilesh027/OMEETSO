@@ -55,13 +55,15 @@ export async function createListing(req: AuthenticatedUserRequest, res: Response
       fulfilment: fulfilment || "pickup",
       specs: specs || {},
       contactPref: contactPref || "call_and_chat",
-      status: ListingStatus.SUBMITTED
+      status: ListingStatus.APPROVED,
+      publishedAt: new Date(),
+      expiresAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000)
     });
 
     // Create moderation queue entry
     await ListingModeration.create({
       listingId: listing._id,
-      status: "unassigned",
+      status: "completed",
       version: 1
     });
 
@@ -116,90 +118,38 @@ export async function getPublicListings(req: Request, res: Response, next: NextF
     const statusQuery = req.query.status ? (req.query.status as string).toUpperCase() : null;
     const query: Record<string, any> = {
       status: statusQuery
-        ? { $in: [statusQuery, statusQuery.toLowerCase()] }
-        : { $in: [ListingStatus.APPROVED, ListingStatus.ACTIVE, "APPROVED", "ACTIVE", "approved", "active"] }
+        ? { $in: [statusQuery, statusQuery.toLowerCase(), statusQuery.toUpperCase()] }
+        : { $nin: ["REJECTED", "rejected", "DELETED", "deleted", "EXPIRED", "expired", ListingStatus.REJECTED, ListingStatus.EXPIRED, ListingStatus.REMOVED] }
     };
+
+    const andConditions: any[] = [];
 
     if (req.query.categoryId || req.query.category) {
       const cat = (req.query.categoryId || req.query.category) as string;
-      query.$or = [
-        { categoryId: { $regex: cat, $options: "i" } },
-        { subcategoryId: { $regex: cat, $options: "i" } }
-      ];
+      andConditions.push({
+        $or: [
+          { categoryId: { $regex: cat, $options: "i" } },
+          { subcategoryId: { $regex: cat, $options: "i" } }
+        ]
+      });
     }
 
     if (req.query.subcategoryId) query.subcategoryId = req.query.subcategoryId;
     if (req.query.condition) query.condition = req.query.condition;
 
-    // Location query filters: area, city, pincode, location
-    const locationConditions: any[] = [];
-    if (req.query.pincode && req.query.area) {
-      const areaVal = (req.query.area as string).split(",")[0].trim();
-      const pinVal = (req.query.pincode as string).trim();
-      locationConditions.push({
+    // Direct City-based Filtering
+    const cityParam = (req.query.city as string)?.split(",")[0]?.trim();
+    if (cityParam && cityParam.toLowerCase() !== "all") {
+      andConditions.push({
         $or: [
-          { pincode: pinVal },
-          { area: { $regex: areaVal, $options: "i" } },
-          { city: { $regex: areaVal, $options: "i" } }
-        ]
-      });
-    } else if (req.query.pincode) {
-      locationConditions.push({ pincode: (req.query.pincode as string).trim() });
-    } else if (req.query.area) {
-      const areaVal = (req.query.area as string).split(",")[0].trim();
-      locationConditions.push({
-        $or: [
-          { area: { $regex: areaVal, $options: "i" } },
-          { city: { $regex: areaVal, $options: "i" } }
-        ]
-      });
-    } else if (req.query.city) {
-      const cityVal = (req.query.city as string).split(",")[0].trim().toLowerCase();
-      let cityRegex = cityVal;
-      if (cityVal.includes("bangalore") || cityVal.includes("bengaluru") || cityVal.includes("benglure")) {
-        cityRegex = "bangalore|bengaluru|benglure";
-      } else if (cityVal.includes("hyderabad") || cityVal.includes("hyd")) {
-        cityRegex = "hyderabad|hyd|secunderabad";
-      } else if (cityVal.includes("mumbai") || cityVal.includes("bombay")) {
-        cityRegex = "mumbai|bombay|thane";
-      }
-      locationConditions.push({
-        $or: [
-          { city: { $regex: cityRegex, $options: "i" } },
-          { area: { $regex: cityRegex, $options: "i" } }
+          { city: { $regex: cityParam, $options: "i" } },
+          { area: { $regex: cityParam, $options: "i" } }
         ]
       });
     }
 
-    if (req.query.location) {
-      const locVal = (req.query.location as string).split(",")[0].trim();
-      let locRegex = locVal;
-      const lower = locVal.toLowerCase();
-      if (lower.includes("bangalore") || lower.includes("bengaluru") || lower.includes("benglure")) {
-        locRegex = "bangalore|bengaluru|benglure";
-      } else if (lower.includes("hyderabad") || lower.includes("hyd")) {
-        locRegex = "hyderabad|hyd|secunderabad";
-      } else if (lower.includes("mumbai") || lower.includes("bombay")) {
-        locRegex = "mumbai|bombay|thane";
-      }
-      locationConditions.push({
-        $or: [
-          { area: { $regex: locRegex, $options: "i" } },
-          { city: { $regex: locRegex, $options: "i" } },
-          { pincode: locVal }
-        ]
-      });
-    }
-
-    if (locationConditions.length > 0) {
-      if (query.$or) {
-        query.$and = [{ $or: query.$or }, ...locationConditions];
-        delete query.$or;
-      } else if (locationConditions.length === 1 && locationConditions[0].$or) {
-        query.$or = locationConditions[0].$or;
-      } else {
-        query.$and = (query.$and || []).concat(locationConditions);
-      }
+    if (andConditions.length > 0) {
+      query.$and = andConditions;
     }
 
     const sellerParam = (Array.isArray(req.query.sellerId) ? req.query.sellerId[0] : req.query.sellerId || req.query.seller) as string;
@@ -208,6 +158,15 @@ export async function getPublicListings(req: Request, res: Response, next: NextF
         query.sellerId = new mongoose.Types.ObjectId(sellerParam);
       } else {
         query.sellerId = sellerParam;
+      }
+    }
+
+    const storeParam = req.query.storeId as string;
+    if (storeParam) {
+      if (mongoose.Types.ObjectId.isValid(storeParam)) {
+        query.storeId = new mongoose.Types.ObjectId(storeParam);
+      } else {
+        query.storeId = storeParam;
       }
     }
 
@@ -227,8 +186,9 @@ export async function getPublicListings(req: Request, res: Response, next: NextF
 
     const [listings, total] = await Promise.all([
       Listing.find(query)
-        .select("title priceInPaise condition area city pincode coverIndex images sellerId status publishedAt free negotiable categoryId subcategoryId description specs")
-        .populate("sellerId", "profile.name profile.avatar verificationSummary")
+        .select("title priceInPaise condition area city pincode coverIndex images sellerId storeId status publishedAt free negotiable categoryId subcategoryId description specs")
+        .populate("sellerId", "profile.name profile.businessName profile.avatar accountType verificationSummary")
+        .populate("storeId", "name slug logo cover rating reviewCount")
         .sort(sortOptions)
         .skip(skip)
         .limit(limit)
@@ -236,31 +196,42 @@ export async function getPublicListings(req: Request, res: Response, next: NextF
       Listing.countDocuments(query)
     ]);
 
-    const items = listings.map((l: any) => ({
-      id: l._id.toString(),
-      title: l.title,
-      priceInPaise: l.priceInPaise,
-      condition: l.condition,
-      area: l.area,
-      city: l.city,
-      pincode: l.pincode,
-      coverUrl: l.images[l.coverIndex || 0] || l.images[0],
-      images: l.images,
-      negotiable: l.negotiable,
-      free: l.free,
-      categoryId: l.categoryId,
-      subcategoryId: l.subcategoryId,
-      description: l.description,
-      specs: l.specs || {},
-      rating: l.rating || 0,
-      reviewCount: l.reviewCount || 0,
-      status: l.status,
-      publishedAt: l.publishedAt || l.createdAt,
-      sellerId: l.sellerId?._id ? l.sellerId._id.toString() : (l.sellerId ? l.sellerId.toString() : undefined),
-      sellerName: l.sellerId?.profile?.name || "Omeetso Seller",
-      sellerAvatar: l.sellerId?.profile?.avatar,
-      sellerVerified: Boolean(l.sellerId?.verificationSummary?.mobileVerified)
-    }));
+    const items = listings.map((l: any) => {
+      const isBusiness = Boolean(l.storeId || l.sellerId?.accountType === "business" || l.sellerId?.profile?.businessName);
+      const businessName = l.storeId?.name || l.sellerId?.profile?.businessName || (l.sellerId?.accountType === "business" ? l.sellerId?.profile?.name : undefined);
+      const sellerDisplayName = businessName || l.sellerId?.profile?.name || "Omeetso Seller";
+
+      return {
+        id: l._id.toString(),
+        title: l.title,
+        priceInPaise: l.priceInPaise,
+        condition: l.condition,
+        area: l.area,
+        city: l.city,
+        pincode: l.pincode,
+        coverUrl: l.images[l.coverIndex || 0] || l.images[0],
+        images: l.images,
+        negotiable: l.negotiable,
+        free: l.free,
+        categoryId: l.categoryId,
+        subcategoryId: l.subcategoryId,
+        description: l.description,
+        specs: l.specs || {},
+        rating: l.rating || 0,
+        reviewCount: l.reviewCount || 0,
+        status: l.status,
+        publishedAt: l.publishedAt || l.createdAt,
+        sellerId: l.sellerId?._id ? l.sellerId._id.toString() : (l.sellerId ? l.sellerId.toString() : undefined),
+        sellerName: sellerDisplayName,
+        sellerOwnerName: l.sellerId?.profile?.name,
+        businessName: businessName,
+        sellerType: isBusiness ? "business" : "individual",
+        storeId: l.storeId?._id ? l.storeId._id.toString() : (l.storeId ? l.storeId.toString() : undefined),
+        storeName: l.storeId?.name,
+        sellerAvatar: l.sellerId?.profile?.avatar || l.storeId?.logo,
+        sellerVerified: Boolean(l.sellerId?.verificationSummary?.mobileVerified || l.sellerId?.verificationSummary?.businessVerified)
+      };
+    });
 
     res.status(200).json({
       success: true,
@@ -283,10 +254,12 @@ export async function getListingById(req: Request, res: Response, next: NextFunc
     const isObjectId = /^[0-9a-fA-F]{24}$/.test(listingId);
     const listing = isObjectId
       ? await Listing.findById(listingId)
-          .populate("sellerId", "profile.name profile.avatar profile.city profile.area verificationSummary createdAt")
+          .populate("sellerId", "profile.name profile.businessName profile.avatar profile.city profile.area accountType verificationSummary createdAt")
+          .populate("storeId", "name slug logo cover rating reviewCount")
           .lean()
       : await Listing.findOne({ slug: listingId } as any)
-          .populate("sellerId", "profile.name profile.avatar profile.city profile.area verificationSummary createdAt")
+          .populate("sellerId", "profile.name profile.businessName profile.avatar profile.city profile.area accountType verificationSummary createdAt")
+          .populate("storeId", "name slug logo cover rating reviewCount")
           .lean();
 
     if (!listing) {
@@ -295,6 +268,10 @@ export async function getListingById(req: Request, res: Response, next: NextFunc
     }
 
     const seller: any = listing.sellerId;
+    const store: any = listing.storeId;
+    const isBusiness = Boolean(store || seller?.accountType === "business" || seller?.profile?.businessName);
+    const businessName = store?.name || seller?.profile?.businessName || (seller?.accountType === "business" ? seller?.profile?.name : undefined);
+    const sellerDisplayName = businessName || seller?.profile?.name || "Omeetso Seller";
 
     res.status(200).json({
       success: true,
@@ -324,13 +301,20 @@ export async function getListingById(req: Request, res: Response, next: NextFunc
         expiresAt: listing.expiresAt,
         analytics: listing.analytics || { views: 0, saves: 0, chats: 0 },
         aiAudit: listing.aiAudit || { passed: true, resolution: "1920x1080 (HD)", noPhoneText: true, watermarkPassed: true },
+        businessName,
+        sellerOwnerName: seller?.profile?.name,
+        storeName: store?.name,
+        sellerType: isBusiness ? "business" : "individual",
         seller: seller
           ? {
               id: seller._id.toString(),
-              name: seller.profile?.name || "Omeetso Seller",
-              avatar: seller.profile?.avatar,
-              city: seller.profile?.city,
-              area: seller.profile?.area,
+              name: sellerDisplayName,
+              ownerName: seller.profile?.name,
+              businessName: businessName,
+              type: isBusiness ? "business" : "individual",
+              avatar: seller.profile?.avatar || store?.logo,
+              city: seller.profile?.city || store?.city,
+              area: seller.profile?.area || store?.area,
               memberSince: seller.profile?.memberSince || seller.createdAt,
               verificationSummary: seller.verificationSummary || { riskScore: 94 }
             }

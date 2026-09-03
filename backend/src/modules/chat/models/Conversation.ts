@@ -2,10 +2,11 @@ import mongoose, { Schema, Document } from "mongoose";
 
 export interface IConversation extends Document {
   _id: mongoose.Types.ObjectId;
-  contextType: "LISTING" | "STORE";
+  contextType: "LISTING" | "STORE" | "JOB";
   contextId: mongoose.Types.ObjectId;
   listingId?: mongoose.Types.ObjectId;
   storeId?: mongoose.Types.ObjectId;
+  jobId?: mongoose.Types.ObjectId;
   buyerId: mongoose.Types.ObjectId;
   sellerId: mongoose.Types.ObjectId;
   participantIds: mongoose.Types.ObjectId[];
@@ -22,10 +23,11 @@ export interface IConversation extends Document {
 
 const ConversationSchema = new Schema<IConversation>(
   {
-    contextType: { type: String, enum: ["LISTING", "STORE"], required: true, default: "LISTING" },
+    contextType: { type: String, enum: ["LISTING", "STORE", "JOB"], required: true, default: "LISTING" },
     contextId: { type: Schema.Types.ObjectId, required: true },
     listingId: { type: Schema.Types.ObjectId, ref: "Listing" },
     storeId: { type: Schema.Types.ObjectId, ref: "Store" },
+    jobId: { type: Schema.Types.ObjectId, ref: "Job" },
     buyerId: { type: Schema.Types.ObjectId, ref: "User", required: true, index: true },
     sellerId: { type: Schema.Types.ObjectId, ref: "User", required: true, index: true },
     participantIds: [{ type: Schema.Types.ObjectId, ref: "User", required: true, index: true }],

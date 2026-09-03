@@ -29,7 +29,7 @@ export interface ConversationItem {
 }
 
 export async function startConversationApi(
-  contextType: "LISTING" | "STORE",
+  contextType: "LISTING" | "STORE" | "JOB",
   contextId: string
 ): Promise<{ success: boolean; data?: any; error?: any }> {
   const res = await fetch(`${API_BASE}/conversations`, {

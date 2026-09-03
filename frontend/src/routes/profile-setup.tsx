@@ -26,6 +26,7 @@ function ProfileSetup() {
   const nav = useNavigate();
   const [avatar, setAvatar] = useState<string | null>(null);
   const [name, setName] = useState("");
+  const [businessName, setBusinessName] = useState("");
   const [phone, setPhone] = useState("");
   const [email, setEmail] = useState("");
   const [pincode, setPincode] = useState("");
@@ -48,6 +49,7 @@ function ProfileSetup() {
     try {
       const u = JSON.parse(localStorage.getItem("omeetso_user") || "{}");
       if (u.profile?.name || u.name) setName(u.profile?.name || u.name);
+      if (u.profile?.businessName || u.businessName) setBusinessName(u.profile?.businessName || u.businessName);
       if (u.phone || u.mobile) setPhone(u.phone || u.mobile);
       if (u.email) setEmail(u.email);
     } catch { }
@@ -99,10 +101,12 @@ function ProfileSetup() {
           },
           body: JSON.stringify({
             name: name.trim(),
+            businessName: account === "business" ? businessName.trim() : undefined,
             phone: cleanPhone,
             email: emailTrimmed || undefined,
             city,
             pincode,
+            accountType: account,
             avatar: finalAvatar
           })
         });
@@ -113,6 +117,7 @@ function ProfileSetup() {
       try {
         await registerUserApi({
           name: name.trim(),
+          businessName: account === "business" ? businessName.trim() : undefined,
           phone: cleanPhone,
           email: emailTrimmed || undefined,
           city,
@@ -136,9 +141,11 @@ function ProfileSetup() {
         phone: cleanPhone,
         mobile: cleanPhone,
         email: emailTrimmed,
+        accountType: account,
         profile: {
           ...(existing.profile || {}),
           name: name.trim(),
+          businessName: account === "business" ? businessName.trim() : undefined,
           phone: cleanPhone,
           mobile: cleanPhone,
           city,
@@ -311,6 +318,19 @@ function ProfileSetup() {
                   body="Run a verified local store & showcase products"
                 />
               </div>
+
+              {account === "business" && (
+                <div className="mt-3.5">
+                  <Field label="Business Name / Store Name" icon={<StoreIcon className="h-4 w-4 text-primary" />}>
+                    <input
+                      value={businessName}
+                      onChange={(e) => setBusinessName(e.target.value)}
+                      placeholder="e.g. Hyderabad Electronics, Sri Balaji Traders"
+                      className="w-full bg-transparent text-sm font-semibold outline-none placeholder:font-normal placeholder:text-muted-foreground"
+                    />
+                  </Field>
+                </div>
+              )}
             </div>
           </div>
 

@@ -194,7 +194,9 @@ function ProductPage() {
 
   const defaultSeller = {
     id: String(realSellerId),
-    name: liveSeller?.name || liveSeller?.profile?.name || product.sellerName || mockSeller?.name || "Omeetso Seller",
+    name: (product as any).businessName || liveSeller?.businessName || liveSeller?.name || liveSeller?.profile?.name || product.sellerName || mockSeller?.name || "Omeetso Seller",
+    businessName: (product as any).businessName || liveSeller?.businessName || (product as any).storeName || liveSeller?.profile?.businessName,
+    ownerName: (product as any).sellerOwnerName || liveSeller?.ownerName || liveSeller?.profile?.name,
     avatar: liveSeller?.avatar || liveSeller?.profile?.avatar || (product as any).sellerAvatar || (product as any).sellerPhoto || mockSeller?.avatar,
     memberSince: liveSeller?.createdAt || liveSeller?.memberSince || (product as any).createdAt || mockSeller?.memberSince || 0,
     rating: rawRating,
@@ -203,7 +205,7 @@ function ProductPage() {
     verified: Boolean(liveSeller?.verificationSummary?.mobileVerified || (product as any).verified || mockSeller?.verified),
     phoneVerified: Boolean(liveSeller?.verificationSummary?.mobileVerified || (product as any).phoneVerified || mockSeller?.phoneVerified),
     kycVerified: Boolean(liveSeller?.verificationSummary?.govtIdVerified || (product as any).kycVerified || mockSeller?.kycVerified),
-    type: (liveSeller?.accountType || (product as any).sellerType || mockSeller?.type || "individual") as "individual" | "business",
+    type: ((product as any).sellerType || liveSeller?.type || liveSeller?.accountType || ((product as any).businessName ? "business" : mockSeller?.type) || "individual") as "individual" | "business",
     area: liveSeller?.area || liveSeller?.profile?.area || product.area || product.city || mockSeller?.area || "Hyderabad",
     activeListings: typeof liveSeller?.activeListingsCount === "number" ? liveSeller.activeListingsCount : (mockSeller?.activeListings || 0),
   };

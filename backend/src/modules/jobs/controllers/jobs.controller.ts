@@ -254,7 +254,7 @@ export async function createJobListing(req: AuthenticatedUserRequest, res: Respo
       isUrgent: Boolean(body.isUrgent),
       isFeatured: Boolean(body.isFeatured),
       screeningQuestions: Array.isArray(body.screeningQuestions) ? body.screeningQuestions : [],
-      status: "ACTIVE"
+      status: "SUBMITTED"
     });
 
     res.status(201).json({ success: true, data: { ...job.toObject(), id: job._id.toString() } });
@@ -271,6 +271,10 @@ export async function duplicateJobListing(req: AuthenticatedUserRequest, res: Re
       return;
     }
     const { id } = req.params;
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      res.status(400).json({ success: false, error: { message: "Invalid job ID" } });
+      return;
+    }
     const existing = await Job.findById(id);
     if (!existing) {
       res.status(404).json({ success: false, error: { message: "Original job not found" } });
@@ -283,7 +287,7 @@ export async function duplicateJobListing(req: AuthenticatedUserRequest, res: Re
     delete (clonedData as any).updatedAt;
 
     clonedData.title = `${clonedData.title} (Copy)`;
-    clonedData.status = "ACTIVE";
+    clonedData.status = "SUBMITTED";
     clonedData.viewsCount = 0;
     clonedData.applicationsCount = 0;
     clonedData.shortlistedCount = 0;
@@ -305,6 +309,10 @@ export async function renewJobListing(req: AuthenticatedUserRequest, res: Respon
       return;
     }
     const { id } = req.params;
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      res.status(400).json({ success: false, error: { message: "Invalid job ID" } });
+      return;
+    }
     const job = await Job.findOneAndUpdate(
       { _id: id, employerId: req.user._id },
       { status: "ACTIVE", expiresAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000) },
@@ -328,6 +336,10 @@ export async function closeJobListing(req: AuthenticatedUserRequest, res: Respon
       return;
     }
     const { id } = req.params;
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      res.status(400).json({ success: false, error: { message: "Invalid job ID" } });
+      return;
+    }
     const job = await Job.findOneAndUpdate(
       { _id: id, employerId: req.user._id },
       { status: "FILLED" },
@@ -347,6 +359,10 @@ export async function applyToJob(req: AuthenticatedUserRequest, res: Response, n
     }
 
     const { jobId, screeningAnswers, customSnapshot } = req.body;
+    if (!jobId || !mongoose.Types.ObjectId.isValid(jobId)) {
+      res.status(400).json({ success: false, error: { message: "Invalid or missing job ID" } });
+      return;
+    }
     const job = await Job.findById(jobId);
     if (!job) {
       res.status(404).json({ success: false, error: { message: "Job listing not found" } });
@@ -479,7 +495,15 @@ export async function getJobApplicants(req: AuthenticatedUserRequest, res: Respo
     const { jobId } = req.params;
     const { status, q, sort } = req.query;
 
-    const query: Record<string, any> = { jobId, employerId: req.user._id };
+    const jobQueryIds: any[] = [jobId];
+    if (mongoose.Types.ObjectId.isValid(jobId)) {
+      jobQueryIds.push(new mongoose.Types.ObjectId(jobId));
+    }
+
+    const query: Record<string, any> = {
+      jobId: { $in: jobQueryIds }
+    };
+
     if (status && status !== "ALL") {
       query.status = (status as string).toUpperCase();
     }
@@ -489,6 +513,7 @@ export async function getJobApplicants(req: AuthenticatedUserRequest, res: Respo
       query.$or = [
         { "applicantProfileSnapshot.name": regex },
         { "applicantProfileSnapshot.email": regex },
+        { "applicantProfileSnapshot.phone": regex },
         { "applicantProfileSnapshot.currentRole": regex },
         { "applicantProfileSnapshot.experience": regex }
       ];

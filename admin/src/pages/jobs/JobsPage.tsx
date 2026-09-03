@@ -109,7 +109,7 @@ export function JobsPage() {
   const handleUpdateJobStatus = async (jobId: string, status: string, reason?: string) => {
     try {
       const token = typeof localStorage !== "undefined" ? localStorage.getItem("omeetso_admin_token") : null;
-      await fetch(`${API_BASE}/admin/jobs/${jobId}/status`, {
+      const res = await fetch(`${API_BASE}/admin/jobs/${jobId}/status`, {
         method: "PATCH",
         headers: {
           "Content-Type": "application/json",
@@ -117,7 +117,27 @@ export function JobsPage() {
         },
         body: JSON.stringify({ status, rejectionReason: reason }),
       });
-    } catch { }
+      if (!res.ok) {
+        const errJson = await res.json().catch(() => null);
+        console.warn("Backend admin status update warning:", errJson);
+      }
+    } catch (err) {
+      console.warn("Could not reach backend:", err);
+    }
+
+    // Sync localStorage if available
+    if (typeof localStorage !== "undefined") {
+      try {
+        const raw = localStorage.getItem("omeetso_jobs_list");
+        if (raw) {
+          const list = JSON.parse(raw);
+          const updated = list.map((j: any) =>
+            j.id === jobId || j._id === jobId ? { ...j, status, rejectionReason: reason } : j
+          );
+          localStorage.setItem("omeetso_jobs_list", JSON.stringify(updated));
+        }
+      } catch { }
+    }
 
     // Update local state
     setJobs((prev) =>
@@ -356,8 +376,10 @@ export function JobsPage() {
                   <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
                     {filteredJobs.map((job) => {
                       const jobId = job.id || job._id;
-                      const isApproved = job.status === "APPROVED" || job.status === "ACTIVE";
-                      const isPending = job.status === "SUBMITTED" || job.status === "pending";
+                      const statusUpper = (job.status || "").toUpperCase();
+                      const isApproved = statusUpper === "APPROVED" || statusUpper === "ACTIVE";
+                      const isPending = statusUpper === "SUBMITTED" || statusUpper === "PENDING";
+                      const isRejected = statusUpper === "REJECTED";
 
                       return (
                         <tr key={jobId} className="hover:bg-gray-50 dark:hover:bg-gray-700/40 transition">
@@ -387,7 +409,7 @@ export function JobsPage() {
                             {job.salary?.salaryDisclosed ? (
                               <span>
                                 ₹{(job.salary.minSalary || 0).toLocaleString("en-IN")} - ₹{(job.salary.maxSalary || 0).toLocaleString("en-IN")}
-                                <span className="text-[10px] text-gray-500 font-normal"> / {job.salary.salaryPeriod || "yearly"}</span>
+                                <span className="text-[10px] text-gray-500 font-normal"> / {job.salary.salaryPeriod || "monthly"}</span>
                               </span>
                             ) : (
                               <span className="text-gray-400 font-normal">Not Disclosed</span>
@@ -395,21 +417,23 @@ export function JobsPage() {
                           </td>
 
                           <td className="p-3.5 text-gray-700 dark:text-gray-300">
-                            <div>{job.location?.area}, {job.location?.city}</div>
+                            <div>{job.location?.area || "Area"}, {job.location?.city || "Hyderabad"}</div>
                             <span className="text-[10px] text-gray-400">{job.openingsCount || 1} Openings</span>
                           </td>
 
                           <td className="p-3.5">
                             <span
-                              className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-black ${
+                              className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase ${
                                 isApproved
                                   ? "bg-emerald-100 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-300"
                                   : isPending
                                   ? "bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-300"
-                                  : "bg-rose-100 text-rose-800 dark:bg-rose-900/30 dark:text-rose-300"
+                                  : isRejected
+                                  ? "bg-rose-100 text-rose-800 dark:bg-rose-900/30 dark:text-rose-300"
+                                  : "bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-300"
                               }`}
                             >
-                              {job.status}
+                              {isPending ? "Under Review" : isApproved ? "Active" : job.status}
                             </span>
                           </td>
 
@@ -446,7 +470,7 @@ export function JobsPage() {
                               </button>
                             )}
 
-                            {job.status !== "REJECTED" && (
+                            {!isRejected && (
                               <button
                                 onClick={() => {
                                   setJobToReject(job);

@@ -5,13 +5,10 @@
 @source "../src";
 @import "tw-animate-css";
 
-/* Local Glacial Indifference font-face fallback declarations */
+/* Local Glacial Indifference font-face declarations */
 @font-face {
   font-family: "Glacial Indifference";
-  src: local("Glacial Indifference Regular"), local("GlacialIndifference-Regular"),
-       url("/fonts/GlacialIndifference-Regular.woff2") format("woff2"),
-       url("/fonts/GlacialIndifference-Regular.otf") format("opentype"),
-       url("/fonts/GlacialIndifference-Regular.ttf") format("truetype");
+  src: local("Glacial Indifference Regular"), local("GlacialIndifference-Regular");
   font-weight: 400;
   font-style: normal;
   font-display: swap;
@@ -19,10 +16,7 @@
 
 @font-face {
   font-family: "Glacial Indifference";
-  src: local("Glacial Indifference Bold"), local("GlacialIndifference-Bold"),
-       url("/fonts/GlacialIndifference-Bold.woff2") format("woff2"),
-       url("/fonts/GlacialIndifference-Bold.otf") format("opentype"),
-       url("/fonts/GlacialIndifference-Bold.ttf") format("truetype");
+  src: local("Glacial Indifference Bold"), local("GlacialIndifference-Bold");
   font-weight: 700;
   font-style: normal;
   font-display: swap;
@@ -30,10 +24,7 @@
 
 @font-face {
   font-family: "Glacial Indifference";
-  src: local("Glacial Indifference Italic"), local("GlacialIndifference-Italic"),
-       url("/fonts/GlacialIndifference-Italic.woff2") format("woff2"),
-       url("/fonts/GlacialIndifference-Italic.otf") format("opentype"),
-       url("/fonts/GlacialIndifference-Italic.ttf") format("truetype");
+  src: local("Glacial Indifference Italic"), local("GlacialIndifference-Italic");
   font-weight: 400;
   font-style: italic;
   font-display: swap;

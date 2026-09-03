@@ -1,5 +1,5 @@
 import { Link, useNavigate } from "@tanstack/react-router";
-import { Heart, ShieldCheck, MapPin, Sparkles, Ban, Zap, Star } from "lucide-react";
+import { Heart, ShieldCheck, MapPin, Sparkles, Ban, Zap, Star, Store as StoreIcon } from "lucide-react";
 import { formatINR, type Product } from "@/lib/mock";
 import { useSaved } from "@/hooks/useSaved";
 import { cn } from "@/lib/utils";
@@ -90,6 +90,11 @@ export function ProductCard({
         <div className="px-1 pt-2">
           <p className="text-[15px] font-black text-slate-900 dark:text-white leading-tight">{formatINR(p.price)}</p>
           <p className="line-clamp-1 text-xs font-semibold text-foreground group-hover:text-primary transition-colors">{p.title}</p>
+          {Boolean(p.businessName || p.storeName) && (
+            <p className="text-[10px] font-bold text-indigo-600 dark:text-indigo-400 flex items-center gap-1 truncate mt-0.5">
+              <StoreIcon className="h-2.5 w-2.5 shrink-0" /> {p.businessName || p.storeName}
+            </p>
+          )}
           <p className="mt-0.5 text-[11px] text-muted-foreground">{p.area || "Nearby"}{p.distanceKm ? ` · ${p.distanceKm} km` : ""}</p>
         </div>
       </Link>
@@ -126,6 +131,11 @@ export function ProductCard({
               <SaveButton id={p.id} size="sm" />
             </div>
             <p className="line-clamp-2 text-sm font-semibold text-foreground group-hover:text-primary transition-colors">{p.title}</p>
+            {Boolean(p.businessName || p.storeName) && (
+              <p className="text-xs font-bold text-indigo-600 dark:text-indigo-400 flex items-center gap-1 truncate mt-0.5">
+                <StoreIcon className="h-3 w-3 shrink-0" /> {p.businessName || p.storeName}
+              </p>
+            )}
           </div>
 
           <div>
@@ -143,11 +153,15 @@ export function ProductCard({
                   Negotiable
                 </span>
               )}
-              {p.verified && (
+              {Boolean(p.businessName || p.storeName || p.sellerType === "business") ? (
+                <span className="inline-flex items-center gap-1 rounded-full bg-indigo-500/10 border border-indigo-500/20 px-2 py-0.5 text-[10px] font-black text-indigo-600 dark:text-indigo-400">
+                  <StoreIcon className="h-3 w-3" /> Verified Business
+                </span>
+              ) : p.verified ? (
                 <span className="inline-flex items-center gap-1 rounded-full bg-emerald-500/10 border border-emerald-500/20 px-2 py-0.5 text-[10px] font-extrabold text-emerald-600">
                   <ShieldCheck className="h-3 w-3" /> Verified Seller
                 </span>
-              )}
+              ) : null}
             </div>
           </div>
         </div>
@@ -214,6 +228,12 @@ export function ProductCard({
             {p.title}
           </p>
         </Link>
+        {Boolean(p.businessName || p.storeName) && (
+          <p className="mt-1.5 text-[11px] font-bold text-indigo-600 dark:text-indigo-400 flex items-center gap-1 truncate">
+            <StoreIcon className="h-3 w-3 shrink-0" />
+            <span className="truncate">{p.businessName || p.storeName}</span>
+          </p>
+        )}
         <div className="mt-3 flex items-center justify-between text-xs text-muted-foreground pt-2 border-t border-border/60">
           <span className="truncate flex items-center gap-1 font-medium">
             <MapPin className="h-3.5 w-3.5 text-primary/80 shrink-0" />

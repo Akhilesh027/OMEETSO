@@ -18,6 +18,7 @@ import { getTrustScore } from "@/lib/account";
 import { uploadImageToCloudinary } from "@/lib/upload";
 import { validateBasic, validateMedia, validateCategory, validateLocation, validateContact } from "@/lib/listingValidation";
 import { BRANDS_BY_CATEGORY, generateTitleSuggestions, generateAiDescription } from "@/lib/aiAssistance";
+import { createListingApi } from "@/api/listings.api";
 import { toast } from "sonner";
 import { useRef } from "react";
 import {
@@ -85,10 +86,11 @@ function QuickSellPage() {
       const rawLoc = localStorage.getItem("omeetso_location") || localStorage.getItem("omeetso_selected_location");
       if (rawLoc) {
         const loc = JSON.parse(rawLoc);
+        if (loc.city) locCity = loc.city;
         if (loc.area) {
           const parts = loc.area.split(",").map((p: string) => p.trim());
           locArea = parts[0] || locArea;
-          if (parts[1]) locCity = parts[1];
+          if (parts[1] && !loc.city) locCity = parts[1];
         }
         if (loc.pincode) locPin = loc.pincode;
       }
@@ -102,14 +104,14 @@ function QuickSellPage() {
     }
 
     setData((prev) => ({
-      area: locArea,
-      city: locCity,
-      pincode: locPin,
       ...prev,
+      ...d,
+      area: d?.area || locArea,
+      city: d?.city || locCity,
+      pincode: d?.pincode || locPin,
       sellerName: seller.name || "You",
       sellerPhone: seller.phone,
       sellerType: seller.type ?? "individual",
-      ...d,
     }));
 
     setTimeout(() => {
@@ -240,7 +242,35 @@ function QuickSellPage() {
       (data.images || []).map((img) => uploadImageToCloudinary(img, "listings"))
     );
     const now = Date.now();
-    const id = newId();
+    let id = newId();
+
+    try {
+      const res = await createListingApi({
+        title: data.title,
+        description: data.description || "Product listed via Omeetso Quick Sell",
+        priceInPaise: Math.round((data.price || 0) * 100),
+        pricingType: data.negotiable ? "NEGOTIABLE" : "FIXED",
+        condition: (data.condition || "good").toLowerCase().replace(" ", "_"),
+        categoryId: data.category || "mobiles",
+        subcategoryId: data.subcategory || data.category || "mobiles",
+        images: uploadedImages && uploadedImages.length > 0 ? uploadedImages : ["https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=400"],
+        coverIndex: data.cover || 0,
+        videoUrl: data.videoUrl || data.video,
+        whatsappPhone: data.whatsappPhone,
+        enableWhatsapp: data.enableWhatsapp ?? true,
+        city: data.city || "Hyderabad",
+        area: data.area || "Madhapur",
+        pincode: data.pincode || "500081",
+        specs: data.specs || {}
+      });
+
+      if (res.success && res.data?.id) {
+        id = res.data.id;
+      }
+    } catch (err) {
+      console.warn("MongoDB listing save warning:", err);
+    }
+
     const listing: Listing = {
       id,
       title: data.title!, price: data.price ?? 0, negotiable: !!data.negotiable, free: !!data.free,
@@ -259,45 +289,14 @@ function QuickSellPage() {
       bestContactTime: (data.bestContactTime ?? "anytime") as BestContactTime,
       sellerName: data.sellerName ?? "You", sellerPhone: data.sellerPhone,
       sellerType: data.sellerType ?? "individual",
-      status: "under_review", createdAt: now, updatedAt: now, method: "quick",
+      status: "active", createdAt: now, updatedAt: now, method: "quick",
     };
-
-    try {
-      const token = typeof localStorage !== "undefined" ? localStorage.getItem("omeetso_user_token") : null;
-      await fetch("https://api.omeetso.in/api/v1/listings", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          ...(token ? { Authorization: `Bearer ${token}` } : {})
-        },
-        body: JSON.stringify({
-          title: data.title,
-          description: data.description || "Product listed via Omeetso Quick Sell",
-          priceInPaise: Math.round((data.price || 0) * 100),
-          pricingType: data.negotiable ? "NEGOTIABLE" : "FIXED",
-          condition: (data.condition || "good").toLowerCase().replace(" ", "_"),
-          categoryId: data.category || "mobiles",
-          subcategoryId: data.subcategory || data.category || "mobiles",
-          images: uploadedImages && uploadedImages.length > 0 ? uploadedImages : ["https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=400"],
-          coverIndex: data.cover || 0,
-          videoUrl: data.videoUrl || data.video,
-          whatsappPhone: data.whatsappPhone,
-          enableWhatsapp: data.enableWhatsapp ?? true,
-          city: data.city || "Hyderabad",
-          area: data.area || "Madhapur",
-          pincode: data.pincode || "500081",
-          specs: data.specs || {}
-        })
-      });
-    } catch (err) {
-      console.warn("MongoDB listing save warning:", err);
-    }
 
     upsertListing(listing);
     pushRecentCategory(listing.category);
     localStorage.removeItem(DRAFT_KEY);
     setPublishing(false);
-    toast.success("Listing submitted successfully! Awaiting Admin approval.");
+    toast.success("Listing published successfully!");
     nav({ to: "/listings" });
   }
 

@@ -9,6 +9,8 @@ export function SellerSummary({
   seller: {
     id: string;
     name?: string;
+    businessName?: string;
+    ownerName?: string;
     avatar?: string;
     memberSince?: string | number;
     rating?: number;
@@ -23,6 +25,9 @@ export function SellerSummary({
   };
   otherListings?: number;
 }) {
+  const isBusiness = seller.type === "business" || Boolean(seller.businessName);
+  const businessName = seller.businessName || (isBusiness ? seller.name : undefined);
+
   // Clean seller name
   const rawName = seller.name || "Omeetso Seller";
   const nameParts = rawName.trim().split(/\s+/);
@@ -30,6 +35,9 @@ export function SellerSummary({
     return nameParts.findIndex((w) => w.toLowerCase() === word.toLowerCase()) === index;
   });
   const displayName = uniqueParts.map((w) => w.charAt(0).toUpperCase() + w.slice(1)).join(" ");
+
+  const mainTitle = businessName || displayName;
+  const ownerSubtitle = seller.ownerName || (businessName && businessName !== displayName ? displayName : undefined);
 
   // Parse ISO date strings (e.g. "2026-07-30T05:41:40.763Z") into clean "Jul 2026" format
   const parseMemberSince = (val: any) => {
@@ -55,7 +63,15 @@ export function SellerSummary({
       <div className="flex items-center justify-between gap-2 border-b border-border/50 pb-3">
         <span className="text-xs font-black uppercase tracking-wider text-muted-foreground">Seller Details</span>
         <span className="inline-flex items-center gap-1 rounded-full bg-surface-2 border border-border/60 px-2.5 py-0.5 text-[10px] font-black uppercase text-foreground">
-          {seller.type === "business" ? <><StoreIcon className="h-3 w-3 text-primary" /> Business</> : <><User className="h-3 w-3 text-primary" /> Individual</>}
+          {isBusiness ? (
+            <span className="inline-flex items-center gap-1 text-indigo-600 dark:text-indigo-400">
+              <StoreIcon className="h-3 w-3" /> Business Owner
+            </span>
+          ) : (
+            <span className="inline-flex items-center gap-1 text-primary">
+              <User className="h-3 w-3" /> Individual
+            </span>
+          )}
         </span>
       </div>
 
@@ -66,10 +82,10 @@ export function SellerSummary({
       >
         <div className="relative h-13 w-13 shrink-0">
           {seller.avatar ? (
-            <img src={seller.avatar} alt={displayName} className="h-13 w-13 rounded-full object-cover border border-border shadow-sm group-hover:scale-105 transition-transform" />
+            <img src={seller.avatar} alt={mainTitle} className="h-13 w-13 rounded-full object-cover border border-border shadow-sm group-hover:scale-105 transition-transform" />
           ) : (
             <div className="grid h-13 w-13 place-items-center rounded-full bg-gradient-to-tr from-primary to-indigo-800 text-white font-black text-base shadow-sm group-hover:scale-105 transition-transform">
-              {displayName ? displayName.charAt(0).toUpperCase() : "S"}
+              {mainTitle ? mainTitle.charAt(0).toUpperCase() : "S"}
             </div>
           )}
           {seller.verified && (
@@ -81,9 +97,14 @@ export function SellerSummary({
 
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-1.5">
-            <h4 className="truncate text-base font-black text-foreground group-hover:text-primary transition-colors">{displayName}</h4>
+            <h4 className="truncate text-base font-black text-foreground group-hover:text-primary transition-colors">{mainTitle}</h4>
             {seller.verified && <ShieldCheck className="h-4 w-4 shrink-0 text-blue-600" />}
           </div>
+          {ownerSubtitle && (
+            <p className="text-[11px] font-semibold text-muted-foreground truncate">
+              Owner: {ownerSubtitle}
+            </p>
+          )}
           <p className="mt-0.5 flex items-center gap-1 text-xs text-muted-foreground font-medium truncate">
             <MapPin className="h-3.5 w-3.5 text-primary shrink-0" /> {seller.area || "Hyderabad"}
           </p>

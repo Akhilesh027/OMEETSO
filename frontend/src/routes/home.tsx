@@ -39,7 +39,7 @@ import { LocationModal } from "@/components/omeetso/LocationModal";
 import { ProductQuickPreviewModal } from "@/components/omeetso/ProductQuickPreviewModal";
 import { CategoryDetailModal } from "@/components/omeetso/CategoryDetailModal";
 import { fetchLiveCategories, LiveCategory } from "@/lib/categories";
-import { calculateDistanceBetweenLocations } from "@/lib/location";
+import { calculateDistanceBetweenLocations, resolveCityFromLocation } from "@/lib/location";
 
 function HeroProductShowcase({ items }: { items?: any[] }) {
   const displayItems = useMemo(() => {
@@ -376,33 +376,18 @@ function Home() {
       })
       .catch(() => { });
 
-    const activeCity = loc?.city || (loc?.area ? (loc.area.includes(",") ? loc.area.split(",")[1].trim() : (loc.area.toLowerCase().includes("bangalore") || loc.area.toLowerCase().includes("bengaluru") ? "Bangalore" : loc.area.toLowerCase().includes("mumbai") ? "Mumbai" : loc.area.toLowerCase().includes("hyderabad") || loc.area.toLowerCase().includes("secunderabad") ? "Hyderabad" : loc.area.split(",")[0].trim())) : undefined);
+    const activeCity = resolveCityFromLocation(loc) || loc?.city || "Hyderabad";
 
     fetchLivePublicListings({
-      area: loc?.area ? loc.area.split(",")[0].trim() : undefined,
       city: activeCity,
-      pincode: loc?.pincode,
     })
       .then((items) => {
         if (items && items.length > 0) {
-          // Filter strictly for user's location if set
-          const targetArea = (loc?.area || "").toLowerCase();
-          const targetPin = (loc?.pincode || "").toLowerCase();
-          const targetCity = (activeCity || "").toLowerCase();
-          const areaTerms = targetArea.split(/[,\s]+/).filter((t) => t.length >= 3);
+          const userLocationObj = loc ? { area: loc.area, pincode: loc.pincode, city: activeCity } : undefined;
 
-          const matchingItems = items.filter((item: any) => {
-            if (!targetArea && !targetPin && !targetCity) return true;
-            const itemText = `${item.location || ""} ${item.area || ""} ${item.city || ""} ${item.pincode || ""}`.toLowerCase();
-            const pinMatch = targetPin && (itemText.includes(targetPin) || (item.pincode && item.pincode.toString() === targetPin));
-            const areaMatch = areaTerms.some((term) => itemText.includes(term));
-            const cityMatch = targetCity && targetCity.length >= 3 && itemText.includes(targetCity);
-            return Boolean(pinMatch || areaMatch || cityMatch);
-          });
-
-          const mapped = matchingItems.map((item: any) => {
+          const mapped = items.map((item: any) => {
             const calculatedDist = calculateDistanceBetweenLocations(
-              loc ? { area: loc.area, pincode: loc.pincode, city: activeCity } : undefined,
+              userLocationObj,
               { area: item.area || item.location, pincode: item.pincode, city: item.city }
             );
 
@@ -416,48 +401,59 @@ function Home() {
               subcategory: item.subcategory || item.subcategoryId || "electronics",
               condition: item.condition || "good",
               area: item.area || item.location || "",
-              city: item.city || "",
+              city: item.city || activeCity,
               pincode: item.pincode || "",
               distanceKm: calculatedDist,
               postedAgo: "Just now",
               image: item.images?.[0] || item.image || "https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=400",
               images: item.images,
-              verified: true,
-              sellerName: item.sellerName || "Verified Local Seller",
+              sellerName: item.businessName || item.storeName || item.sellerName || "Verified Local Seller",
+              sellerOwnerName: item.sellerOwnerName,
+              businessName: item.businessName || item.storeName,
+              storeName: item.storeName,
+              sellerType: item.sellerType || (item.businessName || item.storeName ? "business" : "individual"),
               sellerId: item.sellerId || "u_seller",
               rating: item.rating || 0,
               reviewCount: item.reviewCount || 0,
               description: item.description,
               method: item.method || "quick",
+              createdAt: item.createdAt,
+              publishedAt: item.publishedAt,
             };
           });
 
           // 🎯 Hyperlocal Priority Sorting:
-          // 1. Exact user pincode match first
-          // 2. Exact user area match second
-          // 3. Closest distance in km
-          const userPin = String(loc?.pincode || "").trim();
-          const userArea = (loc?.area || "").toLowerCase();
+          // 1. Exact user pincode match first (e.g. 500039)
+          // 2. Exact user area match second (e.g. Uppal)
+          // 3. Neighborhood proximity in KM (Close places like Nagole/Tarnaka before distant places)
+          // 4. Newest published first
+          const userPin = String(loc?.pincode || "").replace(/\D/g, "").trim();
+          const userArea = (loc?.area || "").toLowerCase().trim();
 
           mapped.sort((a: any, b: any) => {
-            const pinA = String(a.pincode || "").trim();
-            const pinB = String(b.pincode || "").trim();
-
-            const isExactPinA = Boolean(userPin && pinA === userPin);
-            const isExactPinB = Boolean(userPin && pinB === userPin);
+            const pinA = String(a.pincode || "").replace(/\D/g, "").trim();
+            const pinB = String(b.pincode || "").replace(/\D/g, "").trim();
+            const isExactPinA = Boolean(userPin && pinA && pinA === userPin);
+            const isExactPinB = Boolean(userPin && pinB && pinB === userPin);
             if (isExactPinA && !isExactPinB) return -1;
             if (!isExactPinA && isExactPinB) return 1;
 
-            const areaA = (a.area || "").toLowerCase();
-            const areaB = (b.area || "").toLowerCase();
-            const isExactAreaA = Boolean(userArea && areaA && userArea.includes(areaA));
-            const isExactAreaB = Boolean(userArea && areaB && userArea.includes(areaB));
+            const areaA = (a.area || "").toLowerCase().trim();
+            const areaB = (b.area || "").toLowerCase().trim();
+            const isExactAreaA = Boolean(userArea && areaA && (userArea.includes(areaA) || areaA.includes(userArea)));
+            const isExactAreaB = Boolean(userArea && areaB && (userArea.includes(areaB) || areaB.includes(userArea)));
             if (isExactAreaA && !isExactAreaB) return -1;
             if (!isExactAreaA && isExactAreaB) return 1;
 
             const distA = typeof a.distanceKm === "number" ? a.distanceKm : 9999;
             const distB = typeof b.distanceKm === "number" ? b.distanceKm : 9999;
-            return distA - distB;
+            if (distA !== distB) {
+              return distA - distB;
+            }
+
+            const timeA = new Date(a.createdAt || a.publishedAt || 0).getTime();
+            const timeB = new Date(b.createdAt || b.publishedAt || 0).getTime();
+            return timeB - timeA;
           });
 
           setLiveProducts(mapped);
@@ -641,11 +637,11 @@ function Home() {
     return liveProducts;
   }, [liveProducts]);
 
-  const nearby = organic.slice(0, 6);
-  const featured = organic.slice(1, 5).reverse();
-  const recommended = organic.slice(2, 8);
-  const dealsNearYou = organic.slice(6, 12);
-  const recentlyAdded = [...organic].reverse().slice(0, 5);
+  const nearby = organic.slice(0, 12);
+  const featured = organic.length > 0 ? (organic.length <= 4 ? organic : organic.slice(0, 8)) : [];
+  const recommended = organic.length > 0 ? (organic.length <= 4 ? organic : organic.slice(0, 8)) : [];
+  const dealsNearYou = organic.length > 0 ? (organic.length <= 4 ? organic : organic.slice(0, 8)) : [];
+  const recentlyAdded = [...organic].reverse().slice(0, 12);
   const viewed = recentlyViewed
     .map((id) => organic.find((p) => p.id === id))
     .filter((p): p is (typeof organic)[number] => Boolean(p))

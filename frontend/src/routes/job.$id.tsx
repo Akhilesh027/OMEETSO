@@ -9,6 +9,8 @@ import { JobCard } from "@/components/omeetso/jobs/JobCard";
 import { ApplyJobModal } from "@/components/omeetso/jobs/ApplyJobModal";
 import { fetchJobById, JobItem, toggleSaveJobLocal, getSavedJobIds, listCandidateApplicationsLocal } from "@/lib/jobs";
 import { ReportSheet } from "@/components/omeetso/ReportSheet";
+import { startConversationApi } from "@/api/chat.api";
+import { toast } from "sonner";
 
 export const Route = createFileRoute("/job/$id")({
   loader: async ({ params }) => {
@@ -84,6 +86,13 @@ function JobDetailPage() {
         {isClosed && (
           <div className="bg-rose-500/10 border-b border-rose-500/20 p-3 text-center text-xs font-black text-rose-700">
             ⚠️ This position is no longer accepting applications ({job.status}).
+          </div>
+        )}
+
+        {/* Under Review Alert Banner */}
+        {(job.status === "SUBMITTED" || job.status === "pending") && (
+          <div className="bg-amber-500/15 border-b border-amber-500/30 p-3 text-center text-xs font-black text-amber-800 dark:text-amber-300">
+            ⏳ This job posting is currently under moderation review by the admin team. It will be published publicly once approved.
           </div>
         )}
 
@@ -179,7 +188,18 @@ function JobDetailPage() {
               </button>
 
               <button
-                onClick={() => nav({ to: "/chat/$id", params: { id: `JOB-${job.id}` } as never })}
+                onClick={async () => {
+                  try {
+                    const res = await startConversationApi("JOB", job.id);
+                    if (res.success && res.data?.id) {
+                      nav({ to: "/chat/$id", params: { id: res.data.id } });
+                    } else {
+                      toast.error(res.error?.message || "Could not start chat with employer");
+                    }
+                  } catch {
+                    toast.error("Failed to start chat. Please make sure you are logged in.");
+                  }
+                }}
                 className="h-12 px-5 rounded-2xl border border-border bg-card hover:bg-secondary font-bold text-xs flex items-center gap-2"
               >
                 <MessageCircle className="h-4 w-4 text-indigo-brand" /> Chat with Employer

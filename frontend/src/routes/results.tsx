@@ -8,7 +8,7 @@ import { FilterChip } from "@/components/omeetso/FilterChip";
 import { PRODUCTS, CATEGORIES as STATIC_CATEGORIES, SORT_OPTIONS, getAd, type Product } from "@/lib/mock";
 import { listListings, fetchLivePublicListings } from "@/lib/listings";
 import { fetchLiveCategories, getCachedCategories, type LiveCategory } from "@/lib/categories";
-import { calculateDistanceBetweenLocations } from "@/lib/location";
+import { calculateDistanceBetweenLocations, resolveCityFromLocation } from "@/lib/location";
 import { EmptyState } from "@/components/omeetso/EmptyState";
 
 type S = {
@@ -96,19 +96,19 @@ function Results() {
   }, []);
 
   useEffect(() => {
-    const activeCity = activeLoc?.city || (activeLoc?.area ? (activeLoc.area.includes(",") ? activeLoc.area.split(",")[1].trim() : (activeLoc.area.toLowerCase().includes("bangalore") || activeLoc.area.toLowerCase().includes("bengaluru") ? "Bangalore" : activeLoc.area.toLowerCase().includes("mumbai") ? "Mumbai" : activeLoc.area.toLowerCase().includes("hyderabad") || activeLoc.area.toLowerCase().includes("secunderabad") ? "Hyderabad" : activeLoc.area.split(",")[0].trim())) : undefined);
+    const activeCity = resolveCityFromLocation(activeLoc) || activeLoc?.city || "Hyderabad";
 
     fetchLivePublicListings({
       q: search.q,
       category: search.cat,
       city: activeCity,
-      area: activeLoc?.area ? activeLoc.area.split(",")[0].trim() : undefined,
-      pincode: activeLoc?.pincode,
     }).then((liveItems) => {
       if (liveItems && liveItems.length > 0) {
+        const userLocObj = activeLoc ? { area: activeLoc.area, pincode: activeLoc.pincode, city: activeCity } : undefined;
+
         const mappedLive: Product[] = liveItems.map((item: any) => {
           const calculatedDist = calculateDistanceBetweenLocations(
-            activeLoc ? { area: activeLoc.area, pincode: activeLoc.pincode, city: activeCity } : undefined,
+            userLocObj,
             { area: item.area || item.location, pincode: item.pincode, city: item.city }
           );
 
@@ -121,20 +121,57 @@ function Results() {
             subcategory: item.subcategory || item.subcategoryId || "electronics",
             condition: item.condition || "good",
             area: item.area || item.location || "",
-            city: item.city || "",
+            city: item.city || activeCity,
             pincode: item.pincode || "",
             distanceKm: calculatedDist,
             postedAgo: "Just now",
             image: item.images?.[0] || item.image || "https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=400",
             images: item.images,
             verified: true,
+            sellerName: item.businessName || item.storeName || item.sellerName || "Verified Local Seller",
+            sellerOwnerName: item.sellerOwnerName,
+            businessName: item.businessName || item.storeName,
+            storeName: item.storeName,
+            sellerType: item.sellerType || (item.businessName || item.storeName ? "business" : "individual"),
             sellerId: item.sellerId || "u_seller",
             rating: item.rating || 0,
             reviewCount: item.reviewCount || 0,
             description: item.description,
             specs: item.specs || {},
             method: item.method || "quick",
+            createdAt: item.createdAt,
+            publishedAt: item.publishedAt,
           };
+        });
+
+        // 🎯 Hyperlocal Priority Sorting (Exact Pin -> Exact Area -> Neighborhood Distance -> Newest)
+        const userPin = String(activeLoc?.pincode || "").replace(/\D/g, "").trim();
+        const userArea = (activeLoc?.area || "").toLowerCase().trim();
+
+        mappedLive.sort((a: any, b: any) => {
+          const pinA = String(a.pincode || "").replace(/\D/g, "").trim();
+          const pinB = String(b.pincode || "").replace(/\D/g, "").trim();
+          const isExactPinA = Boolean(userPin && pinA && pinA === userPin);
+          const isExactPinB = Boolean(userPin && pinB && pinB === userPin);
+          if (isExactPinA && !isExactPinB) return -1;
+          if (!isExactPinA && isExactPinB) return 1;
+
+          const areaA = (a.area || "").toLowerCase().trim();
+          const areaB = (b.area || "").toLowerCase().trim();
+          const isExactAreaA = Boolean(userArea && areaA && (userArea.includes(areaA) || areaA.includes(userArea)));
+          const isExactAreaB = Boolean(userArea && areaB && (userArea.includes(areaB) || areaB.includes(userArea)));
+          if (isExactAreaA && !isExactAreaB) return -1;
+          if (!isExactAreaA && isExactAreaB) return 1;
+
+          const distA = typeof a.distanceKm === "number" ? a.distanceKm : 9999;
+          const distB = typeof b.distanceKm === "number" ? b.distanceKm : 9999;
+          if (distA !== distB) {
+            return distA - distB;
+          }
+
+          const timeA = new Date(a.createdAt || a.publishedAt || 0).getTime();
+          const timeB = new Date(b.createdAt || b.publishedAt || 0).getTime();
+          return timeB - timeA;
         });
 
         setAllProducts(mappedLive);
@@ -220,22 +257,6 @@ function Results() {
     const max = search.maxP ? Number(search.maxP) : undefined;
     if (min !== undefined) list = list.filter((p) => p.price >= min);
     if (max !== undefined) list = list.filter((p) => p.price <= max);
-
-    // Location-based filtering — only include listings matching user's area / pincode / city
-    if (activeLoc?.area || activeLoc?.pincode) {
-      const targetArea = (activeLoc.area || "").toLowerCase();
-      const targetPin = (activeLoc.pincode || "").toLowerCase();
-      const targetCity = (activeLoc.city || "").toLowerCase();
-      const areaTerms = targetArea.split(/[,\s]+/).filter((t: string) => t.length >= 3);
-
-      list = list.filter((p: any) => {
-        const pText = `${p.location || ""} ${p.area || ""} ${p.city || ""} ${p.pincode || ""}`.toLowerCase();
-        const pinMatch = targetPin && (pText.includes(targetPin) || (p.pincode && p.pincode.toString() === targetPin));
-        const areaMatch = areaTerms.some((term: string) => pText.includes(term));
-        const cityMatch = targetCity && targetCity.length >= 3 && pText.includes(targetCity);
-        return Boolean(pinMatch || areaMatch || cityMatch);
-      });
-    }
 
     const userPin = String(activeLoc?.pincode || "").trim();
     const userArea = (activeLoc?.area || "").toLowerCase();

@@ -1,15 +1,17 @@
-import React, { useState, useRef } from "react";
-import { useNavigate } from "@tanstack/react-router";
+import React, { useState, useRef, useEffect } from "react";
+import { useNavigate, Link } from "@tanstack/react-router";
 import {
   Briefcase, Building2, MapPin, IndianRupee, Footprints, Zap, ArrowRight,
   ArrowLeft, CheckCircle2, ShieldAlert, Eye, Upload, Trash2, Camera, Loader2,
-  GraduationCap, Award, AlertCircle,
+  GraduationCap, Award, AlertCircle, Plus
 } from "lucide-react";
 import { JobItem, createJobLocal } from "@/lib/jobs";
+import { fetchLiveUserStores, Store } from "@/lib/stores";
 import { JobCard } from "./JobCard";
 import { uploadFile } from "@/lib/upload";
 import { toast } from "sonner";
 import { MissingFieldsModal } from "@/components/sell/MissingFieldsModal";
+import { API_BASE } from "@/config/api";
 
 const EXPERIENCE_OPTIONS = [
   "Fresher / Entry Level",
@@ -52,9 +54,9 @@ export function PostJobForm() {
     jobType: "FULL_TIME" as any,
     workplaceType: "OFFICE" as any,
     remoteScope: "Hyderabad",
-    area: "Madhapur",
-    city: "Hyderabad",
-    pincode: "500081",
+    area: "",
+    city: "",
+    pincode: "",
     minSalary: 25000,
     maxSalary: 40000,
     salaryPeriod: "monthly" as any,
@@ -85,6 +87,67 @@ export function PostJobForm() {
     screeningQuestions: "How many years of relevant experience do you have?\nWhat is your notice period?"
   });
 
+  const [userStores, setUserStores] = useState<Store[]>([]);
+  const [loadingStores, setLoadingStores] = useState(false);
+
+  const syncActiveLocation = () => {
+    try {
+      const rawLoc = localStorage.getItem("omeetso_location") || localStorage.getItem("omeetso_selected_location");
+      const rawUser = localStorage.getItem("omeetso_user");
+      let detectedCity = "";
+      let detectedArea = "";
+      let detectedPin = "";
+
+      if (rawLoc) {
+        const loc = JSON.parse(rawLoc);
+        if (loc.city) detectedCity = loc.city;
+        if (loc.area) {
+          const parts = loc.area.split(",").map((p: string) => p.trim());
+          detectedArea = parts[0] || "";
+          if (parts[1] && !detectedCity) detectedCity = parts[1];
+        }
+        if (loc.pincode) detectedPin = loc.pincode;
+      }
+
+      if (rawUser) {
+        const u = JSON.parse(rawUser);
+        if (!detectedCity && u.profile?.city) detectedCity = u.profile.city;
+        if (!detectedArea && u.profile?.area) detectedArea = u.profile.area;
+        if (!detectedPin && u.profile?.pincode) detectedPin = u.profile.pincode;
+        if (u.profile?.businessName || u.profile?.storeName || u.profile?.name) {
+          setFormData((prev) => ({
+            ...prev,
+            companyName: prev.companyName || u.profile?.businessName || u.profile?.storeName || u.profile?.name || ""
+          }));
+        }
+      }
+
+      setFormData((prev) => ({
+        ...prev,
+        city: detectedCity || prev.city || "Hyderabad",
+        area: detectedArea || prev.area || "Uppal",
+        pincode: detectedPin || prev.pincode || "500039",
+        remoteScope: detectedCity || prev.remoteScope || "Hyderabad"
+      }));
+    } catch { }
+  };
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    syncActiveLocation();
+    window.addEventListener("omeetso_location_changed", syncActiveLocation);
+
+    setLoadingStores(true);
+    fetchLiveUserStores()
+      .then((stores) => {
+        setUserStores(stores || []);
+      })
+      .catch(() => {})
+      .finally(() => setLoadingStores(false));
+
+    return () => window.removeEventListener("omeetso_location_changed", syncActiveLocation);
+  }, []);
+
   const validateJobForm = (): boolean => {
     const errors: Record<string, string> = {};
     const missing: string[] = [];
@@ -112,6 +175,12 @@ export function PostJobForm() {
     if (!formData.jobCategoryId) {
       errors.jobCategoryId = "Job category is required";
       missing.push("Job Category");
+    }
+
+    // Openings Count (Required >= 1)
+    if (!formData.openingsCount || Number(formData.openingsCount) < 1) {
+      errors.openingsCount = "Number of openings is required (at least 1)";
+      missing.push("Number of Openings (at least 1)");
     }
 
     // 4. Location
@@ -280,7 +349,7 @@ export function PostJobForm() {
     isUrgent: formData.isUrgent,
     isFeatured: formData.isFeatured,
     screeningQuestions: formData.screeningQuestions.split("\n").map(q => q.trim()).filter(Boolean),
-    status: "ACTIVE",
+    status: "SUBMITTED",
     createdAt: Date.now()
   };
 
@@ -344,10 +413,10 @@ export function PostJobForm() {
         isUrgent: Boolean(formData.isUrgent),
         isFeatured: Boolean(formData.isFeatured),
         screeningQuestions: typeof formData.screeningQuestions === "string" ? formData.screeningQuestions.split("\n").map(q => q.trim()).filter(Boolean) : [],
-        status: "ACTIVE"
+        status: "SUBMITTED"
       };
 
-      const res = await fetch("https://api.omeetso.in/api/v1/jobs", {
+      const res = await fetch(`${API_BASE}/jobs`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -363,13 +432,14 @@ export function PostJobForm() {
         createJobLocal({
           ...previewJobItem,
           id: createdId,
+          status: "SUBMITTED",
           candidateCriteria: {
             ...previewJobItem.candidateCriteria,
             experience: formData.experience || "Fresher / Entry Level"
           }
         });
-        toast.success("Job posted successfully to backend!");
-        nav({ to: "/job/$id", params: { id: createdId } });
+        toast.success("Job submitted for approval! It will go live once reviewed by admin.");
+        nav({ to: "/my/employer/jobs" });
       } else {
         const errorMsg = json.error?.message || "Failed to create job on server";
         toast.error(errorMsg);
@@ -377,9 +447,9 @@ export function PostJobForm() {
     } catch (err: any) {
       setIsSubmitting(false);
       console.error("Job publishing error:", err);
-      const fallbackCreated = createJobLocal(previewJobItem);
-      toast.info("Job saved locally (offline mode)");
-      nav({ to: "/job/$id", params: { id: fallbackCreated.id } });
+      const fallbackCreated = createJobLocal({ ...previewJobItem, status: "SUBMITTED" });
+      toast.info("Job submitted for approval (saved locally).");
+      nav({ to: "/my/employer/jobs" });
     }
   };
 
@@ -428,24 +498,67 @@ export function PostJobForm() {
             {companyMode === "store" ? (
               <div>
                 <label className="block text-muted-foreground mb-1 font-bold">Select Your Omeetso Store / Business *</label>
-                <select
-                  id="job-store-select"
-                  value={selectedStoreId}
-                  onChange={(e) => {
-                    setSelectedStoreId(e.target.value);
-                    setFormData({ ...formData, companyName: "Venkata Retail Store", companyLogo: "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=200" });
-                    if (formErrors.selectedStoreId) setFormErrors({ ...formErrors, selectedStoreId: "" });
-                  }}
-                  className={`w-full h-11 rounded-2xl border ${formErrors.selectedStoreId ? "border-rose-500 bg-rose-500/5" : "border-border bg-background"} px-3 font-bold text-foreground outline-none focus:border-indigo-brand`}
-                >
-                  <option value="">Select Business Profile...</option>
-                  <option value="store_1">Venkata Retail Store (Verified)</option>
-                  <option value="store_2">Hyderabad Digital Tech</option>
-                </select>
-                {formErrors.selectedStoreId && (
-                  <p className="mt-1 text-[11px] font-bold text-rose-500 flex items-center gap-1">
-                    <AlertCircle className="h-3 w-3" /> {formErrors.selectedStoreId}
-                  </p>
+                {loadingStores ? (
+                  <div className="flex items-center gap-2 p-3 text-xs text-muted-foreground bg-secondary/40 rounded-2xl">
+                    <Loader2 className="h-4 w-4 animate-spin text-indigo-brand" /> Loading your registered businesses...
+                  </div>
+                ) : userStores.length > 0 ? (
+                  <>
+                    <select
+                      id="job-store-select"
+                      value={selectedStoreId}
+                      onChange={(e) => {
+                        const sId = e.target.value;
+                        setSelectedStoreId(sId);
+                        const found = userStores.find((s) => s.id === sId);
+                        if (found) {
+                          setFormData((prev) => ({
+                            ...prev,
+                            companyName: found.name,
+                            companyLogo: found.logo || prev.companyLogo,
+                            city: found.city || prev.city,
+                            area: found.area || prev.area,
+                            pincode: found.pincode || prev.pincode
+                          }));
+                        }
+                        if (formErrors.selectedStoreId) setFormErrors({ ...formErrors, selectedStoreId: "" });
+                      }}
+                      className={`w-full h-11 rounded-2xl border ${formErrors.selectedStoreId ? "border-rose-500 bg-rose-500/5" : "border-border bg-background"} px-3 font-bold text-foreground outline-none focus:border-indigo-brand`}
+                    >
+                      <option value="">Select Business Profile...</option>
+                      {userStores.map((store) => (
+                        <option key={store.id} value={store.id}>
+                          {store.name} {store.city ? `(${store.city})` : ""}
+                        </option>
+                      ))}
+                    </select>
+                    {formErrors.selectedStoreId && (
+                      <p className="mt-1 text-[11px] font-bold text-rose-500 flex items-center gap-1">
+                        <AlertCircle className="h-3 w-3" /> {formErrors.selectedStoreId}
+                      </p>
+                    )}
+                  </>
+                ) : (
+                  <div className="p-4 rounded-2xl border border-border bg-secondary/30 space-y-2 text-xs">
+                    <p className="text-muted-foreground font-semibold">
+                      You do not have any registered stores or business profiles under your account yet.
+                    </p>
+                    <div className="flex items-center gap-3 pt-1">
+                      <button
+                        type="button"
+                        onClick={() => setCompanyMode("manual")}
+                        className="px-3 py-1.5 rounded-xl bg-indigo-brand text-white font-bold text-xs hover:bg-indigo-brand/90 transition"
+                      >
+                        Enter Manually Instead
+                      </button>
+                      <Link
+                        to="/store/create"
+                        className="inline-flex items-center gap-1 px-3 py-1.5 rounded-xl border border-border bg-card text-foreground font-bold text-xs hover:bg-secondary transition"
+                      >
+                        <Plus className="h-3.5 w-3.5" /> Register a Store
+                      </Link>
+                    </div>
+                  </div>
                 )}
               </div>
             ) : (
@@ -623,23 +736,55 @@ export function PostJobForm() {
               </div>
             </div>
 
+            <div className="flex items-center justify-between pt-1">
+              <span className="text-[11px] font-bold text-muted-foreground">Job Hiring Location & Vacancies</span>
+              <button
+                type="button"
+                onClick={() => {
+                  syncActiveLocation();
+                  toast.success("Hiring location synced from your active location!");
+                }}
+                className="text-[11px] font-extrabold text-indigo-brand hover:underline flex items-center gap-1"
+              >
+                📍 Use My Selected Location
+              </button>
+            </div>
+
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
               <div>
-                <label className="block text-muted-foreground mb-1 font-bold">Number of Openings</label>
+                <label className="block text-muted-foreground mb-1 font-bold">Number of Openings *</label>
                 <input
+                  id="job-openings-input"
                   type="number"
                   min="1"
-                  value={formData.openingsCount}
-                  onChange={(e) => setFormData({ ...formData, openingsCount: Math.max(1, Number(e.target.value)) })}
-                  className="w-full h-11 rounded-2xl border border-border bg-background px-3 font-bold text-foreground outline-none focus:border-indigo-brand"
+                  placeholder="1"
+                  value={formData.openingsCount === 0 || (formData.openingsCount as any) === "" ? "" : formData.openingsCount}
+                  onChange={(e) => {
+                    const val = e.target.value;
+                    if (val === "") {
+                      setFormData({ ...formData, openingsCount: "" as any });
+                    } else {
+                      const num = parseInt(val, 10);
+                      if (!isNaN(num)) {
+                        setFormData({ ...formData, openingsCount: num });
+                      }
+                    }
+                    if (formErrors.openingsCount) setFormErrors({ ...formErrors, openingsCount: "" });
+                  }}
+                  className={`w-full h-11 rounded-2xl border ${formErrors.openingsCount ? "border-rose-500 bg-rose-500/5" : "border-border bg-background"} px-3 font-bold text-foreground outline-none focus:border-indigo-brand`}
                 />
+                {formErrors.openingsCount && (
+                  <p className="mt-1 text-[11px] font-bold text-rose-500 flex items-center gap-1">
+                    <AlertCircle className="h-3 w-3" /> {formErrors.openingsCount}
+                  </p>
+                )}
               </div>
               <div>
                 <label className="block text-muted-foreground mb-1 font-bold">Area / Locality *</label>
                 <input
                   id="job-area-input"
                   type="text"
-                  placeholder="e.g. Madhapur / Hitec City"
+                  placeholder="e.g. Uppal / Madhapur"
                   value={formData.area}
                   onChange={(e) => {
                     setFormData({ ...formData, area: e.target.value });
@@ -661,7 +806,7 @@ export function PostJobForm() {
                   placeholder="e.g. Hyderabad"
                   value={formData.city}
                   onChange={(e) => {
-                    setFormData({ ...formData, city: e.target.value });
+                    setFormData({ ...formData, city: e.target.value, remoteScope: e.target.value });
                     if (formErrors.city) setFormErrors({ ...formErrors, city: "" });
                   }}
                   className={`w-full h-11 rounded-2xl border ${formErrors.city ? "border-rose-500 bg-rose-500/5" : "border-border bg-background"} px-3 font-bold text-foreground outline-none focus:border-indigo-brand`}
@@ -681,7 +826,7 @@ export function PostJobForm() {
                 type="text"
                 inputMode="numeric"
                 maxLength={6}
-                placeholder="e.g. 500081"
+                placeholder="e.g. 500039"
                 value={formData.pincode}
                 onChange={(e) => {
                   const val = e.target.value.replace(/\D/g, "").slice(0, 6);

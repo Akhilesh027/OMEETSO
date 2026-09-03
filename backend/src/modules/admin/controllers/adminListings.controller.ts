@@ -197,3 +197,194 @@ export async function rejectListing(req: AuthenticatedAdminRequest, res: Respons
     next(error);
   }
 }
+
+export async function createAdminListing(req: AuthenticatedAdminRequest, res: Response, next: NextFunction): Promise<void> {
+  try {
+    if (!req.admin) {
+      res.status(401).json({ success: false, error: { code: "UNAUTHORIZED", message: "Admin required" } });
+      return;
+    }
+
+    const {
+      title,
+      description,
+      priceInPaise,
+      price,
+      categoryId,
+      subcategoryId,
+      condition,
+      images,
+      coverIndex,
+      city,
+      area,
+      pincode,
+      specs,
+      status = ListingStatus.APPROVED
+    } = req.body;
+
+    const computedPriceInPaise = priceInPaise ? Number(priceInPaise) : price ? Math.round(Number(price) * 100) : 0;
+
+    const listing = await Listing.create({
+      sellerId: req.admin._id,
+      title: title || "New Product Listing",
+      description: description || title || "Product listed by Administrator",
+      priceInPaise: computedPriceInPaise,
+      negotiable: true,
+      condition: condition || "like_new",
+      categoryId: categoryId || "mobiles",
+      subcategoryId: subcategoryId || categoryId || "smartphones",
+      images: Array.isArray(images) && images.length > 0 ? images : ["https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=400"],
+      coverIndex: coverIndex || 0,
+      city: city || "Hyderabad",
+      area: area || "Madhapur",
+      pincode: pincode || "500081",
+      specs: specs || {},
+      status: status.toUpperCase() === "PENDING_REVIEW" ? ListingStatus.SUBMITTED : (status.toUpperCase() as any) || ListingStatus.APPROVED,
+      publishedAt: new Date(),
+      expiresAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000)
+    });
+
+    await ListingModeration.create({
+      listingId: listing._id,
+      assignedAdminId: req.admin._id,
+      assignedAdminName: req.admin.name,
+      status: "completed",
+      version: 1
+    });
+
+    res.status(201).json({
+      success: true,
+      data: {
+        id: listing._id.toString(),
+        title: listing.title,
+        priceInPaise: listing.priceInPaise,
+        price: listing.priceInPaise / 100,
+        status: listing.status,
+        createdAt: listing.createdAt
+      }
+    });
+  } catch (error) {
+    next(error);
+  }
+}
+
+export async function updateAdminListing(req: AuthenticatedAdminRequest, res: Response, next: NextFunction): Promise<void> {
+  try {
+    if (!req.admin) {
+      res.status(401).json({ success: false, error: { code: "UNAUTHORIZED", message: "Admin required" } });
+      return;
+    }
+
+    const { listingId } = req.params;
+    const updateData = { ...req.body };
+
+    if (updateData.price && !updateData.priceInPaise) {
+      updateData.priceInPaise = Math.round(Number(updateData.price) * 100);
+    }
+    if (updateData.status) {
+      updateData.status = updateData.status.toUpperCase();
+    }
+
+    const listing = await Listing.findByIdAndUpdate(listingId, updateData, { new: true });
+    if (!listing) {
+      res.status(404).json({ success: false, error: { code: "NOT_FOUND", message: "Listing not found" } });
+      return;
+    }
+
+    res.status(200).json({
+      success: true,
+      data: {
+        id: listing._id.toString(),
+        title: listing.title,
+        status: listing.status,
+        priceInPaise: listing.priceInPaise,
+        price: listing.priceInPaise / 100
+      }
+    });
+  } catch (error) {
+    next(error);
+  }
+}
+
+export async function deleteAdminListing(req: AuthenticatedAdminRequest, res: Response, next: NextFunction): Promise<void> {
+  try {
+    if (!req.admin) {
+      res.status(401).json({ success: false, error: { code: "UNAUTHORIZED", message: "Admin required" } });
+      return;
+    }
+
+    const { listingId } = req.params;
+    const listing = await Listing.findByIdAndUpdate(listingId, { status: ListingStatus.REMOVED }, { new: true });
+
+    if (!listing) {
+      res.status(404).json({ success: false, error: { code: "NOT_FOUND", message: "Listing not found" } });
+      return;
+    }
+
+    res.status(200).json({
+      success: true,
+      message: "Listing marked as removed",
+      data: { id: listing._id.toString(), status: listing.status }
+    });
+  } catch (error) {
+    next(error);
+  }
+}
+
+export async function updateAdminListingStatus(req: AuthenticatedAdminRequest, res: Response, next: NextFunction): Promise<void> {
+  try {
+    if (!req.admin) {
+      res.status(401).json({ success: false, error: { code: "UNAUTHORIZED", message: "Admin required" } });
+      return;
+    }
+
+    const { listingId } = req.params;
+    const { status, reason } = req.body;
+
+    let targetStatus = ListingStatus.APPROVED;
+    const upper = (status || "").toUpperCase();
+
+    if (upper === "REJECTED") targetStatus = ListingStatus.REJECTED;
+    else if (upper === "REMOVED") targetStatus = ListingStatus.REMOVED;
+    else if (upper === "EXPIRED") targetStatus = ListingStatus.EXPIRED;
+    else if (upper === "PENDING_REVIEW" || upper === "SUBMITTED") targetStatus = ListingStatus.SUBMITTED;
+    else if (upper === "CHANGES_REQUIRED" || upper === "REQUIRES_CHANGES") targetStatus = ListingStatus.CHANGES_REQUIRED;
+    else targetStatus = ListingStatus.APPROVED;
+
+    const listing = await Listing.findByIdAndUpdate(
+      listingId,
+      {
+        status: targetStatus,
+        publishedAt: targetStatus === ListingStatus.APPROVED ? new Date() : undefined,
+        rejection: targetStatus === ListingStatus.REJECTED ? { reason: reason || "Policy violation", date: new Date() } : undefined
+      },
+      { new: true }
+    );
+
+    if (!listing) {
+      res.status(404).json({ success: false, error: { code: "NOT_FOUND", message: "Listing not found" } });
+      return;
+    }
+
+    await ListingModeration.findOneAndUpdate(
+      { listingId: listing._id },
+      {
+        assignedAdminId: req.admin._id,
+        assignedAdminName: req.admin.name,
+        status: "completed",
+        reviewNotes: reason || `Status updated to ${targetStatus}`
+      },
+      { upsert: true }
+    );
+
+    res.status(200).json({
+      success: true,
+      data: {
+        id: listing._id.toString(),
+        status: listing.status
+      }
+    });
+  } catch (error) {
+    next(error);
+  }
+}

@@ -1,4 +1,5 @@
 import { Request, Response, NextFunction } from "express";
+import mongoose from "mongoose";
 import { Job } from "../models/Job";
 import { JobCategory } from "../models/JobCategory";
 import { User } from "../../users/models/User";
@@ -60,6 +61,10 @@ export async function getAdminJobs(req: Request, res: Response, next: NextFuncti
 export async function updateAdminJobStatus(req: Request, res: Response, next: NextFunction): Promise<void> {
   try {
     const { id } = req.params;
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      res.status(400).json({ success: false, error: { message: "Invalid job ID" } });
+      return;
+    }
     const { status, rejectionReason, isFeatured, isUrgent } = req.body;
 
     const updatePayload: Record<string, any> = {};
@@ -137,6 +142,10 @@ export async function upsertAdminJobCategory(req: Request, res: Response, next: 
 export async function getEmployerModerationHistory(req: Request, res: Response, next: NextFunction): Promise<void> {
   try {
     const { employerId } = req.params;
+    if (!mongoose.Types.ObjectId.isValid(employerId)) {
+      res.status(400).json({ success: false, error: { message: "Invalid employer ID" } });
+      return;
+    }
     const user = await User.findById(employerId).select("profile phone email createdAt verificationSummary").lean();
 
     const [postedJobs, applications] = await Promise.all([

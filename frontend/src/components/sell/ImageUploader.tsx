@@ -52,20 +52,19 @@ export function ImageUploader({
     if (accepted.length === 0) return;
     setUploading(true);
     try {
-      const watermarked = await Promise.all(
+      const processed = await Promise.all(
         accepted.map(async (f) => {
-          const raw = await new Promise<string>((resolve, reject) => {
+          return await new Promise<string>((resolve, reject) => {
             const reader = new FileReader();
             reader.onload = () => resolve(String(reader.result));
             reader.onerror = reject;
             reader.readAsDataURL(f);
           });
-          return await applyInfinityWatermarkToDataUrl(raw);
         })
       );
-      onChange([...images, ...watermarked]);
+      onChange([...images, ...processed]);
     } catch {
-      // Fallback in case of canvas error
+      // Fallback
     } finally {
       setUploading(false);
     }
@@ -148,7 +147,6 @@ export function ImageUploader({
                 <Trash2 className="h-3.5 w-3.5" />
               </button>
             </div>
-            <ProductWatermark size="xs" position="bottom-right" className="bottom-8 right-1 scale-90" />
             <div className="absolute inset-x-0 bottom-0 flex items-center justify-between p-1">
               <button type="button" onClick={() => move(i, -1)} aria-label="Move earlier" disabled={i === 0}
                 className="grid h-6 w-6 place-items-center rounded-full bg-white/90 text-navy shadow disabled:opacity-40">

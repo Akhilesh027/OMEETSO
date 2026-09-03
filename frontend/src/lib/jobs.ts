@@ -165,14 +165,22 @@ export async function fetchPublicJobs(params?: Record<string, string>): Promise<
     if (res.ok) {
       const json = await res.json();
       if (json.success && Array.isArray(json.data)) {
-        setLocal(LS_JOBS, json.data);
-        return json.data;
+        const approvedOnly = json.data.filter((j: any) => {
+          const st = (j.status || "").toUpperCase();
+          return st === "APPROVED" || st === "ACTIVE";
+        });
+        return approvedOnly;
       }
     }
   } catch { /* ignore offline */ }
 
   const cached = getLocal<JobItem[]>(LS_JOBS, []);
-  let list = Array.isArray(cached) ? [...cached] : [];
+  let list = Array.isArray(cached)
+    ? cached.filter(j => {
+      const st = (j.status || "").toUpperCase();
+      return st === "APPROVED" || st === "ACTIVE";
+    })
+    : [];
 
   if (params?.q) {
     const q = params.q.toLowerCase();
@@ -304,12 +312,76 @@ export function withdrawJobApplicationLocal(appId: string, reason?: string) {
 
 export function createJobLocal(job: JobItem): JobItem {
   const all = getLocal<JobItem[]>(LS_JOBS, []);
-  const idx = all.findIndex(j => j.id === job.id);
+  const safeJob = {
+    ...job,
+    status: job.status || "SUBMITTED"
+  };
+  const idx = all.findIndex(j => j.id === safeJob.id);
   if (idx !== -1) {
-    all[idx] = job;
+    all[idx] = safeJob;
   } else {
-    all.unshift(job);
+    all.unshift(safeJob);
   }
   setLocal(LS_JOBS, all);
-  return job;
+  return safeJob;
 }
+
+export async function fetchEmployerJobs(userId?: string, token?: string | null): Promise<JobItem[]> {
+  try {
+    const authToken = token || (typeof window !== "undefined" ? localStorage.getItem("omeetso_user_token") : null);
+    const authHeaders: Record<string, string> = authToken ? { Authorization: `Bearer ${authToken}` } : {};
+    const res = await fetch(`https://api.omeetso.in/api/v1/jobs/employer/my-jobs`, {
+      headers: authHeaders
+    });
+    if (res.ok) {
+      const json = await res.json();
+      if (json.success && Array.isArray(json.data)) {
+        return json.data;
+      }
+    }
+  } catch { /* offline fallback */ }
+
+  const cached = getLocal<JobItem[]>(LS_JOBS, []);
+  if (!userId || userId === "me") {
+    return cached.filter(j => j.employerId === "me" || j.employerId === userId);
+  }
+  return cached.filter(j => j.employerId === userId || j.employerId === "me");
+}
+
+export async function fetchEmployerJobApplicants(jobId: string, token?: string | null, jobTitle?: string): Promise<JobApplicationItem[]> {
+  let serverApps: JobApplicationItem[] = [];
+  try {
+    const authToken = token || (typeof window !== "undefined" ? localStorage.getItem("omeetso_user_token") : null);
+    const authHeaders: Record<string, string> = authToken ? { Authorization: `Bearer ${authToken}` } : {};
+    const res = await fetch(`https://api.omeetso.in/api/v1/jobs/${jobId}/applicants`, {
+      headers: authHeaders
+    });
+    if (res.ok) {
+      const json = await res.json();
+      if (json.success && Array.isArray(json.data)) {
+        serverApps = json.data;
+      }
+    }
+  } catch { /* offline fallback */ }
+
+  const localApps = getLocal<JobApplicationItem[]>(LS_APPLICATIONS, []);
+  const matchingLocal = localApps.filter(a => {
+    const aId = String(a.jobId || a.job?.id || (a.job as any)?._id || "");
+    const targetId = String(jobId || "");
+    if (aId && targetId && aId === targetId) return true;
+    if (jobTitle && a.job?.title && a.job.title.toLowerCase().trim() === jobTitle.toLowerCase().trim()) return true;
+    return false;
+  });
+
+  const seen = new Set(serverApps.map(a => a.id));
+  const merged = [...serverApps];
+  for (const item of matchingLocal) {
+    if (!seen.has(item.id)) {
+      merged.push(item);
+      seen.add(item.id);
+    }
+  }
+
+  return merged;
+}
+

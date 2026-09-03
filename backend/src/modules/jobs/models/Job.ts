@@ -151,7 +151,7 @@ const JobSchema = new Schema<IJobListing>(
     status: {
       type: String,
       enum: ["DRAFT", "SUBMITTED", "APPROVED", "ACTIVE", "PAUSED", "FILLED", "EXPIRED", "REJECTED"],
-      default: "ACTIVE",
+      default: "SUBMITTED",
       index: true,
     },
     rejectionReason: { type: String },

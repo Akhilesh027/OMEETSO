@@ -1,4 +1,6 @@
-// Omeetso — Phase 3 listings persistence layer (frontend + localStorage only).
+// Omeetso — Phase 3 listings persistence layer (frontend + backend synchronization).
+import { API_BASE } from "@/config/api";
+import { getUserAccessToken } from "@/api/auth.api";
 
 export type ListingStatus =
   | "draft"
@@ -47,6 +49,9 @@ export type Listing = {
   contactPref: ContactPref;
   bestContactTime: BestContactTime;
   sellerName: string;
+  sellerOwnerName?: string;
+  businessName?: string;
+  storeName?: string;
   sellerPhone?: string;
   sellerType?: "individual" | "business";
   rating?: number;
@@ -150,7 +155,7 @@ export async function fetchLivePublicListings(params?: {
   q?: string;
 }): Promise<Listing[]> {
   try {
-    const search = new URLSearchParams({ limit: "100", status: "approved" });
+    const search = new URLSearchParams({ limit: "100" });
     if (params?.area) search.set("area", params.area);
     if (params?.city) search.set("city", params.city);
     if (params?.pincode) search.set("pincode", params.pincode);
@@ -158,7 +163,7 @@ export async function fetchLivePublicListings(params?: {
     if (params?.category) search.set("category", params.category);
     if (params?.q) search.set("q", params.q);
 
-    const res = await fetch(`https://api.omeetso.in/api/v1/listings?${search.toString()}`);
+    const res = await fetch(`${API_BASE}/listings?${search.toString()}`);
     const json = await res.json();
     if (json.success && Array.isArray(json.data)) {
       const mapped: Listing[] = json.data.map((item: any) => {
@@ -188,7 +193,11 @@ export async function fetchLivePublicListings(params?: {
           specs: item.specs || {},
           contactPref: "call_and_chat" as ContactPref,
           bestContactTime: "anytime" as BestContactTime,
-          sellerName: item.sellerName || "Omeetso Seller",
+          sellerName: item.sellerName || item.businessName || "Omeetso Seller",
+          sellerOwnerName: item.sellerOwnerName,
+          businessName: item.businessName || item.storeName,
+          storeName: item.storeName,
+          sellerType: (item.sellerType || (item.businessName || item.storeId ? "business" : "individual")) as "individual" | "business",
           rating: item.rating || 0,
           reviewCount: item.reviewCount || 0,
           status: (item.status?.toLowerCase() || "active") as ListingStatus,
@@ -206,11 +215,11 @@ export async function fetchLivePublicListings(params?: {
 }
 
 export async function fetchLiveUserListings(): Promise<Listing[]> {
-  const token = typeof window !== "undefined" ? localStorage.getItem("omeetso_user_token") : null;
+  const token = typeof window !== "undefined" ? (getUserAccessToken() || localStorage.getItem("omeetso_user_token")) : null;
   if (!token) return [];
 
   try {
-    const res = await fetch("https://api.omeetso.in/api/v1/listings/user/me", {
+    const res = await fetch(`${API_BASE}/listings/user/me`, {
       headers: { Authorization: `Bearer ${token}` }
     });
     const json = await res.json();
@@ -255,7 +264,7 @@ export async function fetchLiveUserListings(): Promise<Listing[]> {
 
 export async function fetchLiveListingById(id: string): Promise<Listing | null> {
   try {
-    const res = await fetch(`https://api.omeetso.in/api/v1/listings/${id}`);
+    const res = await fetch(`${API_BASE}/listings/${id}`);
     const json = await res.json();
     if (json.success && json.data) {
       const item = json.data;
@@ -403,7 +412,7 @@ export function recordListingView(listingId: string) {
   setAnalytics(listingId, current);
 
   if (/^[0-9a-fA-F]{24}$/.test(listingId)) {
-    fetch(`https://api.omeetso.in/api/v1/listings/${listingId}/view`, { method: "POST" }).catch(() => { });
+    fetch(`${API_BASE}/listings/${listingId}/view`, { method: "POST" }).catch(() => { });
   }
 }
 
@@ -413,7 +422,7 @@ export function recordListingSave(listingId: string) {
   setAnalytics(listingId, current);
 
   if (/^[0-9a-fA-F]{24}$/.test(listingId)) {
-    fetch(`https://api.omeetso.in/api/v1/listings/${listingId}/save`, { method: "POST" }).catch(() => { });
+    fetch(`${API_BASE}/listings/${listingId}/save`, { method: "POST" }).catch(() => { });
   }
 }
 

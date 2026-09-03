@@ -5,6 +5,7 @@ import { Message } from "../models/Message";
 import { Offer } from "../models/Offer";
 import { Listing } from "../../listings/models/Listing";
 import { Store } from "../../stores/models/Store";
+import { Job } from "../../jobs/models/Job";
 import { Notification } from "../../notifications/models/Notification";
 import { evaluateChatSafety } from "../../safety/utils/chatSafetyFilter";
 import { SafetyReport } from "../../safety/models/SafetyReport";
@@ -19,11 +20,21 @@ export async function startConversation(req: AuthenticatedUserRequest, res: Resp
       return;
     }
 
-    const { contextType = "LISTING", contextId, listingId, storeId } = req.body;
-    const targetId = contextId || listingId || storeId;
+    const { contextType = "LISTING", contextId, listingId, storeId, jobId } = req.body;
+    let targetId = contextId || listingId || storeId || jobId;
 
     if (!targetId) {
-      res.status(400).json({ success: false, error: { code: "BAD_REQUEST", message: "contextId/listingId/storeId required" } });
+      res.status(400).json({ success: false, error: { code: "BAD_REQUEST", message: "contextId/listingId/storeId/jobId required" } });
+      return;
+    }
+
+    // Strip prefixes like "JOB-" if passed
+    if (typeof targetId === "string" && targetId.startsWith("JOB-")) {
+      targetId = targetId.replace("JOB-", "");
+    }
+
+    if (!mongoose.Types.ObjectId.isValid(targetId)) {
+      res.status(400).json({ success: false, error: { code: "BAD_REQUEST", message: "Invalid target ID" } });
       return;
     }
 
@@ -31,8 +42,11 @@ export async function startConversation(req: AuthenticatedUserRequest, res: Resp
     let sellerId: any;
     let refListingId: any;
     let refStoreId: any;
+    let refJobId: any;
 
-    if (contextType === "STORE") {
+    const normalizedContext = contextType.toUpperCase();
+
+    if (normalizedContext === "STORE") {
       const store = await Store.findById(targetId);
       if (!store) {
         res.status(404).json({ success: false, error: { code: "NOT_FOUND", message: "Store not found" } });
@@ -40,6 +54,14 @@ export async function startConversation(req: AuthenticatedUserRequest, res: Resp
       }
       sellerId = (store as any).userId || (store as any).sellerId || (store as any).ownerId;
       refStoreId = store._id;
+    } else if (normalizedContext === "JOB") {
+      const job = await Job.findById(targetId);
+      if (!job) {
+        res.status(404).json({ success: false, error: { code: "NOT_FOUND", message: "Job posting not found" } });
+        return;
+      }
+      sellerId = job.employerId;
+      refJobId = job._id;
     } else {
       const listing = await Listing.findById(targetId);
       if (!listing) {
@@ -51,7 +73,7 @@ export async function startConversation(req: AuthenticatedUserRequest, res: Resp
     }
 
     if (!sellerId) {
-      res.status(400).json({ success: false, error: { code: "BAD_REQUEST", message: "Listing seller account unavailable" } });
+      res.status(400).json({ success: false, error: { code: "BAD_REQUEST", message: "Recipient seller/employer account unavailable" } });
       return;
     }
 
@@ -66,7 +88,7 @@ export async function startConversation(req: AuthenticatedUserRequest, res: Resp
     let conversation = await Conversation.findOne({
       buyerId,
       sellerId,
-      contextType: contextType.toUpperCase(),
+      contextType: normalizedContext,
       contextId: targetId
     });
 
@@ -75,10 +97,11 @@ export async function startConversation(req: AuthenticatedUserRequest, res: Resp
         participantIds: [buyerId, sellerId],
         buyerId,
         sellerId,
-        contextType: contextType.toUpperCase(),
+        contextType: normalizedContext,
         contextId: targetId,
         listingId: refListingId,
         storeId: refStoreId,
+        jobId: refJobId,
         unreadCounts: [
           { userId: buyerId, count: 0 },
           { userId: sellerId, count: 0 }
@@ -94,6 +117,7 @@ export async function startConversation(req: AuthenticatedUserRequest, res: Resp
     const populated = await Conversation.findById(conversation._id)
       .populate("listingId", "title priceInPaise images")
       .populate("storeId", "name logo")
+      .populate("jobId", "title companyName companyLogo salary")
       .populate("participantIds", "profile.name profile.avatar email")
       .lean();
 
@@ -106,12 +130,12 @@ export async function startConversation(req: AuthenticatedUserRequest, res: Resp
         contextType: (populated as any).contextType,
         contextId: (populated as any).contextId?.toString(),
         listingId: (populated as any).listingId?._id?.toString(),
-        listingTitle: (populated as any).listingId?.title || (populated as any).storeId?.name || "Product",
-        listingPriceInPaise: (populated as any).listingId?.priceInPaise || 0,
-        listingImage: (populated as any).listingId?.images?.[0] || (populated as any).storeId?.logo || "",
+        listingTitle: (populated as any).listingId?.title || (populated as any).storeId?.name || ((populated as any).jobId ? `${(populated as any).jobId.title} (${(populated as any).jobId.companyName})` : "Chat"),
+        listingPriceInPaise: (populated as any).listingId?.priceInPaise || (populated as any).jobId?.salary?.maxSalary || 0,
+        listingImage: (populated as any).listingId?.images?.[0] || (populated as any).storeId?.logo || (populated as any).jobId?.companyLogo || "",
         otherParty: {
           id: otherParticipant?._id?.toString(),
-          name: otherParticipant?.profile?.name || otherParticipant?.email || "Seller",
+          name: otherParticipant?.profile?.name || otherParticipant?.email || "User",
           avatar: otherParticipant?.profile?.avatar
         },
         unreadCount: 0
@@ -136,6 +160,7 @@ export async function getConversations(req: AuthenticatedUserRequest, res: Respo
     })
       .populate("listingId", "title priceInPaise images status")
       .populate("storeId", "name logo cover")
+      .populate("jobId", "title companyName companyLogo salary")
       .populate("participantIds", "profile.name profile.avatar email")
       .sort({ lastMessageAt: -1, updatedAt: -1 })
       .lean();
@@ -149,12 +174,12 @@ export async function getConversations(req: AuthenticatedUserRequest, res: Respo
         contextType: c.contextType || "LISTING",
         contextId: c.contextId?.toString(),
         listingId: c.listingId?._id?.toString(),
-        listingTitle: c.listingId?.title || c.storeId?.name || "Marketplace Product",
-        listingPriceInPaise: c.listingId?.priceInPaise || 0,
-        listingImage: c.listingId?.images?.[0] || c.storeId?.logo || "https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=400",
+        listingTitle: c.listingId?.title || c.storeId?.name || (c.jobId ? `${c.jobId.title} (${c.jobId.companyName})` : "Marketplace Conversation"),
+        listingPriceInPaise: c.listingId?.priceInPaise || c.jobId?.salary?.maxSalary || 0,
+        listingImage: c.listingId?.images?.[0] || c.storeId?.logo || c.jobId?.companyLogo || "https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=400",
         otherParty: {
           id: otherParticipant?._id?.toString(),
-          name: otherParticipant?.profile?.name || otherParticipant?.email || "Omeetso Seller",
+          name: otherParticipant?.profile?.name || otherParticipant?.email || "Omeetso User",
           avatar: otherParticipant?.profile?.avatar
         },
         lastMessagePreview: c.lastMessagePreview || "No messages yet",
@@ -181,6 +206,12 @@ export async function getMessages(req: AuthenticatedUserRequest, res: Response, 
     }
 
     const { conversationId } = req.params;
+
+    if (!mongoose.Types.ObjectId.isValid(conversationId)) {
+      res.status(404).json({ success: false, error: { code: "NOT_FOUND", message: "Conversation not found" } });
+      return;
+    }
+
     const conversation = await Conversation.findById(conversationId);
 
     if (!conversation) {
@@ -256,6 +287,11 @@ export async function sendMessage(req: AuthenticatedUserRequest, res: Response, 
     }
 
     const { conversationId } = req.params;
+
+    if (!mongoose.Types.ObjectId.isValid(conversationId)) {
+      res.status(404).json({ success: false, error: { code: "NOT_FOUND", message: "Conversation not found" } });
+      return;
+    }
     const { clientMessageId, type = "TEXT", text, imageUrl } = req.body;
 
     if (!clientMessageId) {
@@ -411,6 +447,12 @@ export async function createOffer(req: AuthenticatedUserRequest, res: Response, 
     }
 
     const { conversationId } = req.params;
+
+    if (!mongoose.Types.ObjectId.isValid(conversationId)) {
+      res.status(404).json({ success: false, error: { code: "NOT_FOUND", message: "Conversation not found" } });
+      return;
+    }
+
     const { amountInPaise, messageText } = req.body;
 
     const conversation = await Conversation.findById(conversationId).populate("listingId");
@@ -511,6 +553,12 @@ export async function updateOfferStatus(req: AuthenticatedUserRequest, res: Resp
     }
 
     const { offerId } = req.params;
+
+    if (!mongoose.Types.ObjectId.isValid(offerId)) {
+      res.status(404).json({ success: false, error: { code: "NOT_FOUND", message: "Offer not found" } });
+      return;
+    }
+
     const { action } = req.body; // ACCEPT, DECLINE, CANCEL
 
     const offer = await Offer.findById(offerId);
@@ -569,27 +617,9 @@ export async function getOfferById(req: AuthenticatedUserRequest, res: Response,
     }
 
     const offerId = (Array.isArray(req.params.offerId) ? req.params.offerId[0] : req.params.offerId) as string;
+
     if (!mongoose.Types.ObjectId.isValid(offerId)) {
-      res.status(200).json({
-        success: true,
-        data: {
-          id: offerId,
-          conversationId: "conv_demo",
-          amountInPaise: 5170000,
-          originalPriceInPaise: 5745400,
-          status: "ACCEPTED",
-          expiresAt: new Date(Date.now() + 48 * 3600 * 1000).toISOString(),
-          listing: {
-            id: "LSEED4KTV",
-            title: "LG 4K Smart TV / Laptop — High Performance, Low Use",
-            priceInPaise: 5745400,
-            image: "https://images.unsplash.com/photo-1593359677879-a4bb92f829d1?w=800",
-            area: "Madhapur, Hyderabad"
-          },
-          buyer: { id: req.user._id.toString(), name: req.user.profile?.name || "Buyer" },
-          seller: { id: "seller_bannu", name: "Bannu" }
-        }
-      });
+      res.status(404).json({ success: false, error: { code: "NOT_FOUND", message: "Offer not found" } });
       return;
     }
 
@@ -600,26 +630,7 @@ export async function getOfferById(req: AuthenticatedUserRequest, res: Response,
       .lean();
 
     if (!offer) {
-      res.status(200).json({
-        success: true,
-        data: {
-          id: offerId,
-          conversationId: "conv_demo",
-          amountInPaise: 5170000,
-          originalPriceInPaise: 5745400,
-          status: "ACCEPTED",
-          expiresAt: new Date(Date.now() + 48 * 3600 * 1000).toISOString(),
-          listing: {
-            id: "LSEED4KTV",
-            title: "LG 4K Smart TV / Laptop — High Performance, Low Use",
-            priceInPaise: 5745400,
-            image: "https://images.unsplash.com/photo-1593359677879-a4bb92f829d1?w=800",
-            area: "Madhapur, Hyderabad"
-          },
-          buyer: { id: req.user._id.toString(), name: req.user.profile?.name || "Buyer" },
-          seller: { id: "seller_bannu", name: "Bannu" }
-        }
-      });
+      res.status(404).json({ success: false, error: { code: "NOT_FOUND", message: "Offer not found" } });
       return;
     }
 
