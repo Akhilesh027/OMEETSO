@@ -711,11 +711,11 @@ export async function seedMultiLocationMarket(): Promise<{
     }
   ];
 
-  await Listing.deleteMany({});
-
   const createdListings: any[] = [];
   for (const item of listingsData) {
-    const listing = await Listing.create({
+    let listing = await Listing.findOne({ title: item.title, sellerId: item.seller._id });
+    if (!listing) {
+      listing = await Listing.create({
       sellerId: item.seller._id,
       storeId: item.storeId,
       categoryId: item.categoryId,
@@ -750,6 +750,7 @@ export async function seedMultiLocationMarket(): Promise<{
         chats: Math.floor(5 + Math.random() * 25)
       }
     });
+    }
     createdListings.push(listing);
   }
   console.log(`[Market Seeder] Seeded ${createdListings.length} Listings (2 per category across 12 categories in Hyderabad, Bangalore & Mumbai).`);
