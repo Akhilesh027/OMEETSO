@@ -14,6 +14,9 @@ import { SafetyCard } from "@/components/omeetso/SafetyCard";
 import { EmptyState } from "@/components/omeetso/EmptyState";
 import { InfinityLoader } from "@/components/omeetso/InfinityLoader";
 import { serveAdsApi } from "@/api/adCampaigns.api";
+import { fetchLiveListingById } from "@/lib/listings";
+import { fetchLiveCategories, getCachedCategories, type LiveCategory } from "@/lib/categories";
+import { calculateDistanceBetweenLocations } from "@/lib/location";
 import { getPublicListingsApi } from "@/api/listings.api";
 import { getPublicStoresApi } from "@/api/stores.api";
 import { listListings } from "@/lib/listings";
@@ -105,12 +108,27 @@ function CategoryPage() {
 
   const subs = SUBCATEGORIES[category.id.toLowerCase()] ?? [];
 
-  const activeLoc = useMemo(() => {
+  const [activeLoc, setActiveLoc] = useState<any>(() => {
     try {
       const raw = typeof window !== "undefined" ? (localStorage.getItem("omeetso_location") || localStorage.getItem("omeetso_selected_location")) : null;
       if (raw) return JSON.parse(raw);
     } catch { /* ignore */ }
     return null;
+  });
+
+  useEffect(() => {
+    const syncLoc = () => {
+      try {
+        const raw = localStorage.getItem("omeetso_location") || localStorage.getItem("omeetso_selected_location");
+        if (raw) setActiveLoc(JSON.parse(raw));
+      } catch { /* ignore */ }
+    };
+    window.addEventListener("storage", syncLoc);
+    window.addEventListener("omeetso_location_changed", syncLoc);
+    return () => {
+      window.removeEventListener("storage", syncLoc);
+      window.removeEventListener("omeetso_location_changed", syncLoc);
+    };
   }, []);
 
   const loadData = useCallback(async () => {
@@ -147,8 +165,8 @@ function CategoryPage() {
           title: topAd.creative.title,
           price: (topAd.creative.priceInPaise || 0) / 100,
           images: [topAd.creative.imageUrl],
-          area: "Kukatpally",
-          city: "Hyderabad",
+          area: topAd.targeting?.targetAreas?.[0] || activeLoc?.area || "Local",
+          city: topAd.targeting?.city || activeLoc?.city || "Local",
           sponsored: true,
           verified: true,
           condition: "Like New",
@@ -158,14 +176,15 @@ function CategoryPage() {
       }
     });
 
-    const activeCity = activeLoc?.city || (activeLoc?.area ? (activeLoc.area.includes(",") ? activeLoc.area.split(",")[1].trim() : (activeLoc.area.toLowerCase().includes("bangalore") || activeLoc.area.toLowerCase().includes("bengaluru") || activeLoc.area.toLowerCase().includes("koramangala") || activeLoc.area.toLowerCase().includes("indiranagar") || activeLoc.area.toLowerCase().includes("whitefield") ? "Bangalore" : activeLoc.area.toLowerCase().includes("mumbai") || activeLoc.area.toLowerCase().includes("bandra") || activeLoc.area.toLowerCase().includes("andheri") ? "Mumbai" : "Hyderabad")) : undefined);
+    const activeCity = activeLoc?.city || (activeLoc?.area ? (activeLoc.area.includes(",") ? activeLoc.area.split(",")[1].trim() : (activeLoc.area.toLowerCase().includes("bangalore") || activeLoc.area.toLowerCase().includes("bengaluru") ? "Bangalore" : activeLoc.area.toLowerCase().includes("mumbai") ? "Mumbai" : activeLoc.area.toLowerCase().includes("hyderabad") || activeLoc.area.toLowerCase().includes("secunderabad") ? "Hyderabad" : activeLoc.area.split(",")[0].trim())) : undefined);
 
     const [lRes, sRes] = await Promise.all([
       getPublicListingsApi({
         search: category.name,
         category: category.id,
         city: activeCity,
-        area: activeLoc?.area
+        area: activeLoc?.area ? activeLoc.area.split(",")[0].trim() : undefined,
+        pincode: activeLoc?.pincode,
       }),
       getPublicStoresApi()
     ]);
@@ -181,24 +200,32 @@ function CategoryPage() {
         return cId === targetCat || cId.includes(targetCat) || targetName.includes(cId);
       });
 
-      const mappedP = matchingListings.map((item: any) => ({
-        id: item.id || item._id,
-        title: item.title,
-        price: item.priceInPaise ? Math.round(item.priceInPaise / 100) : item.price || 0,
-        priceInPaise: item.priceInPaise,
-        image: item.images?.[0] || item.image || "https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=800",
-        images: item.images,
-        category: (item.categoryId || item.category || category.id).toLowerCase(),
-        subcategory: item.subcategoryId || item.subcategory || "General",
-        condition: item.condition || "good",
-        area: item.area || item.city || "Madhapur",
-        distanceKm: 1.5,
-        postedAgo: "Recently",
-        verified: true,
-        sellerId: item.sellerId?._id || item.sellerId || "seller_1",
-        method: item.method,
-        sponsored: false
-      }));
+      const mappedP = matchingListings.map((item: any) => {
+        const calculatedDist = calculateDistanceBetweenLocations(
+          activeLoc ? { area: activeLoc.area, pincode: activeLoc.pincode, city: activeCity } : undefined,
+          { area: item.area || item.location, pincode: item.pincode, city: item.city }
+        );
+
+        return {
+          id: item.id || item._id,
+          title: item.title,
+          price: item.priceInPaise ? Math.round(item.priceInPaise / 100) : item.price || 0,
+          priceInPaise: item.priceInPaise,
+          image: item.images?.[0] || item.image || "https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=800",
+          images: item.images,
+          category: (item.categoryId || item.category || category.id).toLowerCase(),
+          subcategory: item.subcategoryId || item.subcategory || "General",
+          condition: item.condition || "good",
+          area: item.area || item.location || "",
+          city: item.city || "",
+          distanceKm: calculatedDist,
+          postedAgo: "Recently",
+          verified: true,
+          sellerId: item.sellerId?._id || item.sellerId || "seller_1",
+          method: item.method,
+          sponsored: false
+        };
+      });
       setLiveProducts(mappedP);
     }
 
@@ -217,9 +244,10 @@ function CategoryPage() {
         cover: item.cover || "https://images.unsplash.com/photo-1441986300917-64674bd600d8?w=800",
         logo: item.logo || "https://res.cloudinary.com/demo/image/upload/f_auto,q_auto,w_200,h_200,c_fill/avatar_cxx1sy.png",
         category: item.primaryCategory || category.name,
-        area: item.area || "Madhapur",
-        pincode: item.pincode || "500081",
-        distanceKm: 1.2,
+        area: item.area || "Local",
+        city: item.city || "",
+        pincode: item.pincode || "",
+        distanceKm: calculateDistanceBetweenLocations(activeLoc, { area: item.area, pincode: item.pincode, city: item.city }),
         rating: item.rating || 0,
         reviews: item.reviewCount || 0,
         open: true,
@@ -228,7 +256,7 @@ function CategoryPage() {
       }));
       setLiveStores(mappedS);
     }
-  }, [category.name, category.id]);
+  }, [category.name, category.id, activeLoc?.area, activeLoc?.pincode, activeLoc?.city]);
 
   useEffect(() => {
     loadData();
@@ -302,39 +330,26 @@ function CategoryPage() {
     if (min !== undefined) list = list.filter((p) => p.price >= min);
     if (max !== undefined) list = list.filter((p) => p.price <= max);
 
+    // Location-based filtering — strictly filter for user's area / pincode / city
     if (activeLoc?.area || activeLoc?.pincode) {
       const targetArea = (activeLoc.area || "").toLowerCase();
       const targetPin = (activeLoc.pincode || "").toLowerCase();
-      const areaTerms = targetArea.split(/[,\s]+/).filter(Boolean);
+      const targetCity = (activeLoc.city || "").toLowerCase();
+      const areaTerms = targetArea.split(/[,\s]+/).filter((t: string) => t.length >= 3);
 
-      const isLocal = (p: any) => {
+      list = list.filter((p: any) => {
         const pText = `${p.location || ""} ${p.area || ""} ${p.city || ""} ${p.pincode || ""}`.toLowerCase();
         const pinMatch = targetPin && (pText.includes(targetPin) || (p.pincode && p.pincode.toString() === targetPin));
-        const areaMatch = areaTerms.some((term: string) => term.length >= 3 && pText.includes(term));
-        return pinMatch || areaMatch;
-      };
-
-      const localList = list.filter(isLocal);
-      if (localList.length > 0) {
-        list = localList;
-      } else {
-        const areaName = activeLoc.area.split(",")[0].trim();
-        const pinVal = activeLoc.pincode || "500081";
-        list = list.map((p, idx) => ({
-          ...p,
-          area: areaName,
-          city: areaName,
-          pincode: pinVal,
-          location: `${areaName}, ${pinVal}`,
-          distanceKm: Number((0.8 + idx * 0.5).toFixed(1)),
-        }));
-      }
+        const areaMatch = areaTerms.some((term: string) => pText.includes(term));
+        const cityMatch = targetCity && targetCity.length >= 3 && pText.includes(targetCity);
+        return Boolean(pinMatch || areaMatch || cityMatch);
+      });
     }
 
     switch (search.sort) {
       case "price-low": list = [...list].sort((a, b) => a.price - b.price); break;
       case "price-high": list = [...list].sort((a, b) => b.price - a.price); break;
-      case "distance": list = [...list].sort((a, b) => a.distanceKm - b.distanceKm); break;
+      case "distance": list = [...list].sort((a, b) => (a.distanceKm ?? 999) - (b.distanceKm ?? 999)); break;
       case "newest":
       case "updated": list = [...list].reverse(); break;
     }

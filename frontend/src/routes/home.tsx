@@ -39,6 +39,7 @@ import { LocationModal } from "@/components/omeetso/LocationModal";
 import { ProductQuickPreviewModal } from "@/components/omeetso/ProductQuickPreviewModal";
 import { CategoryDetailModal } from "@/components/omeetso/CategoryDetailModal";
 import { fetchLiveCategories, LiveCategory } from "@/lib/categories";
+import { calculateDistanceBetweenLocations } from "@/lib/location";
 
 function HeroProductShowcase({ items }: { items?: any[] }) {
   const displayItems = useMemo(() => {
@@ -358,7 +359,11 @@ function Home() {
     setRecentlyViewed(getRecentlyViewed());
 
     window.addEventListener("storage", syncLocation);
-    return () => window.removeEventListener("storage", syncLocation);
+    window.addEventListener("omeetso_location_changed", syncLocation);
+    return () => {
+      window.removeEventListener("storage", syncLocation);
+      window.removeEventListener("omeetso_location_changed", syncLocation);
+    };
   }, []);
 
   useEffect(() => {
@@ -371,38 +376,60 @@ function Home() {
       })
       .catch(() => { });
 
-    const activeCity = loc?.city || (loc?.area ? (loc.area.includes(",") ? loc.area.split(",")[1].trim() : (loc.area.toLowerCase().includes("bangalore") || loc.area.toLowerCase().includes("bengaluru") || loc.area.toLowerCase().includes("koramangala") || loc.area.toLowerCase().includes("indiranagar") || loc.area.toLowerCase().includes("whitefield") ? "Bangalore" : loc.area.toLowerCase().includes("mumbai") || loc.area.toLowerCase().includes("bandra") || loc.area.toLowerCase().includes("andheri") ? "Mumbai" : "Hyderabad")) : undefined);
+    const activeCity = loc?.city || (loc?.area ? (loc.area.includes(",") ? loc.area.split(",")[1].trim() : (loc.area.toLowerCase().includes("bangalore") || loc.area.toLowerCase().includes("bengaluru") ? "Bangalore" : loc.area.toLowerCase().includes("mumbai") ? "Mumbai" : loc.area.toLowerCase().includes("hyderabad") || loc.area.toLowerCase().includes("secunderabad") ? "Hyderabad" : loc.area.split(",")[0].trim())) : undefined);
 
     fetchLivePublicListings({
-      area: loc?.area,
+      area: loc?.area ? loc.area.split(",")[0].trim() : undefined,
       city: activeCity,
       pincode: loc?.pincode,
     })
       .then((items) => {
         if (items && items.length > 0) {
-          const mapped = items.map((item: any) => ({
-            id: item.id || item._id,
-            title: item.title,
-            price: item.priceInPaise ? item.priceInPaise / 100 : item.price || 0,
-            originalPrice: Math.round((item.priceInPaise ? item.priceInPaise / 100 : item.price || 5000) * 1.2),
-            negotiable: item.negotiable,
-            category: item.category || item.categoryId || "electronics",
-            subcategory: item.subcategory || item.subcategoryId || "electronics",
-            condition: item.condition || "good",
-            area: item.area || item.location || "",
-            city: item.city || "",
-            distanceKm: 1.2,
-            postedAgo: "Just now",
-            image: item.images?.[0] || item.image || "https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=400",
-            images: item.images,
-            verified: true,
-            sellerName: item.sellerName || "Verified Local Seller",
-            sellerId: item.sellerId || "u_seller",
-            rating: item.rating || 0,
-            reviewCount: item.reviewCount || 0,
-            description: item.description,
-            method: item.method || "quick",
-          }));
+          // Filter strictly for user's location if set
+          const targetArea = (loc?.area || "").toLowerCase();
+          const targetPin = (loc?.pincode || "").toLowerCase();
+          const targetCity = (activeCity || "").toLowerCase();
+          const areaTerms = targetArea.split(/[,\s]+/).filter((t) => t.length >= 3);
+
+          const matchingItems = items.filter((item: any) => {
+            if (!targetArea && !targetPin && !targetCity) return true;
+            const itemText = `${item.location || ""} ${item.area || ""} ${item.city || ""} ${item.pincode || ""}`.toLowerCase();
+            const pinMatch = targetPin && (itemText.includes(targetPin) || (item.pincode && item.pincode.toString() === targetPin));
+            const areaMatch = areaTerms.some((term) => itemText.includes(term));
+            const cityMatch = targetCity && targetCity.length >= 3 && itemText.includes(targetCity);
+            return Boolean(pinMatch || areaMatch || cityMatch);
+          });
+
+          const mapped = matchingItems.map((item: any) => {
+            const calculatedDist = calculateDistanceBetweenLocations(
+              loc ? { area: loc.area, pincode: loc.pincode, city: activeCity } : undefined,
+              { area: item.area || item.location, pincode: item.pincode, city: item.city }
+            );
+
+            return {
+              id: item.id || item._id,
+              title: item.title,
+              price: item.priceInPaise ? item.priceInPaise / 100 : item.price || 0,
+              originalPrice: Math.round((item.priceInPaise ? item.priceInPaise / 100 : item.price || 5000) * 1.2),
+              negotiable: item.negotiable,
+              category: item.category || item.categoryId || "electronics",
+              subcategory: item.subcategory || item.subcategoryId || "electronics",
+              condition: item.condition || "good",
+              area: item.area || item.location || "",
+              city: item.city || "",
+              distanceKm: calculatedDist,
+              postedAgo: "Just now",
+              image: item.images?.[0] || item.image || "https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=400",
+              images: item.images,
+              verified: true,
+              sellerName: item.sellerName || "Verified Local Seller",
+              sellerId: item.sellerId || "u_seller",
+              rating: item.rating || 0,
+              reviewCount: item.reviewCount || 0,
+              description: item.description,
+              method: item.method || "quick",
+            };
+          });
           setLiveProducts(mapped);
         } else {
           setLiveProducts([]);

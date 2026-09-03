@@ -90,7 +90,7 @@ export function ProductQuickPreviewModal({ product, onClose }: ProductQuickPrevi
 
           <div className="flex items-center gap-2 text-xs text-muted-foreground">
             <span className="inline-flex items-center gap-1 font-medium text-indigo-brand">
-              <MapPin className="h-3.5 w-3.5" /> {product.area || "Nearby"} · {product.distanceKm || 1.2} km away
+              <MapPin className="h-3.5 w-3.5" /> {product.area || "Nearby"}{(product as any).city ? `, ${(product as any).city}` : ""}{product.distanceKm ? ` · ${product.distanceKm} km away` : ""}
             </span>
             <span>•</span>
             <span>{product.condition || "Used - Good"}</span>

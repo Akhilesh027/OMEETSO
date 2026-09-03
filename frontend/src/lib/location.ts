@@ -161,8 +161,17 @@ export const KNOWN_PINCODE_MAP: Record<string, { area: string; city: string; sta
   "501218": { area: "Shamshabad", city: "Hyderabad", state: "Telangana" },
   "502032": { area: "Tellapur", city: "Hyderabad", state: "Telangana" },
 
-  // Districts
+  // Adilabad & Northern Telangana
   "504312": { area: "Adilabad", city: "Adilabad", state: "Telangana" },
+  "504001": { area: "Adilabad Head Post", city: "Adilabad", state: "Telangana" },
+  "504002": { area: "Adilabad Collectorate", city: "Adilabad", state: "Telangana" },
+  "504208": { area: "Mancherial", city: "Mancherial", state: "Telangana" },
+  "504293": { area: "Nirmal", city: "Nirmal", state: "Telangana" },
+  "504296": { area: "Bhainsa", city: "Nirmal", state: "Telangana" },
+  "504201": { area: "Bellampalli", city: "Mancherial", state: "Telangana" },
+  "504293": { area: "Khanapur", city: "Nirmal", state: "Telangana" },
+
+  // Districts
   "503001": { area: "Nizamabad", city: "Nizamabad", state: "Telangana" },
   "505001": { area: "Karimnagar", city: "Karimnagar", state: "Telangana" },
   "506001": { area: "Warangal", city: "Warangal", state: "Telangana" },
@@ -331,15 +340,94 @@ export async function resolveGpsLocation(lat: number, lng: number): Promise<Loca
 export async function fetchAreaFromPincode(pincode: string): Promise<LocationResult> {
   const cleanPin = (pincode || "").replace(/\D/g, "").slice(0, 6);
   if (cleanPin.length !== 6) {
-    return { area: pincode || "Madhapur", pincode: cleanPin || "500081", city: "Hyderabad", state: "Telangana" };
+    return { area: pincode || "Adilabad", pincode: cleanPin || "504312", city: "Adilabad", state: "Telangana" };
   }
 
   if (KNOWN_PINCODE_MAP[cleanPin]) {
     const item = KNOWN_PINCODE_MAP[cleanPin];
-    return { area: item.area, pincode: cleanPin, city: item.city, state: item.state };
+    return { area: item.area, pincode: cleanPin, city: item.city, state: item.state || "Telangana" };
   }
 
-  return { area: `Zone ${cleanPin}`, pincode: cleanPin, city: "Hyderabad", state: "Telangana" };
+  // District prefix resolver for Telangana & AP
+  if (cleanPin.startsWith("504")) {
+    return { area: "Adilabad District", pincode: cleanPin, city: "Adilabad", state: "Telangana" };
+  } else if (cleanPin.startsWith("503")) {
+    return { area: "Nizamabad District", pincode: cleanPin, city: "Nizamabad", state: "Telangana" };
+  } else if (cleanPin.startsWith("505")) {
+    return { area: "Karimnagar District", pincode: cleanPin, city: "Karimnagar", state: "Telangana" };
+  } else if (cleanPin.startsWith("506")) {
+    return { area: "Warangal District", pincode: cleanPin, city: "Warangal", state: "Telangana" };
+  } else if (cleanPin.startsWith("507")) {
+    return { area: "Khammam District", pincode: cleanPin, city: "Khammam", state: "Telangana" };
+  } else if (cleanPin.startsWith("508")) {
+    return { area: "Nalgonda District", pincode: cleanPin, city: "Nalgonda", state: "Telangana" };
+  } else if (cleanPin.startsWith("509")) {
+    return { area: "Mahbubnagar District", pincode: cleanPin, city: "Mahbubnagar", state: "Telangana" };
+  } else if (cleanPin.startsWith("500")) {
+    return { area: `Hyderabad Zone ${cleanPin}`, pincode: cleanPin, city: "Hyderabad", state: "Telangana" };
+  } else if (cleanPin.startsWith("501") || cleanPin.startsWith("502")) {
+    return { area: "Telangana Region", pincode: cleanPin, city: "Telangana", state: "Telangana" };
+  } else if (cleanPin.startsWith("560")) {
+    return { area: "Bangalore", pincode: cleanPin, city: "Bangalore", state: "Karnataka" };
+  } else if (cleanPin.startsWith("400")) {
+    return { area: "Mumbai", pincode: cleanPin, city: "Mumbai", state: "Maharashtra" };
+  }
+
+  return { area: `Pincode ${cleanPin}`, pincode: cleanPin, city: "Telangana", state: "Telangana" };
+}
+
+/**
+ * Calculate distance between two locations (user and listing).
+ */
+export function calculateDistanceBetweenLocations(
+  loc1?: { area?: string; pincode?: string; city?: string },
+  loc2?: { area?: string; pincode?: string; city?: string }
+): number | undefined {
+  if (!loc1 || !loc2) return undefined;
+
+  const pin1 = loc1.pincode?.replace(/\D/g, "");
+  const pin2 = loc2.pincode?.replace(/\D/g, "");
+  if (pin1 && pin2 && pin1.length === 6 && pin2.length === 6 && pin1 === pin2) {
+    return 0.8;
+  }
+
+  const area1 = (loc1.area || "").toLowerCase().trim();
+  const area2 = (loc2.area || "").toLowerCase().trim();
+  if (area1 && area2 && area1 === area2) {
+    return 1.0;
+  }
+
+  const findCoord = (l: { area?: string; pincode?: string; city?: string }) => {
+    const pin = l.pincode?.replace(/\D/g, "");
+    if (pin && pin.length === 6) {
+      const found = LOCAL_GPS_COORDINATES.find((c) => c.pincode === pin);
+      if (found) return found;
+    }
+    const a = (l.area || "").toLowerCase();
+    if (a) {
+      const found = LOCAL_GPS_COORDINATES.find(
+        (c) => a.includes(c.area.toLowerCase()) || c.area.toLowerCase().includes(a)
+      );
+      if (found) return found;
+    }
+    const city = (l.city || "").toLowerCase();
+    if (city) {
+      const found = LOCAL_GPS_COORDINATES.find(
+        (c) => city.includes(c.city.toLowerCase()) || c.city.toLowerCase().includes(city)
+      );
+      if (found) return found;
+    }
+    return null;
+  };
+
+  const c1 = findCoord(loc1);
+  const c2 = findCoord(loc2);
+  if (c1 && c2) {
+    const dist = calculateHaversineDistanceKm(c1.lat, c1.lng, c2.lat, c2.lng);
+    return Math.round(dist * 10) / 10;
+  }
+
+  return undefined;
 }
 
 /**

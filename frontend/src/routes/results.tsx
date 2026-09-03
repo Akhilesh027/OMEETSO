@@ -8,6 +8,7 @@ import { FilterChip } from "@/components/omeetso/FilterChip";
 import { PRODUCTS, CATEGORIES as STATIC_CATEGORIES, SORT_OPTIONS, getAd, type Product } from "@/lib/mock";
 import { listListings, fetchLivePublicListings } from "@/lib/listings";
 import { fetchLiveCategories, getCachedCategories, type LiveCategory } from "@/lib/categories";
+import { calculateDistanceBetweenLocations } from "@/lib/location";
 import { EmptyState } from "@/components/omeetso/EmptyState";
 
 type S = {
@@ -69,49 +70,71 @@ function Results() {
     }).catch(() => {});
   }, []);
 
-  // Combine Local User Listings + Live Backend Listings + Mock Products
+  // Combine Local User Listings + Live Backend Listings
   const [allProducts, setAllProducts] = useState<Product[]>([]);
-
-  const activeLoc = useMemo(() => {
+  const [activeLoc, setActiveLoc] = useState<any>(() => {
     try {
       const raw = typeof window !== "undefined" ? (localStorage.getItem("omeetso_location") || localStorage.getItem("omeetso_selected_location")) : null;
       if (raw) return JSON.parse(raw);
     } catch { /* ignore */ }
     return null;
+  });
+
+  useEffect(() => {
+    const syncLoc = () => {
+      try {
+        const raw = localStorage.getItem("omeetso_location") || localStorage.getItem("omeetso_selected_location");
+        if (raw) setActiveLoc(JSON.parse(raw));
+      } catch { /* ignore */ }
+    };
+    window.addEventListener("storage", syncLoc);
+    window.addEventListener("omeetso_location_changed", syncLoc);
+    return () => {
+      window.removeEventListener("storage", syncLoc);
+      window.removeEventListener("omeetso_location_changed", syncLoc);
+    };
   }, []);
 
   useEffect(() => {
-    const activeCity = activeLoc?.city || (activeLoc?.area ? (activeLoc.area.includes(",") ? activeLoc.area.split(",")[1].trim() : (activeLoc.area.toLowerCase().includes("bangalore") || activeLoc.area.toLowerCase().includes("bengaluru") || activeLoc.area.toLowerCase().includes("koramangala") || activeLoc.area.toLowerCase().includes("indiranagar") || activeLoc.area.toLowerCase().includes("whitefield") ? "Bangalore" : activeLoc.area.toLowerCase().includes("mumbai") || activeLoc.area.toLowerCase().includes("bandra") || activeLoc.area.toLowerCase().includes("andheri") ? "Mumbai" : "Hyderabad")) : undefined);
+    const activeCity = activeLoc?.city || (activeLoc?.area ? (activeLoc.area.includes(",") ? activeLoc.area.split(",")[1].trim() : (activeLoc.area.toLowerCase().includes("bangalore") || activeLoc.area.toLowerCase().includes("bengaluru") ? "Bangalore" : activeLoc.area.toLowerCase().includes("mumbai") ? "Mumbai" : activeLoc.area.toLowerCase().includes("hyderabad") || activeLoc.area.toLowerCase().includes("secunderabad") ? "Hyderabad" : activeLoc.area.split(",")[0].trim())) : undefined);
 
     fetchLivePublicListings({
       q: search.q,
       category: search.cat,
       city: activeCity,
-      area: activeLoc?.area,
+      area: activeLoc?.area ? activeLoc.area.split(",")[0].trim() : undefined,
       pincode: activeLoc?.pincode,
     }).then((liveItems) => {
       if (liveItems && liveItems.length > 0) {
-        const mappedLive: Product[] = liveItems.map((item: any) => ({
-          id: item.id || item._id,
-          title: item.title,
-          price: item.priceInPaise ? item.priceInPaise / 100 : item.price || 0,
-          negotiable: item.negotiable,
-          category: item.category || item.categoryId || "electronics",
-          subcategory: item.subcategory || item.subcategoryId || "electronics",
-          condition: item.condition || "good",
-          area: item.area || item.location || "Madhapur",
-          distanceKm: 1.5,
-          postedAgo: "Just now",
-          image: item.images?.[0] || item.image || "https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=400",
-          images: item.images,
-          verified: true,
-          sellerId: item.sellerId || "u_seller",
-          rating: item.rating || 0,
-          reviewCount: item.reviewCount || 0,
-          description: item.description,
-          specs: item.specs || {},
-          method: item.method || "quick",
-        }));
+        const mappedLive: Product[] = liveItems.map((item: any) => {
+          const calculatedDist = calculateDistanceBetweenLocations(
+            activeLoc ? { area: activeLoc.area, pincode: activeLoc.pincode, city: activeCity } : undefined,
+            { area: item.area || item.location, pincode: item.pincode, city: item.city }
+          );
+
+          return {
+            id: item.id || item._id,
+            title: item.title,
+            price: item.priceInPaise ? item.priceInPaise / 100 : item.price || 0,
+            negotiable: item.negotiable,
+            category: item.category || item.categoryId || "electronics",
+            subcategory: item.subcategory || item.subcategoryId || "electronics",
+            condition: item.condition || "good",
+            area: item.area || item.location || "",
+            city: item.city || "",
+            distanceKm: calculatedDist,
+            postedAgo: "Just now",
+            image: item.images?.[0] || item.image || "https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=400",
+            images: item.images,
+            verified: true,
+            sellerId: item.sellerId || "u_seller",
+            rating: item.rating || 0,
+            reviewCount: item.reviewCount || 0,
+            description: item.description,
+            specs: item.specs || {},
+            method: item.method || "quick",
+          };
+        });
 
         setAllProducts(mappedLive);
       } else {
@@ -143,7 +166,7 @@ function Results() {
         }
       });
     });
-  }, []);
+  }, [search.q, search.cat, activeLoc?.area, activeLoc?.pincode, activeLoc?.city]);
 
   const [minPInput, setMinPInput] = useState(search.minP ?? "");
   const [maxPInput, setMaxPInput] = useState(search.maxP ?? "");
@@ -197,41 +220,26 @@ function Results() {
     if (min !== undefined) list = list.filter((p) => p.price >= min);
     if (max !== undefined) list = list.filter((p) => p.price <= max);
 
-    // Location-based filtering — prioritize & filter products for user's area (Adilabad, 504312)
+    // Location-based filtering — only include listings matching user's area / pincode / city
     if (activeLoc?.area || activeLoc?.pincode) {
       const targetArea = (activeLoc.area || "").toLowerCase();
       const targetPin = (activeLoc.pincode || "").toLowerCase();
-      const areaTerms = targetArea.split(/[,\s]+/).filter(Boolean);
+      const targetCity = (activeLoc.city || "").toLowerCase();
+      const areaTerms = targetArea.split(/[,\s]+/).filter((t: string) => t.length >= 3);
 
-      const isLocal = (p: any) => {
+      list = list.filter((p: any) => {
         const pText = `${p.location || ""} ${p.area || ""} ${p.city || ""} ${p.pincode || ""}`.toLowerCase();
         const pinMatch = targetPin && (pText.includes(targetPin) || (p.pincode && p.pincode.toString() === targetPin));
-        const areaMatch = areaTerms.some((term: string) => term.length >= 3 && pText.includes(term));
-        return pinMatch || areaMatch;
-      };
-
-      const localList = list.filter(isLocal);
-      if (localList.length > 0) {
-        list = localList;
-      } else {
-        // Adapt product items to selected area & pincode tag (e.g. Adilabad 504312)
-        const areaName = activeLoc.area.split(",")[0].trim();
-        const pinVal = activeLoc.pincode || "504312";
-        list = list.map((p, idx) => ({
-          ...p,
-          area: areaName,
-          city: areaName,
-          pincode: pinVal,
-          location: `${areaName}, ${pinVal}`,
-          distanceKm: Number((0.8 + idx * 0.5).toFixed(1)),
-        }));
-      }
+        const areaMatch = areaTerms.some((term: string) => pText.includes(term));
+        const cityMatch = targetCity && targetCity.length >= 3 && pText.includes(targetCity);
+        return Boolean(pinMatch || areaMatch || cityMatch);
+      });
     }
 
     switch (search.sort) {
       case "price-low": list = [...list].sort((a, b) => a.price - b.price); break;
       case "price-high": list = [...list].sort((a, b) => b.price - a.price); break;
-      case "distance": list = [...list].sort((a, b) => a.distanceKm - b.distanceKm); break;
+      case "distance": list = [...list].sort((a, b) => (a.distanceKm ?? 999) - (b.distanceKm ?? 999)); break;
       case "newest":
       case "updated": list = [...list].reverse(); break;
     }

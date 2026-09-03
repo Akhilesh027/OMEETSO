@@ -39,7 +39,7 @@ export function LocationModal({
     } catch { /* ignore */ }
   }, [open]);
 
-  const saveLocation = (loc: { area: string; pincode: string }) => {
+  const saveLocation = (loc: { area: string; pincode: string; city?: string; state?: string }) => {
     const payload = JSON.stringify({ ...loc, savedAt: Date.now() });
     localStorage.setItem("omeetso_location", payload);
     localStorage.setItem("omeetso_selected_location", payload);
@@ -57,7 +57,7 @@ export function LocationModal({
       const displayArea = loc.area && loc.city && loc.area.toLowerCase() !== loc.city.toLowerCase()
         ? `${loc.area}, ${loc.city}`
         : loc.area || loc.city;
-      const item = { area: displayArea, pincode: loc.pincode || "" };
+      const item = { area: displayArea, pincode: loc.pincode || "", city: loc.city || loc.area, state: loc.state };
       saveLocation(item);
       toast.success(`Location detected: ${displayArea}${loc.pincode ? ` (${loc.pincode})` : ""}`);
       onClose();
@@ -96,7 +96,12 @@ export function LocationModal({
       const displayArea = resolvedResult.area && resolvedResult.city && resolvedResult.area.toLowerCase() !== resolvedResult.city.toLowerCase()
         ? `${resolvedResult.area}, ${resolvedResult.city}`
         : resolvedResult.area || resolvedResult.city || query;
-      const item = { area: displayArea, pincode: resolvedResult.pincode };
+      const item = {
+        area: displayArea,
+        pincode: resolvedResult.pincode,
+        city: resolvedResult.city || resolvedResult.area,
+        state: resolvedResult.state
+      };
       saveLocation(item);
       toast.success(`Location set: ${displayArea} (${resolvedResult.pincode})`);
       onClose();
@@ -111,7 +116,12 @@ export function LocationModal({
 
     const digits = trimmed.replace(/\D/g, "");
     const displayArea = customCity ? `${trimmed}, ${customCity}` : trimmed;
-    const item = { area: displayArea, pincode: digits.length === 6 ? digits : (currentLoc?.pincode || "") };
+    const resolvedCity = customCity || (digits.length === 6 ? (KNOWN_PINCODE_MAP[digits]?.city || trimmed) : trimmed);
+    const item = {
+      area: displayArea,
+      pincode: digits.length === 6 ? digits : (currentLoc?.pincode || ""),
+      city: resolvedCity
+    };
     saveLocation(item);
     toast.success(`Location set: ${displayArea}`);
     onClose();

@@ -132,12 +132,28 @@ export async function getPublicListings(req: Request, res: Response, next: NextF
     if (req.query.condition) query.condition = req.query.condition;
 
     // Location query filters: area, city, pincode, location
-    const locationOr: any[] = [];
-    if (req.query.area) {
+    const locationConditions: any[] = [];
+    if (req.query.pincode && req.query.area) {
       const areaVal = (req.query.area as string).split(",")[0].trim();
-      locationOr.push({ area: { $regex: areaVal, $options: "i" } });
-    }
-    if (req.query.city) {
+      const pinVal = (req.query.pincode as string).trim();
+      locationConditions.push({
+        $or: [
+          { pincode: pinVal },
+          { area: { $regex: areaVal, $options: "i" } },
+          { city: { $regex: areaVal, $options: "i" } }
+        ]
+      });
+    } else if (req.query.pincode) {
+      locationConditions.push({ pincode: (req.query.pincode as string).trim() });
+    } else if (req.query.area) {
+      const areaVal = (req.query.area as string).split(",")[0].trim();
+      locationConditions.push({
+        $or: [
+          { area: { $regex: areaVal, $options: "i" } },
+          { city: { $regex: areaVal, $options: "i" } }
+        ]
+      });
+    } else if (req.query.city) {
       const cityVal = (req.query.city as string).split(",")[0].trim().toLowerCase();
       let cityRegex = cityVal;
       if (cityVal.includes("bangalore") || cityVal.includes("bengaluru") || cityVal.includes("benglure")) {
@@ -147,11 +163,14 @@ export async function getPublicListings(req: Request, res: Response, next: NextF
       } else if (cityVal.includes("mumbai") || cityVal.includes("bombay")) {
         cityRegex = "mumbai|bombay|thane";
       }
-      locationOr.push({ city: { $regex: cityRegex, $options: "i" } });
+      locationConditions.push({
+        $or: [
+          { city: { $regex: cityRegex, $options: "i" } },
+          { area: { $regex: cityRegex, $options: "i" } }
+        ]
+      });
     }
-    if (req.query.pincode) {
-      locationOr.push({ pincode: req.query.pincode as string });
-    }
+
     if (req.query.location) {
       const locVal = (req.query.location as string).split(",")[0].trim();
       let locRegex = locVal;
@@ -163,19 +182,23 @@ export async function getPublicListings(req: Request, res: Response, next: NextF
       } else if (lower.includes("mumbai") || lower.includes("bombay")) {
         locRegex = "mumbai|bombay|thane";
       }
-      locationOr.push(
-        { area: { $regex: locRegex, $options: "i" } },
-        { city: { $regex: locRegex, $options: "i" } },
-        { pincode: locVal }
-      );
+      locationConditions.push({
+        $or: [
+          { area: { $regex: locRegex, $options: "i" } },
+          { city: { $regex: locRegex, $options: "i" } },
+          { pincode: locVal }
+        ]
+      });
     }
 
-    if (locationOr.length > 0) {
+    if (locationConditions.length > 0) {
       if (query.$or) {
-        query.$and = [{ $or: query.$or }, { $or: locationOr }];
+        query.$and = [{ $or: query.$or }, ...locationConditions];
         delete query.$or;
+      } else if (locationConditions.length === 1 && locationConditions[0].$or) {
+        query.$or = locationConditions[0].$or;
       } else {
-        query.$or = locationOr;
+        query.$and = (query.$and || []).concat(locationConditions);
       }
     }
 

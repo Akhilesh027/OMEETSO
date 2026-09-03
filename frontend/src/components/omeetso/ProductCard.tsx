@@ -90,7 +90,7 @@ export function ProductCard({
         <div className="px-1 pt-2">
           <p className="text-[15px] font-black text-slate-900 dark:text-white leading-tight">{formatINR(p.price)}</p>
           <p className="line-clamp-1 text-xs font-semibold text-foreground group-hover:text-primary transition-colors">{p.title}</p>
-          <p className="mt-0.5 text-[11px] text-muted-foreground">{p.area || "Nearby"} · {p.distanceKm || 1.2} km</p>
+          <p className="mt-0.5 text-[11px] text-muted-foreground">{p.area || "Nearby"}{p.distanceKm ? ` · ${p.distanceKm} km` : ""}</p>
         </div>
       </Link>
     );
@@ -130,7 +130,7 @@ export function ProductCard({
 
           <div>
             <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
-              <MapPin className="h-3.5 w-3.5 text-primary shrink-0" /> {p.area || "Nearby"}{(p as any).city ? `, ${(p as any).city}` : ""} · {p.distanceKm || 1.2} km away
+              <MapPin className="h-3.5 w-3.5 text-primary shrink-0" /> {p.area || "Nearby"}{(p as any).city ? `, ${(p as any).city}` : ""}{p.distanceKm ? ` · ${p.distanceKm} km away` : ""}
             </div>
             <div className="mt-2 flex flex-wrap gap-1.5">
               {isQuickSale && (
@@ -217,7 +217,7 @@ export function ProductCard({
         <div className="mt-3 flex items-center justify-between text-xs text-muted-foreground pt-2 border-t border-border/60">
           <span className="truncate flex items-center gap-1 font-medium">
             <MapPin className="h-3.5 w-3.5 text-primary/80 shrink-0" />
-            {p.area || "Nearby"} · {p.distanceKm || 1.2} km
+            {p.area || "Nearby"}{p.distanceKm ? ` · ${p.distanceKm} km` : ""}
           </span>
           {Boolean(Number((p as any).rating) > 0 && Number((p as any).reviewCount) > 0) ? (
             <div className="flex items-center gap-1 shrink-0 font-extrabold text-xs">
