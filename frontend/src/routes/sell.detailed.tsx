@@ -300,7 +300,7 @@ function DetailedSellPage() {
       bestContactTime: (data.bestContactTime ?? "anytime") as BestContactTime,
       sellerName: data.sellerName ?? "You", sellerPhone: data.sellerPhone,
       sellerType: data.sellerType ?? "individual",
-      status: "active", createdAt: now, updatedAt: now, method: "detailed",
+      status: "submitted", createdAt: now, updatedAt: now, method: "detailed",
       storeId: storeId,
       storeMeta: storeId ? { stockStatus: "in_stock" } : undefined,
     };
@@ -308,7 +308,7 @@ function DetailedSellPage() {
     upsertListing(listing);
     localStorage.removeItem(DRAFT_KEY);
     setPublishing(false);
-    toast.success("Detailed listing published successfully!");
+    toast.success("Detailed listing submitted for review! It will go live once approved by admin.");
     nav({ to: "/listings" });
   }
 

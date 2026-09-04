@@ -289,14 +289,14 @@ function QuickSellPage() {
       bestContactTime: (data.bestContactTime ?? "anytime") as BestContactTime,
       sellerName: data.sellerName ?? "You", sellerPhone: data.sellerPhone,
       sellerType: data.sellerType ?? "individual",
-      status: "active", createdAt: now, updatedAt: now, method: "quick",
+      status: "submitted", createdAt: now, updatedAt: now, method: "quick",
     };
 
     upsertListing(listing);
     pushRecentCategory(listing.category);
     localStorage.removeItem(DRAFT_KEY);
     setPublishing(false);
-    toast.success("Listing published successfully!");
+    toast.success("Listing submitted for review! It will go live once approved by admin.");
     nav({ to: "/listings" });
   }
 

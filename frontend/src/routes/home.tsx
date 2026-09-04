@@ -1,6 +1,6 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { Search, Mic, Camera, MapPin, X, Zap, ShieldCheck, MessageSquare, Sparkles, ArrowRight, Car, Bike, Smartphone, ChevronLeft, ChevronRight, ChevronDown } from "lucide-react";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, useCallback, useRef } from "react";
 import { MobileFrame } from "@/components/omeetso/MobileFrame";
 import { LocationTopBar } from "@/components/omeetso/TopBar";
 import { BottomNav } from "@/components/omeetso/BottomNav";
@@ -315,6 +315,97 @@ function HeroProductShowcase({ items }: { items?: any[] }) {
         </span>
       </div>
 
+    </div>
+  );
+}
+
+function CarouselRow({
+  id,
+  children,
+  className,
+  scrollDistance = 340,
+}: {
+  id: string;
+  children: React.ReactNode;
+  className?: string;
+  scrollDistance?: number;
+}) {
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const [canScrollLeft, setCanScrollLeft] = useState(false);
+  const [canScrollRight, setCanScrollRight] = useState(false);
+
+  const checkScroll = useCallback(() => {
+    const el = scrollRef.current;
+    if (!el) return;
+    setCanScrollLeft(el.scrollLeft > 10);
+    setCanScrollRight(el.scrollLeft < el.scrollWidth - el.clientWidth - 10);
+  }, []);
+
+  useEffect(() => {
+    const el = scrollRef.current;
+    if (!el) return;
+    checkScroll();
+    const t1 = setTimeout(checkScroll, 300);
+    const t2 = setTimeout(checkScroll, 1000);
+
+    const ro = new ResizeObserver(() => checkScroll());
+    ro.observe(el);
+
+    el.addEventListener("scroll", checkScroll, { passive: true });
+    return () => {
+      clearTimeout(t1);
+      clearTimeout(t2);
+      ro.disconnect();
+      el.removeEventListener("scroll", checkScroll);
+    };
+  }, [checkScroll]);
+
+  useEffect(() => {
+    checkScroll();
+  }, [children, checkScroll]);
+
+  const scroll = (direction: "left" | "right") => {
+    const el = scrollRef.current;
+    if (!el) return;
+    const delta = direction === "left" ? -scrollDistance : scrollDistance;
+    el.scrollBy({ left: delta, behavior: "smooth" });
+    setTimeout(checkScroll, 350);
+  };
+
+  return (
+    <div className="relative group/carousel">
+      {/* Left Navigation Arrow */}
+      {canScrollLeft && (
+        <button
+          type="button"
+          onClick={() => scroll("left")}
+          className="absolute -left-2.5 sm:-left-4 top-1/2 -translate-y-1/2 z-20 grid h-9 w-9 sm:h-10 sm:w-10 place-items-center rounded-full bg-card/95 hover:bg-card border border-border/80 shadow-md hover:shadow-xl text-foreground transition-all duration-200 hover:scale-110 active:scale-95 cursor-pointer backdrop-blur-md focus:outline-hidden"
+          aria-label="Scroll left"
+        >
+          <ChevronLeft className="h-5 w-5 -ml-0.5" />
+        </button>
+      )}
+
+      {/* Carousel Track */}
+      <div
+        id={id}
+        ref={scrollRef}
+        className={cn("flex gap-3.5 overflow-x-auto no-scrollbar pb-2 scroll-smooth", className)}
+      >
+        {children}
+      </div>
+
+      {/* Right Navigation Arrow */}
+      {canScrollRight && (
+        <button
+          type="button"
+          onClick={() => scroll("right")}
+          className="absolute -right-2.5 sm:-right-4 top-1/2 -translate-y-1/2 z-20 grid h-9 w-9 sm:h-10 sm:w-10 place-items-center rounded-full bg-card/95 hover:bg-card border border-border/80 shadow-md hover:shadow-xl text-foreground transition-all duration-200 hover:scale-110 active:scale-95 cursor-pointer backdrop-blur-md focus:outline-hidden"
+          aria-label="Scroll right"
+        >
+          <ChevronRight className="h-5 w-5 -mr-0.5" />
+        </button>
+      )}
     </div>
   );
 }
@@ -897,28 +988,6 @@ function Home() {
                 <p className="text-xs text-muted-foreground">Discover verified items across popular categories</p>
               </div>
               <div className="flex items-center gap-2">
-                <div className="flex items-center gap-1 bg-card/80 p-0.5 rounded-full border border-border/80 shadow-2xs">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      document.getElementById("top-categories-row")?.scrollBy({ left: -240, behavior: "smooth" });
-                    }}
-                    className="grid h-7 w-7 place-items-center rounded-full bg-card hover:bg-secondary text-muted-foreground hover:text-foreground text-xs transition-all active:scale-90"
-                    aria-label="Previous categories"
-                  >
-                    <ChevronLeft className="h-4 w-4" />
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      document.getElementById("top-categories-row")?.scrollBy({ left: 240, behavior: "smooth" });
-                    }}
-                    className="grid h-7 w-7 place-items-center rounded-full bg-card hover:bg-secondary text-muted-foreground hover:text-foreground text-xs transition-all active:scale-90"
-                    aria-label="Next categories"
-                  >
-                    <ChevronRight className="h-4 w-4" />
-                  </button>
-                </div>
                 <Link
                   to="/categories"
                   className="inline-flex items-center gap-1 text-xs font-bold text-primary hover:underline"
@@ -1002,46 +1071,22 @@ function Home() {
                     <p className="text-xs text-muted-foreground">Inspected cars, verified service history & 0% middleman commission</p>
                   </div>
                 </div>
-                <div className="flex items-center gap-2.5 shrink-0">
-                  <div className="flex items-center gap-1 bg-card/80 p-0.5 rounded-full border border-border/80 shadow-2xs">
-                    <button
-                      type="button"
-                      onClick={() => {
-                        document.getElementById("cars-carousel")?.scrollBy({ left: -320, behavior: "smooth" });
-                      }}
-                      className="grid h-7 w-7 place-items-center rounded-full bg-card hover:bg-secondary text-muted-foreground hover:text-foreground text-xs transition-all active:scale-90"
-                      aria-label="Previous Cars"
-                    >
-                      <ChevronLeft className="h-4 w-4" />
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        document.getElementById("cars-carousel")?.scrollBy({ left: 320, behavior: "smooth" });
-                      }}
-                      className="grid h-7 w-7 place-items-center rounded-full bg-card hover:bg-secondary text-muted-foreground hover:text-foreground text-xs transition-all active:scale-90"
-                      aria-label="Next Cars"
-                    >
-                      <ChevronRight className="h-4 w-4" />
-                    </button>
-                  </div>
-                  <Link
-                    to="/results"
-                    search={{ cat: "cars" } as any}
-                    className="inline-flex items-center gap-1 text-xs font-black text-blue-600 dark:text-blue-400 hover:underline shrink-0"
-                  >
-                    Explore All Cars <ArrowRight className="h-3.5 w-3.5" />
-                  </Link>
-                </div>
+                <Link
+                  to="/results"
+                  search={{ cat: "cars" } as any}
+                  className="inline-flex items-center gap-1 text-xs font-black text-blue-600 dark:text-blue-400 hover:underline shrink-0"
+                >
+                  Explore All Cars <ArrowRight className="h-3.5 w-3.5" />
+                </Link>
               </div>
 
-              <div id="cars-carousel" className="flex gap-3.5 overflow-x-auto no-scrollbar pb-2 scroll-smooth">
+              <CarouselRow id="cars-carousel" scrollDistance={320}>
                 {carProducts.map((p) => (
                   <div key={p.id} className="w-[280px] sm:w-[320px] shrink-0">
                     <ProductCard p={p} onPreview={setPreviewProduct} />
                   </div>
                 ))}
-              </div>
+              </CarouselRow>
             </section>
           )}
 
@@ -1063,46 +1108,22 @@ function Home() {
                     <p className="text-xs text-muted-foreground">Cruisers, sports bikes, commuter motorcycles & scooters</p>
                   </div>
                 </div>
-                <div className="flex items-center gap-2.5 shrink-0">
-                  <div className="flex items-center gap-1 bg-card/80 p-0.5 rounded-full border border-border/80 shadow-2xs">
-                    <button
-                      type="button"
-                      onClick={() => {
-                        document.getElementById("bikes-carousel")?.scrollBy({ left: -320, behavior: "smooth" });
-                      }}
-                      className="grid h-7 w-7 place-items-center rounded-full bg-card hover:bg-secondary text-muted-foreground hover:text-foreground text-xs transition-all active:scale-90"
-                      aria-label="Previous Bikes"
-                    >
-                      <ChevronLeft className="h-4 w-4" />
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        document.getElementById("bikes-carousel")?.scrollBy({ left: 320, behavior: "smooth" });
-                      }}
-                      className="grid h-7 w-7 place-items-center rounded-full bg-card hover:bg-secondary text-muted-foreground hover:text-foreground text-xs transition-all active:scale-90"
-                      aria-label="Next Bikes"
-                    >
-                      <ChevronRight className="h-4 w-4" />
-                    </button>
-                  </div>
-                  <Link
-                    to="/results"
-                    search={{ cat: "bikes" } as any}
-                    className="inline-flex items-center gap-1 text-xs font-black text-amber-600 dark:text-amber-400 hover:underline shrink-0"
-                  >
-                    Explore All Bikes <ArrowRight className="h-3.5 w-3.5" />
-                  </Link>
-                </div>
+                <Link
+                  to="/results"
+                  search={{ cat: "bikes" } as any}
+                  className="inline-flex items-center gap-1 text-xs font-black text-amber-600 dark:text-amber-400 hover:underline shrink-0"
+                >
+                  Explore All Bikes <ArrowRight className="h-3.5 w-3.5" />
+                </Link>
               </div>
 
-              <div id="bikes-carousel" className="flex gap-3.5 overflow-x-auto no-scrollbar pb-2 scroll-smooth">
+              <CarouselRow id="bikes-carousel" scrollDistance={320}>
                 {bikeProducts.map((p) => (
                   <div key={p.id} className="w-[280px] sm:w-[320px] shrink-0">
                     <ProductCard p={p} onPreview={setPreviewProduct} />
                   </div>
                 ))}
-              </div>
+              </CarouselRow>
             </section>
           )}
 
@@ -1124,46 +1145,22 @@ function Home() {
                     <p className="text-xs text-muted-foreground">Smartphones, MacBooks, gaming consoles & audio accessories</p>
                   </div>
                 </div>
-                <div className="flex items-center gap-2.5 shrink-0">
-                  <div className="flex items-center gap-1 bg-card/80 p-0.5 rounded-full border border-border/80 shadow-2xs">
-                    <button
-                      type="button"
-                      onClick={() => {
-                        document.getElementById("electronics-carousel")?.scrollBy({ left: -320, behavior: "smooth" });
-                      }}
-                      className="grid h-7 w-7 place-items-center rounded-full bg-card hover:bg-secondary text-muted-foreground hover:text-foreground text-xs transition-all active:scale-90"
-                      aria-label="Previous Electronics"
-                    >
-                      <ChevronLeft className="h-4 w-4" />
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        document.getElementById("electronics-carousel")?.scrollBy({ left: 320, behavior: "smooth" });
-                      }}
-                      className="grid h-7 w-7 place-items-center rounded-full bg-card hover:bg-secondary text-muted-foreground hover:text-foreground text-xs transition-all active:scale-90"
-                      aria-label="Next Electronics"
-                    >
-                      <ChevronRight className="h-4 w-4" />
-                    </button>
-                  </div>
-                  <Link
-                    to="/results"
-                    search={{ cat: "electronics" } as any}
-                    className="inline-flex items-center gap-1 text-xs font-black text-indigo-600 dark:text-indigo-400 hover:underline shrink-0"
-                  >
-                    Explore All Electronics <ArrowRight className="h-3.5 w-3.5" />
-                  </Link>
-                </div>
+                <Link
+                  to="/results"
+                  search={{ cat: "electronics" } as any}
+                  className="inline-flex items-center gap-1 text-xs font-black text-indigo-600 dark:text-indigo-400 hover:underline shrink-0"
+                >
+                  Explore All Electronics <ArrowRight className="h-3.5 w-3.5" />
+                </Link>
               </div>
 
-              <div id="electronics-carousel" className="flex gap-3.5 overflow-x-auto no-scrollbar pb-2 scroll-smooth">
+              <CarouselRow id="electronics-carousel" scrollDistance={300}>
                 {electronicProducts.map((p) => (
                   <div key={p.id} className="w-[260px] sm:w-[300px] shrink-0">
                     <ProductCard p={p} onPreview={setPreviewProduct} />
                   </div>
                 ))}
-              </div>
+              </CarouselRow>
             </section>
           )}
 
@@ -1183,9 +1180,9 @@ function Home() {
                 </div>
                 <Link to="/results" className="text-xs font-extrabold text-primary hover:underline">See All</Link>
               </div>
-              <div className="flex gap-3.5 overflow-x-auto no-scrollbar pb-2">
+              <CarouselRow id="nearby-carousel" scrollDistance={280}>
                 {nearby.map((p) => <ProductCard key={p.id} p={p} variant="compact" />)}
-              </div>
+              </CarouselRow>
             </section>
           )}
 
@@ -1279,9 +1276,9 @@ function Home() {
           {dealsNearYou.length > 0 && (
             <section>
               <h2 className="mb-3 text-base font-bold text-navy">Deals near you</h2>
-              <div className="flex gap-3 overflow-x-auto no-scrollbar pb-1">
+              <CarouselRow id="deals-carousel" className="gap-3 pb-1" scrollDistance={280}>
                 {dealsNearYou.map((p) => <ProductCard key={p.id} p={p} variant="compact" />)}
-              </div>
+              </CarouselRow>
             </section>
           )}
 
@@ -1301,9 +1298,9 @@ function Home() {
           {viewed.length > 0 && (
             <section>
               <h2 className="mb-3 text-base font-bold text-navy">Recently viewed</h2>
-              <div className="flex gap-3 overflow-x-auto no-scrollbar pb-1">
+              <CarouselRow id="viewed-carousel" className="gap-3 pb-1" scrollDistance={280}>
                 {viewed.map((p) => <ProductCard key={p.id} p={p} variant="compact" />)}
-              </div>
+              </CarouselRow>
             </section>
           )}
 

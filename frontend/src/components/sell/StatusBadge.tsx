@@ -32,16 +32,24 @@ export function StatusBadge({ status, size = "sm" }: { status: ListingStatus | s
 
   const config = map[key] || map.active;
   const label = STATUS_LABEL[key] || "Active";
+  const isUnderReview = key === "under_review";
 
   return (
     <span
       className={cn(
-        "inline-flex items-center gap-1 rounded-full border font-semibold",
+        "inline-flex items-center gap-1.5 rounded-full border font-semibold transition-all duration-200",
         config.cls,
         size === "sm" ? "px-2 py-0.5 text-[11px]" : "px-3 py-1 text-xs",
       )}
     >
-      <config.Icon className={size === "sm" ? "h-3 w-3" : "h-3.5 w-3.5"} />
+      {isUnderReview ? (
+        <span className="relative flex h-2 w-2">
+          <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-blue-400 opacity-75" />
+          <span className="relative inline-flex h-2 w-2 rounded-full bg-blue-600" />
+        </span>
+      ) : (
+        <config.Icon className={size === "sm" ? "h-3 w-3" : "h-3.5 w-3.5"} />
+      )}
       {label}
     </span>
   );

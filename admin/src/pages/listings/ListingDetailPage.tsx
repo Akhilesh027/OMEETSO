@@ -2,7 +2,9 @@ import React, { useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { PageContainer } from "@/components/layout/PageContainer";
-import { MOCK_LISTINGS } from "@/services/mockDataService";
+import { MOCK_LISTINGS, MockDataService } from "@/services/mockDataService";
+import { approveListingApi, rejectListingApi, updateListingStatusApi } from "@/api/adminListings.api";
+import { API_BASE as ROOT_API_BASE } from "@/config/api";
 import type { Listing } from "@/types";
 import {
   Package,
@@ -67,42 +69,77 @@ export default function ListingDetailPage() {
 
   React.useEffect(() => {
     if (!listingId) return;
-    fetch(`https://api.omeetso.in/api/v1/listings/${listingId}`)
-      .then((res) => res.json())
-      .then((json) => {
-        if (json.success && json.data) {
-          const item = json.data;
-          const mapped: Listing = {
-            id: item.id || item._id,
-            title: item.title,
-            price: item.price || (item.priceInPaise ? item.priceInPaise / 100 : 0),
-            category: item.category || item.categoryId || "General",
-            condition: item.condition || "Like New",
-            area: item.area || "Madhapur",
-            city: item.city || "Hyderabad",
-            pincode: item.pincode || "500081",
-            description: item.description || item.title,
-            images: item.images || [item.image || "https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=400"],
-            sellerName: item.seller?.name || item.sellerName || "Omeetso Seller",
-            sellerId: item.seller?.id || item.sellerId || "u_live",
-            aiAudit: item.aiAudit,
-            sellerRiskScore: item.seller?.verificationSummary?.riskScore || 94,
-            status: (item.status?.toLowerCase() || "active") as any,
-            createdAt: item.createdAt || new Date().toISOString()
-          } as any;
-          setLiveListing(mapped);
-          setStatus(mapped.status);
+
+    // 1. Immediately populate from local storage / mock data so offline access works seamlessly
+    const localFound = MockDataService.getListings().find((l) => l.id === listingId);
+    if (localFound) {
+      setLiveListing(localFound);
+      setStatus(localFound.status);
+    }
+
+    // 2. Fetch fresh live data from backend if available
+    const urls = [
+      `${ROOT_API_BASE}/listings/${listingId}`,
+      `https://api.omeetso.in/api/v1/listings/${listingId}`
+    ];
+
+    (async () => {
+      for (const url of urls) {
+        try {
+          const res = await fetch(url).catch(() => null);
+          if (res && res.ok) {
+            const json = await res.json();
+            if (json.success && json.data) {
+              const item = json.data;
+              const mapped: Listing = {
+                id: item.id || item._id,
+                title: item.title,
+                price: item.price || (item.priceInPaise ? item.priceInPaise / 100 : 0),
+                category: item.category || item.categoryId || "General",
+                condition: item.condition || "Like New",
+                area: item.area || "Madhapur",
+                city: item.city || "Hyderabad",
+                pincode: item.pincode || "500081",
+                description: item.description || item.title,
+                images: item.images || [item.image || "https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=400"],
+                sellerName: item.seller?.name || item.sellerName || "Omeetso Seller",
+                sellerId: item.seller?.id || item.sellerId || "u_live",
+                aiAudit: item.aiAudit,
+                sellerRiskScore: item.seller?.verificationSummary?.riskScore || 94,
+                status: (item.status?.toLowerCase() || "active") as any,
+                createdAt: item.createdAt || new Date().toISOString()
+              } as any;
+              setLiveListing(mapped);
+              setStatus(mapped.status);
+              break;
+            }
+          }
+        } catch {
+          // ignore network failure
         }
-      })
-      .catch(() => { });
+      }
+    })();
   }, [listingId]);
+
   const [notes, setNotes] = useState<string[]>([
     "Initial moderation check completed by Super Admin on 2026-07-22. RC & Invoice documents verified.",
   ]);
   const [newNote, setNewNote] = useState("");
 
-  const handleUpdateStatus = (newStatus: Listing["status"]) => {
+  const handleUpdateStatus = async (newStatus: Listing["status"]) => {
     setStatus(newStatus);
+    try {
+      if (newStatus === "active" || newStatus === "approved") {
+        await approveListingApi(listing.id);
+      } else if (newStatus === "rejected") {
+        await rejectListingApi(listing.id, "Violates platform content policy");
+      } else {
+        await updateListingStatusApi(listing.id, newStatus);
+      }
+    } catch {
+      // offline fallback
+      MockDataService.updateListingStatus(listing.id, newStatus);
+    }
     showSuccess("Listing Status Updated", `Listing ${listing.id} status updated to ${newStatus}.`);
   };
 

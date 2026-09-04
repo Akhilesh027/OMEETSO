@@ -220,7 +220,7 @@ export async function getStoreListings(req: Request, res: Response, next: NextFu
     const targetStore = isObjectId ? await Store.findById(storeId).lean() : await Store.findOne({ slug: storeId }).lean();
 
     const query: Record<string, any> = {
-      status: { $in: [ListingStatus.APPROVED, ListingStatus.ACTIVE, ListingStatus.SUBMITTED, "APPROVED", "ACTIVE", "SUBMITTED", "approved", "active", "submitted", "under_review"] }
+      status: { $in: [ListingStatus.APPROVED, ListingStatus.ACTIVE, "APPROVED", "ACTIVE", "approved", "active"] }
     };
 
     if (targetStore) {

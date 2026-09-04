@@ -55,15 +55,15 @@ export async function createListing(req: AuthenticatedUserRequest, res: Response
       fulfilment: fulfilment || "pickup",
       specs: specs || {},
       contactPref: contactPref || "call_and_chat",
-      status: ListingStatus.APPROVED,
-      publishedAt: new Date(),
+      status: ListingStatus.SUBMITTED,
+      publishedAt: undefined,
       expiresAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000)
     });
 
     // Create moderation queue entry
     await ListingModeration.create({
       listingId: listing._id,
-      status: "completed",
+      status: "unassigned",
       version: 1
     });
 
@@ -119,7 +119,7 @@ export async function getPublicListings(req: Request, res: Response, next: NextF
     const query: Record<string, any> = {
       status: statusQuery
         ? { $in: [statusQuery, statusQuery.toLowerCase(), statusQuery.toUpperCase()] }
-        : { $nin: ["REJECTED", "rejected", "DELETED", "deleted", "EXPIRED", "expired", ListingStatus.REJECTED, ListingStatus.EXPIRED, ListingStatus.REMOVED] }
+        : { $in: [ListingStatus.APPROVED, ListingStatus.ACTIVE, "APPROVED", "ACTIVE", "approved", "active"] }
     };
 
     const andConditions: any[] = [];

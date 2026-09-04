@@ -6,7 +6,7 @@ export interface IListingModeration extends Document {
   assignedAdminId?: mongoose.Types.ObjectId;
   assignedAdminName?: string;
   lockedAt?: Date;
-  status: "unassigned" | "assigned" | "under_review" | "completed";
+  status: "unassigned" | "assigned" | "under_review" | "pending_review" | "completed";
   reviewNotes?: string;
   version: number;
   createdAt: Date;
@@ -19,7 +19,12 @@ const ListingModerationSchema = new Schema<IListingModeration>(
     assignedAdminId: { type: Schema.Types.ObjectId, ref: "AdminUser", index: true },
     assignedAdminName: { type: String },
     lockedAt: { type: Date },
-    status: { type: String, enum: ["unassigned", "assigned", "under_review", "completed"], default: "unassigned", index: true },
+    status: {
+      type: String,
+      enum: ["unassigned", "assigned", "under_review", "pending_review", "completed"],
+      default: "unassigned",
+      index: true
+    },
     reviewNotes: { type: String },
     version: { type: Number, default: 1 }
   },

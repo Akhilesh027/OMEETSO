@@ -1,24 +1,41 @@
 import { Link } from "@tanstack/react-router";
 import { Eye, Heart, MessageCircle, Tag, MoreVertical, ImageOff } from "lucide-react";
 import { formatINR, timeAgo, type Listing } from "@/lib/listings";
+import { cn } from "@/lib/utils";
 import { StatusBadge } from "./StatusBadge";
 
 export function ListingCard({
-  l, viewsIcon, extra, onMenu,
+  l, viewsIcon, extra, onMenu, className,
 }: {
   l: Listing;
   viewsIcon?: boolean;
   extra?: { views?: number; saves?: number; chats?: number; offers?: number };
   onMenu?: () => void;
+  className?: string;
 }) {
   const cover = l.images[l.cover] ?? l.images[0];
   return (
-    <div className="flex gap-3 rounded-2xl border border-border bg-card p-3">
-      <Link to="/listing/$id/manage" params={{ id: l.id }} className="shrink-0" aria-label={`Manage ${l.title}`}>
+    <div
+      className={cn(
+        "group flex gap-3 rounded-2xl border border-border/80 bg-card p-3 shadow-xs transition-all duration-300 hover:border-primary/40 hover:shadow-md hover:-translate-y-0.5",
+        className
+      )}
+    >
+      <Link
+        to="/listing/$id/manage"
+        params={{ id: l.id }}
+        className="shrink-0 overflow-hidden rounded-xl bg-secondary"
+        aria-label={`Manage ${l.title}`}
+      >
         {cover ? (
-          <img src={cover} alt={l.title} className="h-20 w-20 rounded-xl object-cover" />
+          <img
+            src={cover}
+            alt={l.title}
+            className="h-20 w-20 rounded-xl object-cover transition-transform duration-300 group-hover:scale-105"
+            loading="lazy"
+          />
         ) : (
-          <div className="grid h-20 w-20 place-items-center rounded-xl bg-secondary text-muted-foreground">
+          <div className="grid h-20 w-20 place-items-center rounded-xl bg-secondary text-muted-foreground transition-transform duration-300 group-hover:scale-105">
             <ImageOff className="h-5 w-5" />
           </div>
         )}
