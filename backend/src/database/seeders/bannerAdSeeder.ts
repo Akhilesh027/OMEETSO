@@ -12,81 +12,148 @@ export async function seedBannersAndAds(): Promise<{
   productsCount: number;
   campaignsCount: number;
 }> {
-  console.log("[BannerSeeder] Starting Banners & Ads seeding...");
+  try {
+    console.log("[BannerSeeder] Starting Banners & Ads seeding...");
 
-  if (mongoose.connection.readyState !== 1) {
-    await connectDatabase();
-  }
+    if (mongoose.connection.readyState !== 1) {
+      await connectDatabase();
+    }
 
   // 1. Seed Ad Placements
   const placements = [
     {
       placementId: "HOMEPAGE_HERO",
-      name: "Homepage Hero Banner",
+      name: "Home Page Banners",
       campaignTypes: ["BANNER_AD"],
       aspectRatio: "16:9",
       minimumWidth: 1600,
       minimumHeight: 900,
       maximumFileSizeBytes: 3145728,
       maximumActiveSlots: 10,
-      active: true
+      active: true,
+      page: "Homepage",
+      route: "/",
+      position: "Main Homepage Banner",
+      description: "Prominent billboard banner across the main Omeetso homepage with auto-rotation, advertiser CTA link, and verified local reach.",
+      device: "Web & Mobile App"
     },
     {
       placementId: "CATEGORY_HEADER",
-      name: "Category Header Banner",
+      name: "Category Page Banners",
       campaignTypes: ["BANNER_AD"],
       aspectRatio: "3:1",
       minimumWidth: 1500,
       minimumHeight: 500,
       maximumFileSizeBytes: 2097152,
-      maximumActiveSlots: 10,
-      active: true
-    },
-    {
-      placementId: "SEARCH_TOP",
-      name: "Search Priority #1 Spot",
-      campaignTypes: ["LISTING_BOOST"],
-      aspectRatio: "CARD",
-      minimumWidth: 400,
-      minimumHeight: 400,
-      maximumFileSizeBytes: 1048576,
-      maximumActiveSlots: 20,
-      active: true
-    },
-    {
-      placementId: "HOMEPAGE_CAROUSEL",
-      name: "Featured Deals Carousel",
-      campaignTypes: ["LISTING_BOOST"],
-      aspectRatio: "CARD",
-      minimumWidth: 400,
-      minimumHeight: 400,
-      maximumFileSizeBytes: 1048576,
-      maximumActiveSlots: 20,
-      active: true
-    },
-    {
-      placementId: "URGENT_BADGE",
-      name: "Urgent Deal Highlight",
-      campaignTypes: ["LISTING_BOOST"],
-      aspectRatio: "BADGE",
-      minimumWidth: 200,
-      minimumHeight: 200,
-      maximumFileSizeBytes: 524288,
-      maximumActiveSlots: 25,
-      active: true
+      maximumActiveSlots: 5,
+      active: true,
+      page: "Category Browse",
+      route: "/category/all",
+      position: "Category Top Billboard",
+      description: "Top billboard banner across category pages (Mobiles, Cars, Electronics, Furniture, etc.) targeting active category shoppers.",
+      device: "Web & Mobile App"
     },
     {
       placementId: "STORE_BANNER",
-      name: "Store Directory Spotlight",
+      name: "Store Directory Banners",
       campaignTypes: ["BANNER_AD"],
       aspectRatio: "3:1",
       minimumWidth: 1200,
       minimumHeight: 400,
       maximumFileSizeBytes: 2097152,
+      maximumActiveSlots: 5,
+      active: true,
+      page: "Stores Directory & Showrooms",
+      route: "/stores",
+      position: "Store Directory Billboard",
+      description: "Spotlight brand and showroom billboard banner on the stores directory and merchant profile pages.",
+      device: "Web & Mobile App"
+    },
+    {
+      placementId: "JOBS_HEADER",
+      name: "Jobs Portal Banners",
+      campaignTypes: ["BANNER_AD"],
+      aspectRatio: "3:1",
+      minimumWidth: 1200,
+      minimumHeight: 400,
+      maximumFileSizeBytes: 2097152,
+      maximumActiveSlots: 5,
+      active: true,
+      page: "Jobs Portal",
+      route: "/jobs",
+      position: "Jobs Portal Top Header Banner",
+      description: "Recruitment and hiring billboard banner at the top of the Omeetso Local Jobs and careers portal.",
+      device: "Web & Mobile App"
+    },
+    {
+      placementId: "SEARCH_TOP",
+      name: "Search Results Priority Spots",
+      campaignTypes: ["LISTING_BOOST"],
+      aspectRatio: "CARD",
+      minimumWidth: 600,
+      minimumHeight: 400,
+      maximumFileSizeBytes: 2097152,
+      maximumActiveSlots: 5,
+      active: true,
+      page: "Search Results",
+      route: "/results",
+      position: "Top of Search Results Grid (#1 Priority)",
+      description: "Guaranteed top 1-3 ranking spots on keyword search results with SPONSORED golden badge and maximum buyer visibility.",
+      device: "Web & Mobile App"
+    },
+    {
+      placementId: "CATEGORY_FEATURED",
+      name: "Category Featured Listing",
+      campaignTypes: ["LISTING_BOOST"],
+      aspectRatio: "CARD",
+      minimumWidth: 600,
+      minimumHeight: 400,
+      maximumFileSizeBytes: 2097152,
       maximumActiveSlots: 10,
-      active: true
+      active: true,
+      page: "Category Browse",
+      route: "/category/all",
+      position: "Category Listing Grid",
+      description: "Featured sponsored listing cards in category product grids with highlighted border and priority buyer inquiries.",
+      device: "Web & Mobile App"
+    },
+    {
+      placementId: "URGENT_BADGE",
+      name: "Urgent Sale Badge",
+      campaignTypes: ["LISTING_BOOST"],
+      aspectRatio: "BADGE",
+      minimumWidth: 200,
+      minimumHeight: 60,
+      maximumFileSizeBytes: 524288,
+      maximumActiveSlots: 25,
+      active: true,
+      page: "All Feeds & Search Results",
+      route: "/results",
+      position: "Listing Card Top-Left Ribbon",
+      description: "Pulsing red 'URGENT SALE' ribbon badge overlaid on listing cards to trigger rapid buyer inquiries.",
+      device: "Web & Mobile App"
+    },
+    {
+      placementId: "HIGHLIGHTED_CARD",
+      name: "Golden Highlighted Card",
+      campaignTypes: ["LISTING_BOOST"],
+      aspectRatio: "CARD",
+      minimumWidth: 600,
+      minimumHeight: 400,
+      maximumFileSizeBytes: 2097152,
+      maximumActiveSlots: 20,
+      active: true,
+      page: "All Feeds & Search Results",
+      route: "/results",
+      position: "Listing Card Glow Border",
+      description: "Golden illuminated card border with subtle gradient glow effect making listings stand out in browsing feeds.",
+      device: "Web & Mobile App"
     }
   ];
+
+  await AdPlacement.deleteMany({
+    placementId: { $in: ["HOMEPAGE_SECTION_BANNER", "HOMEPAGE_CAROUSEL", "HOME_NATIVE_FEED", "PRODUCT_CONTEXTUAL"] }
+  });
 
   for (const p of placements) {
     await AdPlacement.findOneAndUpdate(
@@ -97,11 +164,12 @@ export async function seedBannersAndAds(): Promise<{
   }
   console.log(`[BannerSeeder] Seeded ${placements.length} Ad Placements.`);
 
-  // 2. Seed Ad Pricing Products
+  // 2. Seed Ad Pricing Products (Clean & Plain)
   const products = [
+    // --- Listing Boost Plans ---
     {
-      name: "⚡ Starter Quick Boost (3 Days)",
-      description: "Promote your listing card with a FEATURED badge and category top placement for 3 days of quick exposure.",
+      name: "⚡ Quick Boost (3 Days)",
+      description: "Promote your listing card with a FEATURED badge and higher category ranking for 3 days.",
       campaignType: "LISTING_BOOST",
       durationDays: 3,
       priceInPaise: 9900,
@@ -120,7 +188,7 @@ export async function seedBannersAndAds(): Promise<{
     },
     {
       name: "🚀 Popular Growth Boost (7 Days)",
-      description: "Top search ranking, SPONSORED badge, and category header placement for 7 days. Most popular seller choice!",
+      description: "Top search ranking, SPONSORED badge, and category spotlight for 7 days. Most popular seller choice!",
       campaignType: "LISTING_BOOST",
       durationDays: 7,
       priceInPaise: 24900,
@@ -139,15 +207,15 @@ export async function seedBannersAndAds(): Promise<{
       active: true
     },
     {
-      name: "👑 Pro Mega Takeover Boost (15 Days)",
-      description: "Homepage hero carousel, guaranteed top search spot, URGENT badge, and 10× visibility boost for 15 days.",
+      name: "👑 Pro Mega Boost (15 Days)",
+      description: "Homepage hero feature, guaranteed top search spot, URGENT badge, and 10× visibility boost for 15 days.",
       campaignType: "LISTING_BOOST",
       durationDays: 15,
       priceInPaise: 49900,
       originalPriceInPaise: 79900,
       badge: "👑 Max Exposure",
       features: [
-        "Homepage Hero Carousel Feature",
+        "Homepage Banner Feature",
         "Guaranteed Top 3 Search Spot",
         "URGENT Red Sale Badge",
         "Hyperlocal GPS Push Notifications",
@@ -159,31 +227,147 @@ export async function seedBannersAndAds(): Promise<{
       active: true
     },
     {
-      name: "🎨 Homepage Hero Showcase Banner (7 Days)",
-      description: "Custom promotional banner image featured prominently on the main Omeetso Homepage Hero Carousel with direct link.",
+      name: "🔴 Urgent Sale Fast Clearance (3 Days)",
+      description: "Pulsing red URGENT sale badge overlay on your listing card for emergency sales and fast clearance.",
+      campaignType: "LISTING_BOOST",
+      durationDays: 3,
+      priceInPaise: 4900,
+      originalPriceInPaise: 9900,
+      badge: "🔴 Urgent Sale",
+      features: [
+        "Eye-catching Pulsing Red 'URGENT' Ribbon",
+        "Filtered directly into 'Urgent Deals' local browse tab",
+        "Instant buyer WhatsApp trigger & direct calling button",
+        "Clearance liquidation tag for price-conscious buyers"
+      ],
+      estimatedReach: "2,000 - 4,500 Bargain Hunters",
+      priority: 4,
+      permittedPlacements: ["URGENT_BADGE"],
+      active: true
+    },
+    {
+      name: "✨ Golden Glow Card Highlight (7 Days)",
+      description: "Illuminated golden card border and warm badge glow that makes your product pop in all search grids.",
+      campaignType: "LISTING_BOOST",
+      durationDays: 7,
+      priceInPaise: 8900,
+      originalPriceInPaise: 14900,
+      badge: "✨ Golden Border",
+      features: [
+        "Illuminated Golden Glowing Border on Product Card",
+        "Stands out from ordinary listings in category & search feeds",
+        "Verified seller trust emblem overlay",
+        "3× Higher click-through rate from visual prominence"
+      ],
+      estimatedReach: "4,000 - 8,000 Category Shoppers",
+      priority: 5,
+      permittedPlacements: ["HIGHLIGHTED_CARD"],
+      active: true
+    },
+    {
+      name: "🔍 Search Results Priority Spotlight (3 Days)",
+      description: "Guaranteed top 1-3 ranking spots on keyword search results with SPONSORED badge for 3 days of targeted intent.",
+      campaignType: "LISTING_BOOST",
+      durationDays: 3,
+      priceInPaise: 14900,
+      originalPriceInPaise: 24900,
+      badge: "⚡ Search Rank",
+      features: [
+        "Guaranteed Top 1-3 ranking for relevant keyword searches",
+        "SPONSORED golden badge label",
+        "Target active buyers ready to purchase right now",
+        "Instant direct call and chat connectivity"
+      ],
+      estimatedReach: "3,000 - 6,000 Active Searchers",
+      priority: 6,
+      permittedPlacements: ["SEARCH_TOP"],
+      active: true
+    },
+
+    // --- Plain Banners (Home Page Banners, Category, Stores, Jobs) ---
+    {
+      name: "🎨 Home Page Banner (7 Days)",
+      description: "High-impact banner featured prominently across the main Omeetso homepage with direct store or listing link.",
       campaignType: "BANNER_AD",
       durationDays: 7,
       priceInPaise: 49900,
       originalPriceInPaise: 79900,
       badge: "Best for Stores",
       features: [
-        "Full-Width Main Homepage Carousel",
+        "Main Homepage Billboard Banner Placement",
         "Custom Creative Image & Direct Link",
         "Click-through to Store / WhatsApp",
         "Targeted by User City / Pincode"
       ],
       estimatedReach: "20,000+ Homepage Visitors",
-      priority: 4,
+      priority: 7,
       permittedPlacements: ["HOMEPAGE_HERO"],
       active: true
     },
     {
-      name: "🏷️ Category Top Spotlight Banner (14 Days)",
-      description: "Top header banner displayed across all category search pages targeting active local shoppers for 14 days.",
+      name: "🌟 Home Page Banner (14 Days)",
+      description: "Extended 2-week premium banner showcase across the Omeetso marketplace homepage.",
       campaignType: "BANNER_AD",
       durationDays: 14,
       priceInPaise: 89900,
       originalPriceInPaise: 149900,
+      badge: "🔥 Premium Spot",
+      features: [
+        "14 Days Prime Banner Rotation on Homepage",
+        "High CTR direct store showroom & WhatsApp link",
+        "Hyperlocal city & district targeted delivery",
+        "Live real-time impression & click telemetry"
+      ],
+      estimatedReach: "45,000+ Verified Visitors",
+      priority: 8,
+      permittedPlacements: ["HOMEPAGE_HERO"],
+      active: true
+    },
+    {
+      name: "👑 Home Page Banner (30 Days)",
+      description: "Full monthly presence on the main Omeetso homepage for sustained authority and maximum local reach.",
+      campaignType: "BANNER_AD",
+      durationDays: 30,
+      priceInPaise: 149900,
+      originalPriceInPaise: 249900,
+      badge: "👑 Max Branding",
+      features: [
+        "30 Days Continuous Rotation on Homepage",
+        "Direct Store / Profile / WhatsApp Inquiry Link",
+        "Zero Banner Fatigue with Multi-Creative Rotation",
+        "Comprehensive Monthly Analytics & CTR Insights"
+      ],
+      estimatedReach: "100,000+ Homepage Impressions",
+      priority: 9,
+      permittedPlacements: ["HOMEPAGE_HERO"],
+      active: true
+    },
+    {
+      name: "🏷️ Category Page Banner (7 Days)",
+      description: "Top billboard header banner displayed across category search pages for 7 days.",
+      campaignType: "BANNER_AD",
+      durationDays: 7,
+      priceInPaise: 39900,
+      originalPriceInPaise: 69900,
+      badge: "Niche Target",
+      features: [
+        "Pinned at Top of Specific Category Pages",
+        "Targets users actively browsing your specific industry",
+        "Direct store showroom or external website link",
+        "Zero competing banner in viewport"
+      ],
+      estimatedReach: "25,000+ Category Shoppers",
+      priority: 10,
+      permittedPlacements: ["CATEGORY_HEADER"],
+      active: true
+    },
+    {
+      name: "🏷️ Category Page Banner (14 Days)",
+      description: "Top header banner displayed across all category search pages targeting active local shoppers for 14 days.",
+      campaignType: "BANNER_AD",
+      durationDays: 14,
+      priceInPaise: 69900,
+      originalPriceInPaise: 119900,
       badge: "High Conversion",
       features: [
         "Pinned at Top of Specific Category",
@@ -191,36 +375,97 @@ export async function seedBannersAndAds(): Promise<{
         "Targeted to Buyers Browsing Your Niche",
         "Live Click & View Analytics Dashboard"
       ],
-      estimatedReach: "45,000+ Category Shoppers",
-      priority: 5,
+      estimatedReach: "50,000+ Category Shoppers",
+      priority: 11,
       permittedPlacements: ["CATEGORY_HEADER"],
       active: true
     },
     {
-      name: "💎 30-Day Omnichannel Brand Takeover (30 Days)",
-      description: "Complete brand takeover featuring your banner across Homepage Hero, Category Top Headers, and Store Spotlight sections.",
+      name: "🏬 Store Directory Banner (14 Days)",
+      description: "Featured brand and showroom billboard on the /stores directory and merchant profile pages.",
+      campaignType: "BANNER_AD",
+      durationDays: 14,
+      priceInPaise: 49900,
+      originalPriceInPaise: 89900,
+      badge: "Best for Showrooms",
+      features: [
+        "Top billboard spot on /stores directory",
+        "Pinned spotlight on merchant category pages",
+        "Direct store showroom visit link",
+        "Verified Merchant Trust Shield"
+      ],
+      estimatedReach: "25,000+ Verified Buyers",
+      priority: 12,
+      permittedPlacements: ["STORE_BANNER"],
+      active: true
+    },
+    {
+      name: "🏬 Store Directory Banner (30 Days)",
+      description: "Full monthly presence at the top of the Omeetso Store Directory to cement merchant authority in your locality.",
       campaignType: "BANNER_AD",
       durationDays: 30,
-      priceInPaise: 199900,
-      originalPriceInPaise: 349900,
-      badge: "💎 Enterprise Plan",
+      priceInPaise: 89900,
+      originalPriceInPaise: 149900,
+      badge: "👑 Store Branding",
       features: [
-        "Rotating Banner on Homepage Hero",
-        "Category Top Banner Across Related Pages",
-        "Store Spotlight & Middle Feed Banners",
-        "Dedicated Account Manager Support",
-        "Weekly Performance Analytics Reports"
+        "30 Days permanent billboard on /stores directory",
+        "Promoted Merchant profile with direct WhatsApp inquiries",
+        "Google Maps store navigation link integration",
+        "Priority Merchant Verification Badge"
       ],
-      estimatedReach: "100,000+ Verified Impressions",
-      priority: 6,
-      permittedPlacements: ["HOMEPAGE_HERO", "CATEGORY_HEADER", "STORE_BANNER"],
+      estimatedReach: "60,000+ Store Shoppers",
+      priority: 13,
+      permittedPlacements: ["STORE_BANNER"],
+      active: true
+    },
+    {
+      name: "💼 Jobs Portal Banner (7 Days)",
+      description: "One week recruitment billboard header on Omeetso Local Jobs portal targeting urgent candidate hiring.",
+      campaignType: "BANNER_AD",
+      durationDays: 7,
+      priceInPaise: 39900,
+      originalPriceInPaise: 69900,
+      badge: "Urgent Hiring",
+      features: [
+        "Top billboard spot on Omeetso Local Jobs Portal",
+        "Direct WhatsApp & phone call application buttons",
+        "Target drivers, sales executive, retail & technical staff",
+        "Urgent employer badge with fast candidate leads"
+      ],
+      estimatedReach: "10,000+ Local Candidates",
+      priority: 14,
+      permittedPlacements: ["JOBS_HEADER"],
+      active: true
+    },
+    {
+      name: "💼 Jobs Portal Banner (14 Days)",
+      description: "Top billboard spot on the Omeetso Local Jobs and careers portal targeting local candidates for 14 days.",
+      campaignType: "BANNER_AD",
+      durationDays: 14,
+      priceInPaise: 69900,
+      originalPriceInPaise: 119900,
+      badge: "Fast Hiring",
+      features: [
+        "Top billboard spot on Omeetso Local Jobs Portal",
+        "Direct call & WhatsApp application buttons",
+        "Target nearby drivers, technicians, retail & office staff",
+        "Verified employer badge & urgent hiring tag"
+      ],
+      estimatedReach: "25,000+ Local Job Seekers",
+      priority: 15,
+      permittedPlacements: ["JOBS_HEADER"],
       active: true
     }
   ];
 
-  await AdProduct.deleteMany({});
-  await AdProduct.insertMany(products);
-  console.log(`[BannerSeeder] Seeded ${products.length} Ad Pricing Products.`);
+  for (const prod of products) {
+    await AdProduct.findOneAndUpdate(
+      { name: prod.name },
+      { $set: prod },
+      { upsert: true, new: true }
+    );
+  }
+  console.log(`[BannerSeeder] Synced ${products.length} Ad Pricing Products.`);
 
   // 3. Seed High-Converting Home Banners
   const sampleBanners = [
@@ -341,55 +586,72 @@ export async function seedBannersAndAds(): Promise<{
     }
   ];
 
-  await HomeBanner.deleteMany({});
-  await HomeBanner.insertMany(sampleBanners);
-  console.log(`[BannerSeeder] Seeded ${sampleBanners.length} Home Banners in MongoDB.`);
+  const existingBannersCount = await HomeBanner.countDocuments();
+  if (existingBannersCount === 0) {
+    await HomeBanner.insertMany(sampleBanners);
+    console.log(`[BannerSeeder] Seeded ${sampleBanners.length} Home Banners in MongoDB.`);
+  } else {
+    console.log(`[BannerSeeder] Home Banners already exist (${existingBannersCount}), preserving them.`);
+  }
 
-  // 4. Seed Active AdCampaigns for Homepage Hero
-  let advertiser = await User.findOne({ email: "admin@digitalness.co.in" });
-  if (!advertiser) advertiser = await User.findOne({});
-  const advertiserUserId = advertiser ? advertiser._id : new mongoose.Types.ObjectId();
+  // 4. Seed Active AdCampaigns for Homepage Hero (ONLY if no campaigns exist)
+  const existingCampaignsCount = await AdCampaign.countDocuments();
+  if (existingCampaignsCount === 0) {
+    let advertiser = await User.findOne({ email: "admin@digitalness.co.in" });
+    if (!advertiser) advertiser = await User.findOne({});
+    const advertiserUserId = advertiser ? advertiser._id : new mongoose.Types.ObjectId();
 
-  await AdCampaign.deleteMany({ bannerUrl: { $exists: true } });
-  const sampleCampaigns = [
-    {
-      campaignType: "BANNER_AD",
-      advertiserUserId,
-      targetType: "STORE",
-      placementIds: ["HOMEPAGE_HERO"],
-      bannerUrl: "https://images.unsplash.com/photo-1556742049-0a67e557b683?w=1600",
-      targeting: { city: "Hyderabad" },
-      pricing: { amountInPaise: 49900, taxInPaise: 8982, totalInPaise: 58882 },
-      paymentStatus: "PAID",
-      status: "ACTIVE",
-      startAt: new Date(Date.now() - 86400000),
-      endAt: new Date(Date.now() + 30 * 86400000),
-      analytics: { impressions: 1420, clicks: 185 }
-    },
-    {
-      campaignType: "BANNER_AD",
-      advertiserUserId,
-      targetType: "STORE",
-      placementIds: ["HOMEPAGE_HERO", "STORE_BANNER"],
-      bannerUrl: "https://images.unsplash.com/photo-1441986300917-64674bd600d8?w=1600",
-      targeting: { city: "Hyderabad" },
-      pricing: { amountInPaise: 89900, taxInPaise: 16182, totalInPaise: 106082 },
-      paymentStatus: "PAID",
-      status: "ACTIVE",
-      startAt: new Date(Date.now() - 86400000),
-      endAt: new Date(Date.now() + 30 * 86400000),
-      analytics: { impressions: 2150, clicks: 310 }
-    }
-  ];
-  await AdCampaign.insertMany(sampleCampaigns);
-  console.log(`[BannerSeeder] Seeded ${sampleCampaigns.length} Active Banner Ad Campaigns in MongoDB.`);
+    const sampleCampaigns = [
+      {
+        campaignType: "BANNER_AD",
+        advertiserUserId,
+        targetType: "STORE",
+        placementIds: ["HOMEPAGE_HERO"],
+        bannerUrl: "https://images.unsplash.com/photo-1556742049-0a67e557b683?w=1600",
+        targeting: { city: "Hyderabad" },
+        pricing: { amountInPaise: 49900, taxInPaise: 8982, totalInPaise: 58882 },
+        paymentStatus: "PAID",
+        status: "ACTIVE",
+        startAt: new Date(Date.now() - 86400000),
+        endAt: new Date(Date.now() + 30 * 86400000),
+        analytics: { impressions: 1420, clicks: 185 }
+      },
+      {
+        campaignType: "BANNER_AD",
+        advertiserUserId,
+        targetType: "STORE",
+        placementIds: ["HOMEPAGE_HERO", "STORE_BANNER"],
+        bannerUrl: "https://images.unsplash.com/photo-1441986300917-64674bd600d8?w=1600",
+        targeting: { city: "Hyderabad" },
+        pricing: { amountInPaise: 89900, taxInPaise: 16182, totalInPaise: 106082 },
+        paymentStatus: "PAID",
+        status: "ACTIVE",
+        startAt: new Date(Date.now() - 86400000),
+        endAt: new Date(Date.now() + 30 * 86400000),
+        analytics: { impressions: 2150, clicks: 310 }
+      }
+    ];
+    await AdCampaign.insertMany(sampleCampaigns);
+    console.log(`[BannerSeeder] Seeded ${sampleCampaigns.length} Active Banner Ad Campaigns in MongoDB.`);
+  } else {
+    console.log(`[BannerSeeder] Ad Campaigns already exist (${existingCampaignsCount}), preserving all live seller ads.`);
+  }
 
-  return {
-    bannersCount: sampleBanners.length,
-    placementsCount: placements.length,
-    productsCount: products.length,
-    campaignsCount: sampleCampaigns.length
-  };
+    return {
+      bannersCount: sampleBanners.length,
+      placementsCount: placements.length,
+      productsCount: products.length,
+      campaignsCount: sampleCampaigns.length
+    };
+  } catch (error) {
+    console.error("[BannerSeeder] Error seeding banners and ads:", error);
+    return {
+      bannersCount: 0,
+      placementsCount: 0,
+      productsCount: 0,
+      campaignsCount: 0
+    };
+  }
 }
 
 if (require.main === module) {

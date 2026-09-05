@@ -11,6 +11,7 @@ import { seedInitialServices } from "./database/seeders/serviceSeeder";
 import { seedBannersAndAds } from "./database/seeders/bannerAdSeeder";
 import { seedBlogs } from "./database/seeders/blogSeeder";
 
+// Server initialization timestamp: 2026-09-05T21:43:20
 const server = http.createServer(app);
 
 // Initialize Socket.IO engine
@@ -18,12 +19,12 @@ export const io = initSocketServer(server);
 
 async function startServer() {
   await connectDatabase();
-  await seedAdminUsers();
-  await seedCategories();
-  await seedApprovedListings();
-  await seedInitialServices();
-  await seedBannersAndAds();
-  await seedBlogs();
+  try { await seedAdminUsers(); } catch (e) { console.error("[Seed] Admin users failed:", e); }
+  try { await seedCategories(); } catch (e) { console.error("[Seed] Categories failed:", e); }
+  try { await seedApprovedListings(); } catch (e) { console.error("[Seed] Listings failed:", e); }
+  try { await seedInitialServices(); } catch (e) { console.error("[Seed] Services failed:", e); }
+  try { await seedBannersAndAds(); } catch (e) { console.error("[Seed] Banners and ads failed:", e); }
+  try { await seedBlogs(); } catch (e) { console.error("[Seed] Blogs failed:", e); }
 
   startBackgroundWorkers();
 

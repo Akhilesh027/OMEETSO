@@ -76,11 +76,27 @@ export async function getAdPlacementsApi(): Promise<{
   }
 }
 
+function extractErrorMessage(data: any, fallback: string): string {
+  if (!data) return fallback;
+  if (typeof data.error === "string") return data.error;
+  if (data.error && typeof data.error === "object") {
+    return data.error.message || data.error.code || JSON.stringify(data.error);
+  }
+  if (typeof data.message === "string") return data.message;
+  return fallback;
+}
+
 export async function createAdCampaignApi(payload: {
   listingId: string;
   adProductId: string;
   placementIds?: string[];
   bannerUrl?: string;
+  targeting?: {
+    city?: string;
+    targetAreas?: string[];
+    pincodes?: string[];
+    categoryIds?: string[];
+  };
 }): Promise<{
   success: boolean;
   data?: { id: string; status: string; pricing: { amountInPaise: number; totalInPaise: number } };
@@ -92,15 +108,23 @@ export async function createAdCampaignApi(payload: {
       headers: getAuthHeaders(),
       body: JSON.stringify(payload),
     });
-    return await res.json();
-  } catch {
-    return { success: false, error: "Network error creating campaign" };
+    const data = await res.json().catch(() => null);
+    if (!res.ok || !data?.success) {
+      return {
+        success: false,
+        error: extractErrorMessage(data, `Failed to create campaign (${res.status})`),
+      };
+    }
+    return data;
+  } catch (err: any) {
+    return { success: false, error: err?.message || "Network error creating campaign" };
   }
 }
 
 export async function submitAdCampaignApi(campaignId: string): Promise<{
   success: boolean;
   data?: { id: string; status: string; reviewDeadlineAt: string };
+  code?: string;
   error?: string;
 }> {
   try {
@@ -108,13 +132,27 @@ export async function submitAdCampaignApi(campaignId: string): Promise<{
       method: "POST",
       headers: getAuthHeaders(),
     });
-    return await res.json();
-  } catch {
-    return { success: false, error: "Network error submitting campaign" };
+    const data = await res.json().catch(() => null);
+    if (!res.ok || !data?.success) {
+      return {
+        success: false,
+        code: data?.error?.code || (res.status === 400 ? "BAD_REQUEST" : undefined),
+        error: extractErrorMessage(data, `Failed to submit campaign (${res.status})`),
+      };
+    }
+    return data;
+  } catch (err: any) {
+    return { success: false, error: err?.message || "Network error submitting campaign" };
   }
 }
 
-export async function serveAdsApi(placement?: string, pincode?: string, area?: string): Promise<{
+export async function serveAdsApi(
+  placement?: string,
+  pincode?: string,
+  area?: string,
+  city?: string,
+  categoryId?: string
+): Promise<{
   success: boolean;
   data?: ServedAdItem[];
   error?: string;
@@ -124,8 +162,13 @@ export async function serveAdsApi(placement?: string, pincode?: string, area?: s
     if (placement) params.set("placement", placement);
     if (pincode) params.set("pincode", pincode);
     if (area) params.set("area", area);
+    if (city) params.set("city", city);
+    if (categoryId) params.set("categoryId", categoryId);
     const query = params.toString() ? `?${params.toString()}` : "";
-    const res = await fetch(`${API_BASE}/ads/serve${query}`);
+    let res = await fetch(`${API_BASE}/revenue/ads/serve${query}`);
+    if (!res.ok) {
+      res = await fetch(`${API_BASE}/ads/serve${query}`);
+    }
     return await res.json();
   } catch {
     return { success: false, error: "Failed to load served ads" };

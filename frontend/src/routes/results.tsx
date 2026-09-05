@@ -10,6 +10,7 @@ import { listListings, fetchLivePublicListings } from "@/lib/listings";
 import { fetchLiveCategories, getCachedCategories, type LiveCategory } from "@/lib/categories";
 import { calculateDistanceBetweenLocations, resolveCityFromLocation } from "@/lib/location";
 import { EmptyState } from "@/components/omeetso/EmptyState";
+import { DEFAULT_SPONSORED_LISTING } from "@/components/omeetso/AdBanner";
 import { preventNonNumericKeyDown, sanitizeNumericInput } from "@/lib/utils";
 
 type S = {
@@ -68,7 +69,7 @@ function Results() {
   useEffect(() => {
     fetchLiveCategories().then((cats) => {
       if (cats && cats.length > 0) setCategories(cats);
-    }).catch(() => {});
+    }).catch(() => { });
   }, []);
 
   // Combine Local User Listings + Live Backend Listings
@@ -364,21 +365,19 @@ function Results() {
             <div className="flex items-center gap-1 overflow-x-auto no-scrollbar">
               <button
                 onClick={() => nav({ search: (p: S) => ({ ...p, quickSale: p.quickSale === "1" ? undefined : "1" }) })}
-                className={`inline-flex items-center gap-1 rounded-full px-3 py-1.5 text-xs font-extrabold transition-all border shrink-0 ${
-                  search.quickSale === "1"
+                className={`inline-flex items-center gap-1 rounded-full px-3 py-1.5 text-xs font-extrabold transition-all border shrink-0 ${search.quickSale === "1"
                     ? "bg-amber-500 text-slate-950 border-amber-500 shadow-sm"
                     : "bg-card text-foreground border-border"
-                }`}
+                  }`}
               >
                 ⚡ Quick Sale
               </button>
               <button
                 onClick={() => nav({ search: (p: S) => ({ ...p, hasVideo: p.hasVideo === "1" ? undefined : "1" }) })}
-                className={`inline-flex items-center gap-1 rounded-full px-3 py-1.5 text-xs font-extrabold transition-all border shrink-0 ${
-                  search.hasVideo === "1"
+                className={`inline-flex items-center gap-1 rounded-full px-3 py-1.5 text-xs font-extrabold transition-all border shrink-0 ${search.hasVideo === "1"
                     ? "bg-purple-600 text-white border-purple-600 shadow-sm"
                     : "bg-card text-foreground border-border"
-                }`}
+                  }`}
               >
                 🎬 With Video
               </button>
@@ -451,7 +450,7 @@ function Results() {
         </div>
 
         <div className="px-4 sm:px-6 md:px-8 lg:px-10 xl:px-12 md:mx-auto md:max-w-[1440px] md:grid md:grid-cols-[300px_1fr] md:gap-6 md:py-6">
-          
+
           {/* ── DESKTOP FILTER SIDEBAR ── */}
           <aside className="hidden md:block sticky top-24 self-start rounded-3xl border border-border bg-card p-5 shadow-sm space-y-5">
             <div className="flex items-center justify-between border-b border-border pb-3">

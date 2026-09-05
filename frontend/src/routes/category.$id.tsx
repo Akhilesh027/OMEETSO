@@ -9,7 +9,7 @@ import { ProductCard } from "@/components/omeetso/ProductCard";
 import { StoreCard } from "@/components/omeetso/StoreCard";
 import { SortSheet } from "@/components/omeetso/SortSheet";
 import { FilterChip } from "@/components/omeetso/FilterChip";
-import { HeroAd } from "@/components/omeetso/AdBanner";
+import { HeroAd, UNIFIED_DEFAULT_BANNER, DEFAULT_SPONSORED_LISTING, getCategoryDefaultBanner } from "@/components/omeetso/AdBanner";
 import { SafetyCard } from "@/components/omeetso/SafetyCard";
 import { EmptyState } from "@/components/omeetso/EmptyState";
 import { InfinityLoader } from "@/components/omeetso/InfinityLoader";
@@ -59,11 +59,11 @@ export const Route = createFileRoute("/category/$id")({
   head: ({ loaderData }) => ({
     meta: loaderData
       ? [
-          { title: `${loaderData.category.name} near you · Omeetso` },
-          { name: "description", content: `Browse ${loaderData.category.name.toLowerCase()} listings from verified local sellers on Omeetso.` },
-          { property: "og:title", content: `${loaderData.category.name} · Omeetso` },
-          { property: "og:description", content: `Discover ${loaderData.category.name.toLowerCase()} near you.` },
-        ]
+        { title: `${loaderData.category.name} near you · Omeetso` },
+        { name: "description", content: `Browse ${loaderData.category.name.toLowerCase()} listings from verified local sellers on Omeetso.` },
+        { property: "og:title", content: `${loaderData.category.name} · Omeetso` },
+        { property: "og:description", content: `Discover ${loaderData.category.name.toLowerCase()} near you.` },
+      ]
       : [{ title: "Category · Omeetso" }],
   }),
   component: CategoryPage,
@@ -136,7 +136,9 @@ function CategoryPage() {
     setLoading(true);
     setError(null);
 
-    serveAdsApi("CATEGORY_HEADER").then((res) => {
+    const activeCity = resolveCityFromLocation(activeLoc) || "Hyderabad";
+
+    serveAdsApi("CATEGORY_HEADER", activeLoc?.pincode, activeLoc?.area, activeCity, category.id).then((res) => {
       if (res.success && res.data && res.data.length > 0) {
         const topAd = res.data[0];
         setLiveCatAd({
@@ -145,20 +147,22 @@ function CategoryPage() {
           placement: topAd.placement,
           headline: topAd.creative?.title || category.name,
           title: topAd.creative?.title || category.name,
-          body: topAd.label || "Sponsored Category Partner",
-          subtitle: topAd.label || "Sponsored Category Partner",
+          body: topAd.label || `Sponsored ${category.name} Partner`,
+          subtitle: topAd.label || `Sponsored ${category.name} Partner`,
           cta: "Shop Now",
           ctaText: "Shop Now",
-          destinationUrl: topAd.creative?.destinationUrl || "/results",
-          ctaLink: topAd.creative?.destinationUrl || "/results",
+          destinationUrl: topAd.creative?.destinationUrl || `/results?cat=${encodeURIComponent(category.id)}`,
+          ctaLink: topAd.creative?.destinationUrl || `/results?cat=${encodeURIComponent(category.id)}`,
           image: topAd.creative?.imageUrl,
           imageUrl: topAd.creative?.imageUrl,
           advertiser: "Omeetso Partner"
         });
+      } else {
+        setLiveCatAd(null);
       }
     });
 
-    serveAdsApi("SEARCH_TOP").then((res) => {
+    serveAdsApi("SEARCH_TOP", activeLoc?.pincode, activeLoc?.area, activeCity, category.id).then((res) => {
       if (res.success && res.data && res.data.length > 0) {
         const topAd = res.data[0];
         setLiveSponsoredAd({
@@ -174,10 +178,10 @@ function CategoryPage() {
           postedTime: "Sponsored",
           sellerName: "Omeetso Verified Partner"
         });
+      } else {
+        setLiveSponsoredAd(null);
       }
     });
-
-    const activeCity = resolveCityFromLocation(activeLoc) || "Hyderabad";
 
     const [lRes, sRes] = await Promise.all([
       getPublicListingsApi({
@@ -303,7 +307,7 @@ function CategoryPage() {
   const productList = useMemo(() => {
     const localItems = listListings().filter(
       (l) => (l.category || "").toLowerCase() === category.id.toLowerCase() ||
-             (l.category || "").toLowerCase().includes(category.name.toLowerCase())
+        (l.category || "").toLowerCase().includes(category.name.toLowerCase())
     ).map((item) => ({
       id: item.id,
       title: item.title,
@@ -503,21 +507,19 @@ function CategoryPage() {
             <div className="flex items-center gap-1 overflow-x-auto no-scrollbar">
               <button
                 onClick={() => nav({ search: (p: S) => ({ ...p, quickSale: p.quickSale === "1" ? undefined : "1" }) })}
-                className={`inline-flex items-center gap-1 rounded-full px-3 py-1.5 text-xs font-extrabold transition-all border shrink-0 ${
-                  search.quickSale === "1"
+                className={`inline-flex items-center gap-1 rounded-full px-3 py-1.5 text-xs font-extrabold transition-all border shrink-0 ${search.quickSale === "1"
                     ? "bg-amber-500 text-slate-950 border-amber-500 shadow-sm"
                     : "bg-card text-foreground border-border"
-                }`}
+                  }`}
               >
                 ⚡ Quick Sale
               </button>
               <button
                 onClick={() => nav({ search: (p: S) => ({ ...p, hasVideo: p.hasVideo === "1" ? undefined : "1" }) })}
-                className={`inline-flex items-center gap-1 rounded-full px-3 py-1.5 text-xs font-extrabold transition-all border shrink-0 ${
-                  search.hasVideo === "1"
+                className={`inline-flex items-center gap-1 rounded-full px-3 py-1.5 text-xs font-extrabold transition-all border shrink-0 ${search.hasVideo === "1"
                     ? "bg-purple-600 text-white border-purple-600 shadow-sm"
                     : "bg-card text-foreground border-border"
-                }`}
+                  }`}
               >
                 🎬 With Video
               </button>
@@ -594,7 +596,7 @@ function CategoryPage() {
 
         {/* Main Content Layout */}
         <div className="px-4 sm:px-6 md:px-8 lg:px-10 xl:px-12 md:mx-auto md:max-w-[1440px] md:grid md:grid-cols-[300px_1fr] md:gap-6 md:py-6">
-          
+
           {/* DESKTOP FILTER SIDEBAR */}
           <aside className="hidden md:block sticky top-24 self-start rounded-3xl border border-border bg-card p-5 shadow-sm space-y-5">
             <div className="flex items-center justify-between border-b border-border pb-3">
@@ -748,7 +750,7 @@ function CategoryPage() {
             )}
 
             {/* Category Header Ad */}
-            {liveCatAd && <HeroAd ad={liveCatAd} />}
+            <HeroAd ad={liveCatAd || getCategoryDefaultBanner(category.id, category.name)} />
 
             {loading ? (
               <InfinityLoader
@@ -824,26 +826,59 @@ function CategoryPage() {
 
 function interleaveAds(products: Product[], sponsoredAd: any, mode: "grid" | "list") {
   const nodes: React.ReactNode[] = [];
-  products.forEach((p, i) => {
-    nodes.push(
-      mode === "list"
-        ? <ProductCard key={p.id} p={p} variant="list" />
-        : <ProductCard key={p.id} p={p} />
-    );
 
-    if ((i + 1) % 6 === 0 && sponsoredAd) {
+  // Pin live sponsored ad at the top of category results
+  if (sponsoredAd) {
+    const filteredProducts = products.filter(
+      (p) => p.id !== sponsoredAd.id && p.id !== sponsoredAd.listingId
+    );
+    nodes.push(
+      <ProductCard
+        key={`top-sponsored-ad-${sponsoredAd.id}`}
+        p={{
+          ...sponsoredAd,
+          id: sponsoredAd.id,
+          sponsored: true,
+          verified: true,
+        }}
+        variant={mode === "list" ? "list" : "grid"}
+      />
+    );
+    filteredProducts.forEach((p, i) => {
       nodes.push(
-        <ProductCard
-          key={`sponsored-ad-${i}`}
-          p={{
-            ...sponsoredAd,
-            id: sponsoredAd.id,
-            sponsored: true
-          }}
-          variant={mode === "list" ? "list" : "grid"}
-        />
+        mode === "list" ? (
+          <ProductCard key={p.id} p={p} variant="list" />
+        ) : (
+          <ProductCard key={p.id} p={p} />
+        )
       );
-    }
+
+      if ((i + 1) % 6 === 0) {
+        nodes.push(
+          <ProductCard
+            key={`sponsored-ad-repeat-${i}`}
+            p={{
+              ...sponsoredAd,
+              id: `${sponsoredAd.id}-rep-${i}`,
+              sponsored: true,
+              verified: true,
+            }}
+            variant={mode === "list" ? "list" : "grid"}
+          />
+        );
+      }
+    });
+    return nodes;
+  }
+
+  products.forEach((p) => {
+    nodes.push(
+      mode === "list" ? (
+        <ProductCard key={p.id} p={p} variant="list" />
+      ) : (
+        <ProductCard key={p.id} p={p} />
+      )
+    );
   });
   return nodes;
 }

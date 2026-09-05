@@ -425,8 +425,8 @@ function Account() {
                           <div className="flex items-center gap-2">
                             <h4 className="text-sm font-extrabold text-foreground">Nearby Changes</h4>
                             <span className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-bold ${nearbyChangesListings.length > 0
-                                ? "bg-emerald-500/10 text-emerald-600 border border-emerald-500/20"
-                                : "bg-muted text-muted-foreground"
+                              ? "bg-emerald-500/10 text-emerald-600 border border-emerald-500/20"
+                              : "bg-muted text-muted-foreground"
                               }`}>
                               {nearbyChangesListings.length > 0 ? `Active on ${nearbyChangesListings.length} items` : "Inactive"}
                             </span>

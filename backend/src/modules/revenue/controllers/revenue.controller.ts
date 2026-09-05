@@ -171,12 +171,11 @@ export async function rechargeWallet(req: AuthenticatedUserRequest, res: Respons
 
 export async function getAdProducts(req: Request, res: Response, next: NextFunction): Promise<void> {
   try {
-    const count = await AdProduct.countDocuments({});
     const seedProducts = [
-      // --- Listing Boost Plans ---
+      // --- Listing Boost Plans (Clean & Direct) ---
       {
-        name: "⚡ Starter Quick Boost (3 Days)",
-        description: "Promote your listing card with a FEATURED badge and category top placement for 3 days of quick exposure.",
+        name: "⚡ Quick Boost (3 Days)",
+        description: "Promote your listing card with a FEATURED badge and higher category ranking for 3 days.",
         campaignType: "LISTING_BOOST",
         durationDays: 3,
         priceInPaise: 9900, // ₹99
@@ -195,7 +194,7 @@ export async function getAdProducts(req: Request, res: Response, next: NextFunct
       },
       {
         name: "🚀 Popular Growth Boost (7 Days)",
-        description: "Top search ranking, SPONSORED badge, and category header placement for 7 days. Most popular seller choice!",
+        description: "Top search ranking, SPONSORED badge, and category spotlight for 7 days. Most popular seller choice!",
         campaignType: "LISTING_BOOST",
         durationDays: 7,
         priceInPaise: 24900, // ₹249
@@ -214,15 +213,15 @@ export async function getAdProducts(req: Request, res: Response, next: NextFunct
         active: true
       },
       {
-        name: "👑 Pro Mega Takeover Boost (15 Days)",
-        description: "Homepage hero carousel, guaranteed top search spot, URGENT badge, and 10× visibility boost for 15 days.",
+        name: "👑 Pro Mega Boost (15 Days)",
+        description: "Homepage hero feature, guaranteed top search spot, URGENT badge, and 10× visibility boost for 15 days.",
         campaignType: "LISTING_BOOST",
         durationDays: 15,
         priceInPaise: 49900, // ₹499
         originalPriceInPaise: 79900, // ₹799
         badge: "👑 Max Exposure",
         features: [
-          "Homepage Hero Carousel Feature",
+          "Homepage Banner Feature",
           "Guaranteed Top 3 Search Spot",
           "URGENT Red Sale Badge",
           "Hyperlocal GPS Push Notifications",
@@ -233,33 +232,148 @@ export async function getAdProducts(req: Request, res: Response, next: NextFunct
         permittedPlacements: ["HOMEPAGE_HERO", "SEARCH_TOP", "CATEGORY_FEATURED", "URGENT_BADGE"],
         active: true
       },
-      // --- Banner Ad Packages ---
       {
-        name: "🎨 Homepage Hero Showcase Banner (7 Days)",
-        description: "Custom promotional banner image featured prominently on the main Omeetso Homepage Hero Carousel with direct link.",
+        name: "🔴 Urgent Sale Fast Clearance (3 Days)",
+        description: "Pulsing red URGENT sale badge overlay on your listing card for emergency sales and fast clearance.",
+        campaignType: "LISTING_BOOST",
+        durationDays: 3,
+        priceInPaise: 4900, // ₹49
+        originalPriceInPaise: 9900, // ₹99
+        badge: "🔴 Urgent Sale",
+        features: [
+          "Eye-catching Pulsing Red 'URGENT' Ribbon",
+          "Filtered directly into 'Urgent Deals' local browse tab",
+          "Instant buyer WhatsApp trigger & direct calling button",
+          "Clearance liquidation tag for price-conscious buyers"
+        ],
+        estimatedReach: "2,000 - 4,500 Bargain Hunters",
+        priority: 4,
+        permittedPlacements: ["URGENT_BADGE"],
+        active: true
+      },
+      {
+        name: "✨ Golden Glow Card Highlight (7 Days)",
+        description: "Illuminated golden card border and warm badge glow that makes your product pop in all search grids.",
+        campaignType: "LISTING_BOOST",
+        durationDays: 7,
+        priceInPaise: 8900, // ₹89
+        originalPriceInPaise: 14900, // ₹149
+        badge: "✨ Golden Border",
+        features: [
+          "Illuminated Golden Glowing Border on Product Card",
+          "Stands out from ordinary listings in category & search feeds",
+          "Verified seller trust emblem overlay",
+          "3× Higher click-through rate from visual prominence"
+        ],
+        estimatedReach: "4,000 - 8,000 Category Shoppers",
+        priority: 5,
+        permittedPlacements: ["HIGHLIGHTED_CARD"],
+        active: true
+      },
+      {
+        name: "🔍 Search Results Priority Spotlight (3 Days)",
+        description: "Guaranteed top 1-3 ranking spots on keyword search results with SPONSORED badge for 3 days of targeted intent.",
+        campaignType: "LISTING_BOOST",
+        durationDays: 3,
+        priceInPaise: 14900, // ₹149
+        originalPriceInPaise: 24900, // ₹249
+        badge: "⚡ Search Rank",
+        features: [
+          "Guaranteed Top 1-3 ranking for relevant keyword searches",
+          "SPONSORED golden badge label",
+          "Target active buyers ready to purchase right now",
+          "Instant direct call and chat connectivity"
+        ],
+        estimatedReach: "3,000 - 6,000 Active Searchers",
+        priority: 6,
+        permittedPlacements: ["SEARCH_TOP"],
+        active: true
+      },
+
+      // --- Plain Banners (Home Page Banners, Category, Stores, Jobs) ---
+      {
+        name: "🎨 Home Page Banner (7 Days)",
+        description: "High-impact banner featured prominently across the main Omeetso homepage with direct store or listing link.",
         campaignType: "BANNER_AD",
         durationDays: 7,
         priceInPaise: 49900, // ₹499
         originalPriceInPaise: 79900, // ₹799
         badge: "Best for Stores",
         features: [
-          "Full-Width Main Homepage Carousel",
+          "Main Homepage Billboard Banner Placement",
           "Custom Creative Image & Direct Link",
           "Click-through to Store / WhatsApp",
           "Targeted by User City / Pincode"
         ],
         estimatedReach: "20,000+ Homepage Visitors",
-        priority: 4,
+        priority: 7,
         permittedPlacements: ["HOMEPAGE_HERO"],
         active: true
       },
       {
-        name: "🏷️ Category Top Spotlight Banner (14 Days)",
-        description: "Top header banner displayed across all category search pages targeting active local shoppers for 14 days.",
+        name: "🌟 Home Page Banner (14 Days)",
+        description: "Extended 2-week premium banner showcase across the Omeetso marketplace homepage.",
         campaignType: "BANNER_AD",
         durationDays: 14,
         priceInPaise: 89900, // ₹899
         originalPriceInPaise: 149900, // ₹1,499
+        badge: "🔥 Premium Spot",
+        features: [
+          "14 Days Prime Banner Rotation on Homepage",
+          "High CTR direct store showroom & WhatsApp link",
+          "Hyperlocal city & district targeted delivery",
+          "Live real-time impression & click telemetry"
+        ],
+        estimatedReach: "45,000+ Verified Visitors",
+        priority: 8,
+        permittedPlacements: ["HOMEPAGE_HERO"],
+        active: true
+      },
+      {
+        name: "👑 Home Page Banner (30 Days)",
+        description: "Full monthly presence on the main Omeetso homepage for sustained authority and maximum local reach.",
+        campaignType: "BANNER_AD",
+        durationDays: 30,
+        priceInPaise: 149900, // ₹1,499
+        originalPriceInPaise: 249900, // ₹2,499
+        badge: "👑 Max Branding",
+        features: [
+          "30 Days Continuous Rotation on Homepage",
+          "Direct Store / Profile / WhatsApp Inquiry Link",
+          "Zero Banner Fatigue with Multi-Creative Rotation",
+          "Comprehensive Monthly Analytics & CTR Insights"
+        ],
+        estimatedReach: "100,000+ Homepage Impressions",
+        priority: 9,
+        permittedPlacements: ["HOMEPAGE_HERO"],
+        active: true
+      },
+      {
+        name: "🏷️ Category Page Banner (7 Days)",
+        description: "Top billboard header banner displayed across category search pages for 7 days.",
+        campaignType: "BANNER_AD",
+        durationDays: 7,
+        priceInPaise: 39900, // ₹399
+        originalPriceInPaise: 69900, // ₹699
+        badge: "Niche Target",
+        features: [
+          "Pinned at Top of Specific Category Pages",
+          "Targets users actively browsing your specific industry",
+          "Direct store showroom or external website link",
+          "Zero competing banner in viewport"
+        ],
+        estimatedReach: "25,000+ Category Shoppers",
+        priority: 10,
+        permittedPlacements: ["CATEGORY_HEADER"],
+        active: true
+      },
+      {
+        name: "🏷️ Category Page Banner (14 Days)",
+        description: "Top header banner displayed across all category search pages targeting active local shoppers for 14 days.",
+        campaignType: "BANNER_AD",
+        durationDays: 14,
+        priceInPaise: 69900, // ₹699
+        originalPriceInPaise: 119900, // ₹1,199
         badge: "High Conversion",
         features: [
           "Pinned at Top of Specific Category",
@@ -267,51 +381,122 @@ export async function getAdProducts(req: Request, res: Response, next: NextFunct
           "Targeted to Buyers Browsing Your Niche",
           "Live Click & View Analytics Dashboard"
         ],
-        estimatedReach: "45,000+ Category Shoppers",
-        priority: 5,
+        estimatedReach: "50,000+ Category Shoppers",
+        priority: 11,
         permittedPlacements: ["CATEGORY_HEADER"],
         active: true
       },
       {
-        name: "💎 30-Day Omnichannel Brand Takeover (30 Days)",
-        description: "Complete brand takeover featuring your banner across Homepage Hero, Category Top Headers, and Store Spotlight sections.",
+        name: "🏬 Store Directory Banner (14 Days)",
+        description: "Featured brand and showroom billboard on the /stores directory and merchant profile pages.",
+        campaignType: "BANNER_AD",
+        durationDays: 14,
+        priceInPaise: 49900, // ₹499
+        originalPriceInPaise: 89900, // ₹899
+        badge: "Best for Showrooms",
+        features: [
+          "Top billboard spot on /stores directory",
+          "Pinned spotlight on merchant category pages",
+          "Direct store showroom visit link",
+          "Verified Merchant Trust Shield"
+        ],
+        estimatedReach: "25,000+ Verified Buyers",
+        priority: 12,
+        permittedPlacements: ["STORE_BANNER"],
+        active: true
+      },
+      {
+        name: "🏬 Store Directory Banner (30 Days)",
+        description: "Full monthly presence at the top of the Omeetso Store Directory to cement merchant authority in your locality.",
         campaignType: "BANNER_AD",
         durationDays: 30,
-        priceInPaise: 199900, // ₹1,999
-        originalPriceInPaise: 349900, // ₹3,499
-        badge: "💎 Enterprise Plan",
+        priceInPaise: 89900, // ₹899
+        originalPriceInPaise: 149900, // ₹1,499
+        badge: "👑 Store Branding",
         features: [
-          "Rotating Banner on Homepage Hero",
-          "Category Top Banner Across Related Pages",
-          "Store Spotlight & Middle Feed Banners",
-          "Dedicated Account Manager Support",
-          "Weekly Performance Analytics Reports"
+          "30 Days permanent billboard on /stores directory",
+          "Promoted Merchant profile with direct WhatsApp inquiries",
+          "Google Maps store navigation link integration",
+          "Priority Merchant Verification Badge"
         ],
-        estimatedReach: "100,000+ Verified Impressions",
-        priority: 6,
-        permittedPlacements: ["HOMEPAGE_HERO", "CATEGORY_HEADER", "STORE_BANNER"],
+        estimatedReach: "60,000+ Store Shoppers",
+        priority: 13,
+        permittedPlacements: ["STORE_BANNER"],
+        active: true
+      },
+      {
+        name: "💼 Jobs Portal Banner (7 Days)",
+        description: "One week recruitment billboard header on Omeetso Local Jobs portal targeting urgent candidate hiring.",
+        campaignType: "BANNER_AD",
+        durationDays: 7,
+        priceInPaise: 39900, // ₹399
+        originalPriceInPaise: 69900, // ₹699
+        badge: "Urgent Hiring",
+        features: [
+          "Top billboard spot on Omeetso Local Jobs Portal",
+          "Direct WhatsApp & phone call application buttons",
+          "Target drivers, sales executive, retail & technical staff",
+          "Urgent employer badge with fast candidate leads"
+        ],
+        estimatedReach: "10,000+ Local Candidates",
+        priority: 14,
+        permittedPlacements: ["JOBS_HEADER"],
+        active: true
+      },
+      {
+        name: "💼 Jobs Portal Banner (14 Days)",
+        description: "Top billboard spot on the Omeetso Local Jobs and careers portal targeting local candidates for 14 days.",
+        campaignType: "BANNER_AD",
+        durationDays: 14,
+        priceInPaise: 69900, // ₹699
+        originalPriceInPaise: 119900, // ₹1,199
+        badge: "Fast Hiring",
+        features: [
+          "Top billboard spot on Omeetso Local Jobs Portal",
+          "Direct call & WhatsApp application buttons",
+          "Target nearby drivers, technicians, retail & office staff",
+          "Verified employer badge & urgent hiring tag"
+        ],
+        estimatedReach: "25,000+ Local Job Seekers",
+        priority: 15,
+        permittedPlacements: ["JOBS_HEADER"],
         active: true
       }
     ];
 
-    if (count === 0 || req.query.reset === "true") {
-      if (req.query.reset === "true") await AdProduct.deleteMany({});
+    // Clean up obsolete cluttered products
+    await AdProduct.deleteMany({
+      $or: [
+        { name: { $regex: /Section Divider|Middle Promotional Carousel|Native Spotlight|Omnichannel|Showroom & Store Mega Spotlight|Contextual Partner/i } },
+        { permittedPlacements: { $in: ["HOMEPAGE_SECTION_BANNER", "HOMEPAGE_CAROUSEL", "HOME_NATIVE_FEED", "PRODUCT_CONTEXTUAL"] } }
+      ]
+    });
+
+    if (req.query.reset === "true") {
+      await AdProduct.deleteMany({});
       await AdProduct.insertMany(seedProducts);
     } else {
-      // Auto-migrate any plans that don't have features yet
+      // Upsert all plans to ensure newly added plans are always present with features and placements
       for (const sp of seedProducts) {
         await AdProduct.updateOne(
-          { campaignType: sp.campaignType, durationDays: sp.durationDays, features: { $size: 0 } },
+          { name: sp.name },
           {
             $set: {
               name: sp.name,
+              description: sp.description,
+              campaignType: sp.campaignType,
+              durationDays: sp.durationDays,
+              priceInPaise: sp.priceInPaise,
+              originalPriceInPaise: sp.originalPriceInPaise,
               badge: sp.badge,
               features: sp.features,
               estimatedReach: sp.estimatedReach,
-              originalPriceInPaise: sp.originalPriceInPaise,
-              priority: sp.priority
+              priority: sp.priority,
+              permittedPlacements: sp.permittedPlacements,
+              active: sp.active
             }
-          }
+          },
+          { upsert: true }
         );
       }
     }
@@ -549,118 +734,169 @@ export async function toggleAdminAdProductStatus(req: Request, res: Response, ne
 
 export async function getAdPlacements(req: Request, res: Response, Next: NextFunction): Promise<void> {
   try {
-    const count = await AdPlacement.countDocuments({});
     const defaultPlacements = [
       {
         placementId: "HOMEPAGE_HERO",
-        name: "Homepage Hero Billboard Banner Carousel",
+        name: "Home Page Banners",
         campaignTypes: ["BANNER_AD"],
         aspectRatio: "16:9",
         minimumWidth: 1600,
         minimumHeight: 900,
         maximumFileSizeBytes: 3145728, // 3MB
+        maximumActiveSlots: 10,
+        active: true,
+        page: "Homepage",
+        route: "/",
+        position: "Main Homepage Banner",
+        description: "Prominent billboard banner across the main Omeetso homepage with auto-rotation, advertiser CTA link, and verified local reach.",
+        device: "Web & Mobile App"
+      },
+      {
+        placementId: "CATEGORY_HEADER",
+        name: "Category Page Banners",
+        campaignTypes: ["BANNER_AD"],
+        aspectRatio: "3:1",
+        minimumWidth: 1500,
+        minimumHeight: 500,
+        maximumFileSizeBytes: 2097152,
         maximumActiveSlots: 5,
-        active: true
+        active: true,
+        page: "Category Browse",
+        route: "/category/all",
+        position: "Category Top Billboard",
+        description: "Top billboard banner across category pages (Mobiles, Cars, Electronics, Furniture, etc.) targeting active category shoppers.",
+        device: "Web & Mobile App"
+      },
+      {
+        placementId: "STORE_BANNER",
+        name: "Store Directory Banners",
+        campaignTypes: ["BANNER_AD"],
+        aspectRatio: "3:1",
+        minimumWidth: 1200,
+        minimumHeight: 400,
+        maximumFileSizeBytes: 2097152,
+        maximumActiveSlots: 5,
+        active: true,
+        page: "Stores Directory & Showrooms",
+        route: "/stores",
+        position: "Store Directory Billboard",
+        description: "Spotlight brand and showroom billboard banner on the stores directory and merchant profile pages.",
+        device: "Web & Mobile App"
+      },
+      {
+        placementId: "JOBS_HEADER",
+        name: "Jobs Portal Banners",
+        campaignTypes: ["BANNER_AD"],
+        aspectRatio: "3:1",
+        minimumWidth: 1200,
+        minimumHeight: 400,
+        maximumFileSizeBytes: 2097152,
+        maximumActiveSlots: 5,
+        active: true,
+        page: "Jobs Portal",
+        route: "/jobs",
+        position: "Jobs Portal Top Header Banner",
+        description: "Recruitment and hiring billboard banner at the top of the Omeetso Local Jobs and careers portal.",
+        device: "Web & Mobile App"
       },
       {
         placementId: "SEARCH_TOP",
-        name: "Search Results #1-3 Top Priority Spots",
+        name: "Search Results Priority Spots",
         campaignTypes: ["LISTING_BOOST"],
         aspectRatio: "CARD",
         minimumWidth: 600,
         minimumHeight: 400,
         maximumFileSizeBytes: 2097152, // 2MB
         maximumActiveSlots: 5,
-        active: true
+        active: true,
+        page: "Search Results",
+        route: "/results",
+        position: "Top of Search Results Grid (#1 Priority)",
+        description: "Guaranteed top 1-3 ranking spots on keyword search results with SPONSORED golden badge and maximum buyer visibility.",
+        device: "Web & Mobile App"
       },
       {
         placementId: "CATEGORY_FEATURED",
-        name: "Category Featured Spotlight Grid",
+        name: "Category Featured Listing",
         campaignTypes: ["LISTING_BOOST"],
         aspectRatio: "CARD",
         minimumWidth: 600,
         minimumHeight: 400,
         maximumFileSizeBytes: 2097152,
-        maximumActiveSlots: 8,
-        active: true
-      },
-      {
-        placementId: "CATEGORY_HEADER",
-        name: "Category Top Header Billboard Banner",
-        campaignTypes: ["BANNER_AD"],
-        aspectRatio: "3:1",
-        minimumWidth: 1200,
-        minimumHeight: 400,
-        maximumFileSizeBytes: 2097152,
-        maximumActiveSlots: 3,
-        active: true
-      },
-      {
-        placementId: "HIGHLIGHTED_CARD",
-        name: "Golden Highlighted Listing Card Border",
-        campaignTypes: ["LISTING_BOOST"],
-        aspectRatio: "CARD",
-        minimumWidth: 600,
-        minimumHeight: 400,
-        maximumFileSizeBytes: 2097152,
-        maximumActiveSlots: 15,
-        active: true
+        maximumActiveSlots: 10,
+        active: true,
+        page: "Category Browse",
+        route: "/category/all",
+        position: "Category Listing Grid",
+        description: "Featured sponsored listing cards in category product grids with highlighted border and priority buyer inquiries.",
+        device: "Web & Mobile App"
       },
       {
         placementId: "URGENT_BADGE",
-        name: "Urgent Sale Pulsing Red Badge",
+        name: "Urgent Sale Badge",
         campaignTypes: ["LISTING_BOOST"],
         aspectRatio: "BADGE",
         minimumWidth: 200,
         minimumHeight: 60,
         maximumFileSizeBytes: 524288,
-        maximumActiveSlots: 20,
-        active: true
+        maximumActiveSlots: 25,
+        active: true,
+        page: "All Feeds & Search Results",
+        route: "/results",
+        position: "Listing Card Top-Left Ribbon",
+        description: "Pulsing red 'URGENT SALE' ribbon badge overlaid on listing cards to trigger rapid buyer inquiries.",
+        device: "Web & Mobile App"
       },
       {
-        placementId: "STORE_BANNER",
-        name: "Store Spotlight & Merchant Showcase Banner",
-        campaignTypes: ["BANNER_AD"],
-        aspectRatio: "16:9",
-        minimumWidth: 1200,
-        minimumHeight: 675,
-        maximumFileSizeBytes: 3145728,
-        maximumActiveSlots: 5,
-        active: true
-      },
-      {
-        placementId: "HOMEPAGE_CAROUSEL",
-        name: "Homepage Middle Promotional Carousel",
-        campaignTypes: ["BANNER_AD"],
-        aspectRatio: "16:9",
-        minimumWidth: 1200,
-        minimumHeight: 675,
-        maximumFileSizeBytes: 3145728,
-        maximumActiveSlots: 5,
-        active: true
-      },
-      {
-        placementId: "HOME_NATIVE_FEED",
-        name: "Native In-Feed Sponsored Card",
-        campaignTypes: ["LISTING_BOOST", "BANNER_AD"],
+        placementId: "HIGHLIGHTED_CARD",
+        name: "Golden Highlighted Card",
+        campaignTypes: ["LISTING_BOOST"],
         aspectRatio: "CARD",
         minimumWidth: 600,
         minimumHeight: 400,
         maximumFileSizeBytes: 2097152,
-        maximumActiveSlots: 6,
-        active: true
+        maximumActiveSlots: 20,
+        active: true,
+        page: "All Feeds & Search Results",
+        route: "/results",
+        position: "Listing Card Glow Border",
+        description: "Golden illuminated card border with subtle gradient glow effect making listings stand out in browsing feeds.",
+        device: "Web & Mobile App"
       }
     ];
 
-    if (count === 0 || req.query.reset === "true") {
-      if (req.query.reset === "true") await AdPlacement.deleteMany({});
+    // Delete obsolete legacy placements so they don't clutter the UI
+    await AdPlacement.deleteMany({
+      placementId: { $in: ["HOMEPAGE_SECTION_BANNER", "HOMEPAGE_CAROUSEL", "HOME_NATIVE_FEED", "PRODUCT_CONTEXTUAL"] }
+    });
+
+    if (req.query.reset === "true") {
+      await AdPlacement.deleteMany({});
       await AdPlacement.insertMany(defaultPlacements);
     } else {
-      // Upsert any missing default placements
+      // Upsert default placements to ensure newly introduced slots are synced with full metadata
       for (const dp of defaultPlacements) {
         await AdPlacement.updateOne(
           { placementId: dp.placementId },
-          { $setOnInsert: dp },
+          {
+            $set: {
+              name: dp.name,
+              campaignTypes: dp.campaignTypes,
+              aspectRatio: dp.aspectRatio,
+              minimumWidth: dp.minimumWidth,
+              minimumHeight: dp.minimumHeight,
+              maximumFileSizeBytes: dp.maximumFileSizeBytes,
+              maximumActiveSlots: dp.maximumActiveSlots,
+              page: dp.page,
+              route: dp.route,
+              position: dp.position,
+              description: dp.description,
+              device: dp.device
+            },
+            $setOnInsert: {
+              active: dp.active
+            }
+          },
           { upsert: true }
         );
       }
@@ -671,19 +907,30 @@ export async function getAdPlacements(req: Request, res: Response, Next: NextFun
       query.active = true;
     }
 
-    const placements = await AdPlacement.find(query).sort({ createdAt: 1 }).lean();
-    const liveCampaigns = await AdCampaign.find({
-      status: { $in: ["ACTIVE", "SCHEDULED", "PENDING_REVIEW"] }
-    })
-      .populate("advertiserUserId", "name email phone avatar")
-      .populate("listingId", "title images priceInPaise area city")
-      .populate("adProductId", "name durationDays priceInPaise badge")
-      .lean();
+    const [placements, liveCampaigns, allProducts] = await Promise.all([
+      AdPlacement.find(query).sort({ createdAt: 1 }).lean(),
+      AdCampaign.find({
+        status: { $in: ["ACTIVE", "SCHEDULED", "PENDING_REVIEW"] }
+      })
+        .populate("advertiserUserId", "name email phone avatar")
+        .populate("listingId", "title images priceInPaise area city")
+        .populate("adProductId", "name durationDays priceInPaise badge")
+        .lean(),
+      AdProduct.find({ active: true }).sort({ priority: 1, priceInPaise: 1 }).lean()
+    ]);
 
     const data = placements.map((p) => {
       const bookedCampaigns = liveCampaigns.filter((c: any) =>
         c.placementIds?.includes(p.placementId)
       );
+
+      const matchingPlans = allProducts.filter((prod) =>
+        prod.permittedPlacements?.includes(p.placementId)
+      );
+
+      const startingPrice = matchingPlans.length > 0
+        ? Math.min(...matchingPlans.map((m) => Math.round(m.priceInPaise / 100)))
+        : (p as any).baseDailyRate || 199;
 
       return {
         id: p._id.toString(),
@@ -696,6 +943,23 @@ export async function getAdPlacements(req: Request, res: Response, Next: NextFun
         maximumFileSizeBytes: p.maximumFileSizeBytes,
         maximumActiveSlots: p.maximumActiveSlots,
         active: p.active,
+        page: (p as any).page || "Homepage",
+        route: (p as any).route || "/",
+        position: (p as any).position || "Standard Placement",
+        description: (p as any).description || "",
+        device: (p as any).device || "Web & Mobile App",
+        baseCPM: (p as any).baseCPM || 100,
+        baseDailyRate: (p as any).baseDailyRate || 299,
+        startingPrice,
+        pricingPlans: matchingPlans.map((mp) => ({
+          id: mp._id.toString(),
+          name: mp.name,
+          durationDays: mp.durationDays,
+          priceInRupees: Math.round(mp.priceInPaise / 100),
+          originalPriceInRupees: mp.originalPriceInPaise ? Math.round(mp.originalPriceInPaise / 100) : undefined,
+          badge: mp.badge,
+          estimatedReach: mp.estimatedReach
+        })),
         bookedSlotsCount: bookedCampaigns.filter((c: any) => c.status === "ACTIVE").length,
         pendingReviewSlotsCount: bookedCampaigns.filter((c: any) => c.status === "PENDING_REVIEW").length,
         bookedCampaigns: bookedCampaigns.map((c: any) => ({
@@ -728,7 +992,21 @@ export async function getAdPlacements(req: Request, res: Response, Next: NextFun
 
 export async function createAdPlacement(req: Request, res: Response, Next: NextFunction): Promise<void> {
   try {
-    const { placementId, name, campaignTypes, aspectRatio, minimumWidth, minimumHeight, maximumFileSizeBytes, maximumActiveSlots } = req.body;
+    const {
+      placementId,
+      name,
+      campaignTypes,
+      aspectRatio,
+      minimumWidth,
+      minimumHeight,
+      maximumFileSizeBytes,
+      maximumActiveSlots,
+      page,
+      route,
+      position,
+      description,
+      device
+    } = req.body;
 
     if (!placementId || !name) {
       res.status(400).json({ success: false, error: { code: "BAD_REQUEST", message: "placementId and name are required" } });
@@ -744,7 +1022,12 @@ export async function createAdPlacement(req: Request, res: Response, Next: NextF
       minimumHeight: Number(minimumHeight) || 600,
       maximumFileSizeBytes: Number(maximumFileSizeBytes) || 2097152,
       maximumActiveSlots: Number(maximumActiveSlots) || 5,
-      active: true
+      active: true,
+      page: page || "Homepage",
+      route: route || "/",
+      position: position || "Section Placement",
+      description: description || "",
+      device: device || "Web & Mobile App"
     });
 
     res.status(201).json({ success: true, data: newPlacement });
@@ -777,6 +1060,10 @@ export async function updateAdPlacement(req: Request, res: Response, next: NextF
       maximumActiveSlots,
       active,
       description,
+      page,
+      route,
+      position,
+      device,
       cpmInPaise
     } = req.body;
 
@@ -791,6 +1078,10 @@ export async function updateAdPlacement(req: Request, res: Response, next: NextF
     if (maximumActiveSlots !== undefined) updateFields.maximumActiveSlots = Number(maximumActiveSlots);
     if (active !== undefined) updateFields.active = Boolean(active);
     if (description !== undefined) updateFields.description = description;
+    if (page !== undefined) updateFields.page = page;
+    if (route !== undefined) updateFields.route = route;
+    if (position !== undefined) updateFields.position = position;
+    if (device !== undefined) updateFields.device = device;
     if (cpmInPaise !== undefined) updateFields.cpmInPaise = Number(cpmInPaise);
 
     const updated = await AdPlacement.findByIdAndUpdate(id, { $set: updateFields }, { new: true });
@@ -856,7 +1147,7 @@ export async function createAdCampaign(req: AuthenticatedUserRequest, res: Respo
         campaignType: "LISTING_BOOST",
         durationDays: 7,
         priceInPaise: 19900,
-        permittedPlacements: ["SEARCH_TOP", "HOMEPAGE_CAROUSEL"],
+        permittedPlacements: ["SEARCH_TOP", "HOMEPAGE_HERO"],
         active: true
       });
     }
@@ -869,11 +1160,23 @@ export async function createAdCampaign(req: AuthenticatedUserRequest, res: Respo
     const listingPincode = listing.pincode || req.user.profile?.pincode;
     const listingArea = listing.area || req.user.profile?.area;
 
+    const rawPincodes = Array.isArray(targeting?.pincodes) && targeting.pincodes.length > 0
+      ? targeting.pincodes
+      : (listingPincode ? [listingPincode] : []);
+    const sanitizedPincodes = Array.from(new Set(rawPincodes.map((p: any) => String(p).replace(/\D/g, "").trim()).filter((p: string) => p.length >= 5)));
+
+    const rawCategoryIds = Array.isArray(targeting?.categoryIds) && targeting.categoryIds.length > 0
+      ? targeting.categoryIds
+      : (listing.categoryId ? [listing.categoryId] : []);
+    const sanitizedCategoryIds = Array.from(new Set(rawCategoryIds.map((c: any) => String(c).toLowerCase().trim()).filter(Boolean)));
+
     const campaignTargeting = {
-      city: targeting?.city || listingCity,
-      pincodes: targeting?.pincodes || (listingPincode ? [listingPincode] : []),
-      targetAreas: targeting?.targetAreas || (listingArea ? [listingArea] : []),
-      categoryIds: targeting?.categoryIds || (listing.categoryId ? [listing.categoryId] : [])
+      city: (targeting?.city || listingCity || "Hyderabad").trim(),
+      pincodes: sanitizedPincodes,
+      targetAreas: Array.isArray(targeting?.targetAreas) && targeting.targetAreas.length > 0
+        ? targeting.targetAreas
+        : (listingArea ? [listingArea] : []),
+      categoryIds: sanitizedCategoryIds
     };
 
     const campaign = await AdCampaign.create({
@@ -1002,11 +1305,11 @@ export async function getMyAdCampaigns(req: AuthenticatedUserRequest, res: Respo
         campaignType: c.campaignType,
         listing: c.listingId
           ? {
-              id: c.listingId._id.toString(),
-              title: c.listingId.title,
-              priceInPaise: c.listingId.priceInPaise,
-              image: c.listingId.images?.[0]
-            }
+            id: c.listingId._id.toString(),
+            title: c.listingId.title,
+            priceInPaise: c.listingId.priceInPaise,
+            image: c.listingId.images?.[0]
+          }
           : undefined,
         productName: c.adProductId?.name,
         placementIds: c.placementIds,
@@ -1067,25 +1370,25 @@ export async function getAdminAdCampaigns(req: AuthenticatedAdminRequest, res: R
           campaignType: c.campaignType,
           advertiser: c.advertiserUserId
             ? {
-                id: c.advertiserUserId._id.toString(),
-                name: c.advertiserUserId.profile?.name || c.advertiserUserId.email,
-                email: c.advertiserUserId.email,
-                phone: c.advertiserUserId.phone,
-                city: c.advertiserUserId.profile?.city,
-                area: c.advertiserUserId.profile?.area,
-                pincode: c.advertiserUserId.profile?.pincode
-              }
+              id: c.advertiserUserId._id.toString(),
+              name: c.advertiserUserId.profile?.name || c.advertiserUserId.email,
+              email: c.advertiserUserId.email,
+              phone: c.advertiserUserId.phone,
+              city: c.advertiserUserId.profile?.city,
+              area: c.advertiserUserId.profile?.area,
+              pincode: c.advertiserUserId.profile?.pincode
+            }
             : undefined,
           listing: c.listingId
             ? {
-                id: c.listingId._id.toString(),
-                title: c.listingId.title,
-                priceInPaise: c.listingId.priceInPaise,
-                image: c.listingId.images?.[0],
-                city: c.listingId.city,
-                area: c.listingId.area,
-                pincode: c.listingId.pincode
-              }
+              id: c.listingId._id.toString(),
+              title: c.listingId.title,
+              priceInPaise: c.listingId.priceInPaise,
+              image: c.listingId.images?.[0],
+              city: c.listingId.city,
+              area: c.listingId.area,
+              pincode: c.listingId.pincode
+            }
             : undefined,
           productName: c.adProductId?.name,
           durationDays: c.adProductId?.durationDays || 7,
@@ -1241,63 +1544,99 @@ export async function serveAds(req: Request, res: Response, next: NextFunction):
     };
 
     if (placement) {
-      query.placementIds = placement;
+      if (placement === "SEARCH_TOP" || placement === "CATEGORY_FEATURED") {
+        query.placementIds = { $in: ["SEARCH_TOP", "CATEGORY_FEATURED", "CATEGORY_HEADER"] };
+      } else {
+        query.placementIds = placement;
+      }
     }
 
     const activeCampaigns = await AdCampaign.find(query)
       .populate("listingId", "title priceInPaise images city area pincode categoryId condition storeId")
-      .populate("storeId", "name cover logo area city pincode")
+      .populate("storeId", "name cover logo area city pincode primaryCategory")
       .populate("advertiserUserId", "profile.city profile.area profile.pincode")
       .limit(50)
       .lean();
 
-    // Client user location parameters
+    // Client user category and location parameters
+    const userCategory = (categoryId || "").toString().toLowerCase().trim();
     const userCity = (city || "").toString().toLowerCase().trim();
     const userArea = (area || "").toString().toLowerCase().trim();
     const userPin = (pincode || "").toString().trim();
 
     const isBangalore = (s: string) => s.includes("bangalore") || s.includes("bengaluru") || s.includes("benglure") || s.includes("blr") || s.includes("560034") || s.includes("560001");
-    const isHyderabad = (s: string) => s.includes("hyderabad") || s.includes("secunderabad") || s.includes("hyd") || s.includes("cyberabad") || s.includes("500081") || s.includes("500032");
+    const isHyderabad = (s: string) => s.includes("hyderabad") || s.includes("secunderabad") || s.includes("hyd") || s.includes("cyberabad") || s.includes("500081") || s.includes("500032") || s.includes("500039") || s.includes("500072") || s.includes("500034");
     const isMumbai = (s: string) => s.includes("mumbai") || s.includes("bombay") || s.includes("thane") || s.includes("400050") || s.includes("400001");
 
-    // Filter strictly by location
-    const matchedCampaigns = activeCampaigns.filter((c: any) => {
-      // If client requested no location, serve all active campaigns
-      if (!userCity && !userArea && !userPin) return true;
+    // 1. Strict Category Match: If userCategory is provided, ad MUST strictly belong to this category
+    const categoryMatchedCampaigns = activeCampaigns.filter((c: any) => {
+      if (userCategory) {
+        const campaignCatIds = (c.targeting?.categoryIds || []).map((cat: any) => String(cat).toLowerCase().trim());
+        const listingCat = (c.listingId?.categoryId || "").toString().toLowerCase().trim();
+        const storeCat = (c.storeId?.primaryCategory || "").toString().toLowerCase().trim();
 
-      const adCity = (c.targeting?.city || c.listingId?.city || c.storeId?.city || c.advertiserUserId?.profile?.city || "").toLowerCase().trim();
-      const adPin = (c.targeting?.pincodes?.length ? c.targeting.pincodes : (c.listingId?.pincode ? [c.listingId.pincode] : [])).map(String);
-      const adAreas = (c.targeting?.targetAreas?.length ? c.targeting.targetAreas : (c.listingId?.area ? [c.listingId.area] : [])).map((a: any) => String(a).toLowerCase());
+        const matchesTargeting = campaignCatIds.length > 0 && campaignCatIds.some((cat: string) => cat === userCategory || userCategory.includes(cat) || cat.includes(userCategory));
+        const matchesListing = Boolean(listingCat && (listingCat === userCategory || userCategory.includes(listingCat) || listingCat.includes(userCategory)));
+        const matchesStore = Boolean(storeCat && (storeCat === userCategory || userCategory.includes(storeCat) || storeCat.includes(userCategory)));
 
-      // If ad has zero location targeting and no listing city (pure national ad)
-      if (!adCity && adPin.length === 0 && adAreas.length === 0) {
-        return true;
-      }
-
-      // Check pincode match
-      if (userPin && adPin.length > 0 && adPin.includes(userPin)) {
-        return true;
-      }
-
-      // Check city match
-      if (userCity && adCity) {
-        if (isBangalore(userCity) && isBangalore(adCity)) return true;
-        if (isHyderabad(userCity) && isHyderabad(adCity)) return true;
-        if (isMumbai(userCity) && isMumbai(adCity)) return true;
-
-        if (adCity.includes(userCity) || userCity.includes(adCity)) {
-          return true;
+        // If category is provided, ad MUST match either targeting, listing, or store category
+        if (!matchesTargeting && !matchesListing && !matchesStore) {
+          return false;
         }
       }
-
-      // Check area match
-      if (userArea) {
-        if (adAreas.some((a: string) => a.includes(userArea) || userArea.includes(a))) return true;
-        if (adCity && (adCity.includes(userArea) || userArea.includes(adCity))) return true;
-      }
-
-      return false;
+      return true;
     });
+
+    // 2. Score campaigns by hyperlocal relevance
+    const scoredCampaigns = categoryMatchedCampaigns.map((c: any) => {
+      let score = 1; // Base category match score
+
+      const allAdCities = [
+        c.targeting?.city,
+        c.listingId?.city,
+        c.storeId?.city,
+        c.advertiserUserId?.profile?.city
+      ].filter(Boolean).map((s: string) => s.toLowerCase().trim());
+
+      const adPin = (c.targeting?.pincodes?.length ? c.targeting.pincodes : (c.listingId?.pincode ? [c.listingId.pincode] : [])).map(String).map(s => s.trim());
+      const adAreas = (c.targeting?.targetAreas?.length ? c.targeting.targetAreas : (c.listingId?.area ? [c.listingId.area] : [])).map((a: any) => String(a).toLowerCase().trim());
+
+      const hasExactPinMatch = Boolean(userPin && adPin.length > 0 && adPin.includes(userPin));
+      const hasAreaMatch = Boolean(userArea && adAreas.length > 0 && adAreas.some((a: string) => a.includes(userArea) || userArea.includes(a)));
+      const isSameCity = Boolean(userCity && allAdCities.some((adC: string) => {
+        if (isBangalore(userCity) && isBangalore(adC)) return true;
+        if (isHyderabad(userCity) && isHyderabad(adC)) return true;
+        if (isMumbai(userCity) && isMumbai(adC)) return true;
+        return adC.includes(userCity) || userCity.includes(adC);
+      }));
+      const isSameMetro = Boolean(
+        (userPin && adPin.some((p: string) => p.slice(0, 3) === userPin.slice(0, 3))) ||
+        (userPin && isHyderabad(userPin) && adPin.some(isHyderabad)) ||
+        (userCity && isHyderabad(userCity) && allAdCities.some(isHyderabad))
+      );
+
+      if (hasExactPinMatch) score += 100;
+      if (hasAreaMatch) score += 50;
+      if (isSameCity) score += 30;
+      if (isSameMetro) score += 20;
+
+      return { c, score, hasExactPinMatch, hasAreaMatch, isSameCity, isSameMetro };
+    });
+
+    // 3. Selection & Fallback
+    let matchedCampaigns: any[] = [];
+    if (!userCity && !userArea && !userPin) {
+      matchedCampaigns = categoryMatchedCampaigns;
+    } else {
+      const geoMatched = scoredCampaigns.filter(item => item.score > 1);
+      if (geoMatched.length > 0) {
+        geoMatched.sort((a, b) => b.score - a.score);
+        matchedCampaigns = geoMatched.map(item => item.c);
+      } else {
+        // Fallback: If no exact geo match, still serve the active category ad on its category page!
+        matchedCampaigns = scoredCampaigns.map(item => item.c);
+      }
+    }
 
     const servedAds = matchedCampaigns.map((c: any) => {
       const isStoreAd = Boolean(
@@ -1307,23 +1646,23 @@ export async function serveAds(req: Request, res: Response, next: NextFunction):
         c.storeId
       );
 
-      const storeIdFromListing = c.listingId?.storeId?._id 
-        ? c.listingId.storeId._id.toString() 
-        : c.listingId?.storeId 
-        ? String(c.listingId.storeId) 
-        : undefined;
+      const storeIdFromListing = c.listingId?.storeId?._id
+        ? c.listingId.storeId._id.toString()
+        : c.listingId?.storeId
+          ? String(c.listingId.storeId)
+          : undefined;
 
-      const targetStoreId = c.storeId?._id 
-        ? c.storeId._id.toString() 
-        : c.storeId 
-        ? String(c.storeId) 
-        : storeIdFromListing;
+      const targetStoreId = c.storeId?._id
+        ? c.storeId._id.toString()
+        : c.storeId
+          ? String(c.storeId)
+          : storeIdFromListing;
 
-      const targetListingId = c.listingId?._id 
-        ? c.listingId._id.toString() 
-        : c.listingId 
-        ? String(c.listingId) 
-        : undefined;
+      const targetListingId = c.listingId?._id
+        ? c.listingId._id.toString()
+        : c.listingId
+          ? String(c.listingId)
+          : undefined;
 
       let destinationUrl = "/";
       if (isStoreAd) {
@@ -1355,6 +1694,7 @@ export async function serveAds(req: Request, res: Response, next: NextFunction):
           priceInPaise: c.listingId?.priceInPaise,
           destinationUrl
         },
+        targeting: c.targeting,
         label: "Sponsored"
       };
     });
@@ -1464,7 +1804,7 @@ export async function getCampaignAnalytics(req: AuthenticatedUserRequest, res: R
 export async function getAdminRevenueAnalytics(req: AuthenticatedAdminRequest, res: Response, next: NextFunction): Promise<void> {
   try {
     const campaigns = await AdCampaign.find({ status: { $in: ["APPROVED", "ACTIVE", "COMPLETED"] } });
-    
+
     let totalRevenueInPaise = 0;
     let totalImpressions = 0;
     let totalClicks = 0;

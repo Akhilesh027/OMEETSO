@@ -4,6 +4,7 @@ import {
   getAdPlacementsApi,
   createAdCampaignApi,
   submitAdCampaignApi,
+  getMyWalletApi,
   type AdProductItem,
   type AdPlacementItem
 } from "@/api/adCampaigns.api";
@@ -17,6 +18,7 @@ import {
   Loader2,
   Upload,
   AlertCircle,
+  AlertTriangle,
   X,
   Sparkles,
   Eye,
@@ -26,11 +28,17 @@ import {
   Check,
   ChevronRight,
   ArrowLeft,
+  ArrowRight,
   Star,
-  Info
+  Info,
+  Wallet,
+  RefreshCw,
+  MapPin,
+  Plus
 } from "lucide-react";
 import { toast } from "sonner";
 import { formatINR } from "@/lib/mock";
+import { fetchLiveListingById } from "@/lib/listings";
 
 interface BoostAdWizardProps {
   listingId: string;
@@ -38,6 +46,9 @@ interface BoostAdWizardProps {
   listingImage?: string;
   listingPrice?: number;
   listingArea?: string;
+  listingCity?: string;
+  listingPincode?: string;
+  listingCategory?: string;
   onClose: () => void;
   onSuccess?: () => void;
 }
@@ -48,6 +59,9 @@ export function BoostAdWizard({
   listingImage,
   listingPrice,
   listingArea,
+  listingCity,
+  listingPincode,
+  listingCategory,
   onClose,
   onSuccess
 }: BoostAdWizardProps) {
@@ -58,14 +72,89 @@ export function BoostAdWizard({
   const [loadingConfig, setLoadingConfig] = useState(true);
   const [selectedProduct, setSelectedProduct] = useState<AdProductItem | null>(null);
 
+  // Hyperlocal Location & Category Targeting State
+  const [targetCity, setTargetCity] = useState<string>(listingCity || "Hyderabad");
+  const [targetArea, setTargetArea] = useState<string>(listingArea || "");
+  const [targetCategory, setTargetCategory] = useState<string>(listingCategory || "");
+  const [targetPincodes, setTargetPincodes] = useState<string[]>(() => {
+    return listingPincode ? [listingPincode] : ["500072"];
+  });
+  const [pincodeInput, setPincodeInput] = useState<string>("");
+  const [pincodeError, setPincodeError] = useState<string | null>(null);
+
   // Creative Image State
   const [bannerUrl, setBannerUrl] = useState<string>(listingImage || "");
   const [uploadingImage, setUploadingImage] = useState(false);
 
-  // Submission State
+  // Wallet & Submission State
+  const [walletBalance, setWalletBalance] = useState<number | null>(null);
+  const [loadingWallet, setLoadingWallet] = useState(false);
+  const [submissionError, setSubmissionError] = useState<string | null>(null);
   const [createdCampaignId, setCreatedCampaignId] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [reviewDeadline, setReviewDeadline] = useState<string | null>(null);
+
+  const fetchWalletBalance = async () => {
+    try {
+      setLoadingWallet(true);
+      const wRes = await getMyWalletApi();
+      if (wRes.success && wRes.data) {
+        const avail = typeof wRes.data.availableBalanceInPaise === "number"
+          ? wRes.data.availableBalanceInPaise
+          : (wRes.data.balanceInPaise ?? 0);
+        setWalletBalance(avail);
+      }
+    } catch {
+      // silent
+    } finally {
+      setLoadingWallet(false);
+    }
+  };
+
+  useEffect(() => {
+    let active = true;
+    if (listingId) {
+      fetchLiveListingById(listingId).then((l) => {
+        if (!active || !l) return;
+        if (l.city) setTargetCity(l.city);
+        if (l.area) setTargetArea(l.area);
+        if (l.category) setTargetCategory(l.category);
+        if (l.pincode) {
+          setTargetPincodes((prev) => Array.from(new Set([...prev, l.pincode])));
+        }
+        if (!bannerUrl && (l.image || l.images?.[0])) {
+          setBannerUrl(l.image || l.images?.[0]);
+        }
+      }).catch(() => {});
+    }
+    return () => { active = false; };
+  }, [listingId]);
+
+  const handleAddPincode = (codeToAdd?: string) => {
+    const raw = (codeToAdd || pincodeInput).replace(/\D/g, "").trim();
+    if (!raw) return;
+    if (raw.length !== 6) {
+      setPincodeError("Please enter a valid 6-digit Indian pincode.");
+      return;
+    }
+    if (targetPincodes.includes(raw)) {
+      setPincodeError("This pincode is already in your targeted list.");
+      return;
+    }
+    setTargetPincodes([...targetPincodes, raw]);
+    setPincodeInput("");
+    setPincodeError(null);
+    toast.success(`Added pincode ${raw} to ad targeting radius`);
+  };
+
+  const handleRemovePincode = (pin: string) => {
+    if (targetPincodes.length <= 1) {
+      toast.error("At least one target pincode is required for hyperlocal reach.");
+      return;
+    }
+    setTargetPincodes(targetPincodes.filter((p) => p !== pin));
+    toast.info(`Removed pincode ${pin}`);
+  };
 
   useEffect(() => {
     async function loadConfig() {
@@ -81,7 +170,15 @@ export function BoostAdWizard({
       }
     }
     loadConfig();
+    fetchWalletBalance();
   }, []);
+
+  useEffect(() => {
+    if (step === "REVIEW_PAY") {
+      fetchWalletBalance();
+      setSubmissionError(null);
+    }
+  }, [step]);
 
   const filteredProducts = products.filter((p) => p.campaignType === campaignType);
 
@@ -113,8 +210,27 @@ export function BoostAdWizard({
 
   const handleProceedToPayment = async () => {
     if (!selectedProduct) return;
-    setSubmitting(true);
+    setSubmissionError(null);
 
+    const requiredInPaise = Math.round(selectedProduct.priceInPaise * 1.18);
+    const availableInPaise = walletBalance ?? 0;
+
+    // Proactively check if wallet balance is insufficient
+    if (walletBalance !== null && availableInPaise < requiredInPaise) {
+      const shortfallInRupees = Math.ceil((requiredInPaise - availableInPaise) / 100);
+      const msg = `Insufficient balance in wallet. Required: ₹${(requiredInPaise / 100).toLocaleString("en-IN")}, Available: ₹${(availableInPaise / 100).toLocaleString("en-IN")}. Short by ₹${shortfallInRupees.toLocaleString("en-IN")}.`;
+      setSubmissionError(msg);
+      toast.error("Insufficient Wallet Balance", {
+        description: `Please add ₹${shortfallInRupees.toLocaleString("en-IN")} or more to your wallet to activate this boost.`,
+        action: {
+          label: "Recharge Wallet",
+          onClick: () => { window.location.href = "/add/wallet"; }
+        }
+      });
+      return;
+    }
+
+    setSubmitting(true);
     const finalImage = bannerUrl || listingImage;
 
     // 1. Create Draft Campaign
@@ -122,12 +238,20 @@ export function BoostAdWizard({
       listingId,
       adProductId: selectedProduct.id,
       placementIds: selectedProduct.permittedPlacements,
-      bannerUrl: finalImage
+      bannerUrl: finalImage,
+      targeting: {
+        city: targetCity,
+        targetAreas: targetArea ? [targetArea] : [],
+        pincodes: targetPincodes,
+        categoryIds: targetCategory ? [targetCategory] : []
+      }
     });
 
     if (!cRes.success || !cRes.data) {
       setSubmitting(false);
-      toast.error(cRes.error || "Failed to create ad campaign");
+      const errMsg = cRes.error || "Failed to create ad campaign";
+      setSubmissionError(errMsg);
+      toast.error(errMsg);
       return;
     }
 
@@ -143,7 +267,18 @@ export function BoostAdWizard({
       setStep("CONFIRMATION");
       if (onSuccess) onSuccess();
     } else {
-      toast.error(sRes.error || "Wallet hold settlement failed. Please recharge wallet.");
+      const isInsufficient = sRes.code === "INSUFFICIENT_FUNDS" || sRes.error?.toLowerCase().includes("insufficient");
+      const errMsg = isInsufficient
+        ? (sRes.error || "Insufficient balance in wallet. Please recharge wallet.")
+        : (sRes.error || "Wallet hold settlement failed. Please recharge wallet.");
+      setSubmissionError(errMsg);
+      toast.error(isInsufficient ? "Insufficient Wallet Balance" : "Activation Failed", {
+        description: errMsg,
+        action: isInsufficient ? {
+          label: "Recharge Wallet",
+          onClick: () => { window.location.href = "/add/wallet"; }
+        } : undefined
+      });
     }
   };
 
@@ -275,10 +410,10 @@ export function BoostAdWizard({
                 </div>
                 <div>
                   <h5 className="text-sm font-black text-foreground group-hover:text-amber-600 transition-colors">
-                    Homepage Hero Banner
+                    Home Page Banner
                   </h5>
                   <p className="text-xs text-muted-foreground mt-1 leading-relaxed">
-                    Showcase a high-impact banner on the <strong>Main Homepage Carousel</strong> or category header to build authority and drive massive traffic.
+                    Showcase a high-impact banner on the <strong>Main Homepage</strong> or category header to build authority and drive massive traffic.
                   </p>
                 </div>
                 <div className="pt-2 border-t border-border flex items-center justify-between text-xs font-bold text-amber-600">
@@ -476,6 +611,139 @@ export function BoostAdWizard({
               </div>
             </div>
 
+            {/* Hyperlocal Targeting & Delivery Pincodes Editor */}
+            <div className="p-4 rounded-2xl bg-gradient-to-br from-indigo-500/5 via-card to-amber-500/5 border border-border space-y-3.5 shadow-xs">
+              <div className="flex items-center justify-between gap-2">
+                <div className="flex items-center gap-2">
+                  <div className="p-1.5 rounded-lg bg-primary/10 text-primary">
+                    <MapPin className="h-4 w-4" />
+                  </div>
+                  <div>
+                    <h5 className="text-xs font-black text-foreground">Target Location & Delivery Pincodes</h5>
+                    <p className="text-[11px] text-muted-foreground">
+                      Your boosted ad will appear exclusively to buyers in these targeted pincodes.
+                    </p>
+                  </div>
+                </div>
+                {targetCategory && (
+                  <span className="text-[10px] font-extrabold px-2.5 py-1 rounded-full bg-indigo-500/10 text-indigo-600 border border-indigo-500/20 capitalize shrink-0">
+                    🎯 {targetCategory} Page Only
+                  </span>
+                )}
+              </div>
+
+              {/* City & Base Area */}
+              <div className="flex items-center gap-2 flex-wrap text-xs pt-1">
+                <span className="font-semibold text-muted-foreground">Serving Area:</span>
+                <span className="font-bold text-foreground bg-secondary px-2.5 py-1 rounded-lg border border-border flex items-center gap-1.5">
+                  <MapPin className="h-3.5 w-3.5 text-primary" />
+                  <span>{targetCity}</span>
+                  {targetArea && <span className="text-muted-foreground font-medium">({targetArea})</span>}
+                </span>
+                {targetCategory && (
+                  <span className="text-muted-foreground font-medium text-[11px]">
+                    · Ad restricted to <strong>{targetCategory}</strong> category
+                  </span>
+                )}
+              </div>
+
+              {/* Active Targeted Pincodes Chips */}
+              <div className="space-y-1.5">
+                <div className="flex items-center justify-between text-xs">
+                  <span className="font-bold text-foreground flex items-center gap-1.5">
+                    <span>Targeted Pincodes</span>
+                    <span className="text-[10px] font-extrabold px-2 py-0.5 rounded-full bg-primary/10 text-primary">
+                      {targetPincodes.length} Selected
+                    </span>
+                  </span>
+                  <span className="text-[10px] text-muted-foreground font-medium">Click ✕ to remove</span>
+                </div>
+
+                <div className="flex flex-wrap gap-1.5 min-h-[36px] p-2 rounded-xl bg-card border border-border/80">
+                  {targetPincodes.map((pin) => (
+                    <span
+                      key={pin}
+                      className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-primary/10 text-primary border border-primary/20 text-xs font-black group transition-all"
+                    >
+                      <span className="font-mono">{pin}</span>
+                      <button
+                        type="button"
+                        onClick={() => handleRemovePincode(pin)}
+                        className="hover:bg-primary/20 rounded-full p-0.5 transition-colors text-primary/70 hover:text-primary"
+                        title={`Remove pincode ${pin}`}
+                      >
+                        <X className="h-3 w-3" />
+                      </button>
+                    </span>
+                  ))}
+                  {targetPincodes.length === 0 && (
+                    <span className="text-xs text-muted-foreground italic py-0.5">No pincodes added yet. Add at least one pincode below.</span>
+                  )}
+                </div>
+              </div>
+
+              {/* Add Pincode Input & Quick Add Suggestions */}
+              <div className="space-y-2">
+                <div className="flex gap-2">
+                  <input
+                    type="text"
+                    maxLength={6}
+                    placeholder="Enter 6-digit pincode (e.g. 500081)"
+                    value={pincodeInput}
+                    onChange={(e) => {
+                      setPincodeInput(e.target.value.replace(/\D/g, "").slice(0, 6));
+                      setPincodeError(null);
+                    }}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") {
+                        e.preventDefault();
+                        handleAddPincode();
+                      }
+                    }}
+                    className="flex-1 bg-card border border-border rounded-xl px-3 py-1.5 text-xs text-foreground placeholder:text-muted-foreground outline-none focus:border-primary focus:ring-1 focus:ring-primary font-mono"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => handleAddPincode()}
+                    className="px-3.5 py-1.5 bg-primary hover:bg-primary/90 text-white font-bold text-xs rounded-xl shadow-xs flex items-center gap-1 transition-colors"
+                  >
+                    <Plus className="h-3.5 w-3.5" /> Add Pincode
+                  </button>
+                </div>
+                {pincodeError && (
+                  <p className="text-[11px] text-rose-600 font-semibold flex items-center gap-1">
+                    <AlertCircle className="h-3 w-3" /> {pincodeError}
+                  </p>
+                )}
+
+                {/* Quick Pincode Suggestions for common localities */}
+                <div className="flex items-center gap-1.5 flex-wrap pt-0.5">
+                  <span className="text-[10px] text-muted-foreground font-semibold">Quick Add Nearby:</span>
+                  {["500081", "500032", "500072", "500034", "500038", "500039"]
+                    .filter((pin) => !targetPincodes.includes(pin))
+                    .slice(0, 4)
+                    .map((pin) => (
+                      <button
+                        key={pin}
+                        type="button"
+                        onClick={() => handleAddPincode(pin)}
+                        className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-secondary hover:bg-primary/10 hover:text-primary border border-border text-muted-foreground transition-all"
+                      >
+                        + {pin}
+                      </button>
+                    ))}
+                </div>
+              </div>
+
+              {/* Hyperlocal Category & Pincode Notice */}
+              <div className="p-2.5 rounded-xl bg-indigo-500/10 border border-indigo-500/20 text-indigo-950 dark:text-indigo-200 text-[11px] flex items-start gap-2">
+                <Sparkles className="h-3.5 w-3.5 text-indigo-600 shrink-0 mt-0.5" />
+                <p className="leading-relaxed">
+                  <strong>Hyperlocal Category Guarantee:</strong> Your ad will strictly be shown on the <strong>{targetCategory || "listing"}</strong> category page and to buyers searching in your <strong>{targetPincodes.length} targeted pincode(s)</strong>.
+                </p>
+              </div>
+            </div>
+
             {/* For Banner Ads: Allow custom image upload */}
             {campaignType === "BANNER_AD" && (
               <div className="space-y-2 pt-1">
@@ -524,76 +792,188 @@ export function BoostAdWizard({
         {/* ========================================================================= */}
         {/* STEP 4: REVIEW & WALLET HOLD SETTLEMENT */}
         {/* ========================================================================= */}
-        {step === "REVIEW_PAY" && selectedProduct && (
-          <div className="space-y-4">
-            <div className="space-y-1">
-              <h4 className="text-sm font-extrabold text-foreground">Review & Confirm Activation</h4>
-              <p className="text-xs text-muted-foreground">
-                Review your order details before activating the campaign.
-              </p>
-            </div>
+        {step === "REVIEW_PAY" && selectedProduct && (() => {
+          const requiredInPaise = Math.round(selectedProduct.priceInPaise * 1.18);
+          const availableInPaise = walletBalance ?? 0;
+          const isInsufficient = walletBalance !== null && availableInPaise < requiredInPaise;
+          const shortfallInPaise = Math.max(0, requiredInPaise - availableInPaise);
 
-            {/* Order Summary Box */}
-            <div className="p-4 rounded-2xl bg-muted/40 border border-border space-y-2.5 text-xs">
-              <div className="flex justify-between items-center">
-                <span className="text-muted-foreground font-medium">Listing Item:</span>
-                <span className="font-bold text-foreground truncate max-w-[200px]">{listingTitle}</span>
-              </div>
-              <div className="flex justify-between items-center">
-                <span className="text-muted-foreground font-medium">Selected Plan:</span>
-                <span className="font-extrabold text-primary">{selectedProduct.name}</span>
-              </div>
-              <div className="flex justify-between items-center">
-                <span className="text-muted-foreground font-medium">Active Duration:</span>
-                <span className="font-bold text-foreground">{selectedProduct.durationDays} Days</span>
-              </div>
-              <div className="flex justify-between items-center">
-                <span className="text-muted-foreground font-medium">Estimated Buyer Reach:</span>
-                <span className="font-bold text-emerald-600">{selectedProduct.estimatedReach || "5,000+ Buyers"}</span>
-              </div>
-              <div className="border-t border-border/80 pt-2.5 flex justify-between items-baseline">
-                <div>
-                  <span className="text-sm font-black text-foreground">Total Hold Amount:</span>
-                  <div className="text-[10px] text-muted-foreground">Includes 18% GST</div>
-                </div>
-                <span className="text-xl font-black text-primary">
-                  ₹{(Math.round(selectedProduct.priceInPaise * 1.18) / 100).toLocaleString("en-IN")}
-                </span>
-              </div>
-            </div>
-
-            {/* Wallet Hold Explanation */}
-            <div className="p-3.5 rounded-2xl bg-amber-500/10 border border-amber-500/30 text-amber-900 dark:text-amber-300 text-xs flex items-start gap-2.5">
-              <ShieldCheck className="h-5 w-5 shrink-0 text-amber-600 mt-0.5" />
-              <div className="space-y-0.5">
-                <p className="font-bold">Instant Activation & Wallet Guarantee</p>
-                <p className="text-[11px] leading-relaxed text-amber-800 dark:text-amber-400">
-                  The amount will be held in your Omeetso Wallet. Once approved by moderation within 24 hours, your boost goes live immediately. If rejected, 100% of your money is refunded instantly.
+          return (
+            <div className="space-y-4">
+              <div className="space-y-1">
+                <h4 className="text-sm font-extrabold text-foreground">Review & Confirm Activation</h4>
+                <p className="text-xs text-muted-foreground">
+                  Review your order details and wallet balance before activating the campaign.
                 </p>
               </div>
-            </div>
 
-            {/* Action Buttons */}
-            <div className="flex items-center justify-between pt-2">
-              <button
-                type="button"
-                onClick={() => setStep("PREVIEW_CREATIVE")}
-                className="px-4 py-2 text-xs font-bold text-muted-foreground hover:text-foreground"
-              >
-                Back
-              </button>
-              <button
-                type="button"
-                disabled={submitting}
-                onClick={handleProceedToPayment}
-                className="px-6 py-3 text-xs font-black bg-primary hover:bg-primary/90 text-white rounded-xl shadow-lg hover:shadow-xl transition-all flex items-center gap-2 disabled:opacity-50"
-              >
-                {submitting && <Loader2 className="h-4 w-4 animate-spin" />}
-                Confirm & Activate Boost
-              </button>
+              {/* Order Summary Box */}
+              <div className="p-4 rounded-2xl bg-muted/40 border border-border space-y-2.5 text-xs">
+                <div className="flex justify-between items-center">
+                  <span className="text-muted-foreground font-medium">Listing Item:</span>
+                  <span className="font-bold text-foreground truncate max-w-[200px]">{listingTitle}</span>
+                </div>
+                {targetCategory && (
+                  <div className="flex justify-between items-center">
+                    <span className="text-muted-foreground font-medium">Target Category:</span>
+                    <span className="font-extrabold text-foreground capitalize">
+                      {targetCategory} Page Only (Locked)
+                    </span>
+                  </div>
+                )}
+                <div className="flex justify-between items-center">
+                  <span className="text-muted-foreground font-medium">Target Location:</span>
+                  <span className="font-bold text-foreground">
+                    {targetCity} {targetArea ? `· ${targetArea}` : ""}
+                  </span>
+                </div>
+                <div className="flex justify-between items-start">
+                  <span className="text-muted-foreground font-medium">Target Pincodes:</span>
+                  <span className="font-mono text-[11px] font-bold text-primary text-right max-w-[220px]">
+                    {targetPincodes.join(", ")} ({targetPincodes.length} pincodes)
+                  </span>
+                </div>
+                <div className="flex justify-between items-center">
+                  <span className="text-muted-foreground font-medium">Selected Plan:</span>
+                  <span className="font-extrabold text-primary">{selectedProduct.name}</span>
+                </div>
+                <div className="flex justify-between items-center">
+                  <span className="text-muted-foreground font-medium">Active Duration:</span>
+                  <span className="font-bold text-foreground">{selectedProduct.durationDays} Days</span>
+                </div>
+                <div className="flex justify-between items-center">
+                  <span className="text-muted-foreground font-medium">Estimated Buyer Reach:</span>
+                  <span className="font-bold text-emerald-600">{selectedProduct.estimatedReach || "5,000+ Buyers"}</span>
+                </div>
+                <div className="border-t border-border/80 pt-2.5 flex justify-between items-baseline">
+                  <div>
+                    <span className="text-sm font-black text-foreground">Total Hold Amount:</span>
+                    <div className="text-[10px] text-muted-foreground">Includes 18% GST</div>
+                  </div>
+                  <span className="text-xl font-black text-primary">
+                    ₹{(requiredInPaise / 100).toLocaleString("en-IN")}
+                  </span>
+                </div>
+              </div>
+
+              {/* Wallet Balance Status Card */}
+              <div className={`p-3.5 rounded-2xl border transition-all ${
+                isInsufficient 
+                  ? "bg-rose-500/10 border-rose-500/30 text-rose-950 dark:text-rose-200" 
+                  : "bg-emerald-500/10 border-emerald-500/30 text-emerald-950 dark:text-emerald-200"
+              }`}>
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2.5">
+                    <div className={`p-2 rounded-xl ${isInsufficient ? "bg-rose-500/20 text-rose-600" : "bg-emerald-500/20 text-emerald-600"}`}>
+                      <Wallet className="h-4 w-4" />
+                    </div>
+                    <div>
+                      <div className="text-[11px] font-semibold text-muted-foreground flex items-center gap-1.5">
+                        <span>Omeetso Wallet Balance</span>
+                        <button
+                          type="button"
+                          onClick={fetchWalletBalance}
+                          disabled={loadingWallet}
+                          className="text-primary hover:opacity-80 p-0.5 rounded transition-all"
+                          title="Refresh balance"
+                        >
+                          <RefreshCw className={`h-3 w-3 ${loadingWallet ? "animate-spin" : ""}`} />
+                        </button>
+                      </div>
+                      <div className="text-base font-black text-foreground flex items-baseline gap-1.5">
+                        <span>₹{(availableInPaise / 100).toLocaleString("en-IN")}</span>
+                        <span className="text-[10px] font-semibold text-muted-foreground">available</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div>
+                    {isInsufficient ? (
+                      <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-extrabold bg-rose-500/15 text-rose-600 border border-rose-500/30">
+                        <AlertCircle className="h-3 w-3" /> Insufficient Funds
+                      </span>
+                    ) : (
+                      <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-extrabold bg-emerald-500/15 text-emerald-600 border border-emerald-500/30">
+                        <CheckCircle2 className="h-3 w-3" /> Sufficient Funds
+                      </span>
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              {/* Insufficient Funds Warning & Quick Recharge Banner */}
+              {(isInsufficient || submissionError) && (
+                <div className="p-4 rounded-2xl bg-rose-500/10 border border-rose-500/30 space-y-3 animate-in fade-in-50">
+                  <div className="flex items-start gap-2.5">
+                    <AlertTriangle className="h-5 w-5 shrink-0 text-rose-600 mt-0.5" />
+                    <div className="space-y-1 flex-1">
+                      <h5 className="font-extrabold text-sm text-rose-600 dark:text-rose-400">
+                        Insufficient Balance in Wallet
+                      </h5>
+                      <p className="text-xs text-rose-900 dark:text-rose-200 leading-relaxed">
+                        {submissionError || `You need ₹${(shortfallInPaise / 100).toLocaleString("en-IN")} more in your wallet to activate this campaign. Please recharge your wallet with Razorpay to continue.`}
+                      </p>
+                    </div>
+                  </div>
+
+                  <a
+                    href="/add/wallet"
+                    className="w-full py-2.5 px-4 rounded-xl bg-gradient-to-r from-rose-600 to-amber-600 hover:from-rose-700 hover:to-amber-700 text-white font-extrabold text-xs shadow-md transition-all flex items-center justify-center gap-2"
+                  >
+                    <Wallet className="h-4 w-4" />
+                    Recharge Wallet (Add ₹{Math.max(100, Math.ceil(shortfallInPaise / 100)).toLocaleString("en-IN")})
+                    <ArrowRight className="h-3.5 w-3.5" />
+                  </a>
+                </div>
+              )}
+
+              {/* Wallet Hold Explanation */}
+              {!isInsufficient && !submissionError && (
+                <div className="p-3.5 rounded-2xl bg-amber-500/10 border border-amber-500/30 text-amber-900 dark:text-amber-300 text-xs flex items-start gap-2.5">
+                  <ShieldCheck className="h-5 w-5 shrink-0 text-amber-600 mt-0.5" />
+                  <div className="space-y-0.5">
+                    <p className="font-bold">Instant Activation & Wallet Guarantee</p>
+                    <p className="text-[11px] leading-relaxed text-amber-800 dark:text-amber-400">
+                      The amount will be held in your Omeetso Wallet. Once approved by moderation within 24 hours, your boost goes live immediately. If rejected, 100% of your money is refunded instantly.
+                    </p>
+                  </div>
+                </div>
+              )}
+
+              {/* Action Buttons */}
+              <div className="flex items-center justify-between pt-2 gap-3">
+                <button
+                  type="button"
+                  onClick={() => setStep("PREVIEW_CREATIVE")}
+                  className="px-4 py-2 text-xs font-bold text-muted-foreground hover:text-foreground"
+                >
+                  Back
+                </button>
+
+                {isInsufficient ? (
+                  <a
+                    href="/add/wallet"
+                    className="px-6 py-3 text-xs font-black bg-gradient-to-r from-rose-600 to-amber-600 hover:from-rose-700 hover:to-amber-700 text-white rounded-xl shadow-lg hover:shadow-xl transition-all flex items-center gap-2"
+                  >
+                    <Wallet className="h-4 w-4" />
+                    Recharge Wallet
+                    <ArrowRight className="h-4 w-4" />
+                  </a>
+                ) : (
+                  <button
+                    type="button"
+                    disabled={submitting}
+                    onClick={handleProceedToPayment}
+                    className="px-6 py-3 text-xs font-black bg-primary hover:bg-primary/90 text-white rounded-xl shadow-lg hover:shadow-xl transition-all flex items-center gap-2 disabled:opacity-50"
+                  >
+                    {submitting && <Loader2 className="h-4 w-4 animate-spin" />}
+                    Confirm & Activate Boost
+                  </button>
+                )}
+              </div>
             </div>
-          </div>
-        )}
+          );
+        })()}
 
         {/* ========================================================================= */}
         {/* STEP 5: CONFIRMATION SUCCESS */}

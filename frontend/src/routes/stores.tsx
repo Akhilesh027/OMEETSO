@@ -7,6 +7,7 @@ import { InfinityLoader } from "@/components/omeetso/InfinityLoader";
 import { LocationModal } from "@/components/omeetso/LocationModal";
 import { getPublicStoresApi } from "@/api/stores.api";
 import { serveAdsApi } from "@/api/adCampaigns.api";
+import { UNIFIED_DEFAULT_BANNER } from "@/components/omeetso/AdBanner";
 import {
   Loader2, RefreshCw, Megaphone, Search, MapPin, Store as StoreIcon,
   ShieldCheck, Sparkles, Plus, ChevronRight, SlidersHorizontal, ArrowRight
@@ -44,7 +45,7 @@ function Stores() {
         if (parsed.area) setLocArea(parsed.area);
         if (parsed.pincode) setLocPincode(parsed.pincode);
       }
-    } catch {}
+    } catch { }
 
     serveAdsApi("STORE_BANNER").then((res) => {
       if (res.success && res.data && res.data.length > 0) {
@@ -248,11 +249,10 @@ function Stores() {
                         key={c.id}
                         type="button"
                         onClick={() => setSelectedCategory(c.id)}
-                        className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-2xl text-xs font-bold transition-all text-left ${
-                          active
+                        className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-2xl text-xs font-bold transition-all text-left ${active
                             ? "bg-primary text-primary-foreground font-black shadow-xs"
                             : "text-muted-foreground hover:bg-surface-2 hover:text-foreground"
-                        }`}
+                          }`}
                       >
                         <span>{c.label}</span>
                         <span className={`px-2 py-0.5 rounded-full text-[10px] font-black ${active ? "bg-white/20 text-white" : "bg-muted text-muted-foreground"}`}>
@@ -293,11 +293,10 @@ function Stores() {
                     key={c.id}
                     type="button"
                     onClick={() => setSelectedCategory(c.id)}
-                    className={`rounded-2xl px-4 py-2 text-xs font-extrabold whitespace-nowrap transition-all border ${
-                      selectedCategory === c.id
+                    className={`rounded-2xl px-4 py-2 text-xs font-extrabold whitespace-nowrap transition-all border ${selectedCategory === c.id
                         ? "border-primary bg-primary text-white shadow-xs"
                         : "border-border bg-card text-foreground hover:bg-surface-2"
-                    }`}
+                      }`}
                   >
                     {c.label}
                   </button>
@@ -305,53 +304,62 @@ function Stores() {
               </div>
 
               {/* Sponsored Takeover Banner */}
-              {activeStoreAd && (
-                <Link
-                  to={activeStoreAd.creative?.destinationUrl || "/"}
-                  className="group relative block h-44 sm:h-52 w-full overflow-hidden rounded-3xl border border-amber-500/40 shadow-md transition-all hover:shadow-xl active:scale-[0.99]"
-                >
-                  {activeStoreAd.creative?.imageUrl ? (
-                    <img
-                      key={activeStoreAd.servedAdId || bannerIndex}
-                      src={activeStoreAd.creative.imageUrl}
-                      alt={activeStoreAd.creative.title}
-                      className="h-full w-full object-cover transition-opacity duration-700 animate-in fade-in-50 group-hover:scale-105"
-                    />
-                  ) : (
-                    <div className="h-full w-full bg-gradient-to-r from-blue-900 via-indigo-900 to-slate-950" />
-                  )}
+              {(() => {
+                const currentStoreAd = activeStoreAd || UNIFIED_DEFAULT_BANNER;
+                const destUrl = currentStoreAd.creative?.destinationUrl || currentStoreAd.destinationUrl || "/results";
+                const imageUrl = currentStoreAd.creative?.imageUrl || currentStoreAd.image || currentStoreAd.imageUrl;
+                const adTitle = currentStoreAd.creative?.title || currentStoreAd.headline || currentStoreAd.title || "Featured Store Deal";
+                const adBody = currentStoreAd.creative?.description || currentStoreAd.body || currentStoreAd.subtitle || "Tap to explore exclusive products & store offers";
+                const ctaText = currentStoreAd.cta || currentStoreAd.ctaText || "View Deal";
 
-                  <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/40 to-black/10 p-5 flex flex-col justify-between">
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-2">
-                        <span className="inline-flex items-center gap-1 rounded-full bg-amber-500 px-3 py-1 text-[10px] font-black text-slate-950 uppercase tracking-wider shadow">
-                          <Megaphone className="h-3.5 w-3.5" /> Sponsored Store Takeover
-                        </span>
-                        {storeBannerAds.length > 1 && (
-                          <span className="rounded-full bg-black/50 px-2.5 py-1 text-[10px] font-black text-amber-300 backdrop-blur-sm border border-amber-500/30">
-                            {bannerIndex + 1}/{storeBannerAds.length} • 5s
+                return (
+                  <Link
+                    to={destUrl}
+                    className="group relative block h-44 sm:h-52 w-full overflow-hidden rounded-3xl border border-amber-500/40 shadow-md transition-all hover:shadow-xl active:scale-[0.99]"
+                  >
+                    {imageUrl ? (
+                      <img
+                        key={currentStoreAd.servedAdId || bannerIndex}
+                        src={imageUrl}
+                        alt={adTitle}
+                        className="h-full w-full object-cover transition-opacity duration-700 animate-in fade-in-50 group-hover:scale-105"
+                      />
+                    ) : (
+                      <div className="h-full w-full bg-gradient-to-r from-blue-900 via-indigo-900 to-slate-950" />
+                    )}
+
+                    <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/40 to-black/10 p-5 flex flex-col justify-between">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <span className="inline-flex items-center gap-1 rounded-full bg-amber-500 px-3 py-1 text-[10px] font-black text-slate-950 uppercase tracking-wider shadow">
+                            <Megaphone className="h-3.5 w-3.5" /> Sponsored Store Takeover
                           </span>
-                        )}
+                          {storeBannerAds.length > 1 && (
+                            <span className="rounded-full bg-black/50 px-2.5 py-1 text-[10px] font-black text-amber-300 backdrop-blur-sm border border-amber-500/30">
+                              {bannerIndex + 1}/{storeBannerAds.length} • 5s
+                            </span>
+                          )}
+                        </div>
                       </div>
-                    </div>
 
-                    <div className="flex items-end justify-between gap-4">
-                      <div className="min-w-0 flex-1">
-                        <h3 className="line-clamp-1 text-lg sm:text-xl font-black text-white drop-shadow-sm">
-                          {activeStoreAd.creative?.title || "Featured Store Deal"}
-                        </h3>
-                        <p className="text-xs font-semibold text-amber-200/90 drop-shadow mt-0.5">
-                          Tap to explore exclusive products & store offers
-                        </p>
+                      <div className="flex items-end justify-between gap-4">
+                        <div className="min-w-0 flex-1">
+                          <h3 className="line-clamp-1 text-lg sm:text-xl font-black text-white drop-shadow-sm">
+                            {adTitle}
+                          </h3>
+                          <p className="text-xs font-semibold text-amber-200/90 drop-shadow mt-0.5">
+                            {adBody}
+                          </p>
+                        </div>
+                        <span className="inline-flex items-center gap-1.5 rounded-2xl bg-amber-500 px-4 py-2.5 text-xs font-black text-slate-950 shadow group-hover:bg-amber-400 transition-colors shrink-0">
+                          <span>{ctaText}</span>
+                          <ArrowRight className="h-3.5 w-3.5 transition-transform group-hover:translate-x-0.5" />
+                        </span>
                       </div>
-                      <span className="inline-flex items-center gap-1.5 rounded-2xl bg-amber-500 px-4 py-2.5 text-xs font-black text-slate-950 shadow group-hover:bg-amber-400 transition-colors shrink-0">
-                        <span>View Deal</span>
-                        <ArrowRight className="h-3.5 w-3.5 transition-transform group-hover:translate-x-0.5" />
-                      </span>
                     </div>
-                  </div>
-                </Link>
-              )}
+                  </Link>
+                );
+              })()}
 
               {/* Directory Bar */}
               <div className="flex items-center justify-between border-b border-border pb-3">

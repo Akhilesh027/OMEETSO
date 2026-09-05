@@ -1,4 +1,4 @@
-import { ShieldCheck, Star, MapPin, Store as StoreIcon, User, ArrowRight } from "lucide-react";
+import { ShieldCheck, Star, MapPin, Store as StoreIcon, User, ArrowRight, Zap } from "lucide-react";
 import { Link } from "@tanstack/react-router";
 import type { Seller } from "@/lib/mock";
 
@@ -52,11 +52,12 @@ export function SellerSummary({
   };
 
   // Real stats with sensible defaults
-  const realRating = typeof seller.rating === "number" && seller.rating > 0 ? seller.rating.toFixed(1) : "0";
+  const ratingNum = typeof seller.rating === "number" && seller.rating > 0 ? seller.rating : 0;
+  const realRating = ratingNum > 0 ? ratingNum.toFixed(1) : "New";
   const realReviews = typeof seller.reviews === "number" && seller.reviews > 0 ? seller.reviews : 0;
   const realMemberSince = parseMemberSince(seller.memberSince);
   const realListingsCount = typeof otherListings === "number" ? otherListings : (seller.activeListings ?? 0);
-  const realResponseTime = seller.responseTime || "< 15 mins";
+  const realResponseTime = seller.responseTime || "Within 15 min";
 
   return (
     <div className="rounded-3xl border border-border/80 bg-card p-4.5 shadow-sm space-y-3.5">
@@ -117,7 +118,9 @@ export function SellerSummary({
           <div className="flex items-center justify-center gap-0.5 text-amber-500 font-black text-xs sm:text-sm">
             <Star className="h-3.5 w-3.5 fill-amber-400 text-amber-400" /> {realRating}
           </div>
-          <div className="text-[10px] font-bold text-muted-foreground mt-0.5">{realReviews} reviews</div>
+          <div className="text-[10px] font-bold text-muted-foreground mt-0.5">
+            {realReviews > 0 ? `${realReviews} reviews` : "Unrated"}
+          </div>
         </div>
 
         <div className="border-x border-border/60">
@@ -133,7 +136,10 @@ export function SellerSummary({
 
       {/* Response Speed & Verification Badges */}
       <div className="flex flex-wrap items-center justify-between text-[11px] font-medium text-muted-foreground pt-1 gap-1.5">
-        <span>⚡ Replies: <strong className="text-foreground font-extrabold">{realResponseTime}</strong></span>
+        <span className="inline-flex items-center gap-1.5">
+          <Zap className="h-3.5 w-3.5 text-amber-500 fill-amber-500 shrink-0" />
+          Replies: <strong className="text-foreground font-extrabold">{realResponseTime}</strong>
+        </span>
 
         <Link
           to="/seller/$id"

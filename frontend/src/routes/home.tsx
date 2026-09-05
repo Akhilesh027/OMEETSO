@@ -10,6 +10,7 @@ import { StoreCard } from "@/components/omeetso/StoreCard";
 import {
   HeroAd, QuickSellCard, CategoryStripAd, NativeAdCard,
   SecondaryBannerAd, QuickDealsBanner, AdErrorFallback,
+  UNIFIED_DEFAULT_BANNER, DEFAULT_NATIVE_AD, DEFAULT_ROTATING_BANNERS
 } from "@/components/omeetso/AdBanner";
 import { SafetyCard } from "@/components/omeetso/SafetyCard";
 import { CATEGORIES, PRODUCTS, STORES, getAd, formatINR } from "@/lib/mock";
@@ -703,19 +704,13 @@ function Home() {
       .catch(() => { });
   }, [loc?.area, loc?.pincode, loc?.city, locLoaded]);
 
-  // 🎯 Distribute active ads across the 3 banner positions: max 5 rotating ads per slot
+  // 🎯 Distribute active ads across all banner positions: max 5 rotating ads per slot
   const getBannerSlotAds = (slotIndex: number, maxPerSlot = 5) => {
-    if (!liveMiddleBanners || liveMiddleBanners.length === 0) return [];
-    if (liveMiddleBanners.length <= maxPerSlot) {
-      // If 5 or fewer active ads, all banner slots rotate all 5 active ads
-      return liveMiddleBanners;
-    }
-    // If > 5 ads (e.g. 7 ads):
-    // Slot 0: first 5 (index 0..4)
-    // Slot 1: starts at index 5 (5..6, wrapping with 0..2 to make 5)
-    // Slot 2: next rotated offset (e.g. index 3..7)
-    const offset = (slotIndex * maxPerSlot) % liveMiddleBanners.length;
-    const rotated = [...liveMiddleBanners.slice(offset), ...liveMiddleBanners.slice(0, offset)];
+    const baseAds = (liveMiddleBanners && liveMiddleBanners.length > 0)
+      ? liveMiddleBanners
+      : DEFAULT_ROTATING_BANNERS;
+    const offset = slotIndex % baseAds.length;
+    const rotated = [...baseAds.slice(offset), ...baseAds.slice(0, offset)];
     return rotated.slice(0, maxPerSlot);
   };
 
@@ -977,8 +972,8 @@ function Home() {
         <LocationModal open={showLocModal} onClose={() => setShowLocModal(false)} />
 
         <div className="mt-4 space-y-6 px-4 sm:px-6 md:px-8 lg:px-10 xl:px-12 md:mx-auto md:max-w-[1440px] md:space-y-10 md:mt-8">
-          {/* HOME_HERO — Only show if active ads/banners are running */}
-          {liveHeroAds.length > 0 && <HeroAd ads={liveHeroAds} maxAds={5} />}
+          {/* HOME_HERO — Auto-rotating banner */}
+          <HeroAd ads={liveHeroAds.length > 0 ? liveHeroAds : getBannerSlotAds(0, 5)} maxAds={5} />
 
           {/* Category Discovery Grid — Live DB Categories & Subcategories */}
           <section>
@@ -1049,141 +1044,155 @@ function Home() {
           <QuickDealsBanner />
 
           {/* HOME_CATEGORY_STRIP */}
-          {liveCategoryAd ? <CategoryStripAd ad={liveCategoryAd} /> : (stripAd && <CategoryStripAd ad={stripAd} />)}
+          <CategoryStripAd ad={liveCategoryAd || stripAd || UNIFIED_DEFAULT_BANNER} />
 
           <QuickSellCard />
 
           {/* 🚗 Category Section 1: Used Cars & Four-Wheelers */}
           {carProducts.length > 0 && (
-            <section className="rounded-3xl border border-blue-500/20 bg-gradient-to-br from-blue-500/5 via-card to-background p-4 sm:p-6 shadow-sm">
-              <div className="mb-4 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-                <div className="flex items-center gap-2.5">
-                  <div className="grid h-9 w-9 place-items-center rounded-2xl bg-blue-600 text-white shadow-md">
-                    <Car className="h-5 w-5" />
-                  </div>
-                  <div>
-                    <div className="flex items-center gap-2">
-                      <h2 className="text-base sm:text-xl font-black text-foreground">Used Cars & Four-Wheelers</h2>
-                      <span className="rounded-full bg-blue-500/10 border border-blue-500/20 px-2 py-0.5 text-[10px] font-black text-blue-600 dark:text-blue-400">
-                        Direct Owner Listings
-                      </span>
+            <>
+              <section className="rounded-3xl border border-blue-500/20 bg-gradient-to-br from-blue-500/5 via-card to-background p-4 sm:p-6 shadow-sm">
+                <div className="mb-4 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                  <div className="flex items-center gap-2.5">
+                    <div className="grid h-9 w-9 place-items-center rounded-2xl bg-blue-600 text-white shadow-md">
+                      <Car className="h-5 w-5" />
                     </div>
-                    <p className="text-xs text-muted-foreground">Inspected cars, verified service history & 0% middleman commission</p>
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <h2 className="text-base sm:text-xl font-black text-foreground">Used Cars & Four-Wheelers</h2>
+                        <span className="rounded-full bg-blue-500/10 border border-blue-500/20 px-2 py-0.5 text-[10px] font-black text-blue-600 dark:text-blue-400">
+                          Direct Owner Listings
+                        </span>
+                      </div>
+                      <p className="text-xs text-muted-foreground">Inspected cars, verified service history & 0% middleman commission</p>
+                    </div>
                   </div>
+                  <Link
+                    to="/results"
+                    search={{ cat: "cars" } as any}
+                    className="inline-flex items-center gap-1 text-xs font-black text-blue-600 dark:text-blue-400 hover:underline shrink-0"
+                  >
+                    Explore All Cars <ArrowRight className="h-3.5 w-3.5" />
+                  </Link>
                 </div>
-                <Link
-                  to="/results"
-                  search={{ cat: "cars" } as any}
-                  className="inline-flex items-center gap-1 text-xs font-black text-blue-600 dark:text-blue-400 hover:underline shrink-0"
-                >
-                  Explore All Cars <ArrowRight className="h-3.5 w-3.5" />
-                </Link>
-              </div>
 
-              <CarouselRow id="cars-carousel" scrollDistance={320}>
-                {carProducts.map((p) => (
-                  <div key={p.id} className="w-[280px] sm:w-[320px] shrink-0">
-                    <ProductCard p={p} onPreview={setPreviewProduct} />
-                  </div>
-                ))}
-              </CarouselRow>
-            </section>
+                <CarouselRow id="cars-carousel" scrollDistance={320}>
+                  {carProducts.map((p) => (
+                    <div key={p.id} className="w-[280px] sm:w-[320px] shrink-0">
+                      <ProductCard p={p} onPreview={setPreviewProduct} />
+                    </div>
+                  ))}
+                </CarouselRow>
+              </section>
+              <SecondaryBannerAd ads={getBannerSlotAds(1, 5)} maxAds={5} />
+            </>
           )}
 
           {/* 🏍️ Category Section 2: Bikes & Two-Wheelers */}
           {bikeProducts.length > 0 && (
-            <section className="rounded-3xl border border-amber-500/20 bg-gradient-to-br from-amber-500/5 via-card to-background p-4 sm:p-6 shadow-sm">
-              <div className="mb-4 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-                <div className="flex items-center gap-2.5">
-                  <div className="grid h-9 w-9 place-items-center rounded-2xl bg-amber-500 text-slate-950 shadow-md font-black">
-                    <Bike className="h-5 w-5" />
-                  </div>
-                  <div>
-                    <div className="flex items-center gap-2">
-                      <h2 className="text-base sm:text-xl font-black text-foreground">Bikes, Scooters & Two-Wheelers</h2>
-                      <span className="rounded-full bg-amber-500/10 border border-amber-500/20 px-2 py-0.5 text-[10px] font-black text-amber-600 dark:text-amber-400">
-                        Instant Owner Chat
-                      </span>
+            <>
+              <section className="rounded-3xl border border-amber-500/20 bg-gradient-to-br from-amber-500/5 via-card to-background p-4 sm:p-6 shadow-sm">
+                <div className="mb-4 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                  <div className="flex items-center gap-2.5">
+                    <div className="grid h-9 w-9 place-items-center rounded-2xl bg-amber-500 text-slate-950 shadow-md font-black">
+                      <Bike className="h-5 w-5" />
                     </div>
-                    <p className="text-xs text-muted-foreground">Cruisers, sports bikes, commuter motorcycles & scooters</p>
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <h2 className="text-base sm:text-xl font-black text-foreground">Bikes, Scooters & Two-Wheelers</h2>
+                        <span className="rounded-full bg-amber-500/10 border border-amber-500/20 px-2 py-0.5 text-[10px] font-black text-amber-600 dark:text-amber-400">
+                          Instant Owner Chat
+                        </span>
+                      </div>
+                      <p className="text-xs text-muted-foreground">Cruisers, sports bikes, commuter motorcycles & scooters</p>
+                    </div>
                   </div>
+                  <Link
+                    to="/results"
+                    search={{ cat: "bikes" } as any}
+                    className="inline-flex items-center gap-1 text-xs font-black text-amber-600 dark:text-amber-400 hover:underline shrink-0"
+                  >
+                    Explore All Bikes <ArrowRight className="h-3.5 w-3.5" />
+                  </Link>
                 </div>
-                <Link
-                  to="/results"
-                  search={{ cat: "bikes" } as any}
-                  className="inline-flex items-center gap-1 text-xs font-black text-amber-600 dark:text-amber-400 hover:underline shrink-0"
-                >
-                  Explore All Bikes <ArrowRight className="h-3.5 w-3.5" />
-                </Link>
-              </div>
 
-              <CarouselRow id="bikes-carousel" scrollDistance={320}>
-                {bikeProducts.map((p) => (
-                  <div key={p.id} className="w-[280px] sm:w-[320px] shrink-0">
-                    <ProductCard p={p} onPreview={setPreviewProduct} />
-                  </div>
-                ))}
-              </CarouselRow>
-            </section>
+                <CarouselRow id="bikes-carousel" scrollDistance={320}>
+                  {bikeProducts.map((p) => (
+                    <div key={p.id} className="w-[280px] sm:w-[320px] shrink-0">
+                      <ProductCard p={p} onPreview={setPreviewProduct} />
+                    </div>
+                  ))}
+                </CarouselRow>
+              </section>
+              <SecondaryBannerAd ads={getBannerSlotAds(2, 5)} maxAds={5} />
+            </>
           )}
 
           {/* 📱 Category Section 3: Mobiles & Electronics */}
           {electronicProducts.length > 0 && (
-            <section className="rounded-3xl border border-indigo-500/20 bg-gradient-to-br from-indigo-500/5 via-card to-background p-4 sm:p-6 shadow-sm">
-              <div className="mb-4 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-                <div className="flex items-center gap-2.5">
-                  <div className="grid h-9 w-9 place-items-center rounded-2xl bg-indigo-600 text-white shadow-md">
-                    <Smartphone className="h-5 w-5" />
-                  </div>
-                  <div>
-                    <div className="flex items-center gap-2">
-                      <h2 className="text-base sm:text-xl font-black text-foreground">Mobiles & Electronics Deals</h2>
-                      <span className="rounded-full bg-indigo-500/10 border border-indigo-500/20 px-2 py-0.5 text-[10px] font-black text-indigo-600 dark:text-indigo-400">
-                        Verified Gadgets
-                      </span>
+            <>
+              <section className="rounded-3xl border border-indigo-500/20 bg-gradient-to-br from-indigo-500/5 via-card to-background p-4 sm:p-6 shadow-sm">
+                <div className="mb-4 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                  <div className="flex items-center gap-2.5">
+                    <div className="grid h-9 w-9 place-items-center rounded-2xl bg-indigo-600 text-white shadow-md">
+                      <Smartphone className="h-5 w-5" />
                     </div>
-                    <p className="text-xs text-muted-foreground">Smartphones, MacBooks, gaming consoles & audio accessories</p>
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <h2 className="text-base sm:text-xl font-black text-foreground">Mobiles & Electronics Deals</h2>
+                        <span className="rounded-full bg-indigo-500/10 border border-indigo-500/20 px-2 py-0.5 text-[10px] font-black text-indigo-600 dark:text-indigo-400">
+                          Verified Gadgets
+                        </span>
+                      </div>
+                      <p className="text-xs text-muted-foreground">Smartphones, MacBooks, gaming consoles & audio accessories</p>
+                    </div>
                   </div>
+                  <Link
+                    to="/results"
+                    search={{ cat: "electronics" } as any}
+                    className="inline-flex items-center gap-1 text-xs font-black text-indigo-600 dark:text-indigo-400 hover:underline shrink-0"
+                  >
+                    Explore All Electronics <ArrowRight className="h-3.5 w-3.5" />
+                  </Link>
                 </div>
-                <Link
-                  to="/results"
-                  search={{ cat: "electronics" } as any}
-                  className="inline-flex items-center gap-1 text-xs font-black text-indigo-600 dark:text-indigo-400 hover:underline shrink-0"
-                >
-                  Explore All Electronics <ArrowRight className="h-3.5 w-3.5" />
-                </Link>
-              </div>
 
-              <CarouselRow id="electronics-carousel" scrollDistance={300}>
-                {electronicProducts.map((p) => (
-                  <div key={p.id} className="w-[260px] sm:w-[300px] shrink-0">
-                    <ProductCard p={p} onPreview={setPreviewProduct} />
-                  </div>
-                ))}
-              </CarouselRow>
-            </section>
+                <CarouselRow id="electronics-carousel" scrollDistance={300}>
+                  {electronicProducts.map((p) => (
+                    <div key={p.id} className="w-[260px] sm:w-[300px] shrink-0">
+                      <ProductCard p={p} onPreview={setPreviewProduct} />
+                    </div>
+                  ))}
+                </CarouselRow>
+              </section>
+              <SecondaryBannerAd ads={getBannerSlotAds(3, 5)} maxAds={5} />
+            </>
           )}
 
-          {/* 🌟 Dynamic Middle Rotating Promo Banner 1 */}
-          <SecondaryBannerAd ads={getBannerSlotAds(0, 5)} maxAds={5} />
+          {/* When none of the 3 category sections have products, show only ONE clean middle banner */}
+          {carProducts.length === 0 && bikeProducts.length === 0 && electronicProducts.length === 0 && (
+            <SecondaryBannerAd ads={getBannerSlotAds(1, 5)} maxAds={5} />
+          )}
 
           {/* Nearby carousel */}
           {nearby.length > 0 && (
-            <section>
-              <div className="mb-4 flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <div className="h-5 w-1.5 rounded-full bg-amber-500" />
-                  <h2 className="text-base sm:text-xl font-extrabold text-foreground">Nearby Products</h2>
-                  <span className="rounded-full bg-amber-500/10 border border-amber-500/20 px-2 py-0.5 text-[10px] font-extrabold text-amber-600">
-                    Within 5 km
-                  </span>
+            <>
+              <section>
+                <div className="mb-4 flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <div className="h-5 w-1.5 rounded-full bg-amber-500" />
+                    <h2 className="text-base sm:text-xl font-extrabold text-foreground">Nearby Products</h2>
+                    <span className="rounded-full bg-amber-500/10 border border-amber-500/20 px-2 py-0.5 text-[10px] font-extrabold text-amber-600">
+                      Within 5 km
+                    </span>
+                  </div>
+                  <Link to="/results" className="text-xs font-extrabold text-primary hover:underline">See All</Link>
                 </div>
-                <Link to="/results" className="text-xs font-extrabold text-primary hover:underline">See All</Link>
-              </div>
-              <CarouselRow id="nearby-carousel" scrollDistance={280}>
-                {nearby.map((p) => <ProductCard key={p.id} p={p} variant="compact" />)}
-              </CarouselRow>
-            </section>
+                <CarouselRow id="nearby-carousel" scrollDistance={280}>
+                  {nearby.map((p) => <ProductCard key={p.id} p={p} variant="compact" />)}
+                </CarouselRow>
+              </section>
+              <SecondaryBannerAd ads={getBannerSlotAds(2, 5)} maxAds={5} />
+            </>
           )}
 
           {/* Featured — full width list */}
@@ -1213,63 +1222,69 @@ function Home() {
 
           {/* Verified Local Stores */}
           {storesToDisplay.length > 0 && (
-            <section className="space-y-3.5">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <div className="h-5 w-1.5 rounded-full bg-emerald-500" />
-                  <h2 className="text-base sm:text-xl font-extrabold text-foreground">
-                    Verified Local Stores{loc?.area ? ` in ${loc.area}` : ""}
-                  </h2>
-                  <span className="hidden sm:inline-flex items-center gap-1 rounded-full bg-emerald-500/10 border border-emerald-500/20 px-2.5 py-0.5 text-xs font-extrabold text-emerald-600">
-                    Verified Merchants
-                  </span>
-                </div>
-                <Link to="/stores" className="group inline-flex items-center gap-1 text-xs font-extrabold text-primary hover:underline">
-                  <span>See All ({storesToDisplay.length})</span>
-                  <ArrowRight className="h-3.5 w-3.5 transition-transform group-hover:translate-x-0.5" />
-                </Link>
-              </div>
-
-              <div
-                className={cn(
-                  "grid gap-3.5 overflow-x-auto no-scrollbar pb-2 sm:grid-rows-none sm:grid-flow-row sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 sm:gap-4 sm:overflow-visible sm:pb-0",
-                  storesToDisplay.length <= 2 ? "grid-rows-1 grid-flow-col" : "grid-rows-2 grid-flow-col"
-                )}
-              >
-                {sponsoredStore && (
-                  <div className="relative w-[280px] sm:w-full shrink-0 sm:shrink">
-                    <span className="absolute left-2.5 top-2.5 z-10 rounded-full bg-amber-500 text-slate-950 px-2.5 py-0.5 text-[10px] font-black shadow-sm">
-                      Sponsored
+            <>
+              <section className="space-y-3.5">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <div className="h-5 w-1.5 rounded-full bg-emerald-500" />
+                    <h2 className="text-base sm:text-xl font-extrabold text-foreground">
+                      Verified Local Stores{loc?.area ? ` in ${loc.area}` : ""}
+                    </h2>
+                    <span className="hidden sm:inline-flex items-center gap-1 rounded-full bg-emerald-500/10 border border-emerald-500/20 px-2.5 py-0.5 text-xs font-extrabold text-emerald-600">
+                      Verified Merchants
                     </span>
-                    <StoreCard s={sponsoredStore} className="w-full h-full" />
                   </div>
-                )}
-                {otherStores.slice(0, sponsoredStore ? 7 : 8).map((s) => (
-                  <div key={s.id} className="w-[280px] sm:w-full shrink-0 sm:shrink">
-                    <StoreCard s={s} className="w-full h-full" />
-                  </div>
-                ))}
-              </div>
-            </section>
+                  <Link to="/stores" className="group inline-flex items-center gap-1 text-xs font-extrabold text-primary hover:underline">
+                    <span>See All ({storesToDisplay.length})</span>
+                    <ArrowRight className="h-3.5 w-3.5 transition-transform group-hover:translate-x-0.5" />
+                  </Link>
+                </div>
+
+                <div
+                  className={cn(
+                    "grid gap-3.5 overflow-x-auto no-scrollbar pb-2 sm:grid-rows-none sm:grid-flow-row sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 sm:gap-4 sm:overflow-visible sm:pb-0",
+                    storesToDisplay.length <= 2 ? "grid-rows-1 grid-flow-col" : "grid-rows-2 grid-flow-col"
+                  )}
+                >
+                  {sponsoredStore && (
+                    <div className="relative w-[280px] sm:w-full shrink-0 sm:shrink">
+                      <span className="absolute left-2.5 top-2.5 z-10 rounded-full bg-amber-500 text-slate-950 px-2.5 py-0.5 text-[10px] font-black shadow-sm">
+                        Sponsored
+                      </span>
+                      <StoreCard s={sponsoredStore} className="w-full h-full" />
+                    </div>
+                  )}
+                  {otherStores.slice(0, sponsoredStore ? 7 : 8).map((s) => (
+                    <div key={s.id} className="w-[280px] sm:w-full shrink-0 sm:shrink">
+                      <StoreCard s={s} className="w-full h-full" />
+                    </div>
+                  ))}
+                </div>
+              </section>
+              <SecondaryBannerAd ads={getBannerSlotAds(3, 5)} maxAds={5} />
+            </>
           )}
 
           {/* Recommended grid — with native ad after 6 organic items */}
           {recommended.length > 0 && (
-            <section>
-              <div className="mb-4 flex items-center gap-2">
-                <div className="h-5 w-1.5 rounded-full bg-primary" />
-                <h2 className="text-base sm:text-xl font-extrabold text-foreground">Recommended For You</h2>
-              </div>
-              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 sm:gap-6">
-                {recommended.slice(0, 6).map((p) => (
-                  <ProductCard key={p.id} p={p} onPreview={setPreviewProduct} />
-                ))}
-                {liveNativeAds.length > 0 && <NativeAdCard ad={liveNativeAds[0]} />}
-                {recommended.slice(6).map((p) => (
-                  <ProductCard key={p.id} p={p} onPreview={setPreviewProduct} />
-                ))}
-              </div>
-            </section>
+            <>
+              <section>
+                <div className="mb-4 flex items-center gap-2">
+                  <div className="h-5 w-1.5 rounded-full bg-primary" />
+                  <h2 className="text-base sm:text-xl font-extrabold text-foreground">Recommended For You</h2>
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 sm:gap-6">
+                  {recommended.slice(0, 6).map((p) => (
+                    <ProductCard key={p.id} p={p} onPreview={setPreviewProduct} />
+                  ))}
+                  <NativeAdCard ad={liveNativeAds[0] || DEFAULT_NATIVE_AD} />
+                  {recommended.slice(6).map((p) => (
+                    <ProductCard key={p.id} p={p} onPreview={setPreviewProduct} />
+                  ))}
+                </div>
+              </section>
+              <SecondaryBannerAd ads={getBannerSlotAds(4, 5)} maxAds={5} />
+            </>
           )}
 
           {/* Deals near you — horizontal */}
@@ -1284,14 +1299,17 @@ function Home() {
 
           {/* Recently added */}
           {recentlyAdded.length > 0 && (
-            <section>
-              <h2 className="mb-3 text-base font-bold md:text-xl text-navy">Recently added</h2>
-              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 sm:gap-6">
-                {recentlyAdded.map((p) => (
-                  <ProductCard key={p.id} p={p} onPreview={setPreviewProduct} />
-                ))}
-              </div>
-            </section>
+            <>
+              <section>
+                <h2 className="mb-3 text-base font-bold md:text-xl text-navy">Recently added</h2>
+                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 sm:gap-6">
+                  {recentlyAdded.map((p) => (
+                    <ProductCard key={p.id} p={p} onPreview={setPreviewProduct} />
+                  ))}
+                </div>
+              </section>
+              <SecondaryBannerAd ads={getBannerSlotAds(5, 5)} maxAds={5} />
+            </>
           )}
 
           {/* Recently viewed */}
@@ -1302,13 +1320,6 @@ function Home() {
                 {viewed.map((p) => <ProductCard key={p.id} p={p} variant="compact" />)}
               </CarouselRow>
             </section>
-          )}
-
-          {/* Bottom Secondary Banner */}
-          {liveMiddleBanners.length > 3 ? (
-            <SecondaryBannerAd ads={getBannerSlotAds(3, 5)} maxAds={5} />
-          ) : (
-            secondaryAd && <SecondaryBannerAd ad={secondaryAd} maxAds={5} />
           )}
 
           <SafetyCard />

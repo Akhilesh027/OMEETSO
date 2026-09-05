@@ -322,6 +322,8 @@ app.get("/api/v1/inspect-campaigns", async (req: Request, res: Response) => {
       pricing: c.pricing,
       bannerUrl: c.bannerUrl ? (c.bannerUrl.startsWith("data:") ? "[BASE64_IMAGE]" : c.bannerUrl) : null,
       listingTitle: c.listingId?.title,
+      listingCategory: c.listingId?.categoryId,
+      targeting: c.targeting,
       advertiserName: c.advertiserUserId?.profile?.name,
       advertiserPhone: c.advertiserUserId?.phone
     }));
@@ -332,6 +334,16 @@ app.get("/api/v1/inspect-campaigns", async (req: Request, res: Response) => {
     });
   } catch (err: any) {
     res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+app.get("/api/v1/inspect-campaign/:id", async (req: Request, res: Response) => {
+  try {
+    const { AdCampaign } = await import("./modules/revenue/models/AdCampaign");
+    const campaign = await AdCampaign.findById(req.params.id).lean();
+    res.json({ success: true, data: campaign });
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
   }
 });
 
@@ -399,6 +411,10 @@ app.get(`${env.API_PREFIX}/health`, (req: Request, res: Response) => {
 });
 
 // API Routes
+app.get(`${env.API_PREFIX}/ads/serve`, (req: Request, res: Response, next: NextFunction) => {
+  const { serveAds } = require("./modules/revenue/controllers/revenue.controller");
+  return serveAds(req, res, next);
+});
 app.use(`${env.API_PREFIX}/auth`, userAuthRouter);
 app.use(`${env.API_PREFIX}/admin/auth`, adminAuthRouter);
 app.use(`${env.API_PREFIX}/categories`, categoriesRouter);

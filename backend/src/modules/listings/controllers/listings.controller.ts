@@ -313,8 +313,8 @@ export async function getListingById(req: Request, res: Response, next: NextFunc
               businessName: businessName,
               type: isBusiness ? "business" : "individual",
               avatar: seller.profile?.avatar || store?.logo,
-              city: seller.profile?.city || store?.city,
-              area: seller.profile?.area || store?.area,
+              city: seller.profile?.city || store?.city || listing.city,
+              area: (seller.profile?.area && seller.profile.area !== "Madhapur" ? seller.profile.area : null) || listing.area || store?.area || "Hyderabad",
               memberSince: seller.profile?.memberSince || seller.createdAt,
               verificationSummary: seller.verificationSummary || { riskScore: 94 }
             }

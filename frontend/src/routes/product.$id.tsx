@@ -3,7 +3,7 @@ import { useEffect, useState, useMemo } from "react";
 import {
   ArrowLeft, Heart, Share2, Phone, MessageCircle, HandCoins, ShieldCheck,
   MapPin, Flag, ChevronLeft, ChevronRight, Truck, Package, PackageCheck, Play, Star,
-  Video, Camera, Maximize2, ArrowRight,
+  Video, Camera, Maximize2, ArrowRight, Zap,
 } from "lucide-react";
 
 function getEmbedUrl(url: string) {
@@ -179,35 +179,48 @@ function ProductPage() {
   const realSellerId = liveSeller?._id || liveSeller?.id || (typeof product.sellerId === "object" ? (product.sellerId as any)?._id || (product.sellerId as any)?.id : product.sellerId) || (product as any).seller || "u_seller";
   const mockSeller = typeof realSellerId === "string" ? getSeller(realSellerId) : null;
 
-  // Extract accurate live or mock seller rating
+  // Accurate listing & seller location:
+  // For the product page, the inspection / item location prioritizes the listing's actual area (e.g. Trimulgherry)
+  // rather than a stale or default user area.
+  const actualSellerArea = 
+    product.area ||
+    (liveSeller?.area && liveSeller.area !== "Madhapur" ? liveSeller.area : null) ||
+    (liveSeller?.profile?.area && liveSeller.profile.area !== "Madhapur" ? liveSeller.profile.area : null) ||
+    product.city ||
+    liveSeller?.city ||
+    liveSeller?.profile?.city ||
+    "Hyderabad";
+
+  // Extract accurate live seller rating; default to 0 if unrated (avoiding fabricated 4.8 / 12 reviews)
   const rawRating = 
     (typeof liveSeller?.ratings?.average === "number" && liveSeller.ratings.average > 0 ? liveSeller.ratings.average : null) ??
     (typeof (product as any).sellerRating === "number" && (product as any).sellerRating > 0 ? (product as any).sellerRating : null) ??
     (typeof (product as any).rating === "number" && (product as any).rating > 0 ? (product as any).rating : null) ??
-    (mockSeller?.rating ?? 0);
+    0;
 
   const rawReviews = 
-    (typeof liveSeller?.ratings?.count === "number" ? liveSeller.ratings.count : null) ??
-    (typeof (product as any).sellerReviews === "number" ? (product as any).sellerReviews : null) ??
-    (typeof (product as any).reviewCount === "number" ? (product as any).reviewCount : null) ??
-    (mockSeller?.reviews ?? 0);
+    (typeof liveSeller?.ratings?.count === "number" && liveSeller.ratings.count > 0 ? liveSeller.ratings.count : null) ??
+    (typeof (product as any).sellerReviews === "number" && (product as any).sellerReviews > 0 ? (product as any).sellerReviews : null) ??
+    (typeof (product as any).reviewCount === "number" && (product as any).reviewCount > 0 ? (product as any).reviewCount : null) ??
+    0;
 
   const defaultSeller = {
     id: String(realSellerId),
-    name: (product as any).businessName || liveSeller?.businessName || liveSeller?.name || liveSeller?.profile?.name || product.sellerName || mockSeller?.name || "Omeetso Seller",
+    name: (product as any).businessName || liveSeller?.businessName || liveSeller?.name || liveSeller?.profile?.name || product.sellerName || "Omeetso Seller",
     businessName: (product as any).businessName || liveSeller?.businessName || (product as any).storeName || liveSeller?.profile?.businessName,
     ownerName: (product as any).sellerOwnerName || liveSeller?.ownerName || liveSeller?.profile?.name,
-    avatar: liveSeller?.avatar || liveSeller?.profile?.avatar || (product as any).sellerAvatar || (product as any).sellerPhoto || mockSeller?.avatar,
-    memberSince: liveSeller?.createdAt || liveSeller?.memberSince || (product as any).createdAt || mockSeller?.memberSince || 0,
+    avatar: liveSeller?.avatar || liveSeller?.profile?.avatar || (product as any).sellerAvatar || (product as any).sellerPhoto,
+    memberSince: liveSeller?.createdAt || liveSeller?.memberSince || (product as any).createdAt || 0,
     rating: rawRating,
     reviews: rawReviews,
-    responseTime: liveSeller?.responseTime || (product as any).sellerResponseTime || mockSeller?.responseTime || "< 15 mins",
-    verified: Boolean(liveSeller?.verificationSummary?.mobileVerified || (product as any).verified || mockSeller?.verified),
-    phoneVerified: Boolean(liveSeller?.verificationSummary?.mobileVerified || (product as any).phoneVerified || mockSeller?.phoneVerified),
-    kycVerified: Boolean(liveSeller?.verificationSummary?.govtIdVerified || (product as any).kycVerified || mockSeller?.kycVerified),
-    type: ((product as any).sellerType || liveSeller?.type || liveSeller?.accountType || ((product as any).businessName ? "business" : mockSeller?.type) || "individual") as "individual" | "business",
-    area: liveSeller?.area || liveSeller?.profile?.area || product.area || product.city || mockSeller?.area || "Hyderabad",
-    activeListings: typeof liveSeller?.activeListingsCount === "number" ? liveSeller.activeListingsCount : (mockSeller?.activeListings || 0),
+    responseTime: liveSeller?.responseTime || (product as any).sellerResponseTime || "Within 15 min",
+    verified: Boolean(liveSeller?.verificationSummary?.mobileVerified || liveSeller?.verificationSummary?.identityVerified || (product as any).verified),
+    phoneVerified: Boolean(liveSeller?.verificationSummary?.mobileVerified || (product as any).phoneVerified),
+    kycVerified: Boolean(liveSeller?.verificationSummary?.govtIdVerified || liveSeller?.verificationSummary?.identityVerified || (product as any).kycVerified),
+    type: ((product as any).sellerType || liveSeller?.type || liveSeller?.accountType || ((product as any).businessName ? "business" : undefined) || "individual") as "individual" | "business",
+    area: actualSellerArea,
+    city: product.city || liveSeller?.city || liveSeller?.profile?.city || "Hyderabad",
+    activeListings: typeof liveSeller?.activeListingsCount === "number" ? liveSeller.activeListingsCount : 1,
   };
   const seller = defaultSeller;
   const contextualAd = getAd("PRODUCT_CONTEXTUAL", product.category) ?? getAd("PRODUCT_CONTEXTUAL");
@@ -596,7 +609,7 @@ function ProductPage() {
           {/* Seller Verification Metrics Matrix */}
           <div>
             <h3 className="mb-2.5 text-xs font-bold uppercase tracking-wider text-muted-foreground">Seller Verification & Metrics</h3>
-            <SellerTrustBadgeMatrix seller={seller} />
+            <SellerTrustBadgeMatrix seller={seller} product={product} />
           </div>
 
           {/* Specifications */}
@@ -630,7 +643,7 @@ function ProductPage() {
           </div>
 
           {/* Contextual ad */}
-          {contextualAd && <ContextualAd ad={contextualAd} />}
+          <ContextualAd ad={contextualAd} />
 
           <SafetyCard />
 
@@ -857,46 +870,65 @@ function NotFound() {
   );
 }
 
-function SellerTrustBadgeMatrix({ seller }: { seller: any }) {
+function SellerTrustBadgeMatrix({ seller, product }: { seller: any; product?: any }) {
   const ratingNum = typeof seller?.rating === "number" && seller.rating > 0 ? seller.rating : 0;
-  const ratingText = ratingNum > 0 ? `${ratingNum.toFixed(1)} / 5` : "Unrated";
   const reviewsCount = typeof seller?.reviews === "number" ? seller.reviews : 0;
   const isVerified = Boolean(seller?.verified || seller?.phoneVerified || seller?.kycVerified);
   const verificationDetail = seller?.kycVerified
-    ? "ID & KYC"
+    ? "Govt ID & KYC"
     : seller?.phoneVerified
     ? "Phone Verified"
     : isVerified
-    ? "ID & Phone"
+    ? "Phone Verified"
     : "Active Member";
 
+  const locArea = product?.area || (seller?.area && seller.area !== "Madhapur" ? seller.area : null);
+  const locCity = product?.city || seller?.city || "Hyderabad";
+  const locationDisplay = locArea || locCity;
+  const distanceSubtitle = product?.distanceKm
+    ? `${product.distanceKm} km away`
+    : locArea && product?.city && locArea !== product.city
+    ? product.city
+    : "Local Distance";
+
   return (
-    <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-      <div className="rounded-2xl border border-blue-500/20 bg-blue-500/5 p-3 text-center">
-        <div className="text-blue-700 dark:text-blue-300 text-xs sm:text-sm font-extrabold">
-          ⚡ {seller?.responseTime || "< 15 mins"}
+    <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 sm:gap-3">
+      {/* 1. Avg Response */}
+      <div className="flex flex-col items-center justify-center rounded-2xl border border-blue-500/20 bg-blue-500/5 dark:bg-blue-500/10 p-3 text-center transition-all hover:border-blue-500/40 shadow-xs">
+        <div className="flex items-center justify-center gap-1.5 text-blue-700 dark:text-blue-300 text-xs sm:text-sm font-extrabold">
+          <Zap className="h-3.5 w-3.5 text-amber-500 fill-amber-500 shrink-0" />
+          <span>{seller?.responseTime || "Within 15 min"}</span>
         </div>
-        <div className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider mt-0.5">Avg Response</div>
+        <div className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider mt-1">Avg Response</div>
       </div>
-      <div className="rounded-2xl border border-blue-500/20 bg-blue-500/5 p-3 text-center">
-        <div className="text-blue-700 dark:text-blue-300 text-xs sm:text-sm font-extrabold">
-          🛡️ {isVerified ? "Verified" : "Active Member"}
+
+      {/* 2. Verification */}
+      <div className="flex flex-col items-center justify-center rounded-2xl border border-emerald-500/20 bg-emerald-500/5 dark:bg-emerald-500/10 p-3 text-center transition-all hover:border-emerald-500/40 shadow-xs">
+        <div className="flex items-center justify-center gap-1.5 text-emerald-700 dark:text-emerald-300 text-xs sm:text-sm font-extrabold">
+          <ShieldCheck className="h-3.5 w-3.5 text-emerald-600 dark:text-emerald-400 shrink-0" />
+          <span>{isVerified ? "Verified" : "Active Member"}</span>
         </div>
-        <div className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider mt-0.5">{verificationDetail}</div>
+        <div className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider mt-1">{verificationDetail}</div>
       </div>
-      <div className="rounded-2xl border border-blue-500/20 bg-blue-500/5 p-3 text-center">
-        <div className="text-blue-700 dark:text-blue-300 text-xs sm:text-sm font-extrabold">
-          ⭐ {ratingText}
+
+      {/* 3. Rating */}
+      <div className="flex flex-col items-center justify-center rounded-2xl border border-amber-500/20 bg-amber-500/5 dark:bg-amber-500/10 p-3 text-center transition-all hover:border-amber-500/40 shadow-xs">
+        <div className="flex items-center justify-center gap-1.5 text-amber-700 dark:text-amber-300 text-xs sm:text-sm font-extrabold">
+          <Star className={`h-3.5 w-3.5 shrink-0 ${ratingNum > 0 ? "fill-amber-400 text-amber-400" : "text-slate-400 dark:text-slate-500"}`} />
+          <span>{ratingNum > 0 ? `${ratingNum.toFixed(1)} / 5` : "New Seller"}</span>
         </div>
-        <div className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider mt-0.5">
+        <div className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider mt-1">
           {reviewsCount > 0 ? `Rating (${reviewsCount})` : "Seller Rating"}
         </div>
       </div>
-      <div className="rounded-2xl border border-blue-500/20 bg-blue-500/5 p-3 text-center">
-        <div className="text-blue-700 dark:text-blue-300 text-xs sm:text-sm font-extrabold truncate">
-          📍 {seller?.area || "Madhapur"}
+
+      {/* 4. Location */}
+      <div className="flex flex-col items-center justify-center rounded-2xl border border-indigo-500/20 bg-indigo-500/5 dark:bg-indigo-500/10 p-3 text-center transition-all hover:border-indigo-500/40 shadow-xs">
+        <div className="flex items-center justify-center gap-1 text-indigo-700 dark:text-indigo-300 text-xs sm:text-sm font-extrabold max-w-full px-1">
+          <MapPin className="h-3.5 w-3.5 text-indigo-600 dark:text-indigo-400 shrink-0" />
+          <span className="truncate">{locationDisplay}</span>
         </div>
-        <div className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider mt-0.5">Local Distance</div>
+        <div className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider mt-1">{distanceSubtitle}</div>
       </div>
     </div>
   );

@@ -313,7 +313,10 @@ function Manage() {
             listingTitle={l.title}
             listingImage={cover}
             listingPrice={l.price}
-            listingArea={`${l.area || ""}${l.city ? `, ${l.city}` : ""}`}
+            listingArea={l.area || ""}
+            listingCity={l.city || "Hyderabad"}
+            listingPincode={l.pincode}
+            listingCategory={l.category}
             onClose={() => setShowBoostWizard(false)}
           />
         )}

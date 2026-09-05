@@ -477,18 +477,21 @@ export const getSeller = (id: string): Seller => {
       if (stored) {
         const u = JSON.parse(stored);
         if (u && (u.id === id || u._id === id)) {
+          const areaDisplay = u.profile?.area && u.profile.area !== "Madhapur"
+            ? `${u.profile.area}, ${u.profile.city || "Hyderabad"}`
+            : (u.profile?.city || "Hyderabad");
           return {
             id,
             name: u.profile?.name || u.name || "Omeetso Seller",
             avatar: u.profile?.avatar || u.avatar,
             memberSince: u.createdAt ? new Date(u.createdAt).getFullYear().toString() : "2024",
-            rating: 4.8,
-            reviews: 12,
-            responseTime: "within 15 min",
+            rating: 0,
+            reviews: 0,
+            responseTime: "Within 15 min",
             responseRate: "98%",
             verified: true,
             type: u.accountType === "business" ? "business" : "individual",
-            area: `${u.profile?.area || "Madhapur"}, ${u.profile?.city || "Hyderabad"}`,
+            area: areaDisplay,
             about: u.profile?.bio || "Active seller on Omeetso Marketplace."
           };
         }
@@ -502,18 +505,21 @@ export const getSeller = (id: string): Seller => {
   if (liveListing) {
     const liveSeller = (liveListing as any).seller;
     const name = liveSeller?.name || liveListing.sellerName || "Omeetso Seller";
+    const locArea = liveListing.area || (liveSeller?.area && liveSeller.area !== "Madhapur" ? liveSeller.area : null);
+    const locCity = liveListing.city || liveSeller?.city || "Hyderabad";
+    const areaDisplay = locArea ? `${locArea}, ${locCity}` : locCity;
     return {
       id,
       name,
       avatar: liveSeller?.avatar,
       memberSince: liveSeller?.memberSince ? new Date(liveSeller.memberSince).getFullYear().toString() : "2024",
-      rating: 4.8,
-      reviews: 12,
-      responseTime: "within 15 min",
+      rating: 0,
+      reviews: 0,
+      responseTime: "Within 15 min",
       responseRate: "98%",
       verified: true,
       type: "individual",
-      area: liveSeller?.area || `${liveListing.area || "Madhapur"}, ${liveListing.city || "Hyderabad"}`,
+      area: areaDisplay,
       about: `${name} is an active seller on Omeetso Marketplace.`
     };
   }
@@ -523,13 +529,13 @@ export const getSeller = (id: string): Seller => {
     name: "Omeetso Seller",
     avatar: "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&w=200&h=200&q=80",
     memberSince: "2024",
-    rating: 4.8,
-    reviews: 12,
-    responseTime: "within 15 min",
+    rating: 0,
+    reviews: 0,
+    responseTime: "Within 15 min",
     responseRate: "98%",
-    verified: true,
+    verified: false,
     type: "individual",
-    area: "Madhapur, Hyderabad",
+    area: "Hyderabad",
     about: "Verified seller on Omeetso Marketplace."
   };
 };

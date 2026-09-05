@@ -61,24 +61,381 @@ function InfoWhySeeing() {
   );
 }
 
-const DEFAULT_HERO_SLOTS = [
+export const DEFAULT_ROTATING_BANNERS = [
   {
-    id: "default_hero_omeetso",
-    headline: "Sell Anything in 30 Seconds with 0% Commission on Omeetso",
-    body: "Post free listings, connect with verified nearby buyers, and get 100% direct inquiries.",
-    cta: "Post Free Listing",
+    id: "default_banner_market",
+    servedAdId: "default_banner_market",
+    campaignId: "default_omeetso_partner",
+    placement: "HOMEPAGE_HERO",
+    headline: "Buy & Sell Nearby with 0% Middleman Commission",
+    title: "Buy & Sell Nearby with 0% Middleman Commission",
+    body: "Connect directly with verified local buyers & neighborhood stores. Post free listings or discover exclusive local deals today.",
+    subtitle: "Connect directly with verified local buyers & neighborhood stores. Post free listings or discover exclusive local deals today.",
+    cta: "Explore Marketplace",
+    ctaText: "Explore Marketplace",
+    destinationUrl: "/results",
+    ctaLink: "/results",
+    image: "https://images.unsplash.com/photo-1556742049-0a67e557b683?w=1600",
+    imageUrl: "https://images.unsplash.com/photo-1556742049-0a67e557b683?w=1600",
+    creative: {
+      imageUrl: "https://images.unsplash.com/photo-1556742049-0a67e557b683?w=1600",
+      title: "Buy & Sell Nearby with 0% Middleman Commission",
+      description: "Connect directly with verified local buyers & neighborhood stores. Post free listings or discover exclusive local deals today.",
+      destinationUrl: "/results"
+    },
+    advertiser: "Omeetso Community",
+    label: "Sponsored"
+  },
+  {
+    id: "default_banner_gadgets",
+    servedAdId: "default_banner_gadgets",
+    campaignId: "default_omeetso_tech",
+    placement: "HOMEPAGE_HERO",
+    headline: "Upgrade Your Tech — Verified Mobiles & Laptops Nearby",
+    title: "Upgrade Your Tech — Verified Mobiles & Laptops Nearby",
+    body: "Explore authentic smartphones, MacBooks, tablets and accessories tested and sold by trusted local owners.",
+    subtitle: "Explore authentic smartphones, MacBooks, tablets and accessories tested and sold by trusted local owners.",
+    cta: "Shop Electronics",
+    ctaText: "Shop Electronics",
+    destinationUrl: "/results?cat=electronics",
+    ctaLink: "/results?cat=electronics",
+    image: "https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=1600",
+    imageUrl: "https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=1600",
+    creative: {
+      imageUrl: "https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=1600",
+      title: "Upgrade Your Tech — Verified Mobiles & Laptops Nearby",
+      description: "Explore authentic smartphones, MacBooks, tablets and accessories tested and sold by trusted local owners.",
+      destinationUrl: "/results?cat=electronics"
+    },
+    advertiser: "Verified Tech Partners",
+    label: "Sponsored"
+  },
+  {
+    id: "default_banner_vehicles",
+    servedAdId: "default_banner_vehicles",
+    campaignId: "default_omeetso_auto",
+    placement: "HOMEPAGE_HERO",
+    headline: "Certified Cars & Bikes with Direct Owner Test Drives",
+    title: "Certified Cars & Bikes with Direct Owner Test Drives",
+    body: "Find quality checked cars, scooters and motorcycles directly from local owners. Zero middleman fees.",
+    subtitle: "Find quality checked cars, scooters and motorcycles directly from local owners. Zero middleman fees.",
+    cta: "Find Vehicles",
+    ctaText: "Find Vehicles",
+    destinationUrl: "/results?cat=cars",
+    ctaLink: "/results?cat=cars",
+    image: "https://images.unsplash.com/photo-1549399542-7e3f8b79c341?w=1600",
+    imageUrl: "https://images.unsplash.com/photo-1549399542-7e3f8b79c341?w=1600",
+    creative: {
+      imageUrl: "https://images.unsplash.com/photo-1549399542-7e3f8b79c341?w=1600",
+      title: "Certified Cars & Bikes with Direct Owner Test Drives",
+      description: "Find quality checked cars, scooters and motorcycles directly from local owners. Zero middleman fees.",
+      destinationUrl: "/results?cat=cars"
+    },
+    advertiser: "Omeetso Auto Network",
+    label: "Sponsored"
+  },
+  {
+    id: "default_banner_stores",
+    servedAdId: "default_banner_stores",
+    campaignId: "default_omeetso_stores",
+    placement: "HOMEPAGE_HERO",
+    headline: "Explore 500+ Verified Local Stores & Showrooms",
+    title: "Explore 500+ Verified Local Stores & Showrooms",
+    body: "Shop from neighborhood retailers with instant WhatsApp chat, real-time catalogs and exclusive in-store discounts.",
+    subtitle: "Shop from neighborhood retailers with instant WhatsApp chat, real-time catalogs and exclusive in-store discounts.",
+    cta: "Explore Stores",
+    ctaText: "Explore Stores",
+    destinationUrl: "/stores",
+    ctaLink: "/stores",
+    image: "https://images.unsplash.com/photo-1441986300917-64674bd600d8?w=1600",
+    imageUrl: "https://images.unsplash.com/photo-1441986300917-64674bd600d8?w=1600",
+    creative: {
+      imageUrl: "https://images.unsplash.com/photo-1441986300917-64674bd600d8?w=1600",
+      title: "Explore 500+ Verified Local Stores & Showrooms",
+      description: "Shop from neighborhood retailers with instant WhatsApp chat, real-time catalogs and exclusive in-store discounts.",
+      destinationUrl: "/stores"
+    },
+    advertiser: "Omeetso Store Network",
+    label: "Sponsored"
+  },
+  {
+    id: "default_banner_express",
+    servedAdId: "default_banner_express",
+    campaignId: "default_omeetso_sell",
+    placement: "HOMEPAGE_HERO",
+    headline: "Sell Any Item in 30 Seconds — 100% Free Buyer Leads",
+    title: "Sell Any Item in 30 Seconds — 100% Free Buyer Leads",
+    body: "Snap a photo, enter price, and receive instant WhatsApp inquiries from genuine verified buyers in your pincode.",
+    subtitle: "Snap a photo, enter price, and receive instant WhatsApp inquiries from genuine verified buyers in your pincode.",
+    cta: "Post Free Ad Now",
+    ctaText: "Post Free Ad Now",
     destinationUrl: "/sell",
-    image: "https://images.unsplash.com/photo-1556742049-0a67e557b683?w=1200",
-    advertiser: "Omeetso Marketplace"
+    ctaLink: "/sell",
+    image: "https://images.unsplash.com/photo-1556740758-90de374c12ad?w=1600",
+    imageUrl: "https://images.unsplash.com/photo-1556740758-90de374c12ad?w=1600",
+    creative: {
+      imageUrl: "https://images.unsplash.com/photo-1556740758-90de374c12ad?w=1600",
+      title: "Sell Any Item in 30 Seconds — 100% Free Buyer Leads",
+      description: "Snap a photo, enter price, and receive instant WhatsApp inquiries from genuine verified buyers in your pincode.",
+      destinationUrl: "/sell"
+    },
+    advertiser: "Omeetso Express",
+    label: "Sponsored"
   }
 ];
+
+export const UNIFIED_DEFAULT_BANNER = DEFAULT_ROTATING_BANNERS[0];
+
+export const DEFAULT_SPONSORED_LISTING = {
+  id: "sponsored_default_iphone15",
+  title: "Apple iPhone 15 Pro (128 GB) - Natural Titanium (Sealed Box)",
+  price: 78999,
+  originalPrice: 134900,
+  images: ["https://images.unsplash.com/photo-1592750475338-74b7b21085ab?w=600"],
+  image: "https://images.unsplash.com/photo-1592750475338-74b7b21085ab?w=600",
+  area: "Madhapur",
+  city: "Hyderabad",
+  location: "Madhapur, Hyderabad",
+  sponsored: true,
+  verified: true,
+  condition: "Brand New",
+  postedTime: "Sponsored",
+  sellerName: "Omeetso Verified Partner",
+  category: "mobiles"
+};
+
+export const DEFAULT_NATIVE_AD = {
+  id: "default_native_gadgets",
+  headline: "Direct Owner Electronics & Gadgets with 0% Fee",
+  title: "Direct Owner Electronics & Gadgets with 0% Fee",
+  body: "Verified mobiles, laptops & appliances inspected and sold by trusted local neighbors.",
+  cta: "Browse Deals",
+  ctaText: "Browse Deals",
+  destinationUrl: "/results?cat=electronics",
+  image: "https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=600",
+  imageUrl: "https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=600",
+  advertiser: "Omeetso Partner",
+  label: "Sponsored"
+};
+
+export const DEFAULT_CONTEXTUAL_AD = {
+  id: "default_contextual_trust",
+  headline: "Looking for similar verified items nearby?",
+  body: "Compare verified listings with 100% price protection and instant direct chat.",
+  cta: "View Deals",
+  ctaText: "View Deals",
+  destinationUrl: "/results",
+  advertiser: "Omeetso Buyer Protection"
+};
+
+export function getCategoryDefaultBanner(categoryId: string, categoryName?: string) {
+  const cId = (categoryId || "").toLowerCase().trim();
+  const name = categoryName || (cId.charAt(0).toUpperCase() + cId.slice(1));
+
+  if (cId === "furniture") {
+    return {
+      id: "cat_banner_furniture",
+      headline: "Explore Quality Furniture & Home Decor Direct from Owners",
+      title: "Explore Quality Furniture & Home Decor Direct from Owners",
+      body: "Solid wood beds, sofa sets, dining tables and study desks inspected and sold by verified local sellers.",
+      subtitle: "Solid wood beds, sofa sets, dining tables and study desks inspected and sold by verified local sellers.",
+      cta: "Explore Furniture Deals",
+      ctaText: "Explore Furniture Deals",
+      destinationUrl: "/results?cat=furniture",
+      ctaLink: "/results?cat=furniture",
+      image: "https://images.unsplash.com/photo-1555041469-a586c61ea9bc?w=1600",
+      imageUrl: "https://images.unsplash.com/photo-1555041469-a586c61ea9bc?w=1600",
+      creative: {
+        imageUrl: "https://images.unsplash.com/photo-1555041469-a586c61ea9bc?w=1600",
+        title: "Explore Quality Furniture & Home Decor Direct from Owners",
+        description: "Solid wood beds, sofa sets, dining tables and study desks inspected and sold by verified local sellers.",
+        destinationUrl: "/results?cat=furniture",
+      },
+      advertiser: "Verified Furniture Network",
+      label: "Sponsored",
+    };
+  }
+
+  if (cId === "cars" || cId.includes("car")) {
+    return {
+      id: "cat_banner_cars",
+      headline: "Certified Cars with Direct Owner Test Drives & 0% Fee",
+      title: "Certified Cars with Direct Owner Test Drives & 0% Fee",
+      body: "Inspected sedans, hatchbacks & SUVs verified with service history directly from genuine local owners.",
+      subtitle: "Inspected sedans, hatchbacks & SUVs verified with service history directly from genuine local owners.",
+      cta: "Explore Cars",
+      ctaText: "Explore Cars",
+      destinationUrl: "/results?cat=cars",
+      ctaLink: "/results?cat=cars",
+      image: "https://images.unsplash.com/photo-1549399542-7e3f8b79c341?w=1600",
+      imageUrl: "https://images.unsplash.com/photo-1549399542-7e3f8b79c341?w=1600",
+      creative: {
+        imageUrl: "https://images.unsplash.com/photo-1549399542-7e3f8b79c341?w=1600",
+        title: "Certified Cars with Direct Owner Test Drives & 0% Fee",
+        description: "Inspected sedans, hatchbacks & SUVs verified with service history directly from genuine local owners.",
+        destinationUrl: "/results?cat=cars",
+      },
+      advertiser: "Omeetso Auto Network",
+      label: "Sponsored",
+    };
+  }
+
+  if (cId === "bikes" || cId.includes("bike") || cId.includes("motorcycle") || cId.includes("scooter")) {
+    return {
+      id: "cat_banner_bikes",
+      headline: "Top Condition Bikes, Scooters & Two-Wheelers Nearby",
+      title: "Top Condition Bikes, Scooters & Two-Wheelers Nearby",
+      body: "Connect directly with local owners for test drives on commuter motorcycles, sports bikes and electric scooters.",
+      subtitle: "Connect directly with local owners for test drives on commuter motorcycles, sports bikes and electric scooters.",
+      cta: "Find Two-Wheelers",
+      ctaText: "Find Two-Wheelers",
+      destinationUrl: "/results?cat=bikes",
+      ctaLink: "/results?cat=bikes",
+      image: "https://images.unsplash.com/photo-1558981403-c5f9899a28bc?w=1600",
+      imageUrl: "https://images.unsplash.com/photo-1558981403-c5f9899a28bc?w=1600",
+      creative: {
+        imageUrl: "https://images.unsplash.com/photo-1558981403-c5f9899a28bc?w=1600",
+        title: "Top Condition Bikes, Scooters & Two-Wheelers Nearby",
+        description: "Connect directly with local owners for test drives on commuter motorcycles, sports bikes and electric scooters.",
+        destinationUrl: "/results?cat=bikes",
+      },
+      advertiser: "Omeetso Two-Wheelers",
+      label: "Sponsored",
+    };
+  }
+
+  if (cId === "mobiles" || cId.includes("mobile") || cId.includes("phone")) {
+    return {
+      id: "cat_banner_mobiles",
+      headline: "Authentic Mobiles & Smartphones Tested by Local Owners",
+      title: "Authentic Mobiles & Smartphones Tested by Local Owners",
+      body: "Discover iPhones, Samsung Galaxy, OnePlus and accessories with sealed boxes and verified bill checks.",
+      subtitle: "Discover iPhones, Samsung Galaxy, OnePlus and accessories with sealed boxes and verified bill checks.",
+      cta: "Shop Mobiles",
+      ctaText: "Shop Mobiles",
+      destinationUrl: "/results?cat=mobiles",
+      ctaLink: "/results?cat=mobiles",
+      image: "https://images.unsplash.com/photo-1511707171634-5f897ff02aa9?w=1600",
+      imageUrl: "https://images.unsplash.com/photo-1511707171634-5f897ff02aa9?w=1600",
+      creative: {
+        imageUrl: "https://images.unsplash.com/photo-1511707171634-5f897ff02aa9?w=1600",
+        title: "Authentic Mobiles & Smartphones Tested by Local Owners",
+        description: "Discover iPhones, Samsung Galaxy, OnePlus and accessories with sealed boxes and verified bill checks.",
+        destinationUrl: "/results?cat=mobiles",
+      },
+      advertiser: "Verified Mobile Network",
+      label: "Sponsored",
+    };
+  }
+
+  if (cId === "electronics" || cId.includes("electronic") || cId.includes("laptop")) {
+    return {
+      id: "cat_banner_electronics",
+      headline: "Upgrade Your Tech — Verified Laptops, Tablets & Audio",
+      title: "Upgrade Your Tech — Verified Laptops, Tablets & Audio",
+      body: "Explore authentic MacBooks, Windows ultrabooks, monitors and consoles tested by trusted local neighbors.",
+      subtitle: "Explore authentic MacBooks, Windows ultrabooks, monitors and consoles tested by trusted local neighbors.",
+      cta: "Shop Electronics",
+      ctaText: "Shop Electronics",
+      destinationUrl: "/results?cat=electronics",
+      ctaLink: "/results?cat=electronics",
+      image: "https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=1600",
+      imageUrl: "https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=1600",
+      creative: {
+        imageUrl: "https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=1600",
+        title: "Upgrade Your Tech — Verified Laptops, Tablets & Audio",
+        description: "Explore authentic MacBooks, Windows ultrabooks, monitors and consoles tested by trusted local neighbors.",
+        destinationUrl: "/results?cat=electronics",
+      },
+      advertiser: "Verified Tech Partners",
+      label: "Sponsored",
+    };
+  }
+
+  if (cId === "home-appliances" || cId.includes("appliance")) {
+    return {
+      id: "cat_banner_appliances",
+      headline: "Reliable Home & Kitchen Appliances with Local Pickup",
+      title: "Reliable Home & Kitchen Appliances with Local Pickup",
+      body: "Save on verified refrigerators, washing machines, microwaves, air conditioners and water purifiers.",
+      subtitle: "Save on verified refrigerators, washing machines, microwaves, air conditioners and water purifiers.",
+      cta: "Browse Appliances",
+      ctaText: "Browse Appliances",
+      destinationUrl: "/results?cat=home-appliances",
+      ctaLink: "/results?cat=home-appliances",
+      image: "https://images.unsplash.com/photo-1584269600464-37b1b58a9fe7?w=1600",
+      imageUrl: "https://images.unsplash.com/photo-1584269600464-37b1b58a9fe7?w=1600",
+      creative: {
+        imageUrl: "https://images.unsplash.com/photo-1584269600464-37b1b58a9fe7?w=1600",
+        title: "Reliable Home & Kitchen Appliances with Local Pickup",
+        description: "Save on verified refrigerators, washing machines, microwaves, air conditioners and water purifiers.",
+        destinationUrl: "/results?cat=home-appliances",
+      },
+      advertiser: "Omeetso Appliance Network",
+      label: "Sponsored",
+    };
+  }
+
+  if (cId === "properties" || cId.includes("propert") || cId.includes("real-estate")) {
+    return {
+      id: "cat_banner_properties",
+      headline: "Zero Brokerage Direct Owner Houses, Flats & Plots",
+      title: "Zero Brokerage Direct Owner Houses, Flats & Plots",
+      body: "Connect directly with genuine property owners & builders with instant phone calls and map directions.",
+      subtitle: "Connect directly with genuine property owners & builders with instant phone calls and map directions.",
+      cta: "Explore Properties",
+      ctaText: "Explore Properties",
+      destinationUrl: "/results?cat=properties",
+      ctaLink: "/results?cat=properties",
+      image: "https://images.unsplash.com/photo-1560518883-ce09059eeffa?w=1600",
+      imageUrl: "https://images.unsplash.com/photo-1560518883-ce09059eeffa?w=1600",
+      creative: {
+        imageUrl: "https://images.unsplash.com/photo-1560518883-ce09059eeffa?w=1600",
+        title: "Zero Brokerage Direct Owner Houses, Flats & Plots",
+        description: "Connect directly with genuine property owners & builders with instant phone calls and map directions.",
+        destinationUrl: "/results?cat=properties",
+      },
+      advertiser: "Omeetso Property Network",
+      label: "Sponsored",
+    };
+  }
+
+  // Generic fallback for other categories (Fashion, Jobs, Services, etc.)
+  return {
+    id: `cat_banner_${cId}`,
+    headline: `Verified Deals in ${name} with 0% Middleman Commission`,
+    title: `Verified Deals in ${name} with 0% Middleman Commission`,
+    body: `Connect directly with verified local buyers & neighborhood sellers for ${name.toLowerCase()} items.`,
+    subtitle: `Connect directly with verified local buyers & neighborhood sellers for ${name.toLowerCase()} items.`,
+    cta: `Explore ${name}`,
+    ctaText: `Explore ${name}`,
+    destinationUrl: `/results?cat=${encodeURIComponent(cId)}`,
+    ctaLink: `/results?cat=${encodeURIComponent(cId)}`,
+    image: "https://images.unsplash.com/photo-1556742049-0a67e557b683?w=1600",
+    imageUrl: "https://images.unsplash.com/photo-1556742049-0a67e557b683?w=1600",
+    creative: {
+      imageUrl: "https://images.unsplash.com/photo-1556742049-0a67e557b683?w=1600",
+      title: `Verified Deals in ${name} with 0% Middleman Commission`,
+      description: `Connect directly with verified local buyers & neighborhood sellers for ${name.toLowerCase()} items.`,
+      destinationUrl: `/results?cat=${encodeURIComponent(cId)}`,
+    },
+    advertiser: `Omeetso ${name} Network`,
+    label: "Sponsored",
+  };
+}
+
+const DEFAULT_HERO_SLOTS = DEFAULT_ROTATING_BANNERS;
 
 export function HeroAd({ ad, ads, maxAds = 5 }: { ad?: any; ads?: any[]; maxAds?: number }) {
   const adList = useMemo(() => {
     let list: any[] = [];
     if (ads && ads.length > 0) list = [...ads];
     else if (ad) list = [ad];
-    if (list.length === 0) list = [...DEFAULT_HERO_SLOTS];
+    // If no active/placed ads exist, fall back to default rotating banners
+    if (list.length === 0) {
+      list = [...DEFAULT_ROTATING_BANNERS];
+    }
+    // Note: When placed ads are running (1 or more), NEVER mix with default or mock banners!
     return list.slice(0, maxAds);
   }, [ad, ads, maxAds]);
 
@@ -321,22 +678,24 @@ export function CategoryStripAd({ ad }: { ad: any }) {
   );
 }
 
-export function NativeAdCard({ ad }: { ad: any }) {
+export function NativeAdCard({ ad }: { ad?: any }) {
+  const activeAd = ad || DEFAULT_NATIVE_AD;
   const [gone, setGone] = useState(false);
-  const adId = ad.id || ad.servedAdId || "ad_native";
-  const image = ad.image || ad.imageUrl || ad.creative?.imageUrl;
-  const headline = ad.headline || ad.title || ad.creative?.title || "Featured Highlight";
-  const cta = ad.cta || ad.ctaText || "View Product";
-  const destinationUrl = ad.destinationUrl || ad.ctaLink || ad.creative?.destinationUrl || "/";
-  const advertiser = ad.advertiser || "Verified Partner";
+  const adId = activeAd.id || activeAd.servedAdId || "ad_native";
+  const image = activeAd.image || activeAd.imageUrl || activeAd.creative?.imageUrl;
+  const headline = activeAd.headline || activeAd.title || activeAd.creative?.title || "Featured Highlight";
+  const cta = activeAd.cta || activeAd.ctaText || "Browse Deals";
+  const destinationUrl = activeAd.destinationUrl || activeAd.ctaLink || activeAd.creative?.destinationUrl || "/results?cat=electronics";
+  const advertiser = activeAd.advertiser || "Omeetso Partner";
 
   useEffect(() => setGone(isAdDismissed(adId)), [adId]);
-  useImpression(adId, ad.campaignId, ad.placement, gone);
+  useImpression(adId, activeAd.campaignId, activeAd.placement, gone);
   if (gone) return null;
 
   return (
-    <a
-      href={destinationUrl}
+    <Link
+      to={destinationUrl}
+      onClick={() => trackAdClick(adId)}
       className="block w-full text-left"
     >
       <div className="relative overflow-hidden rounded-2xl border-2 border-yellow-brand/50 bg-yellow-brand/[0.06] card-elev">
@@ -352,7 +711,7 @@ export function NativeAdCard({ ad }: { ad: any }) {
           {cta} <ArrowRight className="h-3 w-3" />
         </span>
       </div>
-    </a>
+    </Link>
   );
 }
 
@@ -370,20 +729,11 @@ export function SecondaryBannerAd({
     if (ads && ads.length > 0) list = [...ads];
     else if (ad) list = [ad];
 
-    // If no active ads exist, show only 1 single clean fallback ad
+    // If no active ads exist, show rotating default banners
     if (list.length === 0) {
-      list = [
-        {
-          id: "fallback_omeetso_market",
-          headline: "Buy & Sell Nearby with 0% Middleman Commission",
-          body: "Connect directly with verified local buyers & sellers in your neighborhood",
-          cta: "Explore Marketplace",
-          destinationUrl: "/results",
-          image: "https://images.unsplash.com/photo-1556742049-0a67e557b683?w=1200",
-          advertiser: "Omeetso Marketplace"
-        }
-      ];
+      list = [...DEFAULT_ROTATING_BANNERS];
     }
+    // When placed ads are running (1 or more), NEVER mix in default or mock ads
     return list.slice(0, maxAds);
   }, [ad, ads, maxAds]);
 
@@ -506,32 +856,36 @@ export function SecondaryBannerAd({
   );
 }
 
-export function ContextualAd({ ad }: { ad: Ad }) {
+export function ContextualAd({ ad }: { ad?: any }) {
+  const activeAd = ad || DEFAULT_CONTEXTUAL_AD;
   const [gone, setGone] = useState(false);
-  useEffect(() => setGone(isAdDismissed(ad.id)), [ad.id]);
-  useImpression(ad.id, gone);
+  const adId = activeAd.id || activeAd.servedAdId || "ad_contextual";
+  useEffect(() => setGone(isAdDismissed(adId)), [adId]);
+  useImpression(adId, activeAd.campaignId, activeAd.placement, gone);
   if (gone) return null;
   return (
-    <div className="rounded-2xl border border-border bg-card p-3">
+    <div className="rounded-2xl border border-border bg-card p-3.5 shadow-xs">
       <div className="flex items-center justify-between">
         <AdLabel />
         <button
-          onClick={() => { dismissAd(ad.id); setGone(true); }}
+          onClick={() => { dismissAd(adId); setGone(true); }}
           aria-label="Dismiss ad"
           className="grid h-6 w-6 place-items-center rounded-full text-muted-foreground hover:bg-secondary"
         >
           <X className="h-3 w-3" />
         </button>
       </div>
-      <p className="mt-2 text-sm font-semibold">{ad.headline}</p>
-      <div className="mt-1 flex items-center justify-between">
-        <span className="text-[11px] text-muted-foreground">Ad · {ad.advertiser}</span>
-        <button
-          onClick={() => trackAdClick(ad.id)}
-          className="rounded-full bg-primary px-3 py-1.5 text-xs font-bold text-primary-foreground"
+      <p className="mt-2 text-sm font-bold text-foreground">{activeAd.headline || activeAd.title}</p>
+      {activeAd.body && <p className="mt-0.5 text-xs text-muted-foreground font-medium">{activeAd.body}</p>}
+      <div className="mt-2.5 flex items-center justify-between">
+        <span className="text-[11px] font-semibold text-muted-foreground">Ad · {activeAd.advertiser || "Omeetso Partner"}</span>
+        <Link
+          to={activeAd.destinationUrl || "/results"}
+          onClick={() => trackAdClick(adId)}
+          className="rounded-full bg-primary px-3.5 py-1.5 text-xs font-bold text-primary-foreground hover:bg-primary/90 transition-colors shadow-xs"
         >
-          {ad.cta}
-        </button>
+          {activeAd.cta || activeAd.ctaText || "View Deals"}
+        </Link>
       </div>
     </div>
   );

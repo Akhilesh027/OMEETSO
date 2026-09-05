@@ -9,7 +9,7 @@ import { MobileFrame } from "@/components/omeetso/MobileFrame";
 import { JobCard } from "@/components/omeetso/jobs/JobCard";
 import { SortSheet } from "@/components/omeetso/SortSheet";
 import { FilterChip } from "@/components/omeetso/FilterChip";
-import { HeroAd } from "@/components/omeetso/AdBanner";
+import { HeroAd, UNIFIED_DEFAULT_BANNER } from "@/components/omeetso/AdBanner";
 import { SafetyCard } from "@/components/omeetso/SafetyCard";
 import { EmptyState } from "@/components/omeetso/EmptyState";
 import { InfinityLoader } from "@/components/omeetso/InfinityLoader";
@@ -344,31 +344,28 @@ function JobsPage() {
             <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar min-w-0 flex-1">
               <button
                 onClick={() => nav({ search: (p: JobsSearch) => ({ ...p, walkIn: p.walkIn === "1" ? undefined : "1" }) })}
-                className={`inline-flex items-center gap-1 rounded-full px-3 py-1.5 text-xs font-extrabold transition-all border shrink-0 ${
-                  search.walkIn === "1"
+                className={`inline-flex items-center gap-1 rounded-full px-3 py-1.5 text-xs font-extrabold transition-all border shrink-0 ${search.walkIn === "1"
                     ? "bg-amber-500 text-slate-950 border-amber-500 shadow-sm"
                     : "bg-card text-foreground border-border"
-                }`}
+                  }`}
               >
                 🚶 Walk-In
               </button>
               <button
                 onClick={() => nav({ search: (p: JobsSearch) => ({ ...p, urgent: p.urgent === "1" ? undefined : "1" }) })}
-                className={`inline-flex items-center gap-1 rounded-full px-3 py-1.5 text-xs font-extrabold transition-all border shrink-0 ${
-                  search.urgent === "1"
+                className={`inline-flex items-center gap-1 rounded-full px-3 py-1.5 text-xs font-extrabold transition-all border shrink-0 ${search.urgent === "1"
                     ? "bg-rose-600 text-white border-rose-600 shadow-sm"
                     : "bg-card text-foreground border-border"
-                }`}
+                  }`}
               >
                 ⚡ Urgent
               </button>
               <button
                 onClick={() => nav({ search: (p: JobsSearch) => ({ ...p, fresher: p.fresher === "1" ? undefined : "1" }) })}
-                className={`inline-flex items-center gap-1 rounded-full px-3 py-1.5 text-xs font-extrabold transition-all border shrink-0 ${
-                  search.fresher === "1"
+                className={`inline-flex items-center gap-1 rounded-full px-3 py-1.5 text-xs font-extrabold transition-all border shrink-0 ${search.fresher === "1"
                     ? "bg-emerald-600 text-white border-emerald-600 shadow-sm"
                     : "bg-card text-foreground border-border"
-                }`}
+                  }`}
               >
                 🎓 Freshers
               </button>
@@ -665,7 +662,7 @@ function JobsPage() {
             </div>
 
             {/* Header Ad */}
-            {liveHeaderAd && <HeroAd ad={liveHeaderAd} />}
+            <HeroAd ad={liveHeaderAd || UNIFIED_DEFAULT_BANNER} />
 
             {loading ? (
               <InfinityLoader
