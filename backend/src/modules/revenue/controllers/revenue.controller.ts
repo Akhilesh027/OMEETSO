@@ -1598,7 +1598,7 @@ export async function serveAds(req: Request, res: Response, next: NextFunction):
         c.advertiserUserId?.profile?.city
       ].filter(Boolean).map((s: string) => s.toLowerCase().trim());
 
-      const adPin = (c.targeting?.pincodes?.length ? c.targeting.pincodes : (c.listingId?.pincode ? [c.listingId.pincode] : [])).map(String).map(s => s.trim());
+      const adPin = (c.targeting?.pincodes?.length ? c.targeting.pincodes : (c.listingId?.pincode ? [c.listingId.pincode] : [])).map(String).map((s: string) => s.trim());
       const adAreas = (c.targeting?.targetAreas?.length ? c.targeting.targetAreas : (c.listingId?.area ? [c.listingId.area] : [])).map((a: any) => String(a).toLowerCase().trim());
 
       const hasExactPinMatch = Boolean(userPin && adPin.length > 0 && adPin.includes(userPin));

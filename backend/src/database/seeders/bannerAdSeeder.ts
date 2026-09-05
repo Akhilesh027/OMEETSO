@@ -641,7 +641,7 @@ export async function seedBannersAndAds(): Promise<{
       bannersCount: sampleBanners.length,
       placementsCount: placements.length,
       productsCount: products.length,
-      campaignsCount: sampleCampaigns.length
+      campaignsCount: await AdCampaign.countDocuments()
     };
   } catch (error) {
     console.error("[BannerSeeder] Error seeding banners and ads:", error);
