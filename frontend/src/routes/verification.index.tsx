@@ -1,5 +1,5 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import { MobileFrame } from "@/components/omeetso/MobileFrame";
 import { BackBar } from "@/components/omeetso/TopBar";
 import { getVerifications, verifStatusLabel, type VerifKind, setVerification, getProfile, setProfile, getTrustScoreBreakdown } from "@/lib/account";
@@ -139,6 +139,23 @@ function VerificationCentre() {
 
   const isIdVerified = v.identity?.status === "verified";
   const isMobileVerified = v.mobile?.status === "verified";
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const params = new URLSearchParams(window.location.search);
+    const step = (params.get("step") || params.get("type") || "").toLowerCase();
+    if (step === "email" || step === "gmail") {
+      setEmailStep("idle");
+      setEmailModal(true);
+    } else if (step === "kyc" || step === "identity" || step === "ekyc") {
+      setKycModal(true);
+    } else if (step === "address") {
+      setAddressModal(true);
+    } else if (step === "mobile") {
+      setMobileStep("idle");
+      setMobileModal(true);
+    }
+  }, []);
 
   // --- Handlers ---
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>, isBack = false) => {

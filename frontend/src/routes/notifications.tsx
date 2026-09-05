@@ -10,7 +10,7 @@ import {
 } from "@/api/notifications.api";
 import { listNotifications, markRead, markAllRead } from "@/lib/account";
 import {
-  MessageSquare, HandCoins, Package, Store, Megaphone, CreditCard, ShieldCheck, Bell, Loader2, ArrowRight
+  MessageSquare, HandCoins, Package, Store, Megaphone, CreditCard, ShieldCheck, Bell, Loader2, ArrowRight, Radio
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
@@ -18,6 +18,7 @@ import { InfinityLoader } from "@/components/omeetso/InfinityLoader";
 
 const CATS = [
   { id: "all", label: "All" },
+  { id: "nearby_changes", label: "Nearby Changes" },
   { id: "chat_message", label: "Messages" },
   { id: "offer_received", label: "Offers" },
   { id: "offer_status", label: "Offer Status" },
@@ -25,6 +26,7 @@ const CATS = [
 ];
 
 const ICON: Record<string, any> = {
+  nearby_changes: Radio,
   chat_message: MessageSquare,
   offer_received: HandCoins,
   offer_status: HandCoins,

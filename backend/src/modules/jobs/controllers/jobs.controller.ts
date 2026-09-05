@@ -244,7 +244,9 @@ export async function createJobListing(req: AuthenticatedUserRequest, res: Respo
       },
       walkInDetails: {
         isWalkIn: Boolean(walk.isWalkIn),
-        walkInDate: walk.walkInDate ? new Date(walk.walkInDate) : undefined,
+        walkInDate: walk.walkInDate ? new Date(walk.walkInDate) : (walk.startDate ? new Date(walk.startDate) : undefined),
+        startDate: walk.startDate ? new Date(walk.startDate) : (walk.walkInDate ? new Date(walk.walkInDate) : undefined),
+        endDate: walk.endDate ? new Date(walk.endDate) : (walk.startDate ? new Date(walk.startDate) : (walk.walkInDate ? new Date(walk.walkInDate) : undefined)),
         startTime: walk.startTime,
         endTime: walk.endTime,
         venue: walk.venue,

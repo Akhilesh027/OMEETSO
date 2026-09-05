@@ -3,7 +3,7 @@ import { useState } from "react";
 import { MobileFrame } from "@/components/omeetso/MobileFrame";
 import { BackBar } from "@/components/omeetso/TopBar";
 import { SectionTitle, MenuGroup, MenuRow, ConfirmModal } from "@/components/omeetso/account";
-import { getProfile, logoutMock } from "@/lib/account";
+import { getProfile, logout, logoutMock } from "@/lib/account";
 import { LogOut, Trash2, PowerOff, KeyRound, Smartphone, Mail, User } from "lucide-react";
 import { toast } from "sonner";
 
@@ -56,7 +56,12 @@ function AccountManage() {
           <ConfirmModal open={confirm} title="Log out of Omeetso?" body="You can sign in again anytime."
             confirmLabel="Log Out" cancelLabel="Stay Logged In" danger
             onCancel={() => setConfirm(false)}
-            onConfirm={() => { logoutMock(); toast.success("Logged out"); nav({ to: "/login" }); }} />
+            onConfirm={async () => {
+              setConfirm(false);
+              await logout();
+              toast.success("Logged out successfully");
+              nav({ to: "/login" });
+            }} />
         </div>
       </div>
     </MobileFrame>

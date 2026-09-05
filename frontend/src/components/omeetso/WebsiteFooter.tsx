@@ -89,14 +89,6 @@ export function WebsiteFooter() {
             <p className="text-xs text-white/70 leading-relaxed font-medium">
               India's premier hyperlocal marketplace connecting buyers, verified individual sellers, and local merchants with direct 0% commission trades.
             </p>
-            <div className="flex items-center gap-3 pt-2">
-              <span className="rounded-full bg-white/10 border border-white/15 px-3 py-1 text-[11px] font-extrabold text-amber-400">
-                100% Aadhaar Verified
-              </span>
-              <span className="rounded-full bg-white/10 border border-white/15 px-3 py-1 text-[11px] font-extrabold text-emerald-400">
-                Direct Chat Enabled
-              </span>
-            </div>
           </div>
 
           {groups.map((g) => (

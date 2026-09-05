@@ -10,6 +10,7 @@ import { registerUserApi, checkPhoneStatusApi, requestUserOtp, verifyUserOtp, Re
 import { toast } from "sonner";
 import { DEFAULT_AVATARS } from "@/lib/account";
 import { uploadImageToCloudinary } from "@/lib/upload";
+import { preventNonNumericKeyDown, sanitizeNumericInput } from "@/lib/utils";
 
 export const Route = createFileRoute("/register")({
   component: RegisterPage,
@@ -48,7 +49,8 @@ function RegisterPage() {
   // Step 3: PIN State
   const [pin, setPin] = useState("");
   const [confirmPin, setConfirmPin] = useState("");
-  const [showPin, setShowPin] = useState(true);
+  const [showPin, setShowPin] = useState(false);
+  const [showConfirmPin, setShowConfirmPin] = useState(false);
 
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
@@ -683,15 +685,18 @@ function RegisterPage() {
                       maxLength={4}
                       autoFocus
                       required
-                      placeholder="e.g. 1234"
+                      placeholder="• • • •"
                       value={pin}
-                      onChange={(e) => setPin(e.target.value.replace(/\D/g, "").slice(0, 4))}
+                      onKeyDown={(e) => preventNonNumericKeyDown(e)}
+                      onChange={(e) => setPin(sanitizeNumericInput(e.target.value).slice(0, 4))}
                       className="w-full bg-transparent text-base font-bold text-foreground outline-none font-mono tracking-widest placeholder:tracking-normal placeholder:font-normal placeholder:text-muted-foreground/60"
                     />
                     <button
                       type="button"
                       onClick={() => setShowPin(!showPin)}
                       className="text-muted-foreground hover:text-foreground cursor-pointer"
+                      title={showPin ? "Hide PIN" : "Show PIN"}
+                      aria-label={showPin ? "Hide PIN" : "Show PIN"}
                     >
                       {showPin ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                     </button>
@@ -704,15 +709,25 @@ function RegisterPage() {
                   <div className="flex items-center gap-2.5 rounded-2xl border border-border bg-card px-3.5 py-3 focus-within:border-indigo-brand focus-within:ring-2 focus-within:ring-indigo-brand/20 transition-all">
                     <KeyRound className="h-4 w-4 text-muted-foreground shrink-0" />
                     <input
-                      type={showPin ? "text" : "password"}
+                      type={showConfirmPin ? "text" : "password"}
                       inputMode="numeric"
                       maxLength={4}
                       required
-                      placeholder="Re-enter 4-digit PIN"
+                      placeholder="• • • •"
                       value={confirmPin}
-                      onChange={(e) => setConfirmPin(e.target.value.replace(/\D/g, "").slice(0, 4))}
+                      onKeyDown={(e) => preventNonNumericKeyDown(e)}
+                      onChange={(e) => setConfirmPin(sanitizeNumericInput(e.target.value).slice(0, 4))}
                       className="w-full bg-transparent text-base font-bold text-foreground outline-none font-mono tracking-widest placeholder:tracking-normal placeholder:font-normal placeholder:text-muted-foreground/60"
                     />
+                    <button
+                      type="button"
+                      onClick={() => setShowConfirmPin(!showConfirmPin)}
+                      className="text-muted-foreground hover:text-foreground cursor-pointer"
+                      title={showConfirmPin ? "Hide PIN" : "Show PIN"}
+                      aria-label={showConfirmPin ? "Hide PIN" : "Show PIN"}
+                    >
+                      {showConfirmPin ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                    </button>
                   </div>
                   {pin && confirmPin && pin !== confirmPin && (
                     <p className="mt-1 text-xs text-rose-500 font-bold">

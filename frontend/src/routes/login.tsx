@@ -33,7 +33,7 @@ function LoginPage() {
 
   // PIN step
   const [pin, setPin] = useState("");
-  const [showPin, setShowPin] = useState(true);
+  const [showPin, setShowPin] = useState(false);
 
   // Forgot PIN step
   const [forgotOtp, setForgotOtp] = useState("");

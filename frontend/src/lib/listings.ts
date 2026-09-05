@@ -85,6 +85,14 @@ export type Listing = {
     pickup?: boolean;
     delivery?: boolean;
   };
+  nearbyChanges?: {
+    enabled: boolean;
+    radiusKm?: number;
+    deliveryFee?: number;
+    freeDeliveryAbove?: number;
+    customNote?: string;
+    updatedAt?: number;
+  };
 };
 
 export type ListingDraft = Partial<Listing> & {
@@ -364,6 +372,28 @@ export function markSold(
     soldChannel: info.channel,
     editHistory: hist,
   });
+}
+
+export function toggleListingNearbyChanges(
+  id: string,
+  enabled: boolean,
+  opts?: { radiusKm?: number; deliveryFee?: number; freeDeliveryAbove?: number; customNote?: string }
+) {
+  const l = getListing(id);
+  if (!l) return undefined;
+  const updated: Listing = {
+    ...l,
+    nearbyChanges: {
+      enabled,
+      radiusKm: opts?.radiusKm ?? l.nearbyChanges?.radiusKm ?? 10,
+      deliveryFee: opts?.deliveryFee ?? l.nearbyChanges?.deliveryFee ?? 0,
+      freeDeliveryAbove: opts?.freeDeliveryAbove ?? l.nearbyChanges?.freeDeliveryAbove ?? 0,
+      customNote: opts?.customNote ?? l.nearbyChanges?.customNote ?? `Local delivery & pickup in ${l.area}`,
+      updatedAt: Date.now()
+    }
+  };
+  upsertListing(updated);
+  return updated;
 }
 
 // ---- Drafts ----

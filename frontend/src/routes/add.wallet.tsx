@@ -249,30 +249,40 @@ export default function AddMoney() {
                 value={amount}
                 onChange={(e) => setAmount(e.target.value)}
                 placeholder="500"
-                className="w-full h-16 rounded-2xl border-2 border-border bg-background pl-10 pr-4 text-2xl font-black text-foreground outline-none focus:border-indigo-brand transition-all"
+                className="w-full h-16 rounded-2xl border-2 border-border bg-background pl-10 pr-4 text-2xl font-black text-foreground outline-none focus:border-indigo-brand transition-all [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
               />
             </div>
 
             {/* Preset Amount Chips */}
-            <div className="flex items-center gap-2 overflow-x-auto no-scrollbar pb-1">
-              {PRESET_AMOUNTS.map((p) => (
-                <button
-                  key={p.value}
-                  type="button"
-                  onClick={() => setAmount(p.value.toString())}
-                  className={`relative shrink-0 px-4 py-2.5 rounded-2xl border text-xs font-bold transition-all ${numAmount === p.value
-                      ? "bg-indigo-brand text-white border-indigo-brand shadow-md scale-105"
-                      : "bg-background text-foreground border-border hover:border-indigo-brand/50 hover:bg-indigo-brand/5"
+            <div className="flex items-center gap-2.5 overflow-x-auto no-scrollbar pt-3 pb-1.5">
+              {PRESET_AMOUNTS.map((p) => {
+                const isSelected = numAmount === p.value;
+                return (
+                  <button
+                    key={p.value}
+                    type="button"
+                    onClick={() => setAmount(p.value.toString())}
+                    className={`relative shrink-0 px-4 py-2.5 rounded-2xl border text-xs font-bold transition-all ${
+                      isSelected
+                        ? "bg-indigo-brand text-white border-indigo-brand shadow-md ring-2 ring-indigo-brand/25"
+                        : "bg-background text-foreground border-border hover:border-indigo-brand/50 hover:bg-indigo-brand/5"
                     }`}
-                >
-                  {p.label}
-                  {p.badge && (
-                    <span className="absolute -top-2 -right-1 bg-amber-500 text-slate-950 text-[9px] font-black px-1.5 py-0.2 rounded-full shadow-sm">
-                      {p.badge}
-                    </span>
-                  )}
-                </button>
-              ))}
+                  >
+                    {p.label}
+                    {p.badge && (
+                      <span
+                        className={`absolute -top-2.5 left-1/2 -translate-x-1/2 whitespace-nowrap text-[9px] font-black uppercase tracking-wider px-2 py-0.5 rounded-full shadow-sm pointer-events-none transition-colors ${
+                          isSelected
+                            ? "bg-amber-400 text-slate-950 ring-2 ring-indigo-brand"
+                            : "bg-amber-500 text-slate-950 ring-2 ring-card"
+                        }`}
+                      >
+                        {p.badge}
+                      </span>
+                    )}
+                  </button>
+                );
+              })}
             </div>
 
             {/* Quick Add Increment Buttons */}

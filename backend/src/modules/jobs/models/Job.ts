@@ -20,6 +20,8 @@ export interface IJobSalary {
 export interface IWalkInDetails {
   isWalkIn: boolean;
   walkInDate?: Date;
+  startDate?: Date;
+  endDate?: Date;
   startTime?: string;
   endTime?: string;
   venue?: string;
@@ -139,6 +141,8 @@ const JobSchema = new Schema<IJobListing>(
     walkInDetails: {
       isWalkIn: { type: Boolean, default: false },
       walkInDate: { type: Date },
+      startDate: { type: Date },
+      endDate: { type: Date },
       startTime: { type: String },
       endTime: { type: String },
       venue: { type: String },

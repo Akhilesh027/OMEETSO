@@ -4,7 +4,7 @@ import {
   Bolt, ClipboardList, Store as StoreIcon, FileClock,
   Check, ChevronRight, AlertCircle, Loader2,
 } from "lucide-react";
-import { cn } from "@/lib/utils";
+import { cn, preventNonNumericKeyDown, sanitizeNumericInput } from "@/lib/utils";
 import type { Condition, ContactPref, BestContactTime, Fulfilment } from "@/lib/listings";
 import { CONDITION_LABEL, CONTACT_LABEL, TIME_LABEL, FULFILMENT_LABEL } from "@/lib/listings";
 
@@ -154,8 +154,10 @@ export function PriceInput({
         <input
           type="text" inputMode="numeric" disabled={free}
           value={fmt}
+          onKeyDown={(e) => preventNonNumericKeyDown(e)}
           onChange={(e) => {
-            const n = Number(e.target.value.replace(/\D/g, ""));
+            const sanitized = sanitizeNumericInput(e.target.value);
+            const n = Number(sanitized);
             handleVal(Number.isFinite(n) ? n : 0);
           }}
           placeholder="Enter expected price (e.g. 15,000)"
@@ -319,10 +321,16 @@ export function LocationSelector({
       <div className="grid grid-cols-2 gap-2">
         <div>
           <label className="mb-1 block text-xs font-bold text-muted-foreground">Pincode *</label>
-          <input type="text" inputMode="numeric" maxLength={6} value={pincode ?? "500081"}
-            onChange={(e) => setPin(e.target.value.replace(/\D/g, "").slice(0, 6))}
+          <input
+            type="text"
+            inputMode="numeric"
+            maxLength={6}
+            value={pincode ?? "500081"}
+            onKeyDown={(e) => preventNonNumericKeyDown(e)}
+            onChange={(e) => setPin(sanitizeNumericInput(e.target.value).slice(0, 6))}
             className={cn("w-full h-11 rounded-2xl border bg-background px-3 text-xs font-bold text-foreground outline-none focus:border-indigo-brand", error?.pincode ? "border-red-400" : "border-border")}
-            placeholder="500081" />
+            placeholder="500081"
+          />
         </div>
         <div>
           <label className="mb-1 block text-xs font-bold text-muted-foreground">Area Name *</label>
@@ -428,7 +436,8 @@ export function ContactPreferenceSelector({
                 inputMode="numeric"
                 maxLength={10}
                 value={whatsappPhone ?? ""}
-                onChange={(e) => onWhatsappPhoneChange?.(e.target.value.replace(/\D/g, "").slice(0, 10))}
+                onKeyDown={(e) => preventNonNumericKeyDown(e)}
+                onChange={(e) => onWhatsappPhoneChange?.(sanitizeNumericInput(e.target.value).slice(0, 10))}
                 placeholder="9876543210"
                 className="w-full h-10 rounded-xl border border-border bg-background pl-11 pr-3 text-xs font-bold text-foreground outline-none focus:border-emerald-500 font-mono"
               />

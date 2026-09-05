@@ -15,8 +15,8 @@ import { EmptyState } from "@/components/omeetso/EmptyState";
 import { InfinityLoader } from "@/components/omeetso/InfinityLoader";
 import { StoreCard } from "@/components/omeetso/StoreCard";
 import { fetchPublicJobs, JobItem } from "@/lib/jobs";
-import { serveAdsApi } from "@/api/adCampaigns.api";
 import { getPublicStoresApi } from "@/api/stores.api";
+import { preventNonNumericKeyDown, sanitizeNumericInput } from "@/lib/utils";
 
 type JobsSearch = {
   q?: string;
@@ -590,19 +590,23 @@ function JobsPage() {
                 <label className="block text-xs font-bold text-muted-foreground mb-1.5 uppercase tracking-wide">Monthly Salary (₹)</label>
                 <div className="flex items-center gap-2 mb-2">
                   <input
-                    type="number"
+                    type="text"
+                    inputMode="numeric"
                     placeholder="Min ₹"
                     value={minSalaryInput}
-                    onChange={(e) => setMinSalaryInput(e.target.value)}
+                    onKeyDown={(e) => preventNonNumericKeyDown(e)}
+                    onChange={(e) => setMinSalaryInput(sanitizeNumericInput(e.target.value))}
                     onBlur={(e) => nav({ search: (p: JobsSearch) => ({ ...p, minSalary: e.target.value || undefined }) })}
                     className="w-full h-10 rounded-xl border border-border bg-background px-3 text-xs font-bold outline-none focus:border-indigo-brand"
                   />
                   <span className="text-xs text-muted-foreground font-bold">to</span>
                   <input
-                    type="number"
+                    type="text"
+                    inputMode="numeric"
                     placeholder="Max ₹"
                     value={maxSalaryInput}
-                    onChange={(e) => setMaxSalaryInput(e.target.value)}
+                    onKeyDown={(e) => preventNonNumericKeyDown(e)}
+                    onChange={(e) => setMaxSalaryInput(sanitizeNumericInput(e.target.value))}
                     onBlur={(e) => nav({ search: (p: JobsSearch) => ({ ...p, maxSalary: e.target.value || undefined }) })}
                     className="w-full h-10 rounded-xl border border-border bg-background px-3 text-xs font-bold outline-none focus:border-indigo-brand"
                   />

@@ -16,20 +16,20 @@ import {
   newId, upsertListing, saveDraft as saveDraftFn, LS, formatINR,
   CONDITION_LABEL, getSellerPrefs,
 } from "@/lib/listings";
-import { getTrustScore } from "@/lib/account";
+import { getTrustScore, pushNotification } from "@/lib/account";
 import { uploadImageToCloudinary } from "@/lib/upload";
 import {
   validateBasic, validateMedia, validateCategory,
   validateLocation, validateContact, validateSpecs,
 } from "@/lib/listingValidation";
-import { BRANDS_BY_CATEGORY, generateTitleSuggestions, generateAiDescription } from "@/lib/aiAssistance";
+import { BRANDS_BY_CATEGORY, getBrandsForCategory, generateTitleSuggestions, generateAiDescription } from "@/lib/aiAssistance";
 import { createListingApi } from "@/api/listings.api";
 import { toast } from "sonner";
 import { useRef } from "react";
 import {
   Sparkles, ClipboardList, ShieldCheck, MapPin, Tag, Eye,
   Wand2, Image as ImageIcon, Layers, Phone, MessageSquare, CheckCircle2, X,
-  RefreshCw, Clock, Trash2, ArrowRight,
+  Radio, ArrowRight, RefreshCw, Clock, Trash2,
 } from "lucide-react";
 
 export const Route = createFileRoute("/sell/detailed")({
@@ -61,7 +61,7 @@ function DetailedSellPage() {
     contactPref: "call_and_chat", bestContactTime: "anytime",
     sellerName: "You", sellerType: "individual",
     city: "Hyderabad", area: "Hitec City", pincode: "500081",
-    category: "electronics", subcategory: "laptops", condition: "good",
+    category: "commercial-vehicles", subcategory: "Mini Truck", condition: "good",
     specs: {}
   });
   const [selectedBrand, setSelectedBrand] = useState<string>("");
@@ -103,7 +103,17 @@ function DetailedSellPage() {
       }
     } catch { }
 
-    if (d && (d.title || d.price || (d.images && d.images.length > 0) || d.description || (d.specs && Object.keys(d.specs).length > 0))) {
+    const restoredCat = d?.category || "commercial-vehicles";
+    const validBrands = getBrandsForCategory(restoredCat);
+    const restoredBrand = d?.specs?.Brand || (d as any)?.brand;
+    const isValidBrand = restoredBrand && (validBrands.includes(restoredBrand) || restoredBrand === "Other");
+    const cleanBrand = isValidBrand ? restoredBrand : "";
+    if (cleanBrand) {
+      setSelectedBrand(cleanBrand);
+    }
+    const cleanSpecs = cleanBrand ? (d?.specs || {}) : { ...(d?.specs || {}), Brand: "" };
+
+    if (d && (d.title || d.price || (d.images && d.images.length > 0) || d.description || (cleanSpecs && Object.keys(cleanSpecs).length > 0))) {
       setDraftRestored(true);
       if ((d as any).lastAutoSavedAt) {
         setLastSavedTime((d as any).lastAutoSavedAt);
@@ -113,6 +123,8 @@ function DetailedSellPage() {
     setData((prev) => ({
       ...prev,
       ...d,
+      category: restoredCat,
+      specs: cleanSpecs,
       area: d?.area || locArea,
       city: d?.city || locCity,
       pincode: d?.pincode || locPin,
@@ -200,8 +212,7 @@ function DetailedSellPage() {
   const patch = (p: Partial<Listing>) => setData((d) => ({ ...d, ...p }));
 
   const categoryBrands = useMemo(() => {
-    const cat = (data.category || "electronics").toLowerCase();
-    return BRANDS_BY_CATEGORY[cat] || BRANDS_BY_CATEGORY["electronics"];
+    return getBrandsForCategory(data.category);
   }, [data.category]);
 
   const titleSuggestions = useMemo(() => {
@@ -238,9 +249,8 @@ function DetailedSellPage() {
     }
     if (!confirmed) { toast.error("Please confirm the listing declaration"); return; }
 
-    const guest = typeof localStorage !== "undefined" && localStorage.getItem("omeetso_guest_session");
     const user = typeof localStorage !== "undefined" && localStorage.getItem("omeetso_user");
-    if (guest && !user) {
+    if (!user) {
       toast.info("Sign in to publish your listing", { action: { label: "Sign in", onClick: () => nav({ to: "/login" }) } });
       return;
     }
@@ -303,9 +313,24 @@ function DetailedSellPage() {
       status: "submitted", createdAt: now, updatedAt: now, method: "detailed",
       storeId: storeId,
       storeMeta: storeId ? { stockStatus: "in_stock" } : undefined,
+      nearbyChanges: data.nearbyChanges,
     };
 
     upsertListing(listing);
+    if (data.nearbyChanges?.enabled) {
+      pushNotification({
+        id: `nearby-notif-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+        category: "nearby_changes",
+        title: `Nearby Changes Live: ${listing.title}`,
+        body: `Nearby changes and local broadcast enabled for "${listing.title}" within ${data.nearbyChanges.radiusKm || 10} km of ${data.area || "your area"}.`,
+        destination: "/account",
+        destinationLabel: "View in Profile",
+        read: false,
+        time: now,
+        thumbnail: uploadedImages[0]
+      });
+    }
+
     localStorage.removeItem(DRAFT_KEY);
     setPublishing(false);
     toast.success("Detailed listing submitted for review! It will go live once approved by admin.");
@@ -468,11 +493,18 @@ function DetailedSellPage() {
                     onChange={(e) => {
                       const b = e.target.value;
                       setSelectedBrand(b);
-                      patch({ specs: { ...(data.specs || {}), Brand: b } });
+                      patch({
+                        specs: {
+                          ...(data.specs || {}),
+                          Brand: b,
+                          "Brand / Manufacturer": b,
+                          Model: "",
+                        },
+                      });
                     }}
                     className="w-full h-11 rounded-2xl border border-border bg-background px-3 text-xs font-bold text-foreground outline-none focus:border-indigo-brand mb-2"
                   >
-                    <option value="">Select Brand…</option>
+                    <option value="">Select Brand / Manufacturer…</option>
                     {categoryBrands.map((b) => (
                       <option key={b} value={b}>{b}</option>
                     ))}
@@ -487,7 +519,14 @@ function DetailedSellPage() {
                         onClick={() => {
                           const nextB = b === selectedBrand ? "" : b;
                           setSelectedBrand(nextB);
-                          patch({ specs: { ...(data.specs || {}), Brand: nextB } });
+                          patch({
+                            specs: {
+                              ...(data.specs || {}),
+                              Brand: nextB,
+                              "Brand / Manufacturer": nextB,
+                              Model: nextB === selectedBrand ? (data.specs?.Model || "") : "",
+                            },
+                          });
                         }}
                         className={`px-3 py-1 rounded-full text-xs font-bold transition-all border ${selectedBrand === b
                           ? "bg-indigo-brand text-white border-indigo-brand shadow-sm"
@@ -512,7 +551,12 @@ function DetailedSellPage() {
                     fields={fields}
                     values={data.specs ?? {}}
                     category={data.category}
-                    onChange={(specs) => patch({ specs })}
+                    onChange={(specs) => {
+                      patch({ specs });
+                      if (specs.Brand && specs.Brand !== selectedBrand) {
+                        setSelectedBrand(specs.Brand);
+                      }
+                    }}
                   />
                 </section>
               )}
@@ -628,7 +672,102 @@ function DetailedSellPage() {
                 />
               </section>
 
-              {/* 7. DESCRIPTION & AI GENERATOR */}
+              {/* 7. NEARBY CHANGES & LOCAL BROADCAST */}
+              <section className="rounded-3xl bg-card p-5 border border-border shadow-sm space-y-3">
+                <div className="flex items-center justify-between border-b border-border pb-3">
+                  <div className="flex items-center gap-2">
+                    <Radio className="h-5 w-5 text-indigo-brand animate-pulse" />
+                    <div>
+                      <h2 className="text-sm font-extrabold uppercase text-foreground">7. Nearby Changes & Local Broadcast</h2>
+                      <p className="text-[11px] text-muted-foreground">Alert nearby buyers and offer customized local delivery & radius terms</p>
+                    </div>
+                  </div>
+                  <label className="relative inline-flex items-center cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={data.nearbyChanges?.enabled ?? false}
+                      onChange={(e) => patch({
+                        nearbyChanges: {
+                          enabled: e.target.checked,
+                          radiusKm: data.nearbyChanges?.radiusKm ?? 10,
+                          deliveryFee: data.nearbyChanges?.deliveryFee ?? 0,
+                          freeDeliveryAbove: data.nearbyChanges?.freeDeliveryAbove ?? 0,
+                          customNote: data.nearbyChanges?.customNote ?? `Local pickup & delivery available in ${data.area || "nearby area"}`,
+                          updatedAt: Date.now()
+                        }
+                      })}
+                      className="sr-only peer"
+                    />
+                    <div className="w-11 h-6 bg-secondary peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-border after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-indigo-brand"></div>
+                  </label>
+                </div>
+
+                {data.nearbyChanges?.enabled && (
+                  <div className="space-y-3 pt-2">
+                    <div className="grid grid-cols-2 gap-3">
+                      <div>
+                        <label className="block text-xs font-bold text-muted-foreground mb-1">Nearby Broadcast Radius</label>
+                        <select
+                          value={data.nearbyChanges?.radiusKm ?? 10}
+                          onChange={(e) => patch({
+                            nearbyChanges: {
+                              ...data.nearbyChanges!,
+                              radiusKm: Number(e.target.value)
+                            }
+                          })}
+                          className="w-full h-11 rounded-2xl border border-border bg-background px-3 text-xs font-bold text-foreground outline-none focus:border-indigo-brand cursor-pointer"
+                        >
+                          <option value={3}>Within 3 km (Immediate Neighborhood)</option>
+                          <option value={5}>Within 5 km (Local Suburb)</option>
+                          <option value={10}>Within 10 km (Standard City Radius)</option>
+                          <option value={20}>Within 20 km (Greater Area)</option>
+                          <option value={35}>Within 35 km (Entire Metro)</option>
+                        </select>
+                      </div>
+
+                      <div>
+                        <label className="block text-xs font-bold text-muted-foreground mb-1">Nearby Delivery Fee (₹)</label>
+                        <input
+                          type="number"
+                          min={0}
+                          value={data.nearbyChanges?.deliveryFee ?? 0}
+                          onChange={(e) => patch({
+                            nearbyChanges: {
+                              ...data.nearbyChanges!,
+                              deliveryFee: Math.max(0, Number(e.target.value))
+                            }
+                          })}
+                          placeholder="0 for Free Delivery"
+                          className="w-full h-11 rounded-2xl border border-border bg-background px-3 text-xs font-bold text-foreground outline-none focus:border-indigo-brand"
+                        />
+                      </div>
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-bold text-muted-foreground mb-1">Nearby Custom Note / Terms</label>
+                      <input
+                        type="text"
+                        value={data.nearbyChanges?.customNote ?? ""}
+                        onChange={(e) => patch({
+                          nearbyChanges: {
+                            ...data.nearbyChanges!,
+                            customNote: e.target.value
+                          }
+                        })}
+                        placeholder="e.g. Free doorstep inspection and handover in Madhapur/Kondapur"
+                        className="w-full h-11 rounded-2xl border border-border bg-background px-4 text-xs font-medium text-foreground outline-none focus:border-indigo-brand"
+                      />
+                    </div>
+
+                    <div className="p-3 rounded-2xl bg-indigo-500/10 border border-indigo-500/20 text-xs text-indigo-900 dark:text-indigo-200 flex items-center gap-2">
+                      <Sparkles className="h-4 w-4 text-indigo-brand shrink-0" />
+                      <span>Enabling Nearby Changes will alert nearby buyers in your area and display real-time updates on your user profile.</span>
+                    </div>
+                  </div>
+                )}
+              </section>
+
+              {/* 8. DESCRIPTION & AI GENERATOR */}
               <section className="rounded-3xl bg-card p-5 border border-border shadow-sm space-y-3">
                 <div className="flex items-center justify-between border-b border-border pb-3">
                   <h2 className="text-sm font-extrabold uppercase text-foreground">7. Description</h2>

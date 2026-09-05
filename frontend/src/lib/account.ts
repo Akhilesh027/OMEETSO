@@ -1,5 +1,5 @@
 // Omeetso Phase 6 — Account, Trust, Safety, Reviews & Support
-// Frontend-only state. No real verification / SMS / email / moderation.
+import { logoutUserApi, setUserAccessToken } from "@/api/auth.api";
 
 export const AK = {
   profile: "omeetso_profile_data",
@@ -161,7 +161,21 @@ export function setProfile(p: Partial<Profile>) {
   }
 }
 export function completionPct(p: Profile): number {
-  const checks = [!!p.name, !!p.email, !!p.mobile, !!p.city, !!p.pincode, !!p.bio, !!p.avatar, !!p.emailVerified, !!p.mobileVerified];
+  const verifs = getVerifications();
+  const isEmailVerified = Boolean(p.emailVerified || (verifs.email?.status === "verified" && verifs.email?.verifiedViaOtp));
+  const isMobileVerified = Boolean(p.mobileVerified || verifs.mobile?.status === "verified");
+  const isIdVerified = Boolean(verifs.identity?.status === "verified");
+
+  const checks = [
+    !!p.name,
+    !!p.email,
+    !!p.mobile,
+    !!p.city,
+    !!p.avatar,
+    isMobileVerified,
+    isEmailVerified,
+    isIdVerified,
+  ];
   return Math.round((checks.filter(Boolean).length / checks.length) * 100);
 }
 
@@ -324,7 +338,7 @@ export const verifStatusLabel: Record<VerifStatus, string> = {
 // ============== Notifications ==============
 export type NotifCategory =
   | "messages" | "offers" | "listings" | "stores"
-  | "promotions" | "payments" | "system";
+  | "promotions" | "payments" | "system" | "nearby_changes";
 export type Notification = {
   id: string;
   category: NotifCategory;
@@ -379,6 +393,20 @@ export function clearCategory(category: NotifCategory) {
 }
 export function unreadCount(): number { return listNotifications().filter((n) => !n.read).length; }
 
+export function pushNotification(n: Omit<Notification, "time"> & { time?: number }) {
+  const cur = listNotifications();
+  const full: Notification = {
+    ...n,
+    time: n.time || Date.now(),
+  };
+  write(AK.notifications, [full, ...cur.filter((item) => item.id !== full.id)]);
+  return full;
+}
+
+export function listNearbyChangesNotifications(): Notification[] {
+  return listNotifications().filter((n) => n.category === "nearby_changes");
+}
+
 // ============== Notification preferences ==============
 export type NotifChannels = { inApp: boolean; push: boolean; email: boolean; sms: boolean };
 export type NotifPrefs = {
@@ -403,6 +431,11 @@ export const NOTIF_PREF_KEYS: { section: string; items: { key: string; label: st
     { key: "listing_expiry", label: "Expiry" },
     { key: "views_milestone", label: "Views milestone" },
     { key: "price_suggestion", label: "Price suggestion" },
+  ]},
+  { section: "Nearby Changes", items: [
+    { key: "nearby_changes_alerts", label: "Nearby changes & radius alerts", essential: true },
+    { key: "nearby_buyer_broadcasts", label: "Nearby buyer broadcasts" },
+    { key: "nearby_delivery_terms", label: "Local delivery & fee updates" },
   ]},
   { section: "Stores", items: [
     { key: "store_approval", label: "Store approval" },
@@ -766,13 +799,49 @@ export const addHelpRecent = (q: string) => {
 export const clearHelpRecent = () => write(AK.helpRecent, []);
 
 // ============== Logout ==============
-export function logoutMock() {
+export async function logout() {
   if (typeof window === "undefined") return;
-  const preserve = ["omeetso_language", "omeetso_appearance"];
+  const preserve = ["omeetso_language", "omeetso_appearance", "omeetso_location", "omeetso_onboarded"];
   const keep: Record<string, string> = {};
-  preserve.forEach((k) => { const v = localStorage.getItem(k); if (v) keep[k] = v; });
-  // Only clear auth-relevant keys
-  ["omeetso_user", "omeetso_profile", "omeetso_profile_data", "omeetso_business_profile"].forEach((k) => localStorage.removeItem(k));
-  preserve.forEach((k) => { if (keep[k]) localStorage.setItem(k, keep[k]); });
+  preserve.forEach((k) => {
+    const v = localStorage.getItem(k);
+    if (v) keep[k] = v;
+  });
+
+  try {
+    await logoutUserApi();
+  } catch (err) {
+    console.error("Backend logout error:", err);
+  }
+
+  setUserAccessToken(null);
+
+  const keysToRemove = [
+    "omeetso_user",
+    "omeetso_user_token",
+    "omeetso_profile",
+    "omeetso_profile_data",
+    "omeetso_business_profile",
+    "omeetso_verification_status",
+    "omeetso_verifications",
+    "omeetso_wallet",
+    "omeetso_guest",
+    "omeetso_guest_session",
+    "omeetso_user_listings",
+    "omeetso_user_stores",
+    "omeetso_account_status",
+    "omeetso_notifications",
+  ];
+  keysToRemove.forEach((k) => localStorage.removeItem(k));
+
+  preserve.forEach((k) => {
+    if (keep[k]) localStorage.setItem(k, keep[k]);
+  });
+
   emit();
+  window.dispatchEvent(new Event("storage"));
+  window.dispatchEvent(new Event("omeetso_auth_changed"));
 }
+
+export const logoutMock = logout;
+

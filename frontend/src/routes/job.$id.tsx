@@ -226,7 +226,19 @@ function JobDetailPage() {
                 <Footprints className="h-5 w-5 text-amber-700" /> Direct Walk-In Interview Details
               </h3>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs font-semibold">
-                <div><span className="text-amber-800 font-bold">Walk-in Date:</span> {job.walkInDetails.walkInDate || "This Week"}</div>
+                {job.walkInDetails.startDate && job.walkInDetails.endDate && job.walkInDetails.startDate !== job.walkInDetails.endDate ? (
+                  <>
+                    <div><span className="text-amber-800 font-bold">Interview Start Date:</span> {new Date(job.walkInDetails.startDate).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" })}</div>
+                    <div><span className="text-amber-800 font-bold">Interview End Date:</span> {new Date(job.walkInDetails.endDate).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" })}</div>
+                  </>
+                ) : (
+                  <div>
+                    <span className="text-amber-800 font-bold">Interview Date:</span>{" "}
+                    {job.walkInDetails.startDate || job.walkInDetails.walkInDate
+                      ? new Date(job.walkInDetails.startDate || job.walkInDetails.walkInDate!).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" })
+                      : "This Week"}
+                  </div>
+                )}
                 <div><span className="text-amber-800 font-bold">Timings:</span> {job.walkInDetails.startTime} - {job.walkInDetails.endTime}</div>
                 <div className="sm:col-span-2"><span className="text-amber-800 font-bold">Venue Address:</span> {job.walkInDetails.venue}</div>
                 <div><span className="text-amber-800 font-bold">Contact Person:</span> {job.walkInDetails.contactPerson}</div>

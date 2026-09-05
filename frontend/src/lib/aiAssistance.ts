@@ -5,11 +5,17 @@ export const BRANDS_BY_CATEGORY: Record<string, string[]> = {
   electronics: ["Sony", "LG", "Samsung", "Dell", "HP", "Lenovo", "Bose", "Canon", "Apple", "Asus"],
   cars: ["Maruti Suzuki", "Hyundai", "Tata", "Mahindra", "Honda", "Toyota", "Kia", "BMW", "Mercedes-Benz", "Volkswagen"],
   bikes: ["Royal Enfield", "Yamaha", "TVS", "Honda", "Bajaj", "KTM", "Hero", "Ather", "Java", "Suzuki"],
+  "commercial-vehicles": ["Tata Motors", "Mahindra", "Ashok Leyland", "Eicher", "BharatBenz", "Force Motors", "Piaggio", "Bajaj Auto", "SML Isuzu", "Isuzu", "Volvo", "Maruti Suzuki Commercial", "JCB", "Atul Auto"],
+  commercial: ["Tata Motors", "Mahindra", "Ashok Leyland", "Eicher", "BharatBenz", "Force Motors", "Piaggio", "Bajaj Auto", "SML Isuzu", "Isuzu", "Volvo", "Maruti Suzuki Commercial", "JCB", "Atul Auto"],
+  "home-appliances": ["LG", "Samsung", "Whirlpool", "Haier", "Godrej", "IFB", "Voltas", "Blue Star", "Daikin", "Bosch", "Philips", "Havells"],
+  appliances: ["LG", "Samsung", "Whirlpool", "Haier", "Godrej", "IFB", "Voltas", "Blue Star", "Daikin", "Bosch", "Philips", "Havells"],
   furniture: ["IKEA", "Pepperfry", "WoodenStreet", "Godrej Interio", "Durian", "Urban Ladder", "RoyalOak"],
   fashion: ["Nike", "Adidas", "Zara", "H&M", "Puma", "Levi's", "FabIndia", "Allen Solly", "Raymond", "Biba"],
   properties: ["DLF", "Prestige", "Sobha", "Godrej Properties", "Brigade", "Lodha", "My Home", "Aparna"],
   jobs: ["Tech Mahindra", "Infosys", "TCS", "Wipro", "Accenture", "Cognizant", "Deloitte", "Amazon"],
   services: ["Urban Company", "NoBroker", "Dunzo", "Packers & Movers", "Homelane", "Livspace"],
+  "books-sports": ["Decathlon", "Yonex", "Cosco", "Nivia", "Speedo", "Oxford", "Pearson", "Penguin"],
+  agriculture: ["Mahindra Tractors", "John Deere", "Swaraj", "Sonalika", "Kubota", "Massey Ferguson", "New Holland", "Eicher Tractors", "Escorts"],
 };
 
 export const MODELS_BY_BRAND: Record<string, string[]> = {
@@ -53,18 +59,169 @@ export const MODELS_BY_BRAND: Record<string, string[]> = {
   Dell: ["XPS 13", "XPS 15", "Alienware m16", "Inspiron 15", "Latitude 5430"],
   HP: ["Spectre x360", "Pavilion 15", "Omen 16", "Envy 13"],
   Lenovo: ["ThinkPad X1 Carbon", "Legion Pro 5", "IdeaPad Slim 3", "Yoga Slim 7i"],
-  Bose: ["QuietComfort 45", "SoundLink Flex", "Smart Soundbar 900"],
   Canon: ["EOS R6 Mark II", "EOS 200D II", "EOS R10", "EOS 90D"],
+
+  // --- COMMERCIAL VEHICLES ---
+  "Tata Motors": ["Tata Ace Gold (Chhota Hathi)", "Tata Intra V30", "Tata Intra V50", "Tata 407 Gold SFC", "Tata Yodha 2.0 Pickup", "Tata Signa 4825 Heavy Truck", "Tata Prima 5530.S", "Tata Ultra T.7", "Tata Winger Cargo/Passenger", "Tata Magic Express"],
+  "Ashok Leyland": ["Dost Strong", "Bada Dost i4", "Partner 4 Tyre", "Ecomet 1615 HE", "AVTR 4220 Heavy Truck", "Boss 1415 HB", "MiTR Staff Bus", "Viking Passenger Bus"],
+  Eicher: ["Pro 2049 Mini Truck", "Pro 3015 Medium Truck", "Pro 6028 Tipper", "Pro 8035 Heavy Truck", "Skyline Pro School Bus", "Starline Staff Bus"],
+  BharatBenz: ["1217C Tipper", "1917R Medium Duty", "2823R Heavy Truck", "3528CM Mining Tipper", "4228R Multi-Axle", "5528TT Tractor Trailer"],
+  "Force Motors": ["Traveller 3050", "Traveller Delivery Van", "Urbania Luxury Van", "Trax Cruiser", "Shaktiman Light Truck", "Trax Toofan"],
+  Piaggio: ["Ape Xtra LDX Cargo", "Ape Auto DX 3-Wheeler", "Ape City Plus Passenger", "Ape E-Xtra Electric", "Ape E-City FX Electric"],
+  "Bajaj Auto": ["Bajaj Compact RE Auto", "Bajaj Maxima C Cargo", "Bajaj Maxima Z Passenger", "Bajaj RE E-TEC 9.0 Electric"],
+  "SML Isuzu": ["SML Isuzu Sarthee", "SML Isuzu Prestige GS", "SML Isuzu Samrat 21", "SML Isuzu Executive Coach Bus"],
+  Isuzu: ["D-Max Super Strong Pickup", "D-Max V-Cross", "S-CAB Commercial", "FTR Heavy Duty Truck"],
+  Volvo: ["Volvo FMX 460 Mining Tipper", "Volvo FM 420 Heavy Haulage", "Volvo FH16 Multi-Axle", "Volvo 9600 Luxury Coach", "Volvo B11R Bus"],
+  "Maruti Suzuki Commercial": ["Super Carry Mini Truck", "Super Carry CNG", "Eeco Cargo Van", "Tour H1 Taxi", "Tour S Sedan Taxi", "Tour M MPV Taxi"],
+  JCB: ["JCB 3DX Plus Backhoe Loader", "JCB 4DX Heavy Backhoe", "JCB 432ZX Wheel Loader", "JCB JS205 Excavator"],
+  "Atul Auto": ["Atul RIK Passenger Auto", "Atul Gem Cargo", "Atul Elite Electric", "Atul Shakti 3-Wheeler"],
 };
 
+export function getBrandsForCategory(category?: string): string[] {
+  if (!category) return [];
+  const cat = category.toLowerCase().replace(/_/g, "-");
+  if (cat.includes("commercial") || cat.includes("truck")) return BRANDS_BY_CATEGORY["commercial-vehicles"] || [];
+  if (cat.includes("car")) return BRANDS_BY_CATEGORY["cars"] || [];
+  if (cat.includes("bike")) return BRANDS_BY_CATEGORY["bikes"] || [];
+  if (cat.includes("mobile") || cat.includes("phone")) return BRANDS_BY_CATEGORY["mobiles"] || [];
+  if (cat.includes("appliance") || cat.includes("home")) return BRANDS_BY_CATEGORY["appliances"] || [];
+  if (cat.includes("furniture")) return BRANDS_BY_CATEGORY["furniture"] || [];
+  if (cat.includes("fashion")) return BRANDS_BY_CATEGORY["fashion"] || [];
+  if (cat.includes("agri")) return BRANDS_BY_CATEGORY["agriculture"] || [];
+  if (cat.includes("electronic")) return BRANDS_BY_CATEGORY["electronics"] || [];
+  if (cat.includes("job")) return BRANDS_BY_CATEGORY["jobs"] || [];
+  if (cat.includes("service")) return BRANDS_BY_CATEGORY["services"] || [];
+  if (cat.includes("book") || cat.includes("sport")) return BRANDS_BY_CATEGORY["books-sports"] || [];
+  return BRANDS_BY_CATEGORY[cat] || [];
+}
+
 export function getModelsForBrand(category?: string, brand?: string): string[] {
-  if (!brand) return [];
+  if (!brand || brand === "Other") return [];
+  const cat = (category || "").toLowerCase().replace(/_/g, "-");
+
+  // Commercial vehicle overrides
+  if (cat.includes("commercial") || cat.includes("truck")) {
+    if (brand === "Mahindra" || brand === "Mahindra Commercial") {
+      return [
+        "Bolero Pik-Up ExtraLong",
+        "Bolero Maxi Truck Plus",
+        "Supro Profit Truck Mini",
+        "Supro Profit Truck Maxi",
+        "Jeeto Plus CNG / Diesel",
+        "Furio 7 Light Truck",
+        "Blazo X 28 Heavy Tipper",
+        "Treo Auto Rickshaw Electric",
+        "Alfa Load 3-Wheeler"
+      ];
+    }
+    if (brand === "Tata" || brand === "Tata Motors") {
+      return MODELS_BY_BRAND["Tata Motors"] || [];
+    }
+    if (brand === "Maruti Suzuki" || brand === "Maruti Suzuki Commercial") {
+      return MODELS_BY_BRAND["Maruti Suzuki Commercial"] || [];
+    }
+    if (brand === "Bajaj" || brand === "Bajaj Auto") {
+      return MODELS_BY_BRAND["Bajaj Auto"] || [];
+    }
+  }
+
+  // Cars overrides
+  if (cat.includes("car")) {
+    if (brand === "Tata" || brand === "Tata Motors") {
+      return MODELS_BY_BRAND["Tata"] || [];
+    }
+  }
+
   return MODELS_BY_BRAND[brand] || [
     `${brand} Standard Model`,
     `${brand} Pro Edition`,
     `${brand} Top Model`,
     `${brand} Limited Edition`,
   ];
+}
+
+export function getCategoryModels(category?: string): string[] {
+  const cat = (category || "").toLowerCase().replace(/_/g, "-");
+  if (cat.includes("commercial") || cat.includes("truck")) {
+    return [
+      "Tata Ace Gold (Chhota Hathi)",
+      "Tata Intra V30",
+      "Tata 407 Gold SFC",
+      "Mahindra Bolero Maxi Truck",
+      "Mahindra Supro Profit Truck",
+      "Mahindra Bolero Pik-Up",
+      "Ashok Leyland Dost Strong",
+      "Ashok Leyland Bada Dost",
+      "Eicher Pro 2049 Mini Truck",
+      "BharatBenz 1217C Tipper",
+      "Force Traveller 3050",
+      "Piaggio Ape Xtra LDX",
+      "Bajaj Maxima C Cargo",
+      "Maruti Suzuki Super Carry",
+      "JCB 3DX Plus Backhoe Loader"
+    ];
+  }
+  if (cat.includes("car")) {
+    return [
+      "Maruti Suzuki Swift", "Maruti Suzuki Baleno", "Maruti Suzuki Brezza", "Maruti Suzuki Dzire", "Maruti Suzuki Ertiga",
+      "Hyundai Creta", "Hyundai Venue", "Hyundai i20",
+      "Tata Nexon", "Tata Punch", "Tata Harrier",
+      "Mahindra Thar", "Mahindra XUV700", "Mahindra Scorpio-N",
+      "Toyota Innova Crysta", "Toyota Fortuner",
+      "Honda City", "Kia Seltos", "Volkswagen Virtus"
+    ];
+  }
+  if (cat.includes("bike")) {
+    return [
+      "Royal Enfield Classic 350", "Royal Enfield Hunter 350", "Royal Enfield Bullet 350", "Royal Enfield Himalayan 450",
+      "Yamaha R15 V4", "Yamaha MT-15 V2",
+      "TVS Apache RTR 160 4V", "TVS Jupiter 125", "TVS Raider 125",
+      "Bajaj Pulsar 150", "Bajaj Pulsar NS200", "Bajaj Chetak EV",
+      "Hero Splendor Plus", "Hero Xpulse 200",
+      "KTM Duke 390", "Ather 450X"
+    ];
+  }
+  if (cat.includes("mobile") || cat.includes("phone")) {
+    return [
+      "iPhone 15 Pro Max", "iPhone 15 Pro", "iPhone 15", "iPhone 14", "iPhone 13",
+      "Samsung Galaxy S24 Ultra", "Samsung Galaxy S24+", "Samsung Galaxy A55 5G",
+      "OnePlus 12", "OnePlus 12R", "OnePlus Nord 4",
+      "Xiaomi 14 Ultra", "Redmi Note 13 Pro+",
+      "Vivo X100 Pro", "Vivo V30 Pro",
+      "Realme 12 Pro+", "Google Pixel 8 Pro", "Nothing Phone (2)"
+    ];
+  }
+  if (cat.includes("electronic")) {
+    return [
+      "MacBook Pro M3", "MacBook Air M2", "Dell XPS 13", "Dell Alienware m16",
+      "HP Spectre x360", "Lenovo ThinkPad X1",
+      "Sony Bravia 4K OLED TV", "LG OLED C3 4K TV", "Sony PlayStation 5",
+      "Canon EOS R6 Mark II", "Sony WH-1000XM5"
+    ];
+  }
+  if (cat.includes("appliance")) {
+    return [
+      "LG Dual Inverter AC 1.5T", "LG Side-by-Side Refrigerator", "LG Front Load 8kg Washer",
+      "Samsung Neo QLED 4K TV", "Samsung Double Door Refrigerator",
+      "Whirlpool Royal 7.5kg Top Load", "Voltas 1.5 Ton 5 Star Inverter AC",
+      "Daikin 1.5 Ton 5 Star AC", "Bosch Serie 6 Front Load Washer"
+    ];
+  }
+  return [];
+}
+
+export function findBrandForModel(modelName: string, category?: string): string | undefined {
+  if (!modelName) return undefined;
+  const lower = modelName.toLowerCase();
+  const brands = getBrandsForCategory(category);
+  for (const b of brands) {
+    if (lower.startsWith(b.toLowerCase()) || lower.includes(b.toLowerCase())) return b;
+    const models = getModelsForBrand(category, b);
+    if (models.some((m) => m.toLowerCase() === lower || lower.includes(m.toLowerCase()))) {
+      return b;
+    }
+  }
+  return undefined;
 }
 
 export function generateTitleSuggestions(category?: string, brand?: string, condition?: string): string[] {
@@ -101,6 +258,12 @@ export function generateTitleSuggestions(category?: string, brand?: string, cond
       `Solid Wood ${b} Set — Barely Used, Pristine Condition`,
       `Modern Ergonomic ${b} — Compact & Elegant Design`,
       `Heavy Duty ${b} — Relocation Sale, Great Deal`,
+    ];
+  } else if (c.includes("commercial") || c.includes("truck")) {
+    return [
+      `${b} Commercial Vehicle — Low KM, Valid All India Permit & Fitness`,
+      `${b} Mini / Heavy Truck — Single Owner, Passing Valid, Ready for Work`,
+      `Well Maintained ${b} — Excellent Mileage & Good Tyre Condition`,
     ];
   }
 

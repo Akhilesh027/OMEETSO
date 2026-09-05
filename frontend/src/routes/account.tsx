@@ -7,17 +7,19 @@ import {
   Package, Heart, Bell, Wallet, Megaphone, Store, ShieldCheck, HelpCircle, Settings,
   LogOut, ChevronRight, User, FileText, Eye, CreditCard, Receipt, Gift, PieChart, BadgeCheck,
   Users, Flag, Lock, LifeBuoy, MessagesSquare, HandCoins, CheckCircle, Star, X, Camera,
-  Wrench, Briefcase, Plus, Calendar, Building, ArrowRight
+  Wrench, Briefcase, Plus, Calendar, Building, ArrowRight, Mail, IdCard, MapPin, Smartphone, Sparkles,
+  Radio, BellRing
 } from "lucide-react";
 import {
   getProfile, setProfile, completionPct, unreadCount, subscribeAccount,
-  getBusinessProfile, getVerifications, getTrustScore, logoutMock, DEFAULT_AVATARS
+  getBusinessProfile, getVerifications, getTrustScore, logout, logoutMock, DEFAULT_AVATARS,
+  listNearbyChangesNotifications, pushNotification
 } from "@/lib/account";
 import { SectionTitle, MenuGroup, MenuRow, Stat, VerifBadge, ConfirmModal } from "@/components/omeetso/account";
 import { toast } from "sonner";
 
 import { getUserAccessToken, refreshUserSession } from "@/api/auth.api";
-import { listListings, fetchLiveUserListings, type Listing } from "@/lib/listings";
+import { listListings, fetchLiveUserListings, type Listing, toggleListingNearbyChanges } from "@/lib/listings";
 import { uploadImageToCloudinary } from "@/lib/upload";
 
 export const Route = createFileRoute("/account")({
@@ -38,6 +40,7 @@ function Account() {
   const [confirmLogout, setConfirmLogout] = useState(false);
   const [activeTab, setActiveTab] = useState("overview");
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [showNearbyModal, setShowNearbyModal] = useState(false);
   const [myListings, setMyListings] = useState<Listing[]>([]);
 
   useEffect(() => {
@@ -87,17 +90,24 @@ function Account() {
       });
 
     const syncVerifs = () => setTick((n) => n + 1);
+    const syncAuth = () => {
+      const token = typeof window !== "undefined" ? (getUserAccessToken() || localStorage.getItem("omeetso_user_token")) : null;
+      if (!token) setAuthenticated(false);
+      setTick((n) => n + 1);
+    };
     const u = subscribeAccount(syncVerifs);
-    window.addEventListener("storage", syncVerifs);
+    window.addEventListener("storage", syncAuth);
     window.addEventListener("focus", syncVerifs);
     window.addEventListener("visibilitychange", syncVerifs);
     window.addEventListener("omeetso_verification_updated", syncVerifs);
+    window.addEventListener("omeetso_auth_changed", syncAuth);
     return () => {
       u();
-      window.removeEventListener("storage", syncVerifs);
+      window.removeEventListener("storage", syncAuth);
       window.removeEventListener("focus", syncVerifs);
       window.removeEventListener("visibilitychange", syncVerifs);
       window.removeEventListener("omeetso_verification_updated", syncVerifs);
+      window.removeEventListener("omeetso_auth_changed", syncAuth);
     };
   }, []);
 
@@ -108,6 +118,39 @@ function Account() {
   const verifs = getVerifications();
   const anyVerified = verifs.mobile.status === "verified" || verifs.identity.status === "verified";
   const unread = unreadCount();
+
+  const isEmailVerified = Boolean(p.emailVerified || (verifs.email?.status === "verified" && verifs.email?.verifiedViaOtp));
+  const isIdentityVerified = verifs.identity?.status === "verified";
+  const isAddressVerified = verifs.address?.status === "verified";
+  const isMobileVerified = Boolean(p.mobileVerified || verifs.mobile?.status === "verified");
+
+  const pendingVerificationSteps: { type: string; label: string; icon: any; points: number }[] = [];
+  if (!isEmailVerified) {
+    pendingVerificationSteps.push({ type: "email", label: "Gmail OTP Verification", icon: Mail, points: 15 });
+  }
+  if (!isIdentityVerified) {
+    pendingVerificationSteps.push({ type: "identity", label: "Government ID eKYC", icon: IdCard, points: 35 });
+  }
+  if (!isAddressVerified) {
+    pendingVerificationSteps.push({ type: "address", label: "Address Proof", icon: MapPin, points: 15 });
+  }
+  if (!isMobileVerified) {
+    pendingVerificationSteps.push({ type: "mobile", label: "Mobile Verification", icon: Smartphone, points: 35 });
+  }
+
+  const handleCompleteNow = () => {
+    if (pendingVerificationSteps.length > 0) {
+      // Redirect directly to the primary pending verification step (e.g. Gmail OTP, eKYC)
+      nav({
+        to: "/verification/$type",
+        params: { type: pendingVerificationSteps[0].type },
+      });
+    } else if (!p.bio) {
+      setIsEditModalOpen(true);
+    } else {
+      nav({ to: "/verification" });
+    }
+  };
 
   if (!loading && !authenticated) {
     return (
@@ -140,9 +183,13 @@ function Account() {
   const savedCount = typeof window !== "undefined" ? (() => { try { return JSON.parse(localStorage.getItem("omeetso_saved_items") || "[]").length; } catch { return 0; } })() : 0;
   const reviewsCount = 0;
 
+  const nearbyChangesListings = myListings.filter((l) => l.nearbyChanges?.enabled);
+  const nearbyNotifs = listNearbyChangesNotifications();
+
   const sectionLinks = [
     { id: "overview", label: "Overview", icon: User },
     { id: "selling", label: "Selling", icon: Package },
+    { id: "nearby", label: "Nearby Changes", icon: Radio },
     { id: "services-vertical", label: "Services & Pros", icon: Wrench },
     { id: "jobs-vertical", label: "Jobs & Careers", icon: Briefcase },
     { id: "promotions", label: "Promotions & Ads", icon: Megaphone, to: "/promotions" },
@@ -247,11 +294,56 @@ function Account() {
                 <div className="mt-3">
                   <div className="flex items-center justify-between text-[11px]">
                     <span className="font-semibold">Profile {pct}% complete</span>
-                    <button onClick={() => setIsEditModalOpen(true)} className="font-bold text-primary">Complete now</button>
+                    {pct < 100 && (
+                      <button
+                        type="button"
+                        onClick={handleCompleteNow}
+                        className="font-bold text-primary hover:underline flex items-center gap-1 cursor-pointer"
+                        title="Proceed directly to pending verification steps"
+                      >
+                        <span>Complete now</span>
+                        <ArrowRight className="h-3 w-3" />
+                      </button>
+                    )}
                   </div>
                   <div className="mt-1 h-1.5 overflow-hidden rounded-full bg-secondary">
                     <div className="h-full gradient-brand" style={{ width: `${pct}%` }} aria-label={`Profile ${pct}% complete`} />
                   </div>
+
+                  {pendingVerificationSteps.length > 0 ? (
+                    <div className="mt-2.5 pt-2 border-t border-border/50">
+                      <div className="flex items-center justify-between text-[11px] mb-1.5">
+                        <span className="text-muted-foreground font-semibold flex items-center gap-1">
+                          <Sparkles className="h-3 w-3 text-amber-500" /> Required verification steps:
+                        </span>
+                        <span className="text-[10px] text-indigo-brand font-bold">
+                          +{pendingVerificationSteps.reduce((sum, it) => sum + it.points, 0)} trust pts
+                        </span>
+                      </div>
+                      <div className="flex flex-wrap gap-1.5">
+                        {pendingVerificationSteps.map((step) => {
+                          const IconComponent = step.icon;
+                          return (
+                            <Link
+                              key={step.type}
+                              to="/verification/$type"
+                              params={{ type: step.type }}
+                              className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-xl text-[11px] font-bold bg-secondary/80 hover:bg-secondary border border-border/80 text-foreground transition-all hover:border-indigo-brand/40 shadow-xs"
+                            >
+                              <IconComponent className="h-3 w-3 text-indigo-brand shrink-0" />
+                              <span>{step.label}</span>
+                              <span className="text-[9px] font-extrabold text-amber-600 dark:text-amber-400 bg-amber-500/10 px-1 rounded">+{step.points}pts</span>
+                              <ChevronRight className="h-2.5 w-2.5 text-muted-foreground opacity-60" />
+                            </Link>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="mt-2 text-[11px] text-emerald-600 dark:text-emerald-400 font-bold flex items-center gap-1">
+                      <BadgeCheck className="h-3.5 w-3.5" /> All required profile verifications completed!
+                    </div>
+                  )}
                 </div>
                 <p className="mt-2 text-[11px] text-muted-foreground">{p.area}, {p.city}</p>
               </div>
@@ -308,12 +400,153 @@ function Account() {
 
             {/* Desktop Active Tab View / Mobile Full View */}
             <div className="mt-5 space-y-4 px-4 md:px-0">
+              {/* NEARBY CHANGES & NOTIFICATIONS SECTION */}
+              {(activeTab === "overview" || activeTab === "nearby" || activeTab === "selling") && (
+                <section id="nearby" className="space-y-3">
+                  <div className="flex items-center justify-between">
+                    <SectionTitle>Nearby Changes & Local Broadcasts</SectionTitle>
+                    <button
+                      type="button"
+                      onClick={() => setShowNearbyModal(true)}
+                      className="text-xs font-bold text-indigo-brand hover:underline cursor-pointer flex items-center gap-1"
+                    >
+                      <span>Configure Changes</span>
+                      <ChevronRight className="h-3 w-3" />
+                    </button>
+                  </div>
+
+                  <div className="rounded-3xl border border-indigo-500/25 bg-card p-4.5 shadow-sm space-y-4">
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="flex items-center gap-3">
+                        <div className="grid h-11 w-11 shrink-0 place-items-center rounded-2xl bg-indigo-500/10 text-indigo-brand border border-indigo-500/20">
+                          <Radio className="h-5 w-5 animate-pulse text-indigo-brand" />
+                        </div>
+                        <div>
+                          <div className="flex items-center gap-2">
+                            <h4 className="text-sm font-extrabold text-foreground">Nearby Changes</h4>
+                            <span className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-bold ${nearbyChangesListings.length > 0
+                                ? "bg-emerald-500/10 text-emerald-600 border border-emerald-500/20"
+                                : "bg-muted text-muted-foreground"
+                              }`}>
+                              {nearbyChangesListings.length > 0 ? `Active on ${nearbyChangesListings.length} items` : "Inactive"}
+                            </span>
+                          </div>
+                          <p className="text-xs text-muted-foreground mt-0.5">
+                            Broadcast product updates, delivery radius, and neighborhood price changes to nearby buyers.
+                          </p>
+                        </div>
+                      </div>
+
+                      <button
+                        type="button"
+                        onClick={() => setShowNearbyModal(true)}
+                        className="shrink-0 px-3 py-1.5 rounded-xl bg-indigo-brand text-xs font-bold text-white hover:opacity-95 transition-all shadow-xs cursor-pointer"
+                      >
+                        {nearbyChangesListings.length > 0 ? "Manage" : "+ Enable"}
+                      </button>
+                    </div>
+
+                    {/* Active products with Nearby Changes */}
+                    {nearbyChangesListings.length > 0 && (
+                      <div className="space-y-2 pt-1 border-t border-border/60">
+                        <span className="text-[11px] font-bold text-muted-foreground uppercase tracking-wider">
+                          Active Nearby Broadcasts
+                        </span>
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                          {nearbyChangesListings.map((item) => (
+                            <div
+                              key={item.id}
+                              className="flex items-center gap-2.5 p-2.5 rounded-2xl bg-secondary/40 border border-border"
+                            >
+                              {item.images?.[0] ? (
+                                <img src={item.images[0]} alt="" className="h-10 w-10 rounded-xl object-cover border border-border shrink-0" />
+                              ) : (
+                                <div className="h-10 w-10 rounded-xl bg-secondary grid place-items-center text-xs font-bold shrink-0">📦</div>
+                              )}
+                              <div className="min-w-0 flex-1">
+                                <p className="text-xs font-bold truncate">{item.title}</p>
+                                <div className="flex items-center gap-1.5 text-[10px] text-muted-foreground mt-0.5 flex-wrap">
+                                  <span className="font-semibold text-indigo-brand">
+                                    📍 {item.nearbyChanges?.radiusKm || 10} km
+                                  </span>
+                                  <span>•</span>
+                                  <span>
+                                    {item.nearbyChanges?.deliveryFee ? `₹${item.nearbyChanges.deliveryFee} delivery` : "Free local delivery"}
+                                  </span>
+                                </div>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Recent Nearby Changes Notifications feed */}
+                    <div className="pt-2 border-t border-border/60 space-y-2">
+                      <div className="flex items-center justify-between">
+                        <span className="text-[11px] font-bold text-muted-foreground uppercase tracking-wider flex items-center gap-1">
+                          <BellRing className="h-3 w-3 text-indigo-brand" /> Nearby Changes Notifications
+                        </span>
+                        <Link
+                          to="/notifications"
+                          className="text-[11px] font-bold text-indigo-brand hover:underline"
+                        >
+                          View all ({nearbyNotifs.length}) →
+                        </Link>
+                      </div>
+
+                      {nearbyNotifs.length > 0 ? (
+                        <div className="space-y-1.5">
+                          {nearbyNotifs.slice(0, 3).map((notif) => (
+                            <div
+                              key={notif.id}
+                              className="p-2.5 rounded-xl bg-secondary/30 border border-border text-xs flex items-start justify-between gap-2"
+                            >
+                              <div className="min-w-0">
+                                <p className="font-bold text-foreground text-xs truncate">{notif.title}</p>
+                                <p className="text-[11px] text-muted-foreground line-clamp-2 mt-0.5">{notif.body}</p>
+                                <span className="text-[10px] text-muted-foreground/70 mt-1 block">
+                                  {new Date(notif.time).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+                                </span>
+                              </div>
+                              {!notif.read && (
+                                <span className="h-2 w-2 rounded-full bg-indigo-brand shrink-0 mt-1" />
+                              )}
+                            </div>
+                          ))}
+                        </div>
+                      ) : (
+                        <div className="p-3 rounded-2xl bg-secondary/20 border border-dashed border-border text-center">
+                          <p className="text-xs text-muted-foreground">
+                            No recent nearby change alerts. Notifications will appear here when you enable or update nearby terms on your products.
+                          </p>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </section>
+              )}
+
               {/* SELLING SECTION */}
               {(activeTab === "overview" || activeTab === "selling") && (
                 <section id="selling" className="space-y-3">
                   <SectionTitle>Selling</SectionTitle>
                   <MenuGroup>
                     <MenuRow icon={Package} label="My Listings" to="/listings" />
+                    <MenuRow
+                      icon={Radio}
+                      label="Nearby Changes & Broadcasts"
+                      right={
+                        nearbyChangesListings.length > 0 ? (
+                          <span className="rounded-full bg-indigo-500/15 px-2 py-0.5 text-[10px] font-extrabold text-indigo-600 dark:text-indigo-400 border border-indigo-500/30">
+                            {nearbyChangesListings.length} Active
+                          </span>
+                        ) : (
+                          <span className="text-[11px] text-muted-foreground font-semibold">Enable</span>
+                        )
+                      }
+                      onClick={() => setShowNearbyModal(true)}
+                    />
                     <MenuRow icon={Megaphone} label="Promotions & Ads" to="/promotions" />
                     <MenuRow icon={FileText} label="Drafts" to="/sell/drafts" />
                     <MenuRow icon={HandCoins} label="Offers Received" to="/offers" />
@@ -435,13 +668,29 @@ function Account() {
         <ConfirmModal open={confirmLogout} title="Log out of Omeetso?" body="You can sign in again anytime."
           confirmLabel="Log Out" cancelLabel="Stay Logged In" danger
           onCancel={() => setConfirmLogout(false)}
-          onConfirm={() => { logoutMock(); toast.success("Logged out"); nav({ to: "/login" }); }} />
+          onConfirm={async () => {
+            setConfirmLogout(false);
+            await logout();
+            setAuthenticated(false);
+            toast.success("Logged out successfully");
+            nav({ to: "/login" });
+          }} />
 
         <EditProfileModal
           open={isEditModalOpen}
           onClose={() => setIsEditModalOpen(false)}
           profile={p}
           onSaved={() => setTick((n) => n + 1)}
+        />
+
+        <NearbyChangesModal
+          open={showNearbyModal}
+          onClose={() => setShowNearbyModal(false)}
+          listings={myListings}
+          onUpdated={() => {
+            setMyListings(listListings());
+            setTick((n) => n + 1);
+          }}
         />
       </div>
     </MobileFrame>
@@ -699,5 +948,168 @@ function EditProfileModal({ open, onClose, profile, onSaved }: { open: boolean; 
     </div>
   );
 }
+
+function NearbyChangesModal({
+  open,
+  onClose,
+  listings,
+  onUpdated,
+}: {
+  open: boolean;
+  onClose: () => void;
+  listings: Listing[];
+  onUpdated: () => void;
+}) {
+  if (!open) return null;
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-xs animate-in fade-in duration-200">
+      <div className="relative w-full max-w-lg rounded-3xl bg-card p-5 border border-border shadow-2xl max-h-[85vh] flex flex-col space-y-4">
+        <div className="flex items-center justify-between border-b border-border pb-3">
+          <div className="flex items-center gap-2">
+            <Radio className="h-5 w-5 text-indigo-brand animate-pulse" />
+            <div>
+              <h3 className="text-base font-extrabold text-foreground">Nearby Changes & Broadcasts</h3>
+              <p className="text-xs text-muted-foreground">Manage dynamic neighborhood terms & buyer alerts</p>
+            </div>
+          </div>
+          <button
+            onClick={onClose}
+            className="grid h-8 w-8 place-items-center rounded-full text-muted-foreground hover:bg-secondary cursor-pointer"
+          >
+            <X className="h-4 w-4" />
+          </button>
+        </div>
+
+        <div className="overflow-y-auto space-y-3 pr-1 max-h-[55vh]">
+          {listings.length === 0 ? (
+            <div className="p-8 text-center text-muted-foreground">
+              <Package className="h-10 w-10 mx-auto mb-2 opacity-40" />
+              <p className="font-bold text-sm text-foreground">No Listings Yet</p>
+              <p className="text-xs mt-1">Post a listing via Quick Sell or Detailed Sell to enable Nearby Changes.</p>
+            </div>
+          ) : (
+            listings.map((item) => {
+              const isEnabled = item.nearbyChanges?.enabled ?? false;
+              const radius = item.nearbyChanges?.radiusKm ?? 10;
+              const deliveryFee = item.nearbyChanges?.deliveryFee ?? 0;
+
+              return (
+                <div
+                  key={item.id}
+                  className={`p-3.5 rounded-2xl border transition-all ${isEnabled ? "border-indigo-500/30 bg-indigo-500/5" : "border-border bg-card"
+                    }`}
+                >
+                  <div className="flex items-center justify-between gap-3">
+                    <div className="flex items-center gap-2.5 min-w-0">
+                      {item.images?.[0] ? (
+                        <img src={item.images[0]} alt="" className="h-11 w-11 rounded-xl object-cover border border-border shrink-0" />
+                      ) : (
+                        <div className="h-11 w-11 rounded-xl bg-secondary grid place-items-center text-xs shrink-0">📦</div>
+                      )}
+                      <div className="min-w-0">
+                        <p className="text-xs font-bold truncate text-foreground">{item.title}</p>
+                        <p className="text-[11px] text-muted-foreground">
+                          {item.area}, {item.city} • ₹{item.price?.toLocaleString("en-IN")}
+                        </p>
+                      </div>
+                    </div>
+
+                    <label className="relative inline-flex items-center cursor-pointer shrink-0">
+                      <input
+                        type="checkbox"
+                        checked={isEnabled}
+                        onChange={(e) => {
+                          toggleListingNearbyChanges(item.id, e.target.checked, {
+                            radiusKm: radius,
+                            deliveryFee: deliveryFee,
+                            customNote: `Nearby pickup & delivery in ${item.area}`,
+                          });
+                          if (e.target.checked) {
+                            pushNotification({
+                              id: `nearby-${item.id}-${Date.now()}`,
+                              category: "nearby_changes",
+                              title: `Nearby Changes Enabled: ${item.title}`,
+                              body: `Nearby changes now broadcasting within ${radius} km of ${item.area}.`,
+                              destination: "/account",
+                              destinationLabel: "View in Profile",
+                              read: false,
+                              thumbnail: item.images?.[0],
+                            });
+                            toast.success(`Nearby Changes enabled for "${item.title}"`);
+                          } else {
+                            toast.info(`Nearby Changes disabled for "${item.title}"`);
+                          }
+                          onUpdated();
+                        }}
+                        className="sr-only peer"
+                      />
+                      <div className="w-9 h-5 bg-secondary peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-border after:border after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-indigo-brand"></div>
+                    </label>
+                  </div>
+
+                  {isEnabled && (
+                    <div className="mt-3 pt-3 border-t border-border/60 grid grid-cols-2 gap-2 text-xs">
+                      <div>
+                        <label className="block text-[10px] font-bold text-muted-foreground mb-1">Broadcast Radius</label>
+                        <select
+                          value={radius}
+                          onChange={(e) => {
+                            toggleListingNearbyChanges(item.id, true, {
+                              radiusKm: Number(e.target.value),
+                              deliveryFee: deliveryFee,
+                            });
+                            onUpdated();
+                            toast.success(`Radius updated to ${e.target.value} km`);
+                          }}
+                          className="w-full h-8 rounded-xl border border-border bg-background px-2 text-[11px] font-bold outline-none focus:border-indigo-brand cursor-pointer"
+                        >
+                          <option value={3}>3 km (Local)</option>
+                          <option value={5}>5 km</option>
+                          <option value={10}>10 km</option>
+                          <option value={20}>20 km</option>
+                          <option value={35}>35 km</option>
+                        </select>
+                      </div>
+
+                      <div>
+                        <label className="block text-[10px] font-bold text-muted-foreground mb-1">Delivery Fee (₹)</label>
+                        <input
+                          type="number"
+                          min={0}
+                          value={deliveryFee}
+                          onChange={(e) => {
+                            toggleListingNearbyChanges(item.id, true, {
+                              radiusKm: radius,
+                              deliveryFee: Math.max(0, Number(e.target.value)),
+                            });
+                            onUpdated();
+                          }}
+                          placeholder="0 (Free)"
+                          className="w-full h-8 rounded-xl border border-border bg-background px-2 text-[11px] font-bold outline-none focus:border-indigo-brand"
+                        />
+                      </div>
+                    </div>
+                  )}
+                </div>
+              );
+            })
+          )}
+        </div>
+
+        <div className="pt-2 border-t border-border flex justify-end">
+          <button
+            type="button"
+            onClick={onClose}
+            className="px-4 py-2 rounded-xl bg-indigo-brand text-xs font-bold text-white shadow hover:opacity-95 cursor-pointer"
+          >
+            Done
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // Silence unused var warnings on some sections
 void MessagesSquare;

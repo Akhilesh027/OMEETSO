@@ -245,17 +245,38 @@ export async function refreshUserSession(): Promise<{ success: boolean; data?: U
 
 export async function logoutUserApi(): Promise<void> {
   try {
+    const token = getUserAccessToken();
     await fetch(`${API_BASE}/logout`, {
       method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        ...(token ? { Authorization: `Bearer ${token}` } : {})
+      },
       credentials: "include"
     });
   } catch {
-    // Ignore
+    // Ignore network failure during logout
   } finally {
     setUserAccessToken(null);
     if (typeof localStorage !== "undefined") {
-      localStorage.removeItem("omeetso_user");
-      localStorage.removeItem("omeetso_user_token");
+      const keysToRemove = [
+        "omeetso_user",
+        "omeetso_user_token",
+        "omeetso_profile",
+        "omeetso_profile_data",
+        "omeetso_business_profile",
+        "omeetso_verification_status",
+        "omeetso_verifications",
+        "omeetso_wallet",
+        "omeetso_guest",
+        "omeetso_guest_session",
+        "omeetso_user_listings",
+        "omeetso_user_stores",
+        "omeetso_account_status",
+        "omeetso_notifications",
+      ];
+      keysToRemove.forEach((k) => localStorage.removeItem(k));
     }
   }
 }
+

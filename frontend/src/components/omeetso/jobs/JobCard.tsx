@@ -20,6 +20,21 @@ export function JobCard({ job, variant = "grid" }: { job: JobItem; variant?: "gr
     ? `₹${job.salary.minSalary.toLocaleString("en-IN")} - ₹${job.salary.maxSalary.toLocaleString("en-IN")} / ${job.salary.salaryPeriod}`
     : "Salary Not Disclosed";
 
+  const walkInDateLabel = (() => {
+    if (!job.walkInDetails?.isWalkIn) return "";
+    const start = job.walkInDetails.startDate || job.walkInDetails.walkInDate;
+    const end = job.walkInDetails.endDate;
+    if (start && end && start !== end) {
+      const sDate = new Date(start).toLocaleDateString("en-IN", { day: "numeric", month: "short" });
+      const eDate = new Date(end).toLocaleDateString("en-IN", { day: "numeric", month: "short" });
+      return ` • ${sDate} - ${eDate}`;
+    }
+    if (start) {
+      return ` • ${new Date(start).toLocaleDateString("en-IN", { day: "numeric", month: "short" })}`;
+    }
+    return "";
+  })();
+
   if (variant === "list") {
     return (
       <div className={`group relative rounded-2xl border bg-card p-4 shadow-sm transition-all hover:shadow-md hover:border-indigo-brand/40 flex flex-col md:flex-row md:items-center justify-between gap-4 ${isClosed ? "opacity-75 bg-muted/20" : "border-border"}`}>
@@ -36,7 +51,7 @@ export function JobCard({ job, variant = "grid" }: { job: JobItem; variant?: "gr
             <div className="flex flex-wrap items-center gap-1.5">
               {job.walkInDetails?.isWalkIn && (
                 <span className="inline-flex items-center gap-1 rounded-full bg-amber-500/15 px-2 py-0.5 text-[10px] font-black text-amber-700 border border-amber-500/30">
-                  <Footprints className="h-2.5 w-2.5" /> WALK-IN
+                  <Footprints className="h-2.5 w-2.5" /> WALK-IN{walkInDateLabel}
                 </span>
               )}
               {job.isUrgent && (
@@ -121,7 +136,7 @@ export function JobCard({ job, variant = "grid" }: { job: JobItem; variant?: "gr
         <div className="flex flex-wrap items-center gap-1.5">
           {job.walkInDetails?.isWalkIn && (
             <span className="inline-flex items-center gap-1 rounded-full bg-amber-500/15 px-2.5 py-0.5 text-[11px] font-black text-amber-700 border border-amber-500/30">
-              <Footprints className="h-3 w-3" /> WALK-IN
+              <Footprints className="h-3 w-3" /> WALK-IN{walkInDateLabel}
             </span>
           )}
           {job.isUrgent && (

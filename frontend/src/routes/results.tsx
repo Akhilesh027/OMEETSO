@@ -10,6 +10,7 @@ import { listListings, fetchLivePublicListings } from "@/lib/listings";
 import { fetchLiveCategories, getCachedCategories, type LiveCategory } from "@/lib/categories";
 import { calculateDistanceBetweenLocations, resolveCityFromLocation } from "@/lib/location";
 import { EmptyState } from "@/components/omeetso/EmptyState";
+import { preventNonNumericKeyDown, sanitizeNumericInput } from "@/lib/utils";
 
 type S = {
   q?: string;
@@ -526,19 +527,23 @@ function Results() {
                 <label className="block text-xs font-bold text-muted-foreground mb-1.5 uppercase tracking-wide">Price Range (₹)</label>
                 <div className="flex items-center gap-2 mb-2">
                   <input
-                    type="number"
+                    type="text"
+                    inputMode="numeric"
                     placeholder="Min"
                     value={minPInput}
-                    onChange={(e) => setMinPInput(e.target.value)}
+                    onKeyDown={(e) => preventNonNumericKeyDown(e)}
+                    onChange={(e) => setMinPInput(sanitizeNumericInput(e.target.value))}
                     onBlur={(e) => nav({ search: (p: S) => ({ ...p, minP: e.target.value || undefined }) })}
                     className="w-full h-10 rounded-xl border border-border bg-background px-3 text-xs font-bold outline-none focus:border-indigo-brand"
                   />
                   <span className="text-xs text-muted-foreground font-bold">to</span>
                   <input
-                    type="number"
+                    type="text"
+                    inputMode="numeric"
                     placeholder="Max"
                     value={maxPInput}
-                    onChange={(e) => setMaxPInput(e.target.value)}
+                    onKeyDown={(e) => preventNonNumericKeyDown(e)}
+                    onChange={(e) => setMaxPInput(sanitizeNumericInput(e.target.value))}
                     onBlur={(e) => nav({ search: (p: S) => ({ ...p, maxP: e.target.value || undefined }) })}
                     className="w-full h-10 rounded-xl border border-border bg-background px-3 text-xs font-bold outline-none focus:border-indigo-brand"
                   />

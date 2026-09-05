@@ -1,5 +1,5 @@
 import { Link, useRouterState, useNavigate } from "@tanstack/react-router";
-import { Search, Heart, MessageCircle, Bell, User, MapPin, Plus, ChevronDown, Zap, X, Clock, TrendingUp, Sparkles, ArrowRight, CheckCheck, MessageSquare, HandCoins, Package, Store, ShieldCheck } from "lucide-react";
+import { Search, Heart, MessageCircle, Bell, User, MapPin, Plus, ChevronDown, Zap, X, Clock, TrendingUp, Sparkles, ArrowRight, CheckCheck, MessageSquare, HandCoins, Package, Store, ShieldCheck, ArrowLeft, Menu } from "lucide-react";
 import { useEffect, useState, useRef, useMemo, useCallback } from "react";
 import { NOTIFICATIONS, CATEGORIES, PRODUCTS, formatINR } from "@/lib/mock";
 import { getSaved, getRecentSearches, addRecentSearch, subscribe as subscribeSaved } from "@/lib/saved";
@@ -40,6 +40,18 @@ const NOTIF_ICON_MAP: Record<string, any> = {
   stores: Store,
 };
 
+const INFORMATIONAL_PATHS = [
+  "/about",
+  "/contact",
+  "/careers",
+  "/terms",
+  "/privacy",
+  "/advertising-policy",
+  "/community-guidelines",
+  "/cookie-preferences",
+  "/stores",
+];
+
 export function WebsiteHeader() {
   const path = useRouterState({ select: (s) => s.location.pathname });
   const nav = useNavigate();
@@ -52,8 +64,18 @@ export function WebsiteHeader() {
   const [scrolled, setScrolled] = useState(false);
   const [notifOpen, setNotifOpen] = useState(false);
   const [notifList, setNotifList] = useState<NotificationItem[]>([]);
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const searchContainerRef = useRef<HTMLDivElement>(null);
   const notifContainerRef = useRef<HTMLDivElement>(null);
+
+  // Close mobile drawer on route change
+  useEffect(() => {
+    setMobileMenuOpen(false);
+  }, [path]);
+
+  const isInformationalPage = useMemo(() => {
+    return INFORMATIONAL_PATHS.some((p) => path === p || path.startsWith(`${p}/`));
+  }, [path]);
 
   // Load Header Notifications
   const loadHeaderNotifs = useCallback(async () => {
@@ -248,14 +270,155 @@ export function WebsiteHeader() {
   };
 
   return (
-    <header
-      className={cn(
-        "hidden md:block sticky top-0 z-40 transition-all duration-300",
-        scrolled
-          ? "bg-transparent px-4 sm:px-6 pt-3 pb-1.5"
-          : "bg-card/95 border-b border-border/80 backdrop-blur-md px-0 py-0"
+    <>
+      {/* Responsive Mobile Header Fallback for General Informational & Legal Pages */}
+      {isInformationalPage && (
+        <header className="md:hidden sticky top-0 z-40 border-b border-border/80 bg-card/95 backdrop-blur-md safe-t shadow-xs">
+          <div className="flex h-14 items-center justify-between px-3.5 gap-2">
+            {/* Left: Back Navigation Arrow + Brand Logo */}
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => {
+                  if (typeof window !== "undefined" && window.history.length > 1) {
+                    window.history.back();
+                  } else {
+                    nav({ to: "/home" });
+                  }
+                }}
+                aria-label="Back"
+                className="grid h-8.5 w-8.5 place-items-center rounded-xl bg-secondary/80 hover:bg-secondary active:scale-95 transition-all text-foreground"
+              >
+                <ArrowLeft className="h-4.5 w-4.5" />
+              </button>
+              <Link to="/home" className="flex items-center py-0.5">
+                <Logo size="sm" />
+              </Link>
+            </div>
+
+            {/* Right: Search + Quick Deals + Mobile Menu Toggle */}
+            <div className="flex items-center gap-1.5">
+              <Link
+                to="/search"
+                aria-label="Search"
+                className="grid h-8.5 w-8.5 place-items-center rounded-xl bg-secondary/80 hover:bg-secondary active:scale-95 transition-all text-foreground"
+              >
+                <Search className="h-4 w-4 text-muted-foreground" />
+              </Link>
+
+              <Link
+                to="/results"
+                search={{ quickSale: "1" } as any}
+                className="grid h-8.5 w-8.5 place-items-center rounded-xl bg-amber-500/15 text-amber-600 dark:text-amber-400 hover:bg-amber-500/25 active:scale-95 transition-all"
+                title="Quick Deals"
+              >
+                <Zap className="h-4 w-4 fill-amber-500" />
+              </Link>
+
+              <button
+                type="button"
+                onClick={() => setMobileMenuOpen((prev) => !prev)}
+                aria-label="Toggle navigation menu"
+                className="grid h-8.5 w-8.5 place-items-center rounded-xl bg-secondary/80 hover:bg-secondary active:scale-95 transition-all text-foreground"
+              >
+                {mobileMenuOpen ? <X className="h-4.5 w-4.5" /> : <Menu className="h-4.5 w-4.5" />}
+              </button>
+            </div>
+          </div>
+
+          {/* Mobile Navigation Drawer / Dropdown */}
+          {mobileMenuOpen && (
+            <div className="border-t border-border/70 bg-card/98 px-4 py-4 backdrop-blur-xl animate-in fade-in slide-in-from-top-2 duration-200 shadow-xl space-y-4">
+              <div className="grid grid-cols-2 gap-2 text-xs font-bold">
+                <Link
+                  to="/home"
+                  onClick={() => setMobileMenuOpen(false)}
+                  className="flex items-center gap-2.5 rounded-xl bg-secondary/50 hover:bg-secondary p-2.5 transition-colors text-foreground"
+                >
+                  <span>🏠</span> Home
+                </Link>
+                <Link
+                  to="/categories"
+                  onClick={() => setMobileMenuOpen(false)}
+                  className="flex items-center gap-2.5 rounded-xl bg-secondary/50 hover:bg-secondary p-2.5 transition-colors text-foreground"
+                >
+                  <span>🛍️</span> Categories
+                </Link>
+                <Link
+                  to="/stores"
+                  onClick={() => setMobileMenuOpen(false)}
+                  className="flex items-center gap-2.5 rounded-xl bg-secondary/50 hover:bg-secondary p-2.5 transition-colors text-foreground"
+                >
+                  <span>🏬</span> Local Stores
+                </Link>
+                <Link
+                  to="/blogs"
+                  onClick={() => setMobileMenuOpen(false)}
+                  className="flex items-center gap-2.5 rounded-xl bg-secondary/50 hover:bg-secondary p-2.5 transition-colors text-foreground"
+                >
+                  <span>📖</span> Blogs & Guides
+                </Link>
+                <Link
+                  to="/about"
+                  onClick={() => setMobileMenuOpen(false)}
+                  className="flex items-center gap-2.5 rounded-xl bg-secondary/50 hover:bg-secondary p-2.5 transition-colors text-foreground"
+                >
+                  <span>ℹ️</span> About Us
+                </Link>
+                <Link
+                  to="/contact"
+                  onClick={() => setMobileMenuOpen(false)}
+                  className="flex items-center gap-2.5 rounded-xl bg-secondary/50 hover:bg-secondary p-2.5 transition-colors text-foreground"
+                >
+                  <span>📞</span> Contact Us
+                </Link>
+                <Link
+                  to="/careers"
+                  onClick={() => setMobileMenuOpen(false)}
+                  className="flex items-center gap-2.5 rounded-xl bg-secondary/50 hover:bg-secondary p-2.5 transition-colors text-foreground"
+                >
+                  <span>💼</span> Careers
+                </Link>
+                <Link
+                  to="/terms"
+                  onClick={() => setMobileMenuOpen(false)}
+                  className="flex items-center gap-2.5 rounded-xl bg-secondary/50 hover:bg-secondary p-2.5 transition-colors text-foreground"
+                >
+                  <span>⚖️</span> Legal & Privacy
+                </Link>
+              </div>
+
+              {/* Action Buttons */}
+              <div className="pt-2 border-t border-border/60 flex items-center gap-2">
+                <Link
+                  to="/sell"
+                  onClick={() => setMobileMenuOpen(false)}
+                  className="flex-1 inline-flex items-center justify-center gap-2 rounded-xl gradient-brand px-4 py-2.5 text-xs font-black text-white shadow-md hover:brightness-110 active:scale-98 transition"
+                >
+                  <Plus className="h-4 w-4" /> Post Free Ad
+                </Link>
+                <Link
+                  to="/account"
+                  onClick={() => setMobileMenuOpen(false)}
+                  className="inline-flex items-center justify-center gap-1.5 rounded-xl bg-secondary hover:bg-secondary/80 px-3.5 py-2.5 text-xs font-bold text-foreground transition"
+                >
+                  <User className="h-4 w-4" /> Account
+                </Link>
+              </div>
+            </div>
+          )}
+        </header>
       )}
-    >
+
+      {/* Desktop Main Header */}
+      <header
+        className={cn(
+          "hidden md:block sticky top-0 z-40 transition-all duration-300",
+          scrolled
+            ? "bg-transparent px-4 sm:px-6 pt-3 pb-1.5"
+            : "bg-card/95 border-b border-border/80 backdrop-blur-md px-0 py-0"
+        )}
+      >
       {/* Dynamic Navbar Card (Full Width at Top -> Spacious Floating Bar when Scrolled) */}
       <div
         className={cn(
@@ -608,6 +771,7 @@ export function WebsiteHeader() {
         </nav>
       </div>
     </header>
+    </>
   );
 }
 

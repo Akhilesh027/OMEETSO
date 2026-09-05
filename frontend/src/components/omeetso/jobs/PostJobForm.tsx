@@ -3,7 +3,7 @@ import { useNavigate, Link } from "@tanstack/react-router";
 import {
   Briefcase, Building2, MapPin, IndianRupee, Footprints, Zap, ArrowRight,
   ArrowLeft, CheckCircle2, ShieldAlert, Eye, Upload, Trash2, Camera, Loader2,
-  GraduationCap, Award, AlertCircle, Plus
+  GraduationCap, Award, AlertCircle, Plus, Calendar
 } from "lucide-react";
 import { JobItem, createJobLocal } from "@/lib/jobs";
 import { fetchLiveUserStores, Store } from "@/lib/stores";
@@ -12,6 +12,7 @@ import { uploadFile } from "@/lib/upload";
 import { toast } from "sonner";
 import { MissingFieldsModal } from "@/components/sell/MissingFieldsModal";
 import { API_BASE } from "@/config/api";
+import { preventNonNumericKeyDown, sanitizeNumericInput } from "@/lib/utils";
 
 const EXPERIENCE_OPTIONS = [
   "Fresher / Entry Level",
@@ -76,6 +77,8 @@ export function PostJobForm() {
     shiftType: "Day Shift",
     workingHours: "9 AM - 6 PM",
     isWalkIn: false,
+    walkInStartDate: "",
+    walkInEndDate: "",
     walkInDate: "",
     startTime: "10:00 AM",
     endTime: "4:00 PM",
@@ -231,9 +234,17 @@ export function PostJobForm() {
 
     // 9. Walk-in
     if (formData.isWalkIn) {
-      if (!formData.walkInDate) {
-        errors.walkInDate = "Walk-in interview date is required";
-        missing.push("Walk-In Interview Date");
+      if (!formData.walkInStartDate && !formData.walkInDate) {
+        errors.walkInStartDate = "Interview Start Date is required";
+        missing.push("Interview Start Date");
+      }
+      if (!formData.walkInEndDate && !formData.walkInDate) {
+        errors.walkInEndDate = "Interview End Date is required";
+        missing.push("Interview End Date");
+      }
+      if (formData.walkInStartDate && formData.walkInEndDate && formData.walkInStartDate > formData.walkInEndDate) {
+        errors.walkInEndDate = "End date cannot be earlier than start date";
+        missing.push("Valid Interview Date Range (End date ≥ Start date)");
       }
       if (!formData.venue || formData.venue.trim().length < 5) {
         errors.venue = "Interview venue address is required";
@@ -339,7 +350,9 @@ export function PostJobForm() {
     },
     walkInDetails: {
       isWalkIn: formData.isWalkIn,
-      walkInDate: formData.walkInDate,
+      walkInDate: formData.walkInStartDate || formData.walkInDate,
+      startDate: formData.walkInStartDate || formData.walkInDate,
+      endDate: formData.walkInEndDate || formData.walkInStartDate || formData.walkInDate,
       startTime: formData.startTime,
       endTime: formData.endTime,
       venue: formData.venue,
@@ -403,7 +416,9 @@ export function PostJobForm() {
         },
         walkInDetails: {
           isWalkIn: Boolean(formData.isWalkIn),
-          walkInDate: formData.walkInDate || undefined,
+          walkInDate: formData.walkInStartDate || formData.walkInDate || undefined,
+          startDate: formData.walkInStartDate || formData.walkInDate || undefined,
+          endDate: formData.walkInEndDate || formData.walkInStartDate || formData.walkInDate || undefined,
           startTime: formData.startTime,
           endTime: formData.endTime,
           venue: formData.venue,
@@ -755,12 +770,13 @@ export function PostJobForm() {
                 <label className="block text-muted-foreground mb-1 font-bold">Number of Openings *</label>
                 <input
                   id="job-openings-input"
-                  type="number"
-                  min="1"
+                  type="text"
+                  inputMode="numeric"
                   placeholder="1"
                   value={formData.openingsCount === 0 || (formData.openingsCount as any) === "" ? "" : formData.openingsCount}
+                  onKeyDown={(e) => preventNonNumericKeyDown(e)}
                   onChange={(e) => {
-                    const val = e.target.value;
+                    const val = sanitizeNumericInput(e.target.value);
                     if (val === "") {
                       setFormData({ ...formData, openingsCount: "" as any });
                     } else {
@@ -828,8 +844,9 @@ export function PostJobForm() {
                 maxLength={6}
                 placeholder="e.g. 500039"
                 value={formData.pincode}
+                onKeyDown={(e) => preventNonNumericKeyDown(e)}
                 onChange={(e) => {
-                  const val = e.target.value.replace(/\D/g, "").slice(0, 6);
+                  const val = sanitizeNumericInput(e.target.value).slice(0, 6);
                   setFormData({ ...formData, pincode: val });
                   if (formErrors.pincode) setFormErrors({ ...formErrors, pincode: "" });
                 }}
@@ -871,11 +888,14 @@ export function PostJobForm() {
                 <label className="block text-muted-foreground mb-1 font-bold">Min Salary (₹)</label>
                 <input
                   id="job-minsalary-input"
-                  type="number"
-                  min="0"
-                  value={formData.minSalary}
+                  type="text"
+                  inputMode="numeric"
+                  placeholder="0"
+                  value={formData.minSalary === 0 && !formData.minSalary ? "" : formData.minSalary}
+                  onKeyDown={(e) => preventNonNumericKeyDown(e)}
                   onChange={(e) => {
-                    setFormData({ ...formData, minSalary: Number(e.target.value) });
+                    const sanitized = sanitizeNumericInput(e.target.value);
+                    setFormData({ ...formData, minSalary: sanitized === "" ? 0 : Number(sanitized) });
                     if (formErrors.minSalary || formErrors.maxSalary) setFormErrors({ ...formErrors, minSalary: "", maxSalary: "" });
                   }}
                   className={`w-full h-11 rounded-2xl border ${formErrors.minSalary ? "border-rose-500 bg-rose-500/5" : "border-border bg-background"} px-3 font-bold text-foreground outline-none focus:border-indigo-brand`}
@@ -891,11 +911,14 @@ export function PostJobForm() {
                 <label className="block text-muted-foreground mb-1 font-bold">Max Salary (₹)</label>
                 <input
                   id="job-maxsalary-input"
-                  type="number"
-                  min="0"
-                  value={formData.maxSalary}
+                  type="text"
+                  inputMode="numeric"
+                  placeholder="0"
+                  value={formData.maxSalary === 0 && !formData.maxSalary ? "" : formData.maxSalary}
+                  onKeyDown={(e) => preventNonNumericKeyDown(e)}
                   onChange={(e) => {
-                    setFormData({ ...formData, maxSalary: Number(e.target.value) });
+                    const sanitized = sanitizeNumericInput(e.target.value);
+                    setFormData({ ...formData, maxSalary: sanitized === "" ? 0 : Number(sanitized) });
                     if (formErrors.maxSalary) setFormErrors({ ...formErrors, maxSalary: "" });
                   }}
                   className={`w-full h-11 rounded-2xl border ${formErrors.maxSalary ? "border-rose-500 bg-rose-500/5" : "border-border bg-background"} px-3 font-bold text-foreground outline-none focus:border-indigo-brand`}
@@ -950,42 +973,82 @@ export function PostJobForm() {
 
             {formData.isWalkIn && (
               <div className="space-y-3 pt-2">
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
                   <div>
-                    <label className="block text-muted-foreground mb-1 font-bold">Walk-In Date *</label>
+                    <label className="block text-muted-foreground mb-1 text-xs font-bold">Interview Start Date *</label>
                     <input
                       type="date"
-                      value={formData.walkInDate}
+                      value={formData.walkInStartDate}
+                      min={new Date().toISOString().split("T")[0]}
                       onChange={(e) => {
-                        setFormData({ ...formData, walkInDate: e.target.value });
-                        if (formErrors.walkInDate) setFormErrors({ ...formErrors, walkInDate: "" });
+                        const newStart = e.target.value;
+                        setFormData((prev) => ({
+                          ...prev,
+                          walkInStartDate: newStart,
+                          walkInEndDate: prev.walkInEndDate && prev.walkInEndDate >= newStart ? prev.walkInEndDate : newStart,
+                          walkInDate: newStart,
+                        }));
+                        if (formErrors.walkInStartDate) setFormErrors((prev) => ({ ...prev, walkInStartDate: "" }));
+                        if (formErrors.walkInEndDate) setFormErrors((prev) => ({ ...prev, walkInEndDate: "" }));
                       }}
-                      className={`w-full h-11 rounded-2xl border ${formErrors.walkInDate ? "border-rose-500 bg-rose-500/5" : "border-border bg-background"} px-3 font-bold text-foreground outline-none`}
+                      className={`w-full h-11 rounded-2xl border ${formErrors.walkInStartDate ? "border-rose-500 bg-rose-500/5" : "border-border bg-background"} px-3 font-bold text-foreground outline-none text-xs`}
                     />
-                    {formErrors.walkInDate && (
+                    {formErrors.walkInStartDate && (
                       <p className="mt-1 text-[11px] font-bold text-rose-500 flex items-center gap-1">
-                        <AlertCircle className="h-3 w-3" /> {formErrors.walkInDate}
+                        <AlertCircle className="h-3 w-3 shrink-0" /> {formErrors.walkInStartDate}
                       </p>
                     )}
                   </div>
+
                   <div>
-                    <label className="block text-muted-foreground mb-1 font-bold">Start Time</label>
+                    <label className="block text-muted-foreground mb-1 text-xs font-bold">Interview End Date *</label>
+                    <input
+                      type="date"
+                      value={formData.walkInEndDate}
+                      min={formData.walkInStartDate || new Date().toISOString().split("T")[0]}
+                      onChange={(e) => {
+                        const newEnd = e.target.value;
+                        setFormData((prev) => ({
+                          ...prev,
+                          walkInEndDate: newEnd,
+                        }));
+                        if (formErrors.walkInEndDate) setFormErrors((prev) => ({ ...prev, walkInEndDate: "" }));
+                      }}
+                      className={`w-full h-11 rounded-2xl border ${formErrors.walkInEndDate ? "border-rose-500 bg-rose-500/5" : "border-border bg-background"} px-3 font-bold text-foreground outline-none text-xs`}
+                    />
+                    {formErrors.walkInEndDate && (
+                      <p className="mt-1 text-[11px] font-bold text-rose-500 flex items-center gap-1">
+                        <AlertCircle className="h-3 w-3 shrink-0" /> {formErrors.walkInEndDate}
+                      </p>
+                    )}
+                  </div>
+
+                  <div>
+                    <label className="block text-muted-foreground mb-1 text-xs font-bold">Daily Start Time</label>
                     <input
                       type="text"
+                      placeholder="e.g. 10:00 AM"
                       value={formData.startTime}
                       onChange={(e) => setFormData({ ...formData, startTime: e.target.value })}
-                      className="w-full h-11 rounded-2xl border border-border bg-background px-3 font-bold text-foreground outline-none"
+                      className="w-full h-11 rounded-2xl border border-border bg-background px-3 font-bold text-foreground outline-none text-xs"
                     />
                   </div>
+
                   <div>
-                    <label className="block text-muted-foreground mb-1 font-bold">End Time</label>
+                    <label className="block text-muted-foreground mb-1 text-xs font-bold">Daily End Time</label>
                     <input
                       type="text"
+                      placeholder="e.g. 4:00 PM"
                       value={formData.endTime}
                       onChange={(e) => setFormData({ ...formData, endTime: e.target.value })}
-                      className="w-full h-11 rounded-2xl border border-border bg-background px-3 font-bold text-foreground outline-none"
+                      className="w-full h-11 rounded-2xl border border-border bg-background px-3 font-bold text-foreground outline-none text-xs"
                     />
                   </div>
+                </div>
+
+                <div className="flex items-center gap-2 text-[11px] text-muted-foreground bg-amber-500/10 border border-amber-500/20 px-3 py-2 rounded-xl font-medium">
+                  <Calendar className="h-4 w-4 text-amber-700 shrink-0" />
+                  <span>For single-day walk-ins, Start Date and End Date can be the same day. For multi-day recruitment drives, select the desired date range.</span>
                 </div>
 
                 <div>

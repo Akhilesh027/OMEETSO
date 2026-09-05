@@ -9,8 +9,8 @@ import {
   Tablet, Watch, Wind, Clock, GraduationCap, Compass, Zap, Gauge, Droplets,
   Snowflake, Dumbbell, Music, Trophy, Baby, ShoppingBag, Palette, Eye
 } from "lucide-react";
-import { CATEGORIES, SUBCATEGORIES, type Category } from "@/lib/mock";
-import { BRANDS_BY_CATEGORY, MODELS_BY_BRAND } from "@/lib/aiAssistance";
+import { BRANDS_BY_CATEGORY, MODELS_BY_BRAND, getModelsForBrand } from "@/lib/aiAssistance";
+import { CATEGORIES, SUBCATEGORIES } from "@/lib/mock";
 import { cn } from "@/lib/utils";
 
 const CATEGORY_ICONS_MAP: Record<string, Lucide.LucideIcon> = {
@@ -441,7 +441,11 @@ export function CategoryDetailModal({
   // Brands list
   const brandsList: string[] = useMemo(() => {
     if (!catId) return [];
-    return BRANDS_BY_CATEGORY[catId] || ["Popular Brand 1", "Popular Brand 2", "Popular Brand 3"];
+    const normalized = catId.toLowerCase().replace(/_/g, "-");
+    if (normalized.includes("commercial") || normalized.includes("truck")) {
+      return BRANDS_BY_CATEGORY["commercial-vehicles"] || [];
+    }
+    return BRANDS_BY_CATEGORY[normalized] || BRANDS_BY_CATEGORY[catId] || ["Popular Brand 1", "Popular Brand 2", "Popular Brand 3"];
   }, [catId]);
 
   if (!open || !category) return null;
@@ -458,7 +462,7 @@ export function CategoryDetailModal({
     b.toLowerCase().includes(searchFilter.toLowerCase())
   );
 
-  const currentModels = selectedBrand ? (MODELS_BY_BRAND[selectedBrand] || []) : [];
+  const currentModels = selectedBrand ? getModelsForBrand(catId, selectedBrand) : [];
 
   const handleSubSelect = (sub: string) => {
     onClose();
@@ -674,7 +678,7 @@ export function CategoryDetailModal({
                 <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3 sm:gap-3.5">
                   {filteredBrands.map((brand) => {
                     const isSelected = selectedBrand === brand;
-                    const modelCount = (MODELS_BY_BRAND[brand] || []).length;
+                    const modelCount = getModelsForBrand(catId, brand).length;
 
                     return (
                       <button

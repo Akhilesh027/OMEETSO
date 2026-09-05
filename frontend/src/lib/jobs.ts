@@ -55,6 +55,8 @@ export type JobItem = {
   walkInDetails?: {
     isWalkIn: boolean;
     walkInDate?: string;
+    startDate?: string;
+    endDate?: string;
     startTime?: string;
     endTime?: string;
     venue?: string;
