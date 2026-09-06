@@ -28,7 +28,15 @@ export async function createStoreApi(payload: Record<string, any>): Promise<{ su
 
 export async function getPublicStoresApi(params?: Record<string, any>): Promise<{ success: boolean; data?: any[]; pagination?: any; error?: string }> {
   try {
-    const query = new URLSearchParams(params || {}).toString();
+    const cleanParams: Record<string, string> = {};
+    if (params) {
+      for (const [key, value] of Object.entries(params)) {
+        if (value !== undefined && value !== null && String(value).trim() !== "") {
+          cleanParams[key] = String(value).trim();
+        }
+      }
+    }
+    const query = new URLSearchParams(cleanParams).toString();
     const url = query ? `${API_BASE}?${query}` : API_BASE;
     const res = await fetch(url);
     const json = await res.json();

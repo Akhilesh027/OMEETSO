@@ -10,7 +10,7 @@ import { registerUserApi, checkPhoneStatusApi, requestUserOtp, verifyUserOtp, Re
 import { toast } from "sonner";
 import { DEFAULT_AVATARS } from "@/lib/account";
 import { uploadImageToCloudinary } from "@/lib/upload";
-import { preventNonNumericKeyDown, sanitizeNumericInput } from "@/lib/utils";
+import { preventNonNumericKeyDown, sanitizeNumericInput, formatPhoneDisplay, cleanPhoneInput } from "@/lib/utils";
 
 export const Route = createFileRoute("/register")({
   component: RegisterPage,
@@ -440,17 +440,19 @@ function RegisterPage() {
                   {/* Mobile Number */}
                   <div>
                     <label className="block text-xs font-bold text-muted-foreground mb-1">Mobile Number (10 Digits) *</label>
-                    <div className="flex items-center gap-2 rounded-2xl border border-border bg-card px-3.5 py-3 focus-within:border-indigo-brand focus-within:ring-2 focus-within:ring-indigo-brand/20 transition-all">
-                      <span className="text-xs font-extrabold text-foreground font-mono">+91</span>
+                    <div className="flex items-center rounded-2xl border border-border bg-card px-3.5 py-3 focus-within:border-indigo-brand focus-within:ring-2 focus-within:ring-indigo-brand/20 transition-all">
+                      <span className="flex items-center gap-1.5 text-xs font-extrabold text-foreground font-mono pr-3 border-r border-border mr-3 shrink-0 select-none">
+                        <span className="text-sm">🇮🇳</span> +91
+                      </span>
                       <input
                         type="tel"
                         inputMode="numeric"
-                        maxLength={10}
+                        maxLength={11}
                         required
-                        placeholder="9876543210"
-                        value={phone}
-                        onChange={(e) => setPhone(e.target.value.replace(/\D/g, "").slice(0, 10))}
-                        className="w-full bg-transparent text-sm font-bold text-foreground outline-none placeholder:font-normal placeholder:text-muted-foreground/60 font-mono"
+                        placeholder="98765 43210"
+                        value={formatPhoneDisplay(phone)}
+                        onChange={(e) => setPhone(cleanPhoneInput(e.target.value))}
+                        className="w-full bg-transparent text-sm font-bold text-foreground outline-none placeholder:font-normal placeholder:text-muted-foreground/60 font-mono tracking-wider"
                       />
                     </div>
                   </div>

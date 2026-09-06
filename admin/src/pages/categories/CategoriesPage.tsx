@@ -400,9 +400,9 @@ export default function CategoriesPage() {
             <button
               onClick={(e) => openDeleteModal(cat, e)}
               title="Delete or Disable Category"
-              className="p-1.5 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-slate-700 transition-colors"
+              className="p-1.5 rounded-lg text-rose-500 hover:text-rose-700 hover:bg-rose-50 dark:text-rose-400 dark:hover:text-rose-300 dark:hover:bg-rose-950/40 transition-colors inline-flex items-center justify-center"
             >
-              <Trash2 className="w-3.5 h-3.5" />
+              <Trash2 className="w-4 h-4" />
             </button>
           </div>
         </div>
@@ -747,9 +747,11 @@ export default function CategoriesPage() {
                     <button
                       type="button"
                       onClick={() => setFormData({ ...formData, imageUrl: "" })}
-                      className="text-rose-500 hover:text-rose-700 p-1 text-xs font-bold"
+                      className="text-rose-500 hover:text-rose-700 hover:bg-rose-50 dark:hover:bg-rose-950/40 px-2 py-1 rounded-lg text-xs font-bold inline-flex items-center gap-1 transition-colors"
+                      title="Remove Image"
                     >
-                      Remove
+                      <Trash2 className="w-3.5 h-3.5" />
+                      <span>Remove</span>
                     </button>
                   </div>
                 )}
@@ -780,9 +782,10 @@ export default function CategoriesPage() {
                       <button
                         type="button"
                         onClick={() => handleRemoveSubcategory(sub)}
-                        className="hover:text-rose-600 font-bold ml-1"
+                        className="text-rose-400 hover:text-rose-600 font-bold ml-1 inline-flex items-center justify-center transition-colors"
+                        title={`Remove ${sub}`}
                       >
-                        ×
+                        <Trash2 className="w-3 h-3" />
                       </button>
                     </span>
                   ))}
@@ -828,9 +831,10 @@ export default function CategoriesPage() {
                       <button
                         type="button"
                         onClick={() => handleRemoveFilter(f)}
-                        className="hover:text-rose-600 font-bold ml-1"
+                        className="text-rose-400 hover:text-rose-600 font-bold ml-1 inline-flex items-center justify-center transition-colors"
+                        title={`Remove ${f}`}
                       >
-                        ×
+                        <Trash2 className="w-3 h-3" />
                       </button>
                     </span>
                   ))}

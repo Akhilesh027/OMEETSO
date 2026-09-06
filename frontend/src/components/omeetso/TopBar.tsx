@@ -6,6 +6,8 @@ import { getSaved, subscribe as subscribeSaved } from "@/lib/saved";
 import { getThreads, subscribe as subscribeChat, seedIfEmpty } from "@/lib/chat";
 import { LocationModal } from "@/components/omeetso/LocationModal";
 import { Logo } from "@/components/omeetso/Logo";
+import { unreadCount, listNotifications } from "@/lib/account";
+import { getNotificationsApi } from "@/api/notifications.api";
 
 export function LocationTopBar({
   area,
@@ -17,6 +19,13 @@ export function LocationTopBar({
   const [openModal, setOpenModal] = useState(false);
   const [savedCount, setSavedCount] = useState(0);
   const [unreadChats, setUnreadChats] = useState(0);
+  const [unreadNotifs, setUnreadNotifs] = useState(() => {
+    try {
+      return unreadCount();
+    } catch {
+      return 0;
+    }
+  });
   const [activeArea, setActiveArea] = useState(area || "");
   const [activePin, setActivePin] = useState(pincode || "");
 
@@ -47,13 +56,9 @@ export function LocationTopBar({
   }, []);
 
   useEffect(() => {
-    setSavedCount(getSaved().length);
     const unsubSaved = subscribeSaved(() => setSavedCount(getSaved().length));
-    return unsubSaved;
-  }, []);
-
-  useEffect(() => {
     seedIfEmpty();
+
     const updateChatCount = () => {
       const threads = getThreads();
       const totalUnread = threads.reduce((acc, t) => acc + (t.unread || 0), 0);
@@ -61,7 +66,29 @@ export function LocationTopBar({
     };
     updateChatCount();
     const unsubChat = subscribeChat(updateChatCount);
-    return unsubChat;
+
+    const updateNotifCount = async () => {
+      let remoteUnread = 0;
+      try {
+        const res = await getNotificationsApi(1, 10);
+        if (res.success && typeof res.unreadCount === "number") {
+          remoteUnread = res.unreadCount;
+        }
+      } catch { /* offline */ }
+      const localUnread = unreadCount();
+      setUnreadNotifs(Math.max(remoteUnread, localUnread));
+    };
+    updateNotifCount();
+
+    window.addEventListener("omeetso_notifications_changed", updateNotifCount);
+    window.addEventListener("storage", updateNotifCount);
+
+    return () => {
+      unsubSaved();
+      unsubChat();
+      window.removeEventListener("omeetso_notifications_changed", updateNotifCount);
+      window.removeEventListener("storage", updateNotifCount);
+    };
   }, []);
 
   return (
@@ -100,6 +127,12 @@ export function LocationTopBar({
             className="relative grid h-8.5 w-8.5 place-items-center rounded-full bg-white/15 hover:bg-white/25 transition-colors"
           >
             <Bell className="h-4 w-4 text-white" />
+            {unreadNotifs > 0 && (
+              <span className="absolute -top-0.5 -right-0.5 flex h-3.5 min-w-3.5 items-center justify-center rounded-full bg-rose-500 px-1 text-[9px] font-black text-white shadow-2xs">
+                <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-rose-400 opacity-75" />
+                <span className="relative z-10">{unreadNotifs > 9 ? "9+" : unreadNotifs}</span>
+              </span>
+            )}
           </Link>
 
           <Link

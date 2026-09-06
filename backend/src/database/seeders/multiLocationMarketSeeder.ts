@@ -235,6 +235,28 @@ export async function seedMultiLocationMarket(): Promise<{
       rating: 4.9,
       reviewCount: 65,
       followersCount: 289
+    },
+    {
+      ownerId: sellerDocs[0]._id,
+      name: "Adilabad Super Mobiles & Electronics",
+      slug: "adilabad-super-mobiles-electronics",
+      tagline: "Authorized Smartphones, Laptops & Home Appliances",
+      description: "Adilabad's premier local electronics showroom on Collectorate Road. Verified genuine brand warranties, fast local doorstep delivery, and exchange deals.",
+      businessType: "Electronics & Mobile Store",
+      logo: "https://images.unsplash.com/photo-1550009158-9ebf69173e03?w=200",
+      cover: "https://images.unsplash.com/photo-1519389950473-47ba0277781c?w=1000",
+      primaryCategory: "mobiles",
+      supportingCategories: ["electronics", "appliances"],
+      pincode: "504001",
+      area: "Collectorate Road",
+      city: "Adilabad",
+      address: "Main Road, Near Collectorate Complex, Adilabad, Telangana",
+      businessMobile: "+919490012345",
+      email: "store.adilabad@omeetso.com",
+      status: StoreStatus.APPROVED,
+      rating: 4.9,
+      reviewCount: 38,
+      followersCount: 112
     }
   ];
 

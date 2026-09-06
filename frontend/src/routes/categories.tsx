@@ -280,8 +280,8 @@ function CategoriesPage() {
                             return (
                               <Link
                                 key={idx}
-                                to="/category/$id"
-                                params={{ id: c.id }}
+                                to={c.id === "jobs" ? ("/jobs" as any) : c.id === "services" ? ("/services" as any) : "/category/$id"}
+                                params={c.id !== "jobs" && c.id !== "services" ? { id: c.id } : undefined}
                                 search={{ sub: subId.toLowerCase() } as never}
                                 className="rounded-xl border border-border/60 bg-secondary/50 hover:bg-primary/10 hover:border-primary/40 hover:text-primary px-2.5 py-1 text-[11px] font-extrabold text-foreground transition-all"
                               >

@@ -32,6 +32,7 @@ import {
   getAdminServiceCategoriesApi,
   updateServiceStatusApi
 } from "@/api/adminServices.api";
+import { API_BASE } from "@/config/api";
 
 type ServiceStatus = "all" | "pending_approval" | "active" | "paused" | "rejected";
 
@@ -128,6 +129,19 @@ export function ServicesPage() {
       prev.map((s) => (s.id === serviceId || s._id === serviceId ? { ...s, isFeatured: !current } : s))
     );
     showSuccess(`Service spotlight status updated.`);
+  };
+
+  const handleDeleteService = async (serviceId: string, title?: string) => {
+    if (!window.confirm(`Are you sure you want to permanently delete service "${title || serviceId}"?`)) return;
+    try {
+      const token = localStorage.getItem("omeetso_admin_token") || localStorage.getItem("adminToken");
+      await fetch(`${API_BASE}/services/${serviceId}`, {
+        method: "DELETE",
+        headers: { Authorization: `Bearer ${token}` }
+      });
+    } catch {}
+    setServices((prev) => prev.filter((s) => s.id !== serviceId && s._id !== serviceId));
+    showSuccess("Service Deleted", `Service "${title || serviceId}" was permanently removed.`);
   };
 
   const handleSendMessageToProvider = (e: React.FormEvent) => {
@@ -472,6 +486,14 @@ export function ServicesPage() {
                               title="Toggle Featured Spotlight"
                             >
                               ★
+                            </button>
+
+                            <button
+                              onClick={() => handleDeleteService(srvId, srv.title)}
+                              className="p-1.5 text-rose-500 hover:text-rose-700 hover:bg-rose-50 dark:text-rose-400 dark:hover:text-rose-300 dark:hover:bg-rose-950/40 rounded-lg transition-colors inline-flex items-center justify-center"
+                              title="Delete Service Listing"
+                            >
+                              <Trash2 className="w-4 h-4" />
                             </button>
                           </td>
                         </tr>

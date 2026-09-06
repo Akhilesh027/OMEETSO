@@ -129,8 +129,8 @@ function SearchLanding() {
                     {suggestions.categories.map((c) => (
                       <Link
                         key={c.id}
-                        to="/category/$id"
-                        params={{ id: c.id }}
+                        to={c.id === "jobs" ? ("/jobs" as any) : c.id === "services" ? ("/services" as any) : "/category/$id"}
+                        params={c.id !== "jobs" && c.id !== "services" ? { id: c.id } : undefined}
                         className="inline-flex items-center gap-1.5 rounded-full border border-border bg-card px-3 py-1.5 text-sm"
                       >
                         {highlight(c.name)}
@@ -229,8 +229,8 @@ function SearchLanding() {
                   {CATEGORIES.slice(0, 6).map((c) => (
                     <Link
                       key={c.id}
-                      to="/category/$id"
-                      params={{ id: c.id }}
+                      to={c.id === "jobs" ? ("/jobs" as any) : c.id === "services" ? ("/services" as any) : "/category/$id"}
+                      params={c.id !== "jobs" && c.id !== "services" ? { id: c.id } : undefined}
                       className="rounded-2xl border border-border bg-card p-3 text-center text-xs font-semibold"
                     >
                       {c.name}

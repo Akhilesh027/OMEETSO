@@ -1,8 +1,54 @@
+import { useState } from "react";
 import { Link, useRouterState } from "@tanstack/react-router";
 import { Logo } from "@/components/omeetso/Logo";
+import { toast } from "sonner";
+import { Check, Loader2, Mail } from "lucide-react";
+import { subscribeNewsletterApi } from "@/api/newsletter.api";
 
 export function WebsiteFooter() {
   const path = useRouterState({ select: (s) => s.location.pathname });
+  const [email, setEmail] = useState("");
+  const [submitting, setSubmitting] = useState(false);
+  const [isSubscribed, setIsSubscribed] = useState(() => {
+    try {
+      return localStorage.getItem("omeetso_newsletter_subscribed") === "true";
+    } catch {
+      return false;
+    }
+  });
+
+  const handleSubscribe = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const cleanEmail = email.trim();
+
+    if (!cleanEmail) {
+      toast.error("Please enter your email address");
+      return;
+    }
+
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(cleanEmail)) {
+      toast.error("Please enter a valid email address (e.g. name@example.com)");
+      return;
+    }
+
+    setSubmitting(true);
+    try {
+      const res = await subscribeNewsletterApi(cleanEmail, "website_footer");
+      if (res.success) {
+        setIsSubscribed(true);
+        setEmail("");
+        toast.success(res.message || "Thank you for subscribing to Omeetso deals and updates!");
+      } else {
+        toast.error(res.message || "Unable to subscribe right now. Please try again.");
+      }
+    } catch (err: any) {
+      toast.error("Something went wrong while subscribing. Please try again.");
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
   const hideOn = ["/", "/language", "/onboarding", "/welcome", "/login", "/otp", "/profile-setup", "/location", "/register"];
   if (hideOn.includes(path)) return null;
 
@@ -67,20 +113,40 @@ export function WebsiteFooter() {
             <p className="text-xs text-white/75 mt-1 font-medium">Join 50,000+ local buyers & sellers getting weekly neighborhood highlights.</p>
           </div>
 
-          <form onSubmit={(e) => e.preventDefault()} className="flex w-full lg:w-auto items-center gap-2">
-            <input
-              type="email"
-              placeholder="Enter your email address"
-              className="h-12 w-full lg:w-72 rounded-2xl bg-white/10 border border-white/20 px-4 text-xs font-bold text-white outline-none placeholder:text-white/50 focus:border-amber-400"
-            />
+          <form onSubmit={handleSubscribe} className="flex w-full lg:w-auto items-center gap-2">
+            <div className="relative w-full lg:w-72">
+              <Mail className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-white/40 pointer-events-none" />
+              <input
+                type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                disabled={submitting}
+                placeholder={isSubscribed ? "Subscribed! Enter new email..." : "Enter your email address"}
+                className="h-12 w-full rounded-2xl bg-white/10 border border-white/20 pl-10 pr-4 text-xs font-bold text-white outline-none placeholder:text-white/50 focus:border-amber-400 disabled:opacity-60 transition-colors"
+              />
+            </div>
             <button
               type="submit"
-              className="h-12 shrink-0 rounded-2xl bg-amber-500 hover:bg-amber-400 px-6 text-xs font-black text-slate-950 transition-colors shadow-md"
+              disabled={submitting}
+              className="h-12 shrink-0 rounded-2xl bg-amber-500 hover:bg-amber-400 active:scale-95 disabled:opacity-75 disabled:pointer-events-none px-6 text-xs font-black text-slate-950 transition-all shadow-md flex items-center justify-center gap-2 cursor-pointer"
             >
-              Subscribe
+              {submitting ? (
+                <>
+                  <Loader2 className="h-4 w-4 animate-spin text-slate-950" />
+                  <span>Subscribing...</span>
+                </>
+              ) : isSubscribed && !email ? (
+                <>
+                  <Check className="h-4 w-4 text-slate-950 stroke-[3]" />
+                  <span>Subscribed</span>
+                </>
+              ) : (
+                <span>Subscribe</span>
+              )}
             </button>
           </form>
         </div>
+
 
         {/* Footer Navigation Columns */}
         <div className="grid grid-cols-7 gap-8">

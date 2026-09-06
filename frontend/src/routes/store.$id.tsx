@@ -4,9 +4,11 @@ import { emptyStore, type Store } from "@/lib/stores";
 import { listListings, formatINR } from "@/lib/listings";
 import {
   ShieldCheck, Star, Phone, MessageCircle, Navigation, Store as StoreIcon,
-  Package, Sparkles, Share2, Heart, Zap, ExternalLink, Clock, MapPin, CheckCircle2, Copy, ArrowRight
+  Package, Sparkles, Share2, Heart, Zap, ExternalLink, Clock, MapPin, CheckCircle2, Copy, ArrowRight,
+  ChevronRight
 } from "lucide-react";
 import { ProductCard } from "@/components/omeetso/ProductCard";
+import { DEFAULT_SAMPLE_STORES } from "@/lib/sampleStores";
 import { useEffect, useState } from "react";
 import { startConversationApi } from "@/api/chat.api";
 import { serveAdsApi } from "@/api/adCampaigns.api";
@@ -68,6 +70,38 @@ export const Route = createFileRoute("/store/$id")({
         }
       }
     } catch { }
+
+    if (!s) {
+      const sample = DEFAULT_SAMPLE_STORES.find(
+        (st) => st.id === params.id || st.slug === params.id
+      );
+      if (sample) {
+        s = {
+          ...emptyStore(),
+          id: sample.id,
+          name: sample.name,
+          tagline: sample.tagline || "",
+          description: sample.description || "",
+          businessType: "Electronics & Retail Store",
+          primaryCategory: sample.primaryCategory || sample.category || "mobiles",
+          supportingCategories: ["electronics", "appliances"],
+          pincode: sample.pincode || "504001",
+          area: sample.area,
+          city: sample.city,
+          address: sample.address || `${sample.area}, ${sample.city}`,
+          businessMobile: "+919490012345",
+          email: `store.${sample.slug || sample.id}@omeetso.com`,
+          logo: sample.logo,
+          cover: sample.cover,
+          rating: sample.rating || 4.9,
+          reviewCount: sample.reviews || 38,
+          followersCount: 120,
+          status: "approved" as any,
+          createdAt: Date.now() - 30 * 86400000,
+          updatedAt: Date.now()
+        };
+      }
+    }
 
     if (!s) throw notFound();
     return { store: s };

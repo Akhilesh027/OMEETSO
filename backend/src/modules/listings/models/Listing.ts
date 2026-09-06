@@ -37,6 +37,7 @@ export interface IListing extends Document {
   coverIndex: number;
   videoUrl?: string;
   whatsappPhone?: string;
+  sellerPhone?: string;
   enableWhatsapp?: boolean;
   pincode: string;
   area: string;
@@ -76,6 +77,7 @@ const ListingSchema = new Schema<IListing>(
     coverIndex: { type: Number, default: 0 },
     videoUrl: { type: String },
     whatsappPhone: { type: String },
+    sellerPhone: { type: String },
     enableWhatsapp: { type: Boolean, default: true },
     pincode: { type: String, required: true, index: true },
     area: { type: String, required: true },

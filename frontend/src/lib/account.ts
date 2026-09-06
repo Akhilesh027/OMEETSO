@@ -338,7 +338,7 @@ export const verifStatusLabel: Record<VerifStatus, string> = {
 // ============== Notifications ==============
 export type NotifCategory =
   | "messages" | "offers" | "listings" | "stores"
-  | "promotions" | "payments" | "system" | "nearby_changes";
+  | "promotions" | "payments" | "system" | "nearby_changes" | "job_application";
 export type Notification = {
   id: string;
   category: NotifCategory;
@@ -377,19 +377,32 @@ export function listNotifications(): Notification[] {
   return clean;
 }
 export function getNotification(id: string) { return listNotifications().find((n) => n.id === id); }
+function emitNotifEvent() {
+  if (typeof window !== "undefined") {
+    try {
+      window.dispatchEvent(new CustomEvent("omeetso_notifications_changed"));
+      localStorage.setItem("omeetso_notifs_last_update", String(Date.now()));
+    } catch { /* ignore */ }
+  }
+}
+
 export function markRead(id: string, read = true) {
   const cur = listNotifications().map((n) => n.id === id ? { ...n, read } : n);
   write(AK.notifications, cur);
+  emitNotifEvent();
 }
 export function markAllRead(category?: NotifCategory) {
   const cur = listNotifications().map((n) => (!category || n.category === category) ? { ...n, read: true } : n);
   write(AK.notifications, cur);
+  emitNotifEvent();
 }
 export function deleteNotification(id: string) {
   write(AK.notifications, listNotifications().filter((n) => n.id !== id));
+  emitNotifEvent();
 }
 export function clearCategory(category: NotifCategory) {
   write(AK.notifications, listNotifications().filter((n) => n.category !== category));
+  emitNotifEvent();
 }
 export function unreadCount(): number { return listNotifications().filter((n) => !n.read).length; }
 
@@ -400,6 +413,7 @@ export function pushNotification(n: Omit<Notification, "time"> & { time?: number
     time: n.time || Date.now(),
   };
   write(AK.notifications, [full, ...cur.filter((item) => item.id !== full.id)]);
+  emitNotifEvent();
   return full;
 }
 
@@ -580,7 +594,13 @@ export const SAFETY_CATEGORIES: { id: SafetyCategory; label: string }[] = [
 export type SafetyReport = {
   id: string; category: SafetyCategory; description: string;
   relatedUser?: string; relatedListing?: string; relatedChat?: string;
-  attachments: string[]; contactPref?: string; status: "submitted" | "in_review" | "resolved";
+  attachments: string[]; contactPref?: string;
+  reporterName?: string;
+  reporterEmail?: string;
+  reporterPhone?: string;
+  contactTimeSlot?: string;
+  isAnonymous?: boolean;
+  status: "submitted" | "in_review" | "resolved";
   createdAt: number;
 };
 export const listSafetyReports = () => read<SafetyReport[]>(AK.safetyReports, []);

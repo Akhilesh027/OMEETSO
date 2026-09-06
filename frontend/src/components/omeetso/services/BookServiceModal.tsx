@@ -2,6 +2,7 @@ import { useState } from "react";
 import { X, Calendar, Clock, MapPin, CheckCircle2, ShieldCheck, Zap, Sparkles, Send } from "lucide-react";
 import { ServiceItem, createServiceInquiryLocal, ServiceInquiryItem } from "@/lib/services";
 import { createServiceInquiryApi } from "@/api/services.api";
+import { formatPhoneDisplay, cleanPhoneInput } from "@/lib/utils";
 import { toast } from "sonner";
 
 interface BookServiceModalProps {
@@ -161,17 +162,19 @@ export function BookServiceModal({ service, isOpen, onClose, onSuccess }: BookSe
             </div>
             <div>
               <label className="block text-xs font-bold text-foreground mb-1">Phone Number (WhatsApp - 10 Digits) *</label>
-              <div className="relative">
-                <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-xs font-bold text-muted-foreground">+91</span>
+              <div className="flex items-center rounded-2xl border border-border bg-surface-1 px-3.5 py-2.5 focus-within:border-primary transition-all">
+                <span className="flex items-center gap-1.5 text-xs font-bold text-foreground font-mono pr-2.5 border-r border-border mr-2.5 shrink-0 select-none">
+                  <span className="text-sm">🇮🇳</span> +91
+                </span>
                 <input
                   type="tel"
                   inputMode="numeric"
-                  maxLength={10}
+                  maxLength={11}
                   required
-                  placeholder="9876543210"
-                  value={customerPhone}
-                  onChange={(e) => setCustomerPhone(e.target.value.replace(/\D/g, "").slice(0, 10))}
-                  className="w-full rounded-2xl border border-border bg-surface-1 pl-11 pr-3.5 py-2.5 text-xs font-bold text-foreground placeholder:text-muted-foreground focus:border-primary focus:outline-none font-mono"
+                  placeholder="98765 43210"
+                  value={formatPhoneDisplay(customerPhone)}
+                  onChange={(e) => setCustomerPhone(cleanPhoneInput(e.target.value))}
+                  className="w-full bg-transparent text-xs font-bold text-foreground placeholder:text-muted-foreground focus:outline-none font-mono tracking-wider"
                 />
               </div>
             </div>

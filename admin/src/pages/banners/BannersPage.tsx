@@ -331,10 +331,10 @@ export default function BannersPage() {
                     </button>
                     <button
                       onClick={() => openDeleteModal(item)}
-                      className="p-1.5 rounded-lg bg-rose-600/90 hover:bg-rose-600 text-white transition-colors shadow-sm"
+                      className="p-1.5 rounded-lg bg-rose-600 hover:bg-rose-700 text-white transition-colors shadow-sm inline-flex items-center justify-center"
                       title="Delete Item"
                     >
-                      <Trash2 className="w-3.5 h-3.5" />
+                      <Trash2 className="w-4 h-4" />
                     </button>
                   </div>
 

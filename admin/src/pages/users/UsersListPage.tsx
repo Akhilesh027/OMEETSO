@@ -296,8 +296,8 @@ export default function UsersListPage() {
                         </button>
                         <button
                           onClick={() => handleDeleteUser(u.id)}
-                          className="p-1.5 text-slate-400 hover:text-[#DC3545] hover:bg-red-50 rounded-lg"
-                          title="Delete Record"
+                          className="p-1.5 text-rose-500 hover:text-rose-700 hover:bg-rose-50 dark:text-rose-400 dark:hover:text-rose-300 dark:hover:bg-rose-950/40 rounded-lg transition-colors inline-flex items-center justify-center"
+                          title="Delete User Record"
                         >
                           <Trash2 className="w-4 h-4" />
                         </button>

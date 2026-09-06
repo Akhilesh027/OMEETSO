@@ -7,6 +7,7 @@ import {
   updateAdminAdPlacementApi,
   deleteAdminAdPlacementApi
 } from "@/api/adminAds.api";
+import { getFrontendBaseUrl } from "@/config/api";
 import {
   Layers,
   PlusCircle,
@@ -236,7 +237,7 @@ export default function AdPlacementsPage() {
 
   // Helper to get site URL for a route
   const getLiveUrl = (route?: string) => {
-    const base = "http://localhost:5173";
+    const base = getFrontendBaseUrl();
     if (!route || route === "/") return base;
     if (route.includes(":id") || route.includes("/all")) return `${base}/category/electronics`;
     if (route.includes("detail")) return `${base}/results`;
@@ -348,7 +349,7 @@ export default function AdPlacementsPage() {
             <span>Pricing Plans</span>
           </a>
           <a
-            href="http://localhost:5173"
+            href={getFrontendBaseUrl()}
             target="_blank"
             rel="noopener noreferrer"
             className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-white/10 hover:bg-white/20 text-white text-xs font-bold border border-white/10 transition-all"
@@ -496,10 +497,10 @@ export default function AdPlacementsPage() {
                       ) : (
                         <button
                           onClick={() => setDeleteConfirmId(p.id || p._id)}
-                          className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-xl transition-colors"
+                          className="p-1.5 text-rose-500 hover:text-rose-700 hover:bg-rose-50 dark:text-rose-400 dark:hover:text-rose-300 dark:hover:bg-rose-950/40 rounded-xl transition-colors inline-flex items-center justify-center"
                           title="Delete slot spec"
                         >
-                          <Trash2 className="w-3.5 h-3.5" />
+                          <Trash2 className="w-4 h-4" />
                         </button>
                       )}
                     </div>

@@ -5,6 +5,7 @@ import { ListingRevision } from "../models/ListingRevision";
 import { ListingModeration } from "../models/ListingModeration";
 import { AuthenticatedUserRequest } from "../../../middleware/authenticateUser";
 import { ListingStatus } from "../../../contracts";
+import { Notification } from "../../notifications/models/Notification";
 
 export async function createListing(req: AuthenticatedUserRequest, res: Response, next: NextFunction): Promise<void> {
   try {
@@ -18,6 +19,7 @@ export async function createListing(req: AuthenticatedUserRequest, res: Response
       description,
       priceInPaise,
       negotiable,
+      pricingType,
       free,
       condition,
       categoryId,
@@ -25,6 +27,9 @@ export async function createListing(req: AuthenticatedUserRequest, res: Response
       images,
       coverIndex,
       videoUrl,
+      whatsappPhone,
+      sellerPhone,
+      enableWhatsapp,
       pincode,
       area,
       city,
@@ -35,6 +40,11 @@ export async function createListing(req: AuthenticatedUserRequest, res: Response
 
     // Derived Seller Identity
     const sellerId = req.user._id;
+    const isNegotiable = typeof negotiable === "boolean"
+      ? negotiable
+      : (pricingType ? pricingType.toUpperCase() === "NEGOTIABLE" : true);
+
+    const contactNumber = sellerPhone || whatsappPhone || (req.user as any).profile?.phone || (req.user as any).phone || "";
 
     const listing = await Listing.create({
       sellerId,
@@ -43,15 +53,18 @@ export async function createListing(req: AuthenticatedUserRequest, res: Response
       title,
       description,
       priceInPaise,
-      negotiable: Boolean(negotiable),
+      negotiable: isNegotiable,
       free: Boolean(free),
       condition,
       images: images || [],
       coverIndex: coverIndex || 0,
       videoUrl,
-      pincode: pincode || req.user.profile.pincode,
-      area: area || req.user.profile.area || "Madhapur",
-      city: city || req.user.profile.city || "Hyderabad",
+      whatsappPhone: whatsappPhone || contactNumber,
+      sellerPhone: sellerPhone || contactNumber,
+      enableWhatsapp: enableWhatsapp ?? true,
+      pincode: pincode || req.user.profile.pincode || "500081",
+      area: area || req.user.profile.area || "",
+      city: city || req.user.profile.city || "",
       fulfilment: fulfilment || "pickup",
       specs: specs || {},
       contactPref: contactPref || "call_and_chat",
@@ -67,6 +80,28 @@ export async function createListing(req: AuthenticatedUserRequest, res: Response
       version: 1
     });
 
+    // Generate listing created notification
+    await Notification.create({
+      userId: sellerId,
+      type: "listing_moderation",
+      title: `Listing Submitted: ${listing.title}`,
+      body: `Your listing "${listing.title}" was submitted and is pending review.`,
+      link: `/product/${listing._id}`,
+      thumbnail: listing.images?.[0]
+    }).catch(() => {});
+
+    // Generate nearby changes notification if enabled or broadcast
+    if (req.body.nearbyChanges?.enabled) {
+      await Notification.create({
+        userId: sellerId,
+        type: "nearby_changes",
+        title: `Nearby Changes: ${listing.title}`,
+        body: `Nearby changes and broadcast active for "${listing.title}" within ${req.body.nearbyChanges.radiusKm || 10} km of ${listing.area || "your area"}.`,
+        link: `/product/${listing._id}`,
+        thumbnail: listing.images?.[0]
+      }).catch(() => {});
+    }
+
     res.status(201).json({
       success: true,
       data: {
@@ -78,6 +113,7 @@ export async function createListing(req: AuthenticatedUserRequest, res: Response
         priceInPaise: listing.priceInPaise,
         price: listing.priceInPaise ? Math.round(listing.priceInPaise / 100) : 0,
         negotiable: listing.negotiable,
+        pricingType: listing.negotiable ? "NEGOTIABLE" : "FIXED",
         free: listing.free,
         condition: listing.condition,
         categoryId: listing.categoryId,
@@ -88,6 +124,7 @@ export async function createListing(req: AuthenticatedUserRequest, res: Response
         coverIndex: listing.coverIndex,
         videoUrl: listing.videoUrl,
         whatsappPhone: listing.whatsappPhone,
+        sellerPhone: (listing as any).sellerPhone || listing.whatsappPhone,
         enableWhatsapp: listing.enableWhatsapp,
         pincode: listing.pincode,
         area: listing.area,
@@ -254,12 +291,12 @@ export async function getListingById(req: Request, res: Response, next: NextFunc
     const isObjectId = /^[0-9a-fA-F]{24}$/.test(listingId);
     const listing = isObjectId
       ? await Listing.findById(listingId)
-          .populate("sellerId", "profile.name profile.businessName profile.avatar profile.city profile.area accountType verificationSummary createdAt")
-          .populate("storeId", "name slug logo cover rating reviewCount")
+          .populate("sellerId", "profile.name profile.businessName profile.avatar profile.city profile.area profile.phone phone mobile accountType verificationSummary createdAt")
+          .populate("storeId", "name slug logo cover rating reviewCount phone")
           .lean()
       : await Listing.findOne({ slug: listingId } as any)
-          .populate("sellerId", "profile.name profile.businessName profile.avatar profile.city profile.area accountType verificationSummary createdAt")
-          .populate("storeId", "name slug logo cover rating reviewCount")
+          .populate("sellerId", "profile.name profile.businessName profile.avatar profile.city profile.area profile.phone phone mobile accountType verificationSummary createdAt")
+          .populate("storeId", "name slug logo cover rating reviewCount phone")
           .lean();
 
     if (!listing) {
@@ -281,6 +318,7 @@ export async function getListingById(req: Request, res: Response, next: NextFunc
         description: listing.description,
         priceInPaise: listing.priceInPaise,
         negotiable: listing.negotiable,
+        pricingType: listing.negotiable ? "NEGOTIABLE" : "FIXED",
         free: listing.free,
         condition: listing.condition,
         categoryId: listing.categoryId,
@@ -288,6 +326,9 @@ export async function getListingById(req: Request, res: Response, next: NextFunc
         images: listing.images,
         coverIndex: listing.coverIndex,
         videoUrl: listing.videoUrl,
+        whatsappPhone: listing.whatsappPhone || (listing as any).sellerPhone || seller?.profile?.phone || seller?.phone || "",
+        sellerPhone: (listing as any).sellerPhone || listing.whatsappPhone || seller?.profile?.phone || seller?.phone || seller?.mobile || store?.phone || "",
+        enableWhatsapp: listing.enableWhatsapp ?? true,
         pincode: listing.pincode,
         area: listing.area,
         city: listing.city,
@@ -315,6 +356,7 @@ export async function getListingById(req: Request, res: Response, next: NextFunc
               avatar: seller.profile?.avatar || store?.logo,
               city: seller.profile?.city || store?.city || listing.city,
               area: (seller.profile?.area && seller.profile.area !== "Madhapur" ? seller.profile.area : null) || listing.area || store?.area || "Hyderabad",
+              phone: (listing as any).sellerPhone || listing.whatsappPhone || seller?.profile?.phone || seller?.phone || seller?.mobile || "",
               memberSince: seller.profile?.memberSince || seller.createdAt,
               verificationSummary: seller.verificationSummary || { riskScore: 94 }
             }
@@ -400,7 +442,27 @@ export async function updateListing(req: AuthenticatedUserRequest, res: Response
       return;
     }
 
-    const { title, description, priceInPaise, condition, images, specs } = req.body;
+    const {
+      title,
+      description,
+      priceInPaise,
+      condition,
+      images,
+      specs,
+      negotiable,
+      pricingType,
+      sellerPhone,
+      whatsappPhone,
+      area,
+      city,
+      pincode,
+      contactPref,
+      bestContactTime
+    } = req.body;
+
+    const isNegotiable = typeof negotiable === "boolean"
+      ? negotiable
+      : (pricingType ? pricingType.toUpperCase() === "NEGOTIABLE" : listing.negotiable);
 
     // Listing Revision Logic: If listing is active/approved, create revision for review rather than overwriting live content
     if (listing.status === ListingStatus.APPROVED || listing.status === ListingStatus.ACTIVE) {
@@ -416,6 +478,15 @@ export async function updateListing(req: AuthenticatedUserRequest, res: Response
         status: "pending_review"
       });
 
+      if (negotiable !== undefined || pricingType !== undefined) listing.negotiable = isNegotiable;
+      if (sellerPhone) listing.sellerPhone = sellerPhone;
+      if (whatsappPhone) listing.whatsappPhone = whatsappPhone;
+      if (area) listing.area = area;
+      if (city) listing.city = city;
+      if (pincode) listing.pincode = pincode;
+      if (contactPref) listing.contactPref = contactPref;
+      await listing.save();
+
       res.status(200).json({
         success: true,
         data: {
@@ -430,11 +501,38 @@ export async function updateListing(req: AuthenticatedUserRequest, res: Response
     if (title) listing.title = title;
     if (description) listing.description = description;
     if (priceInPaise !== undefined) listing.priceInPaise = priceInPaise;
+    if (negotiable !== undefined || pricingType !== undefined) listing.negotiable = isNegotiable;
     if (condition) listing.condition = condition;
     if (images) listing.images = images;
     if (specs) listing.specs = specs;
+    if (sellerPhone) listing.sellerPhone = sellerPhone;
+    if (whatsappPhone) listing.whatsappPhone = whatsappPhone;
+    if (area) listing.area = area;
+    if (city) listing.city = city;
+    if (pincode) listing.pincode = pincode;
+    if (contactPref) listing.contactPref = contactPref;
 
     await listing.save();
+
+    await Notification.create({
+      userId: req.user._id,
+      type: "listing_moderation",
+      title: `Listing Updated: ${listing.title}`,
+      body: `Your changes to "${listing.title}" have been saved.`,
+      link: `/product/${listing._id}`,
+      thumbnail: listing.images?.[0]
+    }).catch(() => {});
+
+    if (req.body.nearbyChanges?.enabled) {
+      await Notification.create({
+        userId: req.user._id,
+        type: "nearby_changes",
+        title: `Nearby Changes: ${listing.title}`,
+        body: `Nearby broadcast updated for "${listing.title}".`,
+        link: `/product/${listing._id}`,
+        thumbnail: listing.images?.[0]
+      }).catch(() => {});
+    }
 
     res.status(200).json({
       success: true,
@@ -456,8 +554,12 @@ export async function markListingSold(req: AuthenticatedUserRequest, res: Respon
       return;
     }
 
-    const { listingId } = req.params;
-    const listing = await Listing.findById(listingId);
+    const rawListingId = req.params.listingId;
+    const listingId = (Array.isArray(rawListingId) ? rawListingId[0] : rawListingId) as string;
+    const isObjectId = mongoose.Types.ObjectId.isValid(listingId);
+    const listing = isObjectId
+      ? await Listing.findById(listingId)
+      : await Listing.findOne({ slug: listingId });
 
     if (!listing) {
       res.status(404).json({ success: false, error: { code: "NOT_FOUND", message: "Listing not found" } });

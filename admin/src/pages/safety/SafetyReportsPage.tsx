@@ -204,7 +204,7 @@ export default function SafetyReportsPage() {
                             setSelectedReport(r);
                             setIsInspectorOpen(true);
                           }}
-                          className="p-1.5 text-slate-500 hover:text-[#DC3545] hover:bg-red-50 rounded-lg"
+                          className="p-1.5 text-slate-500 hover:text-[#3547D4] hover:bg-slate-100 rounded-lg transition-colors"
                           title="Inspect Details"
                         >
                           <Eye className="w-4 h-4" />

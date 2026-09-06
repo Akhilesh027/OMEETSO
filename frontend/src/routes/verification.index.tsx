@@ -24,6 +24,7 @@ import {
   ArrowRight
 } from "lucide-react";
 import { uploadFile } from "@/lib/upload";
+import { formatPhoneDisplay, cleanPhoneInput } from "@/lib/utils";
 import { toast } from "sonner";
 
 export const Route = createFileRoute("/verification/")({
@@ -752,17 +753,19 @@ function VerificationCentre() {
                     <label className="block text-[11px] font-bold text-foreground mb-1">
                       Mobile Number (10 Digits) *
                     </label>
-                    <div className="relative">
-                      <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-xs font-bold text-muted-foreground">+91</span>
+                    <div className="flex items-center bg-background border border-border rounded-xl px-3.5 py-2.5 focus-within:border-indigo-brand transition-all">
+                      <span className="flex items-center gap-1.5 text-xs font-bold text-foreground font-mono pr-2.5 border-r border-border mr-2.5 shrink-0 select-none">
+                        <span className="text-sm">🇮🇳</span> +91
+                      </span>
                       <input
                         type="tel"
                         inputMode="numeric"
-                        maxLength={10}
-                        value={mobileNumber}
+                        maxLength={11}
+                        value={formatPhoneDisplay(mobileNumber)}
                         disabled={mobileStep === "sent"}
-                        onChange={(e) => setMobileNumber(e.target.value.replace(/\D/g, "").slice(0, 10))}
-                        placeholder="9876543210"
-                        className="w-full pl-11 pr-3.5 py-2.5 bg-background border border-border rounded-xl outline-none font-bold text-xs text-foreground focus:border-indigo-brand disabled:opacity-60 font-mono"
+                        onChange={(e) => setMobileNumber(cleanPhoneInput(e.target.value))}
+                        placeholder="98765 43210"
+                        className="w-full bg-transparent outline-none font-bold text-xs text-foreground disabled:opacity-60 font-mono tracking-wider"
                       />
                     </div>
                   </div>

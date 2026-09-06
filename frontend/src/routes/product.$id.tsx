@@ -238,6 +238,15 @@ function ProductPage() {
   const [guestOpen, setGuestOpen] = useState(false);
   const nav = useNavigate();
 
+  const isNegotiable = Boolean(
+    !product?.free &&
+    (product?.negotiable === true || product?.negotiable === "true" || product?.pricingType === "NEGOTIABLE" || product?.pricingType === "negotiable") &&
+    product?.negotiable !== false &&
+    product?.negotiable !== "false" &&
+    product?.pricingType !== "FIXED" &&
+    product?.pricingType !== "fixed"
+  );
+
   useEffect(() => { if (product?.id) addRecentlyViewed(product.id); }, [product?.id]);
 
   if (product.sold || product.unavailable) {
@@ -340,11 +349,50 @@ function ProductPage() {
   };
 
   const videoUrl = product.videoUrl || product.video;
-  const rawWaPhone = product.whatsappPhone || product.sellerPhone || liveSeller?.phone || "";
-  const cleanWa = rawWaPhone.replace(/\D/g, "");
-  const waPhone = cleanWa.length === 10 ? `91${cleanWa}` : cleanWa;
+  const rawCandidatePhone = 
+    product.sellerPhone || 
+    product.whatsappPhone || 
+    liveSeller?.phone || 
+    liveSeller?.mobile || 
+    liveSeller?.profile?.phone || 
+    (product.seller as any)?.phone || 
+    mockSeller?.phone || 
+    "";
+  const cleanPhoneDigits = rawCandidatePhone.replace(/\D/g, "");
+  const callablePhone = cleanPhoneDigits.length === 10
+    ? `+91${cleanPhoneDigits}`
+    : (cleanPhoneDigits.length === 12 && cleanPhoneDigits.startsWith("91"))
+      ? `+${cleanPhoneDigits}`
+      : cleanPhoneDigits.length >= 10
+        ? `+${cleanPhoneDigits}`
+        : "";
+
+  const cleanWa = cleanPhoneDigits;
+  const waPhone = cleanWa.length === 10 ? `91${cleanWa}` : (cleanWa.length === 12 && cleanWa.startsWith("91") ? cleanWa : cleanWa);
   const waText = encodeURIComponent(`Hi, I'm interested in your Omeetso listing: ${product.title}`);
-  const waLink = waPhone ? `https://wa.me/${waPhone}?text=${waText}` : null;
+  const waLink = waPhone && waPhone.length >= 10 ? `https://wa.me/${waPhone}?text=${waText}` : null;
+
+  const handleCallClick = (e: React.MouseEvent) => {
+    if (!callablePhone) {
+      e.preventDefault();
+      toast.info("Seller has not provided a direct calling number. Please use Chat or WhatsApp.", {
+        action: {
+          label: "Chat Now",
+          onClick: async () => {
+            if (isGuest()) { setGuestOpen(true); return; }
+            try {
+              const res = await startConversationApi("LISTING", product.id);
+              if (res.success && res.data?.id) {
+                nav({ to: "/chat/$id", params: { id: res.data.id } });
+              }
+            } catch {}
+          }
+        }
+      });
+      return;
+    }
+    window.location.href = `tel:${callablePhone}`;
+  };
 
   type MediaItem = {
     type: "image" | "video";
@@ -531,9 +579,13 @@ function ProductPage() {
           <div>
             <div className="flex flex-wrap items-center gap-2">
               <p className="text-3xl sm:text-4xl font-black text-slate-950 dark:text-white leading-none">{formatINR(product.price)}</p>
-              {product.negotiable && (
+              {isNegotiable ? (
                 <span className="rounded-full bg-blue-500/10 border border-blue-500/30 px-3 py-0.5 text-xs font-extrabold text-blue-700 dark:text-blue-300">
                   Negotiable Price
+                </span>
+              ) : (
+                <span className="rounded-full bg-emerald-500/10 border border-emerald-500/30 px-3 py-0.5 text-xs font-extrabold text-emerald-700 dark:text-emerald-300">
+                  Fixed Price
                 </span>
               )}
               {product.verified && (
@@ -557,7 +609,7 @@ function ProductPage() {
             </p>
 
             {/* Smart Bargain Assist Widget */}
-            {product.negotiable && (
+            {isNegotiable && (
               <div className="mt-3.5 rounded-2xl bg-blue-500/5 border border-blue-500/25 p-4 space-y-2.5 shadow-xs">
                 <div className="flex items-center justify-between">
                   <span className="text-xs font-black uppercase text-blue-700 dark:text-blue-300 flex items-center gap-1.5 tracking-wider">
@@ -601,9 +653,6 @@ function ProductPage() {
             <span className="inline-flex items-center gap-1.5 rounded-full bg-blue-500/10 border border-blue-500/25 px-3 py-1 text-xs font-extrabold text-blue-700 dark:text-blue-300">
               <Package className="h-3.5 w-3.5 text-blue-600" /> Pickup Available
             </span>
-            <span className="inline-flex items-center gap-1.5 rounded-full bg-blue-500/10 border border-blue-500/25 px-3 py-1 text-xs font-extrabold text-blue-700 dark:text-blue-300">
-              <Truck className="h-3.5 w-3.5 text-blue-600" /> Delivery on Request
-            </span>
           </div>
 
           {/* Seller Verification Metrics Matrix */}
@@ -620,7 +669,6 @@ function ProductPage() {
                 Category: (product.category || "General").replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase()),
                 Subcategory: (product.subcategory || product.category || "General").replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase()),
                 Condition: (product.condition || "good").replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase()),
-                Fulfilment: (product.fulfilment || "Pickup").replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase()),
                 ...(product.specs || {})
               }).map(([k, v]) => (
                 <div key={k}>
@@ -676,9 +724,13 @@ function ProductPage() {
             <div className="space-y-3.5 rounded-3xl border border-border bg-card p-5 shadow-xs">
               <div className="flex flex-wrap items-center gap-2">
                 <p className="text-3xl font-black text-slate-950 dark:text-white leading-none">{formatINR(product.price)}</p>
-                {product.negotiable && (
+                {isNegotiable ? (
                   <span className="rounded-full bg-blue-500/10 border border-blue-500/30 px-2.5 py-0.5 text-xs font-extrabold text-blue-700 dark:text-blue-300">
                     Negotiable
+                  </span>
+                ) : (
+                  <span className="rounded-full bg-emerald-500/10 border border-emerald-500/30 px-2.5 py-0.5 text-xs font-extrabold text-emerald-700 dark:text-emerald-300">
+                    Fixed Price
                   </span>
                 )}
               </div>
@@ -702,12 +754,14 @@ function ProductPage() {
                   <MessageCircle className="h-4 w-4" /> Chat with Seller
                 </button>
 
-                <button
-                  onClick={() => setOfferOpen(true)}
-                  className="flex items-center justify-center gap-2 rounded-2xl bg-blue-500/15 hover:bg-blue-500/25 border border-blue-500/30 text-blue-700 dark:text-blue-300 py-3.5 text-sm font-extrabold shadow-xs active:scale-98 transition-all"
-                >
-                  <HandCoins className="h-4 w-4 text-blue-600" /> Make an Offer
-                </button>
+                {isNegotiable && (
+                  <button
+                    onClick={() => setOfferOpen(true)}
+                    className="flex items-center justify-center gap-2 rounded-2xl bg-blue-500/15 hover:bg-blue-500/25 border border-blue-500/30 text-blue-700 dark:text-blue-300 py-3.5 text-sm font-extrabold shadow-xs active:scale-98 transition-all"
+                  >
+                    <HandCoins className="h-4 w-4 text-blue-600" /> Make an Offer
+                  </button>
+                )}
 
                 {waLink && (
                   <a
@@ -721,8 +775,10 @@ function ProductPage() {
                 )}
 
                 <a
-                  href={waPhone ? `tel:+${waPhone}` : "tel:+911234567890"}
-                  className="flex items-center justify-center gap-2 rounded-2xl border border-border bg-secondary/50 hover:bg-secondary py-3 text-sm font-bold text-foreground transition-colors"
+                  href={callablePhone ? `tel:${callablePhone}` : "#"}
+                  onClick={handleCallClick}
+                  className="flex items-center justify-center gap-2 rounded-2xl border border-border bg-secondary/50 hover:bg-secondary py-3 text-sm font-bold text-foreground transition-colors cursor-pointer"
+                  title={callablePhone ? `Call Seller at ${callablePhone}` : "Call Seller"}
                 >
                   <Phone className="h-4 w-4 text-blue-600" /> Call Seller
                 </a>
@@ -755,10 +811,15 @@ function ProductPage() {
         </div>{/* end desktop grid */}
 
         {/* Mobile sticky actions */}
-        <div className={`fixed bottom-0 left-1/2 z-40 grid w-full max-w-[430px] -translate-x-1/2 ${waLink ? "grid-cols-4" : "grid-cols-3"} gap-1.5 border-t border-border bg-card/95 backdrop-blur-md p-2.5 safe-b md:hidden shadow-lg`}>
+        <div className={`fixed bottom-0 left-1/2 z-40 grid w-full max-w-[430px] -translate-x-1/2 ${
+          waLink
+            ? (isNegotiable ? "grid-cols-4" : "grid-cols-3")
+            : (isNegotiable ? "grid-cols-3" : "grid-cols-2")
+        } gap-1.5 border-t border-border bg-card/95 backdrop-blur-md p-2.5 safe-b md:hidden shadow-lg`}>
           <a
-            href={waPhone ? `tel:+${waPhone}` : "tel:+911234567890"}
-            className="flex flex-col items-center justify-center gap-0.5 rounded-2xl border border-border bg-secondary py-2 text-xs font-bold text-foreground"
+            href={callablePhone ? `tel:${callablePhone}` : "#"}
+            onClick={handleCallClick}
+            className="flex flex-col items-center justify-center gap-0.5 rounded-2xl border border-border bg-secondary py-2 text-xs font-bold text-foreground cursor-pointer"
           >
             <Phone className="h-4 w-4 text-blue-600" /> Call
           </a>
@@ -772,12 +833,14 @@ function ProductPage() {
               WhatsApp
             </a>
           )}
-          <button
-            onClick={() => setOfferOpen(true)}
-            className="flex flex-col items-center justify-center gap-0.5 rounded-2xl border border-blue-500/30 bg-blue-500/15 text-blue-700 dark:text-blue-300 py-2 text-xs font-extrabold"
-          >
-            <HandCoins className="h-4 w-4 text-blue-600" /> Offer
-          </button>
+          {isNegotiable && (
+            <button
+              onClick={() => setOfferOpen(true)}
+              className="flex flex-col items-center justify-center gap-0.5 rounded-2xl border border-blue-500/30 bg-blue-500/15 text-blue-700 dark:text-blue-300 py-2 text-xs font-extrabold"
+            >
+              <HandCoins className="h-4 w-4 text-blue-600" /> Offer
+            </button>
+          )}
           <button
             onClick={async () => {
               if (isGuest()) { setGuestOpen(true); return; }

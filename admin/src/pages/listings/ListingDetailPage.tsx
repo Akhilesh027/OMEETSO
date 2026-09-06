@@ -312,7 +312,6 @@ export default function ListingDetailPage() {
               <div>Location Area: <strong>{listing.area || "Madhapur"}</strong></div>
               <div>City: <strong>{listing.city || "Hyderabad"}</strong></div>
               <div>Pincode: <strong>{listing.pincode || "500081"}</strong></div>
-              <div>Fulfilment: <strong className="capitalize">{listing.fulfilment || "Pickup"}</strong></div>
               <div>Seller Name: <strong className="text-[#3547D4]">{listing.sellerName}</strong></div>
               <div>Status: <strong className="capitalize text-emerald-600">{status}</strong></div>
               <div>Created At: <strong className="font-mono text-slate-600">{new Date(listing.createdAt || Date.now()).toLocaleString()}</strong></div>
@@ -440,14 +439,13 @@ export default function ListingDetailPage() {
           </div>
         )}
 
-        {/* 7. LOCATION & DELIVERY */}
+        {/* 7. LOCATION & ADDRESS */}
         {activeTab === "location" && (
           <div className="space-y-3">
-            <h3 className="text-sm font-bold text-[#111827]">7. Location, Address & Delivery Setup</h3>
+            <h3 className="text-sm font-bold text-[#111827]">7. Location & Address Setup</h3>
             <div className="p-4 bg-[#F5F7FC] rounded-xl border border-[#E2E8F0] space-y-2">
               <div>Locality & Area: <strong>{listing.area || "Madhapur"}</strong></div>
               <div>City & Pincode: <strong>{listing.city || "Hyderabad"} ({listing.pincode || "500081"})</strong></div>
-              <div>Fulfilment Method: <strong className="capitalize text-[#16A36A]">{listing.fulfilment || "Pickup / Local Delivery"}</strong></div>
             </div>
           </div>
         )}

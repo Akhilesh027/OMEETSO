@@ -34,6 +34,7 @@ import { ogRouter } from "./modules/og/routes/og.routes";
 import { getProductOpenGraphPreview, getStoreOpenGraphPreview } from "./modules/og/controllers/og.controller";
 import { blogsRouter } from "./modules/blogs/routes/blogs.routes";
 import { adminBlogsRouter } from "./modules/blogs/routes/adminBlogs.routes";
+import { newsletterRouter } from "./modules/newsletter/routes/newsletter.routes";
 
 export const app: Express = express();
 
@@ -444,6 +445,7 @@ app.use(`${env.API_PREFIX}/reviews`, reviewsRouter);
 app.use(`${env.API_PREFIX}/admin/reviews`, adminReviewsRouter);
 app.use(`${env.API_PREFIX}/blogs`, blogsRouter);
 app.use(`${env.API_PREFIX}/admin/blogs`, adminBlogsRouter);
+app.use(`${env.API_PREFIX}/newsletter`, newsletterRouter);
 app.use(`${env.API_PREFIX}/og`, ogRouter);
 
 // Direct crawler & link preview friendly routes

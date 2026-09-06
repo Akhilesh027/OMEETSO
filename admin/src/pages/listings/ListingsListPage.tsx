@@ -372,7 +372,7 @@ export default function ListingsListPage() {
                           </button>
                           <button
                             onClick={() => handleDeleteListing(l.id)}
-                            className="p-1.5 text-slate-400 hover:text-[#DC3545] hover:bg-red-50 rounded-lg"
+                            className="p-1.5 text-rose-500 hover:text-rose-700 hover:bg-rose-50 dark:text-rose-400 dark:hover:text-rose-300 dark:hover:bg-rose-950/40 rounded-lg transition-colors inline-flex items-center justify-center"
                             title="Delete Listing"
                           >
                             <Trash2 className="w-4 h-4" />
@@ -410,15 +410,25 @@ export default function ListingsListPage() {
                   >
                     Inspect Queue
                   </button>
-                  <button
-                    onClick={() => {
-                      setSelectedListing(l);
-                      setIsBoostOpen(true);
-                    }}
-                    className="p-1 text-amber-600 hover:bg-amber-100 rounded-lg"
-                  >
-                    <Zap className="w-4 h-4" />
-                  </button>
+                  <div className="flex items-center space-x-1">
+                    <button
+                      onClick={() => {
+                        setSelectedListing(l);
+                        setIsBoostOpen(true);
+                      }}
+                      className="p-1.5 text-amber-600 hover:bg-amber-100 rounded-lg transition-colors"
+                      title="Boost Listing"
+                    >
+                      <Zap className="w-4 h-4" />
+                    </button>
+                    <button
+                      onClick={() => handleDeleteListing(l.id)}
+                      className="p-1.5 text-rose-500 hover:text-rose-700 hover:bg-rose-50 rounded-lg transition-colors inline-flex items-center justify-center"
+                      title="Delete Listing"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </button>
+                  </div>
                 </div>
               </div>
             ))}

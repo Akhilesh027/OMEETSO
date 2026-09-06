@@ -645,36 +645,88 @@ export function CategoryStripAd({ ad }: { ad: any }) {
   if (gone) return null;
 
   return (
-    <Link
-      to={destinationUrl}
-      onClick={() => trackAdClick(adId)}
-      className="flex items-center gap-3 rounded-2xl bg-card p-3 card-elev border border-border block"
-    >
-      {image ? (
-        <img src={image} alt={headline} className="h-12 w-16 rounded-xl object-cover shrink-0 border border-border" />
-      ) : (
-        <div className="grid h-12 w-12 shrink-0 place-items-center rounded-xl bg-orange-brand/10 text-orange-brand">
-          <Sparkles className="h-5 w-5" />
-        </div>
-      )}
-      <div className="min-w-0 flex-1">
-        <p className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground">
-          Sponsored · {advertiser}
-        </p>
-        <p className="truncate text-sm font-semibold">{headline}</p>
+    <div className="relative overflow-hidden rounded-2xl bg-card p-3 sm:p-3.5 card-elev border border-border shadow-xs group">
+      {/* Desktop Layout (Single clean horizontal row) */}
+      <div className="hidden sm:flex items-center gap-3.5">
+        {image ? (
+          <Link to={destinationUrl} onClick={() => trackAdClick(adId)} className="shrink-0">
+            <img src={image} alt={headline} className="h-13 w-16 rounded-xl object-cover border border-border group-hover:scale-105 transition-transform" />
+          </Link>
+        ) : (
+          <div className="grid h-12 w-12 shrink-0 place-items-center rounded-xl bg-orange-brand/10 text-orange-brand">
+            <Sparkles className="h-5 w-5" />
+          </div>
+        )}
+        <Link to={destinationUrl} onClick={() => trackAdClick(adId)} className="min-w-0 flex-1 space-y-0.5">
+          <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
+            <span className="text-primary font-black">Sponsored</span>
+            <span>•</span>
+            <span className="truncate">{advertiser}</span>
+          </p>
+          <p className="truncate text-sm font-bold text-foreground group-hover:text-primary transition-colors">{headline}</p>
+        </Link>
+        <Link
+          to={destinationUrl}
+          onClick={() => trackAdClick(adId)}
+          className="inline-flex items-center gap-1 rounded-full bg-navy hover:bg-navy/90 active:scale-95 px-4 py-2 text-xs font-bold text-white shrink-0 shadow-xs transition-all"
+        >
+          <span>{cta}</span>
+          <ArrowRight className="h-3.5 w-3.5" />
+        </Link>
+        <button
+          type="button"
+          onClick={(e) => { e.preventDefault(); e.stopPropagation(); dismissAd(adId); setGone(true); }}
+          aria-label="Dismiss ad"
+          className="grid h-7 w-7 place-items-center rounded-full text-muted-foreground hover:bg-secondary hover:text-foreground shrink-0 transition-colors"
+        >
+          <X className="h-3.5 w-3.5" />
+        </button>
       </div>
-      <span className="rounded-full bg-navy px-3 py-1.5 text-xs font-semibold text-white shrink-0">
-        {cta}
-      </span>
-      <button
-        type="button"
-        onClick={(e) => { e.preventDefault(); e.stopPropagation(); dismissAd(adId); setGone(true); }}
-        aria-label="Dismiss ad"
-        className="grid h-7 w-7 place-items-center rounded-full text-muted-foreground hover:bg-secondary shrink-0"
-      >
-        <X className="h-3.5 w-3.5" />
-      </button>
-    </Link>
+
+      {/* Mobile Layout (Structured 2-row layout with zero overlapping) */}
+      <div className="flex flex-col gap-2.5 sm:hidden">
+        <div className="flex items-start gap-3">
+          {image ? (
+            <Link to={destinationUrl} onClick={() => trackAdClick(adId)} className="shrink-0">
+              <img src={image} alt={headline} className="h-12 w-12 rounded-xl object-cover border border-border" />
+            </Link>
+          ) : (
+            <div className="grid h-11 w-11 shrink-0 place-items-center rounded-xl bg-orange-brand/10 text-orange-brand">
+              <Sparkles className="h-5 w-5" />
+            </div>
+          )}
+          <Link to={destinationUrl} onClick={() => trackAdClick(adId)} className="min-w-0 flex-1 pr-6 space-y-0.5">
+            <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-1">
+              <span className="text-primary font-black">Sponsored</span>
+              <span>•</span>
+              <span className="truncate">{advertiser}</span>
+            </p>
+            <p className="line-clamp-2 text-xs font-bold leading-tight text-foreground">{headline}</p>
+          </Link>
+          <button
+            type="button"
+            onClick={(e) => { e.preventDefault(); e.stopPropagation(); dismissAd(adId); setGone(true); }}
+            aria-label="Dismiss ad"
+            className="absolute top-2.5 right-2.5 grid h-6 w-6 place-items-center rounded-full text-muted-foreground hover:bg-secondary hover:text-foreground transition-colors"
+          >
+            <X className="h-3.5 w-3.5" />
+          </button>
+        </div>
+
+        {/* Mobile Button: Dedicated bottom row with full touch area */}
+        <div className="pt-1 flex items-center justify-between border-t border-border/50">
+          <span className="text-[10px] font-semibold text-muted-foreground">Official Community Partner</span>
+          <Link
+            to={destinationUrl}
+            onClick={() => trackAdClick(adId)}
+            className="inline-flex items-center justify-center gap-1.5 rounded-full bg-navy text-white px-4 py-1.5 text-xs font-bold shadow-xs active:scale-95 transition-all"
+          >
+            <span>{cta}</span>
+            <ArrowRight className="h-3 w-3" />
+          </Link>
+        </div>
+      </div>
+    </div>
   );
 }
 

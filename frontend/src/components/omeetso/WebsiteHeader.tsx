@@ -1,5 +1,5 @@
 import { Link, useRouterState, useNavigate } from "@tanstack/react-router";
-import { Search, Heart, MessageCircle, Bell, User, MapPin, Plus, ChevronDown, Zap, X, Clock, TrendingUp, Sparkles, ArrowRight, CheckCheck, MessageSquare, HandCoins, Package, Store, ShieldCheck, ArrowLeft, Menu } from "lucide-react";
+import { Search, Heart, MessageCircle, Bell, User, MapPin, Plus, ChevronDown, Zap, X, Clock, TrendingUp, Sparkles, ArrowRight, CheckCheck, MessageSquare, HandCoins, Package, Store, ShieldCheck, ArrowLeft, Menu, Radio, Briefcase } from "lucide-react";
 import { useEffect, useState, useRef, useMemo, useCallback } from "react";
 import { NOTIFICATIONS, CATEGORIES, PRODUCTS, formatINR } from "@/lib/mock";
 import { getSaved, getRecentSearches, addRecentSearch, subscribe as subscribeSaved } from "@/lib/saved";
@@ -34,6 +34,8 @@ const NOTIF_ICON_MAP: Record<string, any> = {
   offer_status: HandCoins,
   listing_moderation: Package,
   store_moderation: Store,
+  nearby_changes: Radio,
+  job_application: Briefcase,
   system: ShieldCheck,
   offers: HandCoins,
   listings: Package,
@@ -77,28 +79,55 @@ export function WebsiteHeader() {
     return INFORMATIONAL_PATHS.some((p) => path === p || path.startsWith(`${p}/`));
   }, [path]);
 
-  // Load Header Notifications
+  // Load Header Notifications (merged server + local)
   const loadHeaderNotifs = useCallback(async () => {
-    const res = await getNotificationsApi(1, 10);
-    if (res.success && Array.isArray(res.data)) {
-      setNotifList(res.data);
-    } else {
-      const local = listNotifications();
-      const mapped: NotificationItem[] = local.map((n) => ({
-        id: n.id,
-        type: n.category || "system",
-        title: n.title,
-        body: n.body,
-        link: n.destination || `/notifications/${n.id}`,
-        isRead: Boolean(n.read),
-        createdAt: new Date(n.time).toISOString(),
-      }));
-      setNotifList(mapped);
-    }
+    let serverItems: NotificationItem[] = [];
+    try {
+      const res = await getNotificationsApi(1, 10);
+      if (res.success && Array.isArray(res.data)) {
+        serverItems = res.data;
+      }
+    } catch { /* offline fallback */ }
+
+    const local = listNotifications();
+    const localMapped: NotificationItem[] = local.map((n) => ({
+      id: n.id,
+      type: n.category || "system",
+      title: n.title,
+      body: n.body,
+      link: n.destination || `/notifications/${n.id}`,
+      thumbnail: n.thumbnail,
+      isRead: Boolean(n.read),
+      createdAt: new Date(n.time).toISOString(),
+    }));
+
+    const map = new Map<string, NotificationItem>();
+    serverItems.forEach((n) => map.set(n.id, n));
+    localMapped.forEach((n) => {
+      if (!map.has(n.id)) {
+        map.set(n.id, n);
+      }
+    });
+
+    const merged = Array.from(map.values()).sort(
+      (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+    );
+    setNotifList(merged);
   }, []);
 
   useEffect(() => {
     loadHeaderNotifs();
+
+    const handleSync = () => {
+      loadHeaderNotifs();
+    };
+
+    window.addEventListener("omeetso_notifications_changed", handleSync);
+    window.addEventListener("storage", handleSync);
+    return () => {
+      window.removeEventListener("omeetso_notifications_changed", handleSync);
+      window.removeEventListener("storage", handleSync);
+    };
   }, [loadHeaderNotifs]);
 
   const unreadNotifCount = useMemo(() => {
@@ -587,7 +616,7 @@ export function WebsiteHeader() {
             <IconLink to="/chats" label="Chats" badge={unreadChats}>
               <MessageCircle className="h-4.5 w-4.5" />
             </IconLink>
-            {/* Notification Modal Popover Trigger */}
+            {/* Notification Modal Popover Trigger with Active Notification Indicator */}
             <div ref={notifContainerRef} className="relative">
               <button
                 type="button"
@@ -596,6 +625,12 @@ export function WebsiteHeader() {
                 className="relative grid h-9.5 w-9.5 place-items-center rounded-full text-muted-foreground hover:bg-secondary hover:text-foreground transition-all duration-200 hover:scale-105 active:scale-95 cursor-pointer"
               >
                 <Bell className="h-4.5 w-4.5" />
+                {unreadNotifCount > 0 && (
+                  <span className="absolute -top-1 -right-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-rose-500 px-1 text-[9px] font-black text-white shadow-md ring-2 ring-background animate-in zoom-in-50">
+                    <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-rose-400 opacity-75" />
+                    <span className="relative z-10">{unreadNotifCount > 9 ? "9+" : unreadNotifCount}</span>
+                  </span>
+                )}
               </button>
 
               {/* Notification Popover Dropdown Modal */}
@@ -629,8 +664,11 @@ export function WebsiteHeader() {
                         No notifications yet.
                       </div>
                     ) : (
-                      notifList.slice(0, 5).map((n) => {
+                      notifList.slice(0, 6).map((n) => {
                         const Icon = NOTIF_ICON_MAP[n.type] || Bell;
+                        const isNearby = n.type === "nearby_changes" || n.title.toLowerCase().includes("nearby");
+                        const isListing = n.type === "listings" || n.type === "listing_moderation" || n.link?.startsWith("/product/");
+
                         return (
                           <div
                             key={n.id}
@@ -640,14 +678,41 @@ export function WebsiteHeader() {
                               !n.isRead && "bg-primary/5 border-l-2 border-l-primary"
                             )}
                           >
-                            <div className="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-primary/10 text-primary">
-                              <Icon className="h-4.5 w-4.5" />
-                            </div>
+                            {n.thumbnail ? (
+                              <div className="relative h-10 w-10 shrink-0 rounded-xl overflow-hidden border border-border bg-muted shadow-2xs">
+                                <img
+                                  src={n.thumbnail}
+                                  alt=""
+                                  className="h-full w-full object-cover group-hover:scale-105 transition-transform"
+                                  onError={(e) => { (e.target as HTMLElement).style.display = "none"; }}
+                                />
+                                {isNearby && (
+                                  <span className="absolute bottom-0 inset-x-0 bg-primary/90 text-[7px] text-white font-black text-center uppercase tracking-tighter">
+                                    Nearby
+                                  </span>
+                                )}
+                              </div>
+                            ) : (
+                              <div className={cn(
+                                "grid h-9 w-9 shrink-0 place-items-center rounded-xl",
+                                isNearby ? "bg-amber-500/15 text-amber-600 border border-amber-500/30" : "bg-primary/10 text-primary"
+                              )}>
+                                <Icon className="h-4.5 w-4.5" />
+                              </div>
+                            )}
+
                             <div className="min-w-0 flex-1">
                               <div className="flex items-center justify-between gap-1">
-                                <p className={cn("truncate text-xs font-bold text-foreground group-hover:text-primary transition-colors", !n.isRead && "font-black")}>
-                                  {n.title}
-                                </p>
+                                <div className="flex items-center gap-1 min-w-0">
+                                  {isNearby && (
+                                    <span className="rounded-full bg-amber-500/15 border border-amber-500/30 px-1.5 py-0.2 text-[8.5px] font-black text-amber-700 shrink-0">
+                                      Nearby
+                                    </span>
+                                  )}
+                                  <p className={cn("truncate text-xs font-bold text-foreground group-hover:text-primary transition-colors", !n.isRead && "font-black")}>
+                                    {n.title}
+                                  </p>
+                                </div>
                                 {!n.isRead && (
                                   <span className="h-2 w-2 rounded-full bg-primary shrink-0 animate-pulse" />
                                 )}
@@ -658,7 +723,7 @@ export function WebsiteHeader() {
                                   {new Date(n.createdAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
                                 </span>
                                 <span className="inline-flex items-center gap-0.5 text-[10px] font-extrabold text-primary group-hover:translate-x-0.5 transition-transform">
-                                  <span>View Details</span>
+                                  <span>{isNearby || isListing ? "View Listing" : "View Details"}</span>
                                   <ArrowRight className="h-3 w-3" />
                                 </span>
                               </div>

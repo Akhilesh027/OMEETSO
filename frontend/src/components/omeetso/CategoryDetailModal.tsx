@@ -467,7 +467,7 @@ export function CategoryDetailModal({
   const handleSubSelect = (sub: string) => {
     onClose();
     if (catId === "jobs") {
-      nav({ to: "/jobs", search: { sub: catId } as any });
+      nav({ to: "/jobs", search: { sub } as any });
     } else if (catId === "services") {
       nav({ to: "/services", search: { sub } as any });
     } else {

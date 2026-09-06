@@ -17,6 +17,7 @@ export interface NotificationItem {
   title: string;
   body: string;
   link?: string;
+  thumbnail?: string;
   isRead: boolean;
   createdAt: string;
 }

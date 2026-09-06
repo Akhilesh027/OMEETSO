@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from "react";
-import { AlertTriangle, X, Loader2 } from "lucide-react";
+import { AlertTriangle, X, Loader2, Trash2 } from "lucide-react";
 
 interface ConfirmationModalProps {
   isOpen: boolean;
@@ -84,10 +84,10 @@ export const ConfirmationModal: React.FC<ConfirmationModalProps> = ({
           <div className="flex items-center space-x-2.5 text-[#111827]">
             <div
               className={`p-2 rounded-xl ${
-                isDestructive ? "bg-red-50 text-[#DC3545]" : "bg-amber-50 text-[#F59E0B]"
+                isDestructive ? "bg-rose-50 text-rose-600 dark:bg-rose-950/40 dark:text-rose-400" : "bg-amber-50 text-[#F59E0B]"
               }`}
             >
-              <AlertTriangle className="w-5 h-5" />
+              {isDestructive ? <Trash2 className="w-5 h-5" /> : <AlertTriangle className="w-5 h-5" />}
             </div>
             <h3 id="modal-title" className="text-base font-bold">
               {title}
@@ -110,32 +110,31 @@ export const ConfirmationModal: React.FC<ConfirmationModalProps> = ({
 
           {requireReason && (
             <div>
-              <label className="block font-semibold text-[#111827] mb-1">
-                Reason for action <span className="text-[#DC3545]">*</span>
+              <label className="block font-bold text-[#111827] mb-1">
+                Mandatory Reason for Action <span className="text-[#DC3545]">*</span>
               </label>
               <textarea
+                rows={2}
                 value={reason}
                 onChange={(e) => setReason(e.target.value)}
-                placeholder="Enter mandatory reason for audit logging..."
-                rows={3}
+                placeholder="Specify the regulatory or operational reason..."
+                className="w-full p-2.5 rounded-xl border border-[#E2E8F0] focus:outline-none focus:ring-2 focus:ring-[#3547D4]"
                 required
-                className="w-full p-2.5 rounded-xl border border-[#E2E8F0] focus:ring-2 focus:ring-[#3547D4] focus:outline-none"
               />
             </div>
           )}
 
           {requiredConfirmationPhrase && (
             <div>
-              <label className="block font-semibold text-[#111827] mb-1">
-                Type <span className="font-mono text-[#DC3545]">{requiredConfirmationPhrase}</span> to confirm:
+              <label className="block font-bold text-[#111827] mb-1">
+                To confirm, type <span className="font-mono text-[#DC3545]">{requiredConfirmationPhrase}</span>
               </label>
               <input
                 type="text"
                 value={typedPhrase}
                 onChange={(e) => setTypedPhrase(e.target.value)}
-                placeholder={requiredConfirmationPhrase}
+                className="w-full p-2.5 rounded-xl border border-[#E2E8F0] font-mono focus:outline-none focus:ring-2 focus:ring-[#DC3545]"
                 required
-                className="w-full p-2.5 rounded-xl border border-[#E2E8F0] focus:ring-2 focus:ring-[#3547D4] focus:outline-none"
               />
             </div>
           )}
@@ -155,10 +154,14 @@ export const ConfirmationModal: React.FC<ConfirmationModalProps> = ({
               type="submit"
               disabled={!canSubmit}
               className={`inline-flex items-center space-x-1.5 px-4 py-2 rounded-xl font-semibold text-white transition-colors shadow-sm disabled:opacity-50 ${
-                isDestructive ? "bg-[#DC3545] hover:bg-red-700" : "bg-[#3547D4] hover:bg-[#111E4D]"
+                isDestructive ? "bg-rose-600 hover:bg-rose-700" : "bg-[#3547D4] hover:bg-[#111E4D]"
               }`}
             >
-              {isLoading && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
+              {isLoading ? (
+                <Loader2 className="w-3.5 h-3.5 animate-spin" />
+              ) : isDestructive ? (
+                <Trash2 className="w-3.5 h-3.5" />
+              ) : null}
               <span>{isLoading ? "Processing..." : confirmText}</span>
             </button>
           </div>

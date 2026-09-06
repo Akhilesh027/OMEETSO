@@ -41,6 +41,7 @@ import { ProductQuickPreviewModal } from "@/components/omeetso/ProductQuickPrevi
 import { CategoryDetailModal } from "@/components/omeetso/CategoryDetailModal";
 import { fetchLiveCategories, LiveCategory } from "@/lib/categories";
 import { calculateDistanceBetweenLocations, resolveCityFromLocation } from "@/lib/location";
+import { DEFAULT_SAMPLE_STORES, matchStoreLocation } from "@/lib/sampleStores";
 
 function HeroProductShowcase({ items }: { items?: any[] }) {
   const displayItems = useMemo(() => {
@@ -411,15 +412,27 @@ function CarouselRow({
   );
 }
 
-const DEFAULT_SAMPLE_STORES: any[] = [];
-
 function Home() {
+  const nav = useNavigate();
   const [loc, setLoc] = useState<SavedLocation | null>(null);
   const [showLocModal, setShowLocModal] = useState(false);
   const [previewProduct, setPreviewProduct] = useState<any | null>(null);
   const [selectedCatId, setSelectedCatId] = useState<string | null>(null);
   const [modalCategory, setModalCategory] = useState<any | null>(null);
   const [dismissed, setDismissed] = useState(false);
+
+  const handleCategoryClick = (c: any) => {
+    const catId = (c.id || "").toLowerCase();
+    if (catId === "jobs") {
+      nav({ to: "/jobs" });
+      return;
+    }
+    if (catId === "services") {
+      nav({ to: "/services" });
+      return;
+    }
+    setModalCategory(c);
+  };
 
   const [dbCategories, setDbCategories] = useState<LiveCategory[]>([]);
   const [liveProducts, setLiveProducts] = useState<any[]>([]);
@@ -558,7 +571,8 @@ function Home() {
       });
 
     // Fetch Live Stores
-    fetch("https://api.omeetso.in/api/v1/stores/public")
+    const storeFetchUrl = `https://api.omeetso.in/api/v1/stores/public${activeCity ? `?city=${encodeURIComponent(activeCity)}` : ""}`;
+    fetch(storeFetchUrl)
       .then((res) => res.json())
       .then((json) => {
         if (json.success && Array.isArray(json.data) && json.data.length > 0) {
@@ -573,7 +587,7 @@ function Home() {
             logo: item.logo || "https://res.cloudinary.com/demo/image/upload/f_auto,q_auto,w_200,h_200,c_fill/avatar_cxx1sy.png",
             category: item.primaryCategory || "Retail Store",
             area: item.area || "Madhapur",
-            city: item.city || "Hyderabad",
+            city: item.city || activeCity || "Hyderabad",
             pincode: item.pincode || "500081",
             distanceKm: 1.2,
             rating: item.rating || 0,
@@ -583,9 +597,13 @@ function Home() {
             sponsored: false
           }));
           setLiveStores(mapped);
+        } else {
+          setLiveStores([]);
         }
       })
-      .catch(() => { });
+      .catch(() => {
+        setLiveStores([]);
+      });
 
     // Fetch Admin-curated Home Hero Showcase & Banners
     const bannerFetchUrl = (typeof window !== "undefined" && window.location.hostname === "localhost")
@@ -765,32 +783,24 @@ function Home() {
   }, [organic]);
 
   const storesToDisplay = useMemo(() => {
-    const rawPool = liveStores.length > 0 ? liveStores : DEFAULT_SAMPLE_STORES;
-    if (!loc?.area && !loc?.pincode) return rawPool;
-
-    const targetArea = (loc?.area || "").toLowerCase();
-    const targetPin = (loc?.pincode || "").toLowerCase();
-    const areaTerms = targetArea.split(/[,\s]+/).filter(Boolean);
-
-    const matched = rawPool.filter((s: any) => {
-      const sText = `${s.area || ""} ${s.city || ""} ${s.pincode || ""}`.toLowerCase();
-      const pinMatch = targetPin && sText.includes(targetPin);
-      const areaMatch = areaTerms.some((term) => term.length >= 3 && sText.includes(term));
-      return pinMatch || areaMatch;
-    });
-
-    if (matched.length > 0) {
-      return matched;
+    // Combine live stores with sample stores, deduplicating by id/name
+    const allStores = [...liveStores];
+    for (const sample of DEFAULT_SAMPLE_STORES) {
+      if (!allStores.some((s) => s.id === sample.id || (s.name && s.name.toLowerCase() === sample.name.toLowerCase()))) {
+        allStores.push(sample);
+      }
     }
 
-    // Adapt sample stores to user's selected area (e.g. Adilabad) so verified local stores always exist for any chosen location!
-    const activeArea = loc.area.split(",")[0].trim();
-    return rawPool.map((s: any, idx: number) => ({
-      ...s,
-      area: activeArea,
-      city: activeArea,
-      distanceKm: Number((0.8 + idx * 0.7).toFixed(1)),
-    }));
+    if (!loc?.area && !loc?.pincode && !loc?.city) return allStores;
+
+    const targetLoc = {
+      city: resolveCityFromLocation(loc) || loc?.city,
+      area: loc?.area,
+      pincode: loc?.pincode
+    };
+
+    // Strictly match stores based on user's location (no fake-spoofing other cities)
+    return allStores.filter((s: any) => matchStoreLocation(s, targetLoc));
   }, [liveStores, loc]);
 
   const sponsoredStore = storesToDisplay.find((s: any) => s.sponsored);
@@ -997,10 +1007,10 @@ function Home() {
               {(dbCategories.length > 0 ? dbCategories : CATEGORIES).map((c) => (
                 <div
                   key={c.id}
-                  onClick={() => setModalCategory(c)}
+                  onClick={() => handleCategoryClick(c)}
                   className="cursor-pointer"
                 >
-                  <CategoryIcon c={c} onClick={() => setModalCategory(c)} />
+                  <CategoryIcon c={c} onClick={() => handleCategoryClick(c)} />
                 </div>
               ))}
             </div>
@@ -1025,16 +1035,23 @@ function Home() {
                     dbCategories.find((x) => x.id === selectedCatId)?.subcategories ||
                     CATEGORIES.find((x) => x.id === selectedCatId)?.subcategories ||
                     []
-                  ).map((sub) => (
-                    <Link
-                      key={sub}
-                      to="/results"
-                      search={{ category: selectedCatId, subcategory: sub } as any}
-                      className="rounded-full bg-card border border-border/80 px-3 py-1 text-xs font-semibold text-foreground hover:border-primary hover:text-primary hover:shadow-xs transition-all"
-                    >
-                      {sub}
-                    </Link>
-                  ))}
+                  ).map((sub) => {
+                    const isJobs = selectedCatId?.toLowerCase() === "jobs";
+                    const isServices = selectedCatId?.toLowerCase() === "services";
+                    const to = isJobs ? "/jobs" : isServices ? "/services" : "/results";
+                    const searchParams = isJobs || isServices ? { sub } : { category: selectedCatId, subcategory: sub };
+
+                    return (
+                      <Link
+                        key={sub}
+                        to={to as any}
+                        search={searchParams as any}
+                        className="rounded-full bg-card border border-border/80 px-3 py-1 text-xs font-semibold text-foreground hover:border-primary hover:text-primary hover:shadow-xs transition-all"
+                      >
+                        {sub}
+                      </Link>
+                    );
+                  })}
                 </div>
               </div>
             )}
@@ -1234,7 +1251,15 @@ function Home() {
                       Verified Merchants
                     </span>
                   </div>
-                  <Link to="/stores" className="group inline-flex items-center gap-1 text-xs font-extrabold text-primary hover:underline">
+                  <Link
+                    to="/stores"
+                    search={{
+                      city: resolveCityFromLocation(loc) || loc?.city || (loc?.area ? loc.area.split(",")[0].trim() : undefined),
+                      area: loc?.area,
+                      pincode: loc?.pincode
+                    }}
+                    className="group inline-flex items-center gap-1 text-xs font-extrabold text-primary hover:underline"
+                  >
                     <span>See All ({storesToDisplay.length})</span>
                     <ArrowRight className="h-3.5 w-3.5 transition-transform group-hover:translate-x-0.5" />
                   </Link>

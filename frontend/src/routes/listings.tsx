@@ -35,13 +35,19 @@ const TABS: { key: string; label: string; match: (l: Listing) => boolean }[] = [
       l.status === "PENDING_REVIEW",
   },
   { key: "drafts", label: "Drafts", match: () => false },
-  { key: "sold", label: "Sold", match: (l) => l.status === "sold" || l.status === "SOLD" },
+  { key: "sold", label: "Sold", match: (l) => l.status === "sold" || l.status === "SOLD" || (l as any).sold === true || (l as any).isSold === true },
   { key: "expired", label: "Expired", match: (l) => l.status === "expired" || l.status === "EXPIRED" },
   { key: "rejected", label: "Rejected", match: (l) => l.status === "rejected" || l.status === "REJECTED" },
 ];
 
 function MyListings() {
-  const [tab, setTab] = useState("active");
+  const [tab, setTab] = useState<string>(() => {
+    if (typeof window !== "undefined") {
+      const q = new URLSearchParams(window.location.search).get("tab");
+      if (q && TABS.some((t) => t.key === q)) return q;
+    }
+    return "active";
+  });
   const [listings, setListings] = useState<Listing[]>([]);
   const [drafts, setDrafts] = useState(0);
   const [loading, setLoading] = useState(true);
@@ -71,9 +77,19 @@ function MyListings() {
       if (active) setListings(myItems);
     });
 
+    const onListingUpdated = async () => {
+      const myItems = await fetchLiveUserListings();
+      if (active) setListings(myItems);
+    };
+
+    window.addEventListener("omeetso_listing_updated", onListingUpdated);
+    window.addEventListener("storage", onListingUpdated);
+
     return () => {
       active = false;
       unsub();
+      window.removeEventListener("omeetso_listing_updated", onListingUpdated);
+      window.removeEventListener("storage", onListingUpdated);
     };
   }, []);
 

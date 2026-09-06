@@ -161,6 +161,19 @@ export function JobsPage() {
     setMessageRecipient(null);
   };
 
+  const handleDeleteJob = async (jobId: string, title?: string) => {
+    if (!window.confirm(`Are you sure you want to permanently delete job posting "${title || jobId}"?`)) return;
+    try {
+      const token = localStorage.getItem("omeetso_admin_token") || localStorage.getItem("adminToken");
+      await fetch(`${API_BASE}/jobs/${jobId}`, {
+        method: "DELETE",
+        headers: { Authorization: `Bearer ${token}` }
+      });
+    } catch {}
+    setJobs((prev) => prev.filter((j) => (j.id || j._id) !== jobId));
+    showSuccess("Job Deleted", `Job posting "${title || jobId}" was permanently removed.`);
+  };
+
   const handleSaveCategory = async (e: React.FormEvent) => {
     e.preventDefault();
     const subs = catForm.subcategories
@@ -482,6 +495,14 @@ export function JobsPage() {
                                 Reject
                               </button>
                             )}
+
+                            <button
+                              onClick={() => handleDeleteJob(jobId, job.title)}
+                              className="p-1.5 text-rose-500 hover:text-rose-700 hover:bg-rose-50 dark:text-rose-400 dark:hover:text-rose-300 dark:hover:bg-rose-950/40 rounded-lg transition-colors inline-flex items-center justify-center"
+                              title="Delete Job Posting"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </button>
                           </td>
                         </tr>
                       );

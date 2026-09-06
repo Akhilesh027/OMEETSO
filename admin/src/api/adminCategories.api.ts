@@ -1,8 +1,9 @@
 import { AdminAuthService } from "@/services/adminAuthService";
 import { CategoryData } from "@/pages/categories/CategoriesPage";
+import { BACKEND_URL } from "@/config/api";
 
-const API_BASE = "https://api.omeetso.in/api/v1/categories";
-const UPLOADS_API = "https://api.omeetso.in/api/v1/uploads/direct";
+const API_BASE = `${BACKEND_URL}/api/v1/categories`;
+const UPLOADS_API = `${BACKEND_URL}/api/v1/uploads/direct`;
 
 function getHeaders(): Record<string, string> {
   const token = AdminAuthService.getAccessToken();
@@ -44,7 +45,7 @@ export async function fetchCategoriesFromDbApi(): Promise<FetchCategoriesRespons
     if (!res) {
       return {
         success: false,
-        error: "Network error: Unable to connect to backend on https://api.omeetso.in or https://api.omeetso.in"
+        error: "Network error: Unable to connect to backend on " + API_BASE
       };
     }
 
@@ -92,11 +93,29 @@ export async function seedCategoriesApi(): Promise<{ success: boolean; message?:
 
 export async function createCategoryApi(categoryData: Partial<CategoryData>): Promise<CategoryMutationResponse> {
   try {
-    const res = await fetch(API_BASE, {
+    let res = await fetch(API_BASE, {
       method: "POST",
       headers: getHeaders(),
       body: JSON.stringify(categoryData)
-    });
+    }).catch(() => null);
+
+    if (!res || !res.ok) {
+      const localRes = await fetch("https://api.omeetso.in/api/v1/categories", {
+        method: "POST",
+        headers: getHeaders(),
+        body: JSON.stringify(categoryData)
+      }).catch(() => null);
+      if (localRes && localRes.ok) {
+        res = localRes;
+      }
+    }
+
+    if (!res) {
+      return {
+        success: false,
+        error: "Network error: Unable to connect to backend API"
+      };
+    }
 
     const json = await res.json();
     if (!res.ok || !json.success) {
@@ -104,6 +123,27 @@ export async function createCategoryApi(categoryData: Partial<CategoryData>): Pr
         success: false,
         error: json.error?.message || "Failed to create category"
       };
+    }
+
+    // Also sync to local storage if running in browser
+    if (typeof window !== "undefined" && json.data) {
+      try {
+        const cat = json.data;
+        const liveCat = {
+          id: cat.categoryId || cat.id,
+          name: cat.name,
+          icon: cat.iconName || "Layers",
+          count: 0,
+          tint: "bg-indigo-500/10 text-indigo-600",
+          subcategories: cat.subcategories || ["General", "Other"]
+        };
+        const raw = localStorage.getItem("omeetso_custom_categories");
+        const current = raw ? JSON.parse(raw) : [];
+        const filtered = current.filter((c: any) => (c.id || "").toLowerCase() !== liveCat.id.toLowerCase());
+        filtered.unshift(liveCat);
+        localStorage.setItem("omeetso_custom_categories", JSON.stringify(filtered));
+        window.dispatchEvent(new CustomEvent("omeetso_categories_changed", { detail: liveCat }));
+      } catch { }
     }
 
     return {

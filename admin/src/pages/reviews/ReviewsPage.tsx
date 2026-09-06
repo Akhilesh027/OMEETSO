@@ -245,7 +245,7 @@ export default function ReviewsPage() {
                         </button>
                         <button
                           onClick={() => handleDeleteReview(r.id)}
-                          className="p-1.5 text-slate-400 hover:text-[#DC3545] hover:bg-red-50 rounded-lg"
+                          className="p-1.5 text-rose-500 hover:text-rose-700 hover:bg-rose-50 dark:text-rose-400 dark:hover:text-rose-300 dark:hover:bg-rose-950/40 rounded-lg transition-colors inline-flex items-center justify-center"
                           title="Delete Review"
                         >
                           <Trash2 className="w-4 h-4" />
@@ -289,21 +289,22 @@ export default function ReviewsPage() {
               <div className="grid grid-cols-3 gap-2">
                 <button
                   onClick={() => handleStatusChange(selectedReview.id, "published")}
-                  className="py-2 bg-emerald-600 text-white font-bold rounded-xl text-xs hover:bg-emerald-700"
+                  className="py-2 bg-emerald-600 text-white font-bold rounded-xl text-xs hover:bg-emerald-700 transition"
                 >
                   ✓ Publish
                 </button>
                 <button
                   onClick={() => handleStatusChange(selectedReview.id, "hidden")}
-                  className="py-2 bg-amber-500 text-white font-bold rounded-xl text-xs hover:bg-amber-600"
+                  className="py-2 bg-amber-500 text-white font-bold rounded-xl text-xs hover:bg-amber-600 transition"
                 >
                   👁 Hide Review
                 </button>
                 <button
                   onClick={() => handleDeleteReview(selectedReview.id)}
-                  className="py-2 bg-[#DC3545] text-white font-bold rounded-xl text-xs hover:bg-red-700"
+                  className="py-2 bg-rose-600 text-white font-bold rounded-xl text-xs hover:bg-rose-700 transition flex items-center justify-center gap-1.5 shadow-sm"
                 >
-                  ✕ Delete
+                  <Trash2 className="w-3.5 h-3.5" />
+                  <span>Delete</span>
                 </button>
               </div>
             </div>

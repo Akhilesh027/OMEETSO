@@ -13,7 +13,7 @@ import {
   ExternalLink,
   RefreshCw
 } from "lucide-react";
-import { BACKEND_URL } from "@/config/api";
+import { BACKEND_URL, getFrontendBaseUrl } from "@/config/api";
 import { BlogEditorModal, BlogItem, CATEGORY_OPTIONS } from "@/components/blogs/BlogEditorModal";
 
 const API_BASE = `${BACKEND_URL}/api/v1`;
@@ -35,6 +35,8 @@ export const BlogsPage: React.FC = () => {
   const [editorOpen, setEditorOpen] = useState(false);
   const [editingBlog, setEditingBlog] = useState<BlogItem | null>(null);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
+
+  const liveBlogHubUrl = `${getFrontendBaseUrl()}/blogs`;
 
   const showToast = (msg: string) => {
     setToastMessage(msg);
@@ -169,10 +171,11 @@ export const BlogsPage: React.FC = () => {
 
         <div className="flex items-center gap-3">
           <a
-            href="http://localhost:5173/blogs"
+            href={liveBlogHubUrl}
             target="_blank"
-            rel="noreferrer"
-            className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl border border-admin-border bg-white text-xs font-bold text-admin-text hover:bg-slate-50 transition shadow-xs"
+            rel="noopener noreferrer"
+            className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl border border-admin-border bg-white text-xs font-bold text-admin-text hover:bg-slate-50 transition shadow-xs cursor-pointer"
+            title="Open Live Blog Hub"
           >
             <ExternalLink className="h-3.5 w-3.5" /> View Live Blog Hub
           </a>
@@ -369,6 +372,18 @@ export const BlogsPage: React.FC = () => {
                   </div>
 
                   <div className="flex items-center gap-1.5">
+                    {b.status === "PUBLISHED" && b.slug && (
+                      <a
+                        href={`${getFrontendBaseUrl()}/blog/${b.slug}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="grid h-8 w-8 place-items-center rounded-lg border border-admin-border bg-white text-admin-muted hover:text-admin-indigo hover:bg-slate-100 transition"
+                        title="View Live Article"
+                      >
+                        <ExternalLink className="h-3.5 w-3.5" />
+                      </a>
+                    )}
+
                     <button
                       onClick={() => handleToggleStatus(blogId, b.status)}
                       className={`px-2.5 py-1 rounded-lg text-[11px] font-bold transition border ${
@@ -394,10 +409,10 @@ export const BlogsPage: React.FC = () => {
 
                     <button
                       onClick={() => handleDeleteBlog(blogId, b.title)}
-                      className="grid h-8 w-8 place-items-center rounded-lg border border-admin-border bg-white text-rose-600 hover:bg-rose-50 transition"
+                      className="grid h-8 w-8 place-items-center rounded-lg border border-rose-200 dark:border-rose-900/60 bg-white dark:bg-slate-800 text-rose-600 dark:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-950/30 transition shadow-2xs"
                       title="Delete Article"
                     >
-                      <Trash2 className="h-3.5 w-3.5" />
+                      <Trash2 className="h-4 w-4" />
                     </button>
                   </div>
                 </div>

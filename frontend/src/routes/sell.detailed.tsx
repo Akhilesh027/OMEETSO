@@ -5,11 +5,15 @@ import { BackBar } from "@/components/omeetso/TopBar";
 import {
   ConditionSelector, PriceInput, ContactPreferenceSelector,
   LocationSelector, ConfirmModal, LoadingOverlay,
-  MissingFieldsModal,
+  MissingFieldsModal, AddCategoryModal,
 } from "@/components/sell";
 import { ImageUploader } from "@/components/sell/ImageUploader";
 import { SpecForm } from "@/components/sell/SpecForm";
 import { CATEGORIES, SUBCATEGORIES, getSubcategoriesForCategory } from "@/lib/mock";
+import {
+  fetchLiveCategories, getCachedCategories, getLiveSubcategories,
+  subscribeCategories, type LiveCategory
+} from "@/lib/categories";
 import { specFieldsFor } from "@/lib/specConfig";
 import {
   type Listing, type Condition, type ContactPref, type BestContactTime, type Fulfilment,
@@ -60,7 +64,7 @@ function DetailedSellPage() {
     images: [], cover: 0, negotiable: true, fulfilment: "pickup",
     contactPref: "call_and_chat", bestContactTime: "anytime",
     sellerName: "You", sellerType: "individual",
-    city: "Hyderabad", area: "Hitec City", pincode: "500081",
+    city: "", area: "", pincode: "",
     category: "commercial-vehicles", subcategory: "Mini Truck", condition: "good",
     specs: {}
   });
@@ -73,6 +77,8 @@ function DetailedSellPage() {
   const [aiLoading, setAiLoading] = useState(false);
   const [storeId, setStoreId] = useState<string | undefined>();
   const [mobilePreviewOpen, setMobilePreviewOpen] = useState(false);
+  const [categories, setCategories] = useState<LiveCategory[]>(() => getCachedCategories());
+  const [showAddCategoryModal, setShowAddCategoryModal] = useState(false);
 
   // Auto-Save Management State
   const [autoSaveEnabled, setAutoSaveEnabled] = useState(true);
@@ -81,13 +87,33 @@ function DetailedSellPage() {
   const [draftRestored, setDraftRestored] = useState(false);
   const isInitialLoad = useRef(true);
 
+  // Load live categories & listen for updates
+  useEffect(() => {
+    fetchLiveCategories().then((cats) => {
+      if (cats && cats.length > 0) setCategories(cats);
+    });
+    const unsub = subscribeCategories(() => {
+      setCategories(getCachedCategories());
+    });
+    const onCatsChanged = () => {
+      setCategories(getCachedCategories());
+    };
+    window.addEventListener("omeetso_categories_changed", onCatsChanged);
+    window.addEventListener("storage", onCatsChanged);
+    return () => {
+      unsub();
+      window.removeEventListener("omeetso_categories_changed", onCatsChanged);
+      window.removeEventListener("storage", onCatsChanged);
+    };
+  }, []);
+
   useEffect(() => {
     const d = loadDraft();
     const seller = getSellerPrefs();
     const selStore = typeof localStorage !== "undefined" ? localStorage.getItem("omeetso_selected_store") : null;
-    let locArea = "Hitec City";
-    let locCity = "Hyderabad";
-    let locPin = "500081";
+    let locArea = "";
+    let locCity = "";
+    let locPin = "";
 
     try {
       const rawLoc = localStorage.getItem("omeetso_location") || localStorage.getItem("omeetso_selected_location");
@@ -99,6 +125,7 @@ function DetailedSellPage() {
           locArea = parts[0] || locArea;
           if (parts[1] && !loc.city) locCity = parts[1];
         }
+        if (!locCity && locArea) locCity = locArea;
         if (loc.pincode) locPin = loc.pincode;
       }
     } catch { }
@@ -123,20 +150,36 @@ function DetailedSellPage() {
     setData((prev) => ({
       ...prev,
       ...d,
-      category: restoredCat,
       specs: cleanSpecs,
-      area: d?.area || locArea,
-      city: d?.city || locCity,
-      pincode: d?.pincode || locPin,
+      area: d?.area || locArea || prev.area || "",
+      city: d?.city || locCity || prev.city || "",
+      pincode: d?.pincode || locPin || prev.pincode || "",
       sellerName: seller.name || "You",
       sellerPhone: seller.phone,
       sellerType: seller.type ?? "individual",
     }));
     if (selStore) setStoreId(selStore);
 
+    const syncLoc = (e: any) => {
+      const detail = e.detail;
+      if (detail) {
+        const a = detail.area ? detail.area.split(",")[0].trim() : detail.area;
+        const c = detail.city || (detail.area && detail.area.includes(",") ? detail.area.split(",")[1].trim() : a);
+        setData((prev) => ({
+          ...prev,
+          area: a || prev.area,
+          city: c || prev.city,
+          pincode: detail.pincode || prev.pincode
+        }));
+      }
+    };
+    window.addEventListener("omeetso_location_changed", syncLoc);
+
     setTimeout(() => {
       isInitialLoad.current = false;
     }, 400);
+
+    return () => window.removeEventListener("omeetso_location_changed", syncLoc);
   }, []);
 
   // Automatic real-time background draft saving (debounced 800ms)
@@ -271,6 +314,7 @@ function DetailedSellPage() {
         title: data.title,
         description: data.description || "Detailed product listing via Omeetso User Portal",
         priceInPaise: Math.round((data.price || 0) * 100),
+        negotiable: Boolean(data.negotiable),
         pricingType: data.negotiable ? "NEGOTIABLE" : "FIXED",
         condition: (data.condition || "good").toLowerCase().replace(" ", "_"),
         categoryId: data.category || "electronics",
@@ -278,11 +322,12 @@ function DetailedSellPage() {
         images: uploadedImages && uploadedImages.length > 0 ? uploadedImages : ["https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=400"],
         coverIndex: data.cover || 0,
         videoUrl: data.videoUrl || data.video,
-        whatsappPhone: data.whatsappPhone,
+        whatsappPhone: data.whatsappPhone || data.sellerPhone || "",
+        sellerPhone: data.sellerPhone || data.whatsappPhone || "",
         enableWhatsapp: data.enableWhatsapp ?? true,
-        city: data.city || "Hyderabad",
-        area: data.area || "Hitec City",
-        pincode: data.pincode || "500081",
+        city: data.city || "",
+        area: data.area || "",
+        pincode: data.pincode || "",
         specs: data.specs || {}
       });
 
@@ -294,21 +339,22 @@ function DetailedSellPage() {
     }
 
     const listing: Listing = {
-      id, title: data.title!, price: data.price ?? 0, negotiable: !!data.negotiable, free: !!data.free,
+      id, title: data.title!, price: data.price ?? 0, negotiable: Boolean(data.negotiable), free: !!data.free,
       condition: (data.condition ?? "good") as Condition,
       description: data.description || "Detailed spec product listing",
       category: data.category!, subcategory: data.subcategory!,
       images: uploadedImages, cover: data.cover ?? 0,
       video: data.videoUrl || data.video,
       videoUrl: data.videoUrl || data.video,
-      whatsappPhone: data.whatsappPhone,
+      whatsappPhone: data.whatsappPhone || data.sellerPhone,
+      sellerPhone: data.sellerPhone || data.whatsappPhone,
       enableWhatsapp: data.enableWhatsapp ?? true,
-      pincode: data.pincode || "500081", area: data.area || "Hitec City", city: data.city || "Hyderabad", state: data.state,
+      pincode: data.pincode || "", area: data.area || "", city: data.city || "", state: data.state,
       fulfilment: (data.fulfilment ?? "pickup") as Fulfilment,
       specs: data.specs ?? {},
       contactPref: (data.contactPref ?? "call_and_chat") as ContactPref,
       bestContactTime: (data.bestContactTime ?? "anytime") as BestContactTime,
-      sellerName: data.sellerName ?? "You", sellerPhone: data.sellerPhone,
+      sellerName: data.sellerName ?? "You", sellerPhone: data.sellerPhone || data.whatsappPhone,
       sellerType: data.sellerType ?? "individual",
       status: "submitted", createdAt: now, updatedAt: now, method: "detailed",
       storeId: storeId,
@@ -317,19 +363,32 @@ function DetailedSellPage() {
     };
 
     upsertListing(listing);
-    if (data.nearbyChanges?.enabled) {
-      pushNotification({
-        id: `nearby-notif-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
-        category: "nearby_changes",
-        title: `Nearby Changes Live: ${listing.title}`,
-        body: `Nearby changes and local broadcast enabled for "${listing.title}" within ${data.nearbyChanges.radiusKm || 10} km of ${data.area || "your area"}.`,
-        destination: "/account",
-        destinationLabel: "View in Profile",
-        read: false,
-        time: now,
-        thumbnail: uploadedImages[0]
-      });
-    }
+
+    // 1. Listing Created Notification
+    pushNotification({
+      id: `listing-created-${listing.id}-${Date.now()}`,
+      category: "listings",
+      title: `Listing Created: ${listing.title}`,
+      body: `Your detailed listing "${listing.title}" was submitted and is pending review.`,
+      destination: `/product/${listing.id}`,
+      destinationLabel: "View Listing",
+      read: false,
+      time: now,
+      thumbnail: uploadedImages[0] || coverImg
+    });
+
+    // 2. Nearby Changes Notification
+    pushNotification({
+      id: `nearby-notif-${listing.id}-${Date.now()}`,
+      category: "nearby_changes",
+      title: `Nearby Changes: ${listing.title}`,
+      body: `Nearby changes and local broadcast enabled for "${listing.title}" within ${data.nearbyChanges?.radiusKm || 10} km of ${data.area || "your area"}.`,
+      destination: `/product/${listing.id}`,
+      destinationLabel: "View Listing",
+      read: false,
+      time: now,
+      thumbnail: uploadedImages[0] || coverImg
+    });
 
     localStorage.removeItem(DRAFT_KEY);
     setPublishing(false);
@@ -453,34 +512,76 @@ function DetailedSellPage() {
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div>
-                    <label className="block text-xs font-bold text-muted-foreground mb-1">Category</label>
+                    <div className="flex items-center justify-between mb-1">
+                      <label className="block text-xs font-bold text-muted-foreground">Category</label>
+                      <button
+                        type="button"
+                        onClick={() => setShowAddCategoryModal(true)}
+                        className="text-[11px] font-extrabold text-indigo-brand hover:underline cursor-pointer flex items-center gap-0.5"
+                      >
+                        + Add Category
+                      </button>
+                    </div>
                     <select
-                      value={data.category ?? "electronics"}
+                      value={data.category ?? categories[0]?.id ?? "electronics"}
                       onChange={(e) => {
                         const cat = e.target.value;
-                        const subs = getSubcategoriesForCategory(cat);
+                        if (cat === "__new__") {
+                          setShowAddCategoryModal(true);
+                          return;
+                        }
+                        const subs = getLiveSubcategories(cat);
                         const firstSub = subs[0]?.id || cat;
                         patch({ category: cat, subcategory: firstSub, specs: {} });
                         setSelectedBrand("");
                       }}
                       className="w-full h-11 rounded-2xl border border-border bg-background px-3 text-xs font-bold text-foreground outline-none focus:border-indigo-brand"
                     >
-                      {CATEGORIES.map((c) => (
+                      {categories.map((c) => (
                         <option key={c.id} value={c.id}>{c.name}</option>
                       ))}
+                      <option value="__new__">➕ + Add New Category...</option>
                     </select>
                   </div>
 
                   <div>
-                    <label className="block text-xs font-bold text-muted-foreground mb-1">Subcategory</label>
+                    <div className="flex items-center justify-between mb-1">
+                      <label className="block text-xs font-bold text-muted-foreground">Subcategory</label>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const custom = window.prompt("Enter custom subcategory name:");
+                          if (custom && custom.trim()) {
+                            patch({ subcategory: custom.trim(), specs: {} });
+                          }
+                        }}
+                        className="text-[11px] font-extrabold text-indigo-brand hover:underline cursor-pointer flex items-center gap-0.5"
+                      >
+                        + Custom
+                      </button>
+                    </div>
                     <select
                       value={data.subcategory ?? ""}
-                      onChange={(e) => patch({ subcategory: e.target.value, specs: {} })}
+                      onChange={(e) => {
+                        const val = e.target.value;
+                        if (val === "__custom__") {
+                          const custom = window.prompt("Enter custom subcategory name:");
+                          if (custom && custom.trim()) {
+                            patch({ subcategory: custom.trim(), specs: {} });
+                          }
+                          return;
+                        }
+                        patch({ subcategory: val, specs: {} });
+                      }}
                       className="w-full h-11 rounded-2xl border border-border bg-background px-3 text-xs font-bold text-foreground outline-none focus:border-indigo-brand"
                     >
-                      {getSubcategoriesForCategory(data.category ?? "electronics").map((s) => (
+                      {getLiveSubcategories(data.category ?? categories[0]?.id ?? "electronics").map((s) => (
                         <option key={s.id} value={s.id}>{s.name}</option>
                       ))}
+                      {data.subcategory && !getLiveSubcategories(data.category ?? categories[0]?.id ?? "electronics").some(s => s.id === data.subcategory || s.name === data.subcategory) && (
+                        <option value={data.subcategory}>{data.subcategory}</option>
+                      )}
+                      <option value="__custom__">➕ + Add Custom Subcategory...</option>
                     </select>
                   </div>
                 </div>
@@ -934,6 +1035,18 @@ function DetailedSellPage() {
           open={showMissingModal}
           onClose={() => setShowMissingModal(false)}
           missingItems={summary}
+        />
+
+        {/* Add New Category Modal */}
+        <AddCategoryModal
+          isOpen={showAddCategoryModal}
+          onClose={() => setShowAddCategoryModal(false)}
+          onCategoryAdded={(cat) => {
+            const subs = getLiveSubcategories(cat.id);
+            const firstSub = subs[0]?.id || cat.id;
+            patch({ category: cat.id, subcategory: firstSub, specs: {} });
+            setSelectedBrand("");
+          }}
         />
       </div>
     </MobileFrame>

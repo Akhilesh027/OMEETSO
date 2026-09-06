@@ -15,6 +15,7 @@ import {
 } from "@/lib/jobs";
 import { startConversationApi } from "@/api/chat.api";
 import { toast } from "sonner";
+import { pushNotification } from "@/lib/account";
 
 export const Route = createFileRoute("/my/employer/jobs")({
   head: () => ({ meta: [{ title: "Employer Jobs & Candidate Dashboard — Omeetso" }] }),
@@ -110,11 +111,23 @@ function EmployerJobsDashboardPage() {
   });
 
   const handleUpdateStatus = (appId: string, nextStatus: string) => {
+    const target = applicants.find((a) => a.id === appId);
     const updated = applicants.map((a) => (a.id === appId ? { ...a, status: nextStatus as any } : a));
     setApplicants(updated);
     if (typeof localStorage !== "undefined") {
       localStorage.setItem("omeetso_job_applications", JSON.stringify(updated));
     }
+
+    pushNotification({
+      id: `job-status-${appId}-${Date.now()}`,
+      category: "system",
+      title: `Job Application Status: ${nextStatus.replace(/_/g, " ")}`,
+      body: `Status updated to ${nextStatus.replace(/_/g, " ")} for "${target?.job?.title || "Position"}".`,
+      destination: "/account/jobs",
+      destinationLabel: "View Application",
+      read: false,
+      time: Date.now(),
+    });
   };
 
   const handleSaveInterviewSchedule = (e: React.FormEvent) => {
@@ -140,6 +153,18 @@ function EmployerJobsDashboardPage() {
       if (typeof localStorage !== "undefined") {
         localStorage.setItem("omeetso_job_applications", JSON.stringify(updated));
       }
+
+      pushNotification({
+        id: `job-interview-${scheduleModalApp.id}-${Date.now()}`,
+        category: "system",
+        title: `Interview Scheduled: ${scheduleModalApp.job?.title || "Job Application"}`,
+        body: `Interview scheduled on ${interviewForm.date || "scheduled date"} at ${interviewForm.time || "scheduled time"}.`,
+        destination: "/account/jobs",
+        destinationLabel: "View Details",
+        read: false,
+        time: Date.now(),
+      });
+
       setScheduleModalApp(null);
     }
   };

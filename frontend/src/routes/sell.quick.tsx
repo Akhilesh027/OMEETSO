@@ -5,10 +5,14 @@ import { BackBar } from "@/components/omeetso/TopBar";
 import {
   ConditionSelector, PriceInput, ContactPreferenceSelector,
   LocationSelector, ValidationSummary, ConfirmModal, LoadingOverlay,
-  MissingFieldsModal,
+  MissingFieldsModal, AddCategoryModal,
 } from "@/components/sell";
 import { ImageUploader } from "@/components/sell/ImageUploader";
 import { CATEGORIES, SUBCATEGORIES, getSubcategoriesForCategory } from "@/lib/mock";
+import {
+  fetchLiveCategories, getCachedCategories, getLiveSubcategories,
+  subscribeCategories, type LiveCategory
+} from "@/lib/categories";
 import {
   type Listing, type Condition, type ContactPref, type BestContactTime, type Fulfilment,
   newId, upsertListing, saveDraft as saveDraftFn, LS, formatINR, CONDITION_LABEL,
@@ -55,7 +59,7 @@ function QuickSellPage() {
     images: [], cover: 0, negotiable: true, fulfilment: "pickup",
     contactPref: "call_and_chat", bestContactTime: "anytime",
     sellerName: "You", sellerType: "individual",
-    city: "Hyderabad", area: "Madhapur", pincode: "500081",
+    city: "", area: "", pincode: "",
     category: "mobiles", subcategory: "smartphones", condition: "good"
   });
   const [selectedBrand, setSelectedBrand] = useState<string>("");
@@ -66,6 +70,8 @@ function QuickSellPage() {
   const [exiting, setExiting] = useState(false);
   const [confirmed, setConfirmed] = useState(true);
   const [aiLoading, setAiLoading] = useState(false);
+  const [categories, setCategories] = useState<LiveCategory[]>(() => getCachedCategories());
+  const [showAddCategoryModal, setShowAddCategoryModal] = useState(false);
 
   // Auto-Save Management State
   const [autoSaveEnabled, setAutoSaveEnabled] = useState(true);
@@ -74,13 +80,33 @@ function QuickSellPage() {
   const [draftRestored, setDraftRestored] = useState(false);
   const isInitialLoad = useRef(true);
 
+  // Load live categories & listen for updates
+  useEffect(() => {
+    fetchLiveCategories().then((cats) => {
+      if (cats && cats.length > 0) setCategories(cats);
+    });
+    const unsub = subscribeCategories(() => {
+      setCategories(getCachedCategories());
+    });
+    const onCatsChanged = () => {
+      setCategories(getCachedCategories());
+    };
+    window.addEventListener("omeetso_categories_changed", onCatsChanged);
+    window.addEventListener("storage", onCatsChanged);
+    return () => {
+      unsub();
+      window.removeEventListener("omeetso_categories_changed", onCatsChanged);
+      window.removeEventListener("storage", onCatsChanged);
+    };
+  }, []);
+
   // Load draft + prefill seller & location
   useEffect(() => {
     const d = loadDraft();
     const seller = getSellerPrefs();
-    let locArea = "Madhapur";
-    let locCity = "Hyderabad";
-    let locPin = "500081";
+    let locArea = "";
+    let locCity = "";
+    let locPin = "";
 
     try {
       const rawLoc = localStorage.getItem("omeetso_location") || localStorage.getItem("omeetso_selected_location");
@@ -92,6 +118,7 @@ function QuickSellPage() {
           locArea = parts[0] || locArea;
           if (parts[1] && !loc.city) locCity = parts[1];
         }
+        if (!locCity && locArea) locCity = locArea;
         if (loc.pincode) locPin = loc.pincode;
       }
     } catch { }
@@ -106,17 +133,34 @@ function QuickSellPage() {
     setData((prev) => ({
       ...prev,
       ...d,
-      area: d?.area || locArea,
-      city: d?.city || locCity,
-      pincode: d?.pincode || locPin,
+      area: d?.area || locArea || prev.area || "",
+      city: d?.city || locCity || prev.city || "",
+      pincode: d?.pincode || locPin || prev.pincode || "",
       sellerName: seller.name || "You",
       sellerPhone: seller.phone,
       sellerType: seller.type ?? "individual",
     }));
 
+    const syncLoc = (e: any) => {
+      const detail = e.detail;
+      if (detail) {
+        const a = detail.area ? detail.area.split(",")[0].trim() : detail.area;
+        const c = detail.city || (detail.area && detail.area.includes(",") ? detail.area.split(",")[1].trim() : a);
+        setData((prev) => ({
+          ...prev,
+          area: a || prev.area,
+          city: c || prev.city,
+          pincode: detail.pincode || prev.pincode
+        }));
+      }
+    };
+    window.addEventListener("omeetso_location_changed", syncLoc);
+
     setTimeout(() => {
       isInitialLoad.current = false;
     }, 400);
+
+    return () => window.removeEventListener("omeetso_location_changed", syncLoc);
   }, []);
 
   // Automatic real-time background draft saving (debounced 800ms)
@@ -261,6 +305,7 @@ function QuickSellPage() {
         title: data.title,
         description: data.description || "Product listed via Omeetso Quick Sell",
         priceInPaise: Math.round((data.price || 0) * 100),
+        negotiable: Boolean(data.negotiable),
         pricingType: data.negotiable ? "NEGOTIABLE" : "FIXED",
         condition: (data.condition || "good").toLowerCase().replace(" ", "_"),
         categoryId: data.category || "mobiles",
@@ -268,11 +313,12 @@ function QuickSellPage() {
         images: uploadedImages && uploadedImages.length > 0 ? uploadedImages : ["https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=400"],
         coverIndex: data.cover || 0,
         videoUrl: data.videoUrl || data.video,
-        whatsappPhone: data.whatsappPhone,
+        whatsappPhone: data.whatsappPhone || data.sellerPhone || "",
+        sellerPhone: data.sellerPhone || data.whatsappPhone || "",
         enableWhatsapp: data.enableWhatsapp ?? true,
-        city: data.city || "Hyderabad",
-        area: data.area || "Madhapur",
-        pincode: data.pincode || "500081",
+        city: data.city || "",
+        area: data.area || "",
+        pincode: data.pincode || "",
         specs: data.specs || {}
       });
 
@@ -285,40 +331,54 @@ function QuickSellPage() {
 
     const listing: Listing = {
       id,
-      title: data.title!, price: data.price ?? 0, negotiable: !!data.negotiable, free: !!data.free,
+      title: data.title!, price: data.price ?? 0, negotiable: Boolean(data.negotiable), free: !!data.free,
       condition: (data.condition ?? "good") as Condition,
       description: data.description || "Fast quick sell product",
       category: data.category!, subcategory: data.subcategory || data.category!,
       images: uploadedImages, cover: data.cover ?? 0,
       video: data.videoUrl || data.video,
       videoUrl: data.videoUrl || data.video,
-      whatsappPhone: data.whatsappPhone,
+      whatsappPhone: data.whatsappPhone || data.sellerPhone,
+      sellerPhone: data.sellerPhone || data.whatsappPhone,
       enableWhatsapp: data.enableWhatsapp ?? true,
-      pincode: data.pincode || "500081", area: data.area || "Madhapur", city: data.city || "Hyderabad", state: data.state,
+      pincode: data.pincode || "", area: data.area || "", city: data.city || "", state: data.state,
       fulfilment: (data.fulfilment ?? "pickup") as Fulfilment,
       specs: data.specs ?? {},
       contactPref: (data.contactPref ?? "call_and_chat") as ContactPref,
       bestContactTime: (data.bestContactTime ?? "anytime") as BestContactTime,
-      sellerName: data.sellerName ?? "You", sellerPhone: data.sellerPhone,
+      sellerName: data.sellerName ?? "You", sellerPhone: data.sellerPhone || data.whatsappPhone,
       sellerType: data.sellerType ?? "individual",
       status: "submitted", createdAt: now, updatedAt: now, method: "quick",
       nearbyChanges: data.nearbyChanges,
     };
 
     upsertListing(listing);
-    if (data.nearbyChanges?.enabled) {
-      pushNotification({
-        id: `nearby-notif-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
-        category: "nearby_changes",
-        title: `Nearby Changes Live: ${listing.title}`,
-        body: `Nearby changes and local broadcast enabled for "${listing.title}" within ${data.nearbyChanges.radiusKm || 10} km of ${data.area || "your area"}.`,
-        destination: "/account",
-        destinationLabel: "View in Profile",
-        read: false,
-        time: now,
-        thumbnail: uploadedImages[0]
-      });
-    }
+
+    // 1. Listing Created Notification
+    pushNotification({
+      id: `listing-created-${listing.id}-${Date.now()}`,
+      category: "listings",
+      title: `Listing Created: ${listing.title}`,
+      body: `Your listing "${listing.title}" was submitted and is pending review.`,
+      destination: `/product/${listing.id}`,
+      destinationLabel: "View Listing",
+      read: false,
+      time: now,
+      thumbnail: uploadedImages[0] || coverImg
+    });
+
+    // 2. Nearby Changes Notification
+    pushNotification({
+      id: `nearby-notif-${listing.id}-${Date.now()}`,
+      category: "nearby_changes",
+      title: `Nearby Changes: ${listing.title}`,
+      body: `Nearby changes and local broadcast enabled for "${listing.title}" within ${data.nearbyChanges?.radiusKm || 10} km of ${data.area || "your area"}.`,
+      destination: `/product/${listing.id}`,
+      destinationLabel: "View Listing",
+      read: false,
+      time: now,
+      thumbnail: uploadedImages[0] || coverImg
+    });
 
     pushRecentCategory(listing.category);
     localStorage.removeItem(DRAFT_KEY);
@@ -437,32 +497,75 @@ function QuickSellPage() {
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div>
-                    <label className="block text-xs font-bold text-muted-foreground mb-1">Main Category</label>
+                    <div className="flex items-center justify-between mb-1">
+                      <label className="block text-xs font-bold text-muted-foreground">Main Category</label>
+                      <button
+                        type="button"
+                        onClick={() => setShowAddCategoryModal(true)}
+                        className="text-[11px] font-extrabold text-indigo-brand hover:underline cursor-pointer flex items-center gap-0.5"
+                      >
+                        + Add Category
+                      </button>
+                    </div>
                     <select
-                      value={data.category ?? "mobiles"}
+                      value={data.category ?? categories[0]?.id ?? "mobiles"}
                       onChange={(e) => {
                         const cat = e.target.value;
-                        patch({ category: cat, subcategory: SUBCATEGORIES[cat]?.[0]?.id || cat });
+                        if (cat === "__new__") {
+                          setShowAddCategoryModal(true);
+                          return;
+                        }
+                        const subs = getLiveSubcategories(cat);
+                        patch({ category: cat, subcategory: subs[0]?.id || cat });
                         setSelectedBrand("");
                       }}
                       className="w-full h-11 rounded-2xl border border-border bg-background px-3 text-xs font-bold text-foreground outline-none focus:border-indigo-brand"
                     >
-                      {CATEGORIES.map((c) => (
-                        <option key={c.id} value={c.id}>{c.icon} {c.name}</option>
+                      {categories.map((c) => (
+                        <option key={c.id} value={c.id}>{c.name}</option>
                       ))}
+                      <option value="__new__">➕ + Add New Category...</option>
                     </select>
                   </div>
 
                   <div>
-                    <label className="block text-xs font-bold text-muted-foreground mb-1">Subcategory</label>
+                    <div className="flex items-center justify-between mb-1">
+                      <label className="block text-xs font-bold text-muted-foreground">Subcategory</label>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const custom = window.prompt("Enter custom subcategory name:");
+                          if (custom && custom.trim()) {
+                            patch({ subcategory: custom.trim() });
+                          }
+                        }}
+                        className="text-[11px] font-extrabold text-indigo-brand hover:underline cursor-pointer flex items-center gap-0.5"
+                      >
+                        + Custom
+                      </button>
+                    </div>
                     <select
                       value={data.subcategory ?? ""}
-                      onChange={(e) => patch({ subcategory: e.target.value })}
+                      onChange={(e) => {
+                        const val = e.target.value;
+                        if (val === "__custom__") {
+                          const custom = window.prompt("Enter custom subcategory name:");
+                          if (custom && custom.trim()) {
+                            patch({ subcategory: custom.trim() });
+                          }
+                          return;
+                        }
+                        patch({ subcategory: val });
+                      }}
                       className="w-full h-11 rounded-2xl border border-border bg-background px-3 text-xs font-bold text-foreground outline-none focus:border-indigo-brand"
                     >
-                      {getSubcategoriesForCategory(data.category ?? "mobiles").map((s) => (
+                      {getLiveSubcategories(data.category ?? categories[0]?.id ?? "mobiles").map((s) => (
                         <option key={s.id} value={s.id}>{s.name}</option>
                       ))}
+                      {data.subcategory && !getLiveSubcategories(data.category ?? categories[0]?.id ?? "mobiles").some(s => s.id === data.subcategory || s.name === data.subcategory) && (
+                        <option value={data.subcategory}>{data.subcategory}</option>
+                      )}
+                      <option value="__custom__">➕ + Add Custom Subcategory...</option>
                     </select>
                   </div>
                 </div>
@@ -871,6 +974,17 @@ function QuickSellPage() {
           open={showMissingModal}
           onClose={() => setShowMissingModal(false)}
           missingItems={summary}
+        />
+
+        {/* Add New Category Modal */}
+        <AddCategoryModal
+          isOpen={showAddCategoryModal}
+          onClose={() => setShowAddCategoryModal(false)}
+          onCategoryAdded={(cat) => {
+            const subs = getLiveSubcategories(cat.id);
+            patch({ category: cat.id, subcategory: subs[0]?.id || cat.id });
+            setSelectedBrand("");
+          }}
         />
       </div>
     </MobileFrame>

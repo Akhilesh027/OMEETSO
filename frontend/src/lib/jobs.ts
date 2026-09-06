@@ -1,4 +1,5 @@
 // Omeetso Jobs Vertical — Frontend persistence layer & API client
+import { API_BASE } from "@/config/api";
 
 export type JobType = "FULL_TIME" | "PART_TIME" | "INTERNSHIP" | "CONTRACT" | "FREELANCE" | "TEMPORARY";
 export type WorkplaceType = "OFFICE" | "WORK_FROM_HOME" | "HYBRID" | "FIELD_WORK";
@@ -163,7 +164,7 @@ export const SEED_JOBS: JobItem[] = [];
 export async function fetchPublicJobs(params?: Record<string, string>): Promise<JobItem[]> {
   try {
     const qStr = params ? new URLSearchParams(params).toString() : "";
-    const res = await fetch(`https://api.omeetso.in/api/v1/jobs?${qStr}`);
+    const res = await fetch(`${API_BASE}/jobs?${qStr}`);
     if (res.ok) {
       const json = await res.json();
       if (json.success && Array.isArray(json.data)) {
@@ -209,7 +210,7 @@ export async function fetchPublicJobs(params?: Record<string, string>): Promise<
 
 export async function fetchJobById(id: string): Promise<JobItem | null> {
   try {
-    const res = await fetch(`https://api.omeetso.in/api/v1/jobs/${id}`);
+    const res = await fetch(`${API_BASE}/jobs/${id}`);
     if (res.ok) {
       const json = await res.json();
       if (json.success && json.data) {
@@ -332,7 +333,7 @@ export async function fetchEmployerJobs(userId?: string, token?: string | null):
   try {
     const authToken = token || (typeof window !== "undefined" ? localStorage.getItem("omeetso_user_token") : null);
     const authHeaders: Record<string, string> = authToken ? { Authorization: `Bearer ${authToken}` } : {};
-    const res = await fetch(`https://api.omeetso.in/api/v1/jobs/employer/my-jobs`, {
+    const res = await fetch(`${API_BASE}/jobs/employer/my-jobs`, {
       headers: authHeaders
     });
     if (res.ok) {
@@ -355,7 +356,7 @@ export async function fetchEmployerJobApplicants(jobId: string, token?: string |
   try {
     const authToken = token || (typeof window !== "undefined" ? localStorage.getItem("omeetso_user_token") : null);
     const authHeaders: Record<string, string> = authToken ? { Authorization: `Bearer ${authToken}` } : {};
-    const res = await fetch(`https://api.omeetso.in/api/v1/jobs/${jobId}/applicants`, {
+    const res = await fetch(`${API_BASE}/jobs/${jobId}/applicants`, {
       headers: authHeaders
     });
     if (res.ok) {

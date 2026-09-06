@@ -4,9 +4,9 @@ import {
   Bolt, ClipboardList, Store as StoreIcon, FileClock,
   Check, ChevronRight, AlertCircle, Loader2,
 } from "lucide-react";
-import { cn, preventNonNumericKeyDown, sanitizeNumericInput } from "@/lib/utils";
+import { cn, preventNonNumericKeyDown, sanitizeNumericInput, formatPhoneDisplay, cleanPhoneInput } from "@/lib/utils";
 import type { Condition, ContactPref, BestContactTime, Fulfilment } from "@/lib/listings";
-import { CONDITION_LABEL, CONTACT_LABEL, TIME_LABEL, FULFILMENT_LABEL } from "@/lib/listings";
+import { CONDITION_LABEL, CONTACT_LABEL, TIME_LABEL } from "@/lib/listings";
 
 // ---------------- Sell method card ----------------
 export function SellMethodCard({
@@ -191,7 +191,7 @@ import { fetchAreaFromPincode, resolveGpsLocation } from "@/lib/location";
 // ---------------- Location selector ----------------
 export function LocationSelector({
   pincode, area, city, fulfilment,
-  onPincode, onArea, onCity, onFulfilment, onChange, onDetect, error,
+  onPincode, onArea, onCity, onFulfilment, onChange, error,
 }: {
   pincode?: string; area?: string; city?: string; fulfilment?: Fulfilment;
   onPincode?: (v: string) => void;
@@ -202,122 +202,75 @@ export function LocationSelector({
   onDetect?: () => void;
   error?: Record<string, string>;
 }) {
-  const FULS: Fulfilment[] = ["pickup", "delivery", "both", "buyer"];
-  const [fetchingGeo, setFetchingGeo] = useState(false);
-
-  // Pre-fill location from localStorage on mount if available
+  // Pre-fill location from localStorage on mount if available & listen to global location changes
   useEffect(() => {
-    try {
-      const rawLoc = localStorage.getItem("omeetso_location") || localStorage.getItem("omeetso_selected_location");
-      if (rawLoc) {
-        const loc = JSON.parse(rawLoc);
-        let locArea = area;
-        let locCity = city;
-        if (loc.area) {
-          const parts = loc.area.split(",").map((p: string) => p.trim());
-          locArea = parts[0] || locArea;
-          if (parts[1]) locCity = parts[1];
+    const syncFromStorage = () => {
+      try {
+        const rawLoc = localStorage.getItem("omeetso_location") || localStorage.getItem("omeetso_selected_location");
+        if (rawLoc) {
+          const loc = JSON.parse(rawLoc);
+          let locArea = "";
+          let locCity = loc.city || "";
+          if (loc.area) {
+            const parts = loc.area.split(",").map((p: string) => p.trim());
+            locArea = parts[0] || "";
+            if (parts[1] && !locCity) locCity = parts[1];
+          }
+          if (!locCity && locArea) locCity = locArea;
+          const locPin = loc.pincode || "";
+
+          if (!area && locArea) onArea?.(locArea);
+          if (!city && locCity) onCity?.(locCity);
+          if (!pincode && locPin) onPincode?.(locPin);
+
+          onChange?.({
+            area: area || locArea || "",
+            city: city || locCity || "",
+            pincode: pincode || locPin || "",
+            fulfilment
+          });
         }
-        const locPin = loc.pincode || pincode;
-        if (locArea && locArea !== area) setArea(locArea);
-        if (locPin && locPin !== pincode) setPin(locPin);
-        if (locCity && locCity !== city) setCt(locCity);
-      }
-    } catch {}
+      } catch {}
+    };
+
+    if (!area || !city || !pincode) {
+      syncFromStorage();
+    }
+
+    window.addEventListener("omeetso_location_changed", syncFromStorage);
+    return () => window.removeEventListener("omeetso_location_changed", syncFromStorage);
   }, []);
 
   const setArea = (a: string) => {
     if (onArea) onArea(a);
-    const p = AREA_PINCODES[a] || pincode || "500081";
-    if (onPincode) onPincode(p);
-    if (onChange) onChange({ area: a, pincode: p, city: city || "Hyderabad" });
+    const p = AREA_PINCODES[a] || pincode || "";
+    if (p && onPincode && !pincode) onPincode(p);
+    if (onChange) onChange({ area: a, pincode: p || pincode || "", city: city || "", fulfilment });
   };
 
   const setPin = async (p: string) => {
     if (onPincode) onPincode(p);
     if (p.length === 6) {
-      const loc = await fetchAreaFromPincode(p);
-      if (loc.area && !loc.area.startsWith("Area ")) {
-        if (onArea) onArea(loc.area);
-        if (onCity) onCity(loc.city);
-        if (onChange) onChange({ pincode: p, area: loc.area, city: loc.city || city || "Hyderabad" });
-        return;
-      }
+      try {
+        const loc = await fetchAreaFromPincode(p);
+        if (loc && loc.area && !loc.area.startsWith("Area ")) {
+          if (onArea) onArea(loc.area);
+          if (loc.city && onCity) onCity(loc.city);
+          if (onChange) onChange({ pincode: p, area: loc.area, city: loc.city || city || "", fulfilment });
+          return;
+        }
+      } catch {}
     }
-    if (onChange) onChange({ pincode: p, area: area || "Madhapur", city: city || "Hyderabad" });
+    if (onChange) onChange({ pincode: p, area: area || "", city: city || "", fulfilment });
   };
 
   const setCt = (c: string) => {
     if (onCity) onCity(c);
-    if (onChange) onChange({ city: c, area: area || "Madhapur", pincode: pincode || "500081" });
-  };
-
-  const setFul = (f: Fulfilment) => {
-    if (onFulfilment) onFulfilment(f);
-    if (onChange) onChange({ fulfilment: f });
-  };
-
-  const handleLiveGpsDetect = () => {
-    if (onDetect) {
-      onDetect();
-      return;
-    }
-    if (!navigator.geolocation) {
-      toast.error("Geolocation is not supported by your browser");
-      return;
-    }
-    setFetchingGeo(true);
-    navigator.geolocation.getCurrentPosition(
-      async (pos) => {
-        try {
-          const { latitude: lat, longitude: lng } = pos.coords;
-          const loc = await resolveGpsLocation(lat, lng);
-          const finalArea = loc.area || "Madhapur";
-          const detectedCity = loc.city || "Hyderabad";
-          const detectedPin = loc.pincode || "500081";
-
-          if (onArea) onArea(finalArea);
-          if (onPincode) onPincode(detectedPin);
-          if (onCity) onCity(detectedCity);
-          if (onChange) onChange({ area: finalArea, pincode: detectedPin, city: detectedCity, fulfilment });
-
-          const payload = JSON.stringify({ area: `${finalArea}, ${detectedCity}`, pincode: detectedPin, coords: { lat, lng }, savedAt: Date.now() });
-          localStorage.setItem("omeetso_location", payload);
-          localStorage.setItem("omeetso_selected_location", payload);
-          if (typeof window !== "undefined") {
-            window.dispatchEvent(new CustomEvent("omeetso_location_changed", { detail: { area: `${finalArea}, ${detectedCity}`, pincode: detectedPin } }));
-          }
-
-          toast.success(`Live GPS location set: ${finalArea}, ${detectedCity} (${detectedPin})`);
-        } catch {
-          toast.error("Could not resolve live location details");
-        } finally {
-          setFetchingGeo(false);
-        }
-      },
-      () => {
-        setFetchingGeo(false);
-        toast.error("Location permission denied or unavailable");
-      },
-      { enableHighAccuracy: true, timeout: 10000 }
-    );
+    if (onChange) onChange({ city: c, area: area || "", pincode: pincode || "", fulfilment });
   };
 
   return (
     <div className="space-y-3">
-      {/* Live GPS Auto-Detect Button */}
-      <button
-        type="button"
-        onClick={handleLiveGpsDetect}
-        disabled={fetchingGeo}
-        className="w-full flex items-center justify-center gap-2 rounded-2xl border border-emerald-500/30 bg-emerald-500/10 py-2.5 px-4 text-xs font-bold text-emerald-700 hover:bg-emerald-500/20 transition-all disabled:opacity-50 shadow-sm"
-      >
-        {fetchingGeo ? <Loader2 className="h-4 w-4 animate-spin text-emerald-600" /> : <LocateFixed className="h-4 w-4 text-emerald-600" />}
-        <span>{fetchingGeo ? "Detecting Live Location..." : "📍 Get Current Live Location"}</span>
-      </button>
-
-
-
       <div className="grid grid-cols-2 gap-2">
         <div>
           <label className="mb-1 block text-xs font-bold text-muted-foreground">Pincode *</label>
@@ -325,41 +278,38 @@ export function LocationSelector({
             type="text"
             inputMode="numeric"
             maxLength={6}
-            value={pincode ?? "500081"}
+            value={pincode || ""}
             onKeyDown={(e) => preventNonNumericKeyDown(e)}
             onChange={(e) => setPin(sanitizeNumericInput(e.target.value).slice(0, 6))}
             className={cn("w-full h-11 rounded-2xl border bg-background px-3 text-xs font-bold text-foreground outline-none focus:border-indigo-brand", error?.pincode ? "border-red-400" : "border-border")}
-            placeholder="500081"
+            placeholder="e.g. 504001"
           />
         </div>
         <div>
           <label className="mb-1 block text-xs font-bold text-muted-foreground">Area Name *</label>
-          <input type="text" value={area ?? "Madhapur"} onChange={(e) => setArea(e.target.value)}
+          <input
+            type="text"
+            value={area || ""}
+            onChange={(e) => setArea(e.target.value)}
             className={cn("w-full h-11 rounded-2xl border bg-background px-3 text-xs font-bold text-foreground outline-none focus:border-indigo-brand", error?.area ? "border-red-400" : "border-border")}
-            placeholder="Madhapur" />
+            placeholder="e.g. Adilabad"
+          />
         </div>
       </div>
 
       <div>
         <label className="mb-1 block text-xs font-bold text-muted-foreground">City *</label>
-        <input type="text" value={city ?? "Hyderabad"} onChange={(e) => setCt(e.target.value)}
-          className="w-full h-11 rounded-2xl border border-border bg-background px-3 text-xs font-bold text-foreground outline-none focus:border-indigo-brand" placeholder="Hyderabad" />
+        <input
+          type="text"
+          value={city || ""}
+          onChange={(e) => setCt(e.target.value)}
+          className="w-full h-11 rounded-2xl border border-border bg-background px-3 text-xs font-bold text-foreground outline-none focus:border-indigo-brand"
+          placeholder="e.g. Adilabad"
+        />
       </div>
 
-      <div>
-        <p className="mb-1.5 text-xs font-bold text-muted-foreground">Fulfilment & Delivery</p>
-        <div className="flex flex-wrap gap-2">
-          {FULS.map((f) => (
-            <button key={f} type="button" onClick={() => setFul(f)}
-              className={cn("rounded-full border px-3.5 py-1.5 text-xs font-bold transition-all",
-                fulfilment === f ? "border-indigo-brand bg-indigo-brand text-white shadow-sm" : "border-border bg-card text-foreground")}>
-              {FULFILMENT_LABEL[f]}
-            </button>
-          ))}
-        </div>
-      </div>
       <p className="rounded-2xl bg-secondary/60 p-3 text-[11px] font-medium text-muted-foreground leading-relaxed">
-        🔒 Your exact street address is never published. Only your area ({area || "Madhapur"}) will be shown to nearby buyers.
+        🔒 Your exact street address is never published. Only your selected area ({area || city || "your area"}) will be shown to nearby buyers.
       </p>
     </div>
   );
@@ -369,16 +319,18 @@ export function LocationSelector({
 const PREFS: ContactPref[] = ["chat_only", "call_and_chat", "hide_number"];
 const TIMES: BestContactTime[] = ["anytime", "morning", "afternoon", "evening"];
 export function ContactPreferenceSelector({
-  pref, time, bestTime, whatsappPhone, enableWhatsapp, onPref, onPrefChange, onTime, onTimeChange, onWhatsappPhoneChange, onEnableWhatsappChange,
+  pref, time, bestTime, whatsappPhone, enableWhatsapp, sellerPhone,
+  onPref, onPrefChange, onTime, onTimeChange, onWhatsappPhoneChange, onEnableWhatsappChange, onSellerPhoneChange,
 }: {
   pref?: ContactPref; time?: BestContactTime; bestTime?: BestContactTime;
-  whatsappPhone?: string; enableWhatsapp?: boolean;
+  whatsappPhone?: string; enableWhatsapp?: boolean; sellerPhone?: string;
   onPref?: (p: ContactPref) => void;
   onPrefChange?: (p: ContactPref) => void;
   onTime?: (t: BestContactTime) => void;
   onTimeChange?: (t: BestContactTime) => void;
   onWhatsappPhoneChange?: (v: string) => void;
   onEnableWhatsappChange?: (b: boolean) => void;
+  onSellerPhoneChange?: (v: string) => void;
 }) {
   const currentPref = pref ?? "call_and_chat";
   const currentTime = time ?? bestTime ?? "anytime";
@@ -409,6 +361,37 @@ export function ContactPreferenceSelector({
         </div>
       </div>
 
+      {/* Direct phone number if calling enabled */}
+      {currentPref === "call_and_chat" && (
+        <div className="rounded-2xl border border-indigo-brand/20 bg-indigo-brand/5 p-3.5 space-y-2">
+          <div className="flex items-center justify-between mb-0.5">
+            <label className="block text-[11px] font-bold text-muted-foreground">Direct Calling Phone Number</label>
+            <span className="text-[10px] font-bold text-muted-foreground">10 digits</span>
+          </div>
+          <div className="flex items-center rounded-xl border border-border bg-background px-3 py-2 focus-within:border-indigo-brand focus-within:ring-2 focus-within:ring-indigo-brand/20 transition-all">
+            <span className="flex items-center gap-1.5 text-xs font-bold text-foreground font-mono pr-2.5 border-r border-border mr-2.5 shrink-0 select-none">
+              <span className="text-sm">🇮🇳</span> +91
+            </span>
+            <input
+              type="tel"
+              inputMode="numeric"
+              maxLength={11}
+              value={formatPhoneDisplay(sellerPhone ?? "")}
+              onKeyDown={(e) => preventNonNumericKeyDown(e)}
+              onChange={(e) => {
+                const cleaned = cleanPhoneInput(e.target.value);
+                onSellerPhoneChange?.(cleaned);
+              }}
+              placeholder="98765 43210"
+              className="w-full bg-transparent text-xs font-bold text-foreground outline-none font-mono tracking-wider placeholder:font-normal placeholder:text-muted-foreground/60"
+            />
+          </div>
+          {sellerPhone && sellerPhone.length > 0 && sellerPhone.length < 10 && (
+            <p className="mt-1 text-[10.5px] font-bold text-amber-600">Please enter a complete 10-digit mobile number ({sellerPhone.length}/10)</p>
+          )}
+        </div>
+      )}
+
       <div className="rounded-2xl border border-emerald-500/30 bg-emerald-500/5 p-3.5 space-y-2.5">
         <label className="flex items-center gap-2.5 cursor-pointer">
           <input
@@ -429,17 +412,22 @@ export function ContactPreferenceSelector({
               <label className="block text-[11px] font-bold text-muted-foreground">WhatsApp Number (Optional if same as account phone)</label>
               <span className="text-[10px] font-bold text-muted-foreground">10 digits</span>
             </div>
-            <div className="relative">
-              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-xs font-bold text-muted-foreground">+91</span>
+            <div className="flex items-center rounded-xl border border-border bg-background px-3 py-2 focus-within:border-emerald-500 focus-within:ring-2 focus-within:ring-emerald-500/20 transition-all">
+              <span className="flex items-center gap-1.5 text-xs font-bold text-foreground font-mono pr-2.5 border-r border-border mr-2.5 shrink-0 select-none">
+                <span className="text-sm">🇮🇳</span> +91
+              </span>
               <input
                 type="tel"
                 inputMode="numeric"
-                maxLength={10}
-                value={whatsappPhone ?? ""}
+                maxLength={11}
+                value={formatPhoneDisplay(whatsappPhone ?? "")}
                 onKeyDown={(e) => preventNonNumericKeyDown(e)}
-                onChange={(e) => onWhatsappPhoneChange?.(sanitizeNumericInput(e.target.value).slice(0, 10))}
-                placeholder="9876543210"
-                className="w-full h-10 rounded-xl border border-border bg-background pl-11 pr-3 text-xs font-bold text-foreground outline-none focus:border-emerald-500 font-mono"
+                onChange={(e) => {
+                  const cleaned = cleanPhoneInput(e.target.value);
+                  onWhatsappPhoneChange?.(cleaned);
+                }}
+                placeholder="98765 43210"
+                className="w-full bg-transparent text-xs font-bold text-foreground outline-none font-mono tracking-wider placeholder:font-normal placeholder:text-muted-foreground/60"
               />
             </div>
             {whatsappPhone && whatsappPhone.length > 0 && whatsappPhone.length < 10 && (
@@ -537,3 +525,4 @@ export function LoadingOverlay({ open, label }: { open: boolean; label?: string 
 }
 
 export { MissingFieldsModal } from "./MissingFieldsModal";
+export { AddCategoryModal } from "./AddCategoryModal";

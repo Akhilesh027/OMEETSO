@@ -8,6 +8,7 @@ import { API_BASE } from "@/config/api";
 import { registerUserApi } from "@/api/auth.api";
 import { DEFAULT_AVATARS } from "@/lib/account";
 import { uploadImageToCloudinary } from "@/lib/upload";
+import { formatPhoneDisplay, cleanPhoneInput } from "@/lib/utils";
 import { toast } from "sonner";
 
 export const Route = createFileRoute("/profile-setup")({
@@ -228,15 +229,18 @@ function ProfileSetup() {
               icon={<Phone className="h-4 w-4" />}
               error={phone.length > 0 && !phoneValid ? "10-digit valid mobile number required" : undefined}
             >
-              <div className="flex items-center gap-2 w-full">
-                <span className="text-xs font-bold text-muted-foreground">+91</span>
+              <div className="flex items-center w-full">
+                <span className="flex items-center gap-1.5 text-xs font-bold text-foreground font-mono pr-2.5 border-r border-border mr-2.5 shrink-0 select-none">
+                  <span className="text-sm">🇮🇳</span> +91
+                </span>
                 <input
-                  value={phone}
-                  onChange={(e) => setPhone(e.target.value.replace(/\D/g, "").slice(0, 10))}
+                  value={formatPhoneDisplay(phone)}
+                  onChange={(e) => setPhone(cleanPhoneInput(e.target.value))}
                   type="tel"
                   inputMode="numeric"
-                  placeholder="9876543210"
-                  className="w-full bg-transparent text-sm font-semibold outline-none placeholder:font-normal placeholder:text-muted-foreground font-mono"
+                  maxLength={11}
+                  placeholder="98765 43210"
+                  className="w-full bg-transparent text-sm font-semibold outline-none placeholder:font-normal placeholder:text-muted-foreground font-mono tracking-wider"
                 />
               </div>
             </Field>

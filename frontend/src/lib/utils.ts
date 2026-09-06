@@ -68,3 +68,29 @@ export function sanitizeNumericInput(val: string | number | undefined | null, al
   }
   return str.replace(/\D/g, "");
 }
+
+/**
+ * Formats a 10-digit Indian phone number with clear 5+5 spacing (e.g., "98765 43210").
+ */
+export function formatPhoneDisplay(val: string | number | undefined | null): string {
+  if (!val) return "";
+  const clean = cleanPhoneInput(val);
+  if (clean.length <= 5) return clean;
+  return `${clean.slice(0, 5)} ${clean.slice(5, 10)}`;
+}
+
+/**
+ * Cleans phone input by stripping non-numeric characters and removing leading +91 / 91 / 0.
+ * Always returns at most 10 digits.
+ */
+export function cleanPhoneInput(val: string | number | undefined | null): string {
+  if (!val) return "";
+  let d = String(val).replace(/\D/g, "");
+  if (d.startsWith("91") && d.length > 10) {
+    d = d.slice(2);
+  } else if (d.startsWith("0") && d.length > 10) {
+    d = d.slice(1);
+  }
+  return d.slice(0, 10);
+}
+

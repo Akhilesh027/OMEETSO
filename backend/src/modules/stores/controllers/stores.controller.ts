@@ -91,13 +91,30 @@ export async function getPublicStores(req: Request, res: Response, next: NextFun
     };
 
     if (req.query.category) query.primaryCategory = req.query.category;
-    if (req.query.city) query.city = req.query.city;
-    if (req.query.pincode) query.pincode = req.query.pincode;
-    if (req.query.area) query.area = new RegExp(req.query.area as string, "i");
+    if (req.query.city) {
+      const cleanCity = (req.query.city as string).split(",")[0].trim();
+      query.city = new RegExp(cleanCity, "i");
+    }
+    if (req.query.pincode) query.pincode = (req.query.pincode as string).trim();
+    if (req.query.area) {
+      const cleanArea = (req.query.area as string).split(",")[0].trim();
+      query.area = new RegExp(cleanArea, "i");
+    }
+    if (req.query.search) {
+      const s = (req.query.search as string).trim();
+      query.$or = [
+        { name: new RegExp(s, "i") },
+        { tagline: new RegExp(s, "i") },
+        { description: new RegExp(s, "i") },
+        { area: new RegExp(s, "i") },
+        { city: new RegExp(s, "i") },
+        { primaryCategory: new RegExp(s, "i") }
+      ];
+    }
 
     const [stores, total] = await Promise.all([
       Store.find(query)
-        .select("name slug tagline description logo cover primaryCategory area city rating reviewCount followersCount status")
+        .select("name slug tagline description logo cover primaryCategory pincode area city rating reviewCount followersCount status")
         .sort({ rating: -1, createdAt: -1 })
         .skip(skip)
         .limit(limit)
@@ -116,6 +133,7 @@ export async function getPublicStores(req: Request, res: Response, next: NextFun
         logo: s.logo,
         cover: s.cover,
         primaryCategory: s.primaryCategory,
+        pincode: s.pincode,
         area: s.area,
         city: s.city,
         rating: s.rating,

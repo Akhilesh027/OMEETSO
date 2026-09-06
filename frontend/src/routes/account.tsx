@@ -101,6 +101,7 @@ function Account() {
     window.addEventListener("visibilitychange", syncVerifs);
     window.addEventListener("omeetso_verification_updated", syncVerifs);
     window.addEventListener("omeetso_auth_changed", syncAuth);
+    window.addEventListener("omeetso_notifications_changed", syncVerifs);
     return () => {
       u();
       window.removeEventListener("storage", syncAuth);
@@ -108,6 +109,7 @@ function Account() {
       window.removeEventListener("visibilitychange", syncVerifs);
       window.removeEventListener("omeetso_verification_updated", syncVerifs);
       window.removeEventListener("omeetso_auth_changed", syncAuth);
+      window.removeEventListener("omeetso_notifications_changed", syncVerifs);
     };
   }, []);
 
@@ -498,21 +500,27 @@ function Account() {
                       {nearbyNotifs.length > 0 ? (
                         <div className="space-y-1.5">
                           {nearbyNotifs.slice(0, 3).map((notif) => (
-                            <div
+                            <Link
                               key={notif.id}
-                              className="p-2.5 rounded-xl bg-secondary/30 border border-border text-xs flex items-start justify-between gap-2"
+                              to={notif.destination || "/notifications"}
+                              className="p-2.5 rounded-xl bg-secondary/30 hover:bg-secondary/60 transition-colors border border-border text-xs flex items-center justify-between gap-3"
                             >
-                              <div className="min-w-0">
-                                <p className="font-bold text-foreground text-xs truncate">{notif.title}</p>
-                                <p className="text-[11px] text-muted-foreground line-clamp-2 mt-0.5">{notif.body}</p>
-                                <span className="text-[10px] text-muted-foreground/70 mt-1 block">
-                                  {new Date(notif.time).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
-                                </span>
+                              <div className="flex items-center gap-2.5 min-w-0">
+                                {notif.thumbnail && (
+                                  <img src={notif.thumbnail} alt="" className="h-9 w-9 rounded-lg object-cover shrink-0 border border-border" />
+                                )}
+                                <div className="min-w-0">
+                                  <p className="font-bold text-foreground text-xs truncate">{notif.title}</p>
+                                  <p className="text-[11px] text-muted-foreground line-clamp-1 mt-0.5">{notif.body}</p>
+                                  <span className="text-[10px] text-muted-foreground/70 mt-0.5 block">
+                                    {new Date(notif.time).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+                                  </span>
+                                </div>
                               </div>
                               {!notif.read && (
-                                <span className="h-2 w-2 rounded-full bg-indigo-brand shrink-0 mt-1" />
+                                <span className="h-2 w-2 rounded-full bg-rose-500 shrink-0" />
                               )}
-                            </div>
+                            </Link>
                           ))}
                         </div>
                       ) : (
@@ -630,7 +638,7 @@ function Account() {
                     <MenuRow icon={User} label="Edit Profile" to="/account/edit" />
                     <MenuRow icon={Eye} label="Public Profile Preview" to="/account/public" />
                     <MenuRow icon={BadgeCheck} label="Verification" to="/verification" />
-                    <MenuRow icon={Bell} label="Notifications" to="/notifications" />
+                    <MenuRow icon={Bell} label="Notifications" to="/notifications" badge={unread > 0 ? unread : undefined} />
                     <MenuRow icon={Settings} label="Settings" to="/settings" />
                     <MenuRow icon={Lock} label="Privacy" to="/settings/privacy" />
                     <MenuRow icon={Users} label="Blocked Users" to="/settings/blocked" />
@@ -1031,8 +1039,8 @@ function NearbyChangesModal({
                               category: "nearby_changes",
                               title: `Nearby Changes Enabled: ${item.title}`,
                               body: `Nearby changes now broadcasting within ${radius} km of ${item.area}.`,
-                              destination: "/account",
-                              destinationLabel: "View in Profile",
+                              destination: `/product/${item.id}`,
+                              destinationLabel: "View Listing",
                               read: false,
                               thumbnail: item.images?.[0],
                             });

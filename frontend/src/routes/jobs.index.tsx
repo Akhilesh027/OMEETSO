@@ -16,6 +16,7 @@ import { InfinityLoader } from "@/components/omeetso/InfinityLoader";
 import { StoreCard } from "@/components/omeetso/StoreCard";
 import { fetchPublicJobs, JobItem } from "@/lib/jobs";
 import { getPublicStoresApi } from "@/api/stores.api";
+import { serveAdsApi } from "@/api/adCampaigns.api";
 import { preventNonNumericKeyDown, sanitizeNumericInput } from "@/lib/utils";
 
 type JobsSearch = {
@@ -113,53 +114,60 @@ function JobsPage() {
     setLoading(true);
     setError(null);
 
-    serveAdsApi("CATEGORY_HEADER").then((res) => {
-      if (res.success && res.data && res.data.length > 0) {
-        const topAd = res.data[0];
-        setLiveHeaderAd({
-          id: topAd.servedAdId,
-          campaignId: topAd.campaignId,
-          placement: topAd.placement,
-          headline: topAd.creative?.title || "Featured Hiring Partner",
-          title: topAd.creative?.title || "Featured Hiring Partner",
-          body: topAd.label || "Verified Employer Spotlights",
-          subtitle: topAd.label || "Verified Employer Spotlights",
-          cta: "Apply Now",
-          ctaText: "Apply Now",
-          destinationUrl: topAd.creative?.destinationUrl || "/jobs",
-          ctaLink: topAd.creative?.destinationUrl || "/jobs",
-          image: topAd.creative?.imageUrl || "https://images.unsplash.com/photo-1521737711867-e3b97375f902?w=800",
-          imageUrl: topAd.creative?.imageUrl || "https://images.unsplash.com/photo-1521737711867-e3b97375f902?w=800",
-          advertiser: "Omeetso Jobs Partner"
-        });
+    serveAdsApi("CATEGORY_HEADER")
+      .then((res) => {
+        if (res.success && res.data && res.data.length > 0) {
+          const topAd = res.data[0];
+          setLiveHeaderAd({
+            id: topAd.servedAdId,
+            campaignId: topAd.campaignId,
+            placement: topAd.placement,
+            headline: topAd.creative?.title || "Featured Hiring Partner",
+            title: topAd.creative?.title || "Featured Hiring Partner",
+            body: topAd.label || "Verified Employer Spotlights",
+            subtitle: topAd.label || "Verified Employer Spotlights",
+            cta: "Apply Now",
+            ctaText: "Apply Now",
+            destinationUrl: topAd.creative?.destinationUrl || "/jobs",
+            ctaLink: topAd.creative?.destinationUrl || "/jobs",
+            image: topAd.creative?.imageUrl || "https://images.unsplash.com/photo-1521737711867-e3b97375f902?w=800",
+            imageUrl: topAd.creative?.imageUrl || "https://images.unsplash.com/photo-1521737711867-e3b97375f902?w=800",
+            advertiser: "Omeetso Jobs Partner"
+          });
+        }
+      })
+      .catch(() => {});
+
+    try {
+      const [jobsData, sRes] = await Promise.all([
+        fetchPublicJobs().catch(() => []),
+        getPublicStoresApi().catch(() => ({ success: false, data: [] }))
+      ]);
+
+      setAllJobs(Array.isArray(jobsData) ? jobsData : []);
+
+      if (sRes && sRes.success && Array.isArray(sRes.data)) {
+        const mappedS = sRes.data.map((item: any) => ({
+          id: item.id || item._id,
+          name: item.name,
+          cover: item.cover || "https://images.unsplash.com/photo-1486406146926-c627a92ad1ab?w=800",
+          logo: item.logo || "https://images.unsplash.com/photo-1549923746-c502d488b3ea?w=200",
+          category: "Verified Employer",
+          area: item.area || "Madhapur",
+          pincode: item.pincode || "500081",
+          distanceKm: 1.2,
+          rating: item.rating || 4.8,
+          reviews: item.reviewCount || 12,
+          open: true,
+          verified: true,
+          sponsored: false
+        }));
+        setLiveStores(mappedS);
       }
-    });
-
-    const [jobsData, sRes] = await Promise.all([
-      fetchPublicJobs(),
-      getPublicStoresApi()
-    ]);
-
-    setLoading(false);
-    setAllJobs(jobsData);
-
-    if (sRes.success && Array.isArray(sRes.data)) {
-      const mappedS = sRes.data.map((item: any) => ({
-        id: item.id || item._id,
-        name: item.name,
-        cover: item.cover || "https://images.unsplash.com/photo-1486406146926-c627a92ad1ab?w=800",
-        logo: item.logo || "https://images.unsplash.com/photo-1549923746-c502d488b3ea?w=200",
-        category: "Verified Employer",
-        area: item.area || "Madhapur",
-        pincode: item.pincode || "500081",
-        distanceKm: 1.2,
-        rating: item.rating || 4.8,
-        reviews: item.reviewCount || 12,
-        open: true,
-        verified: true,
-        sponsored: false
-      }));
-      setLiveStores(mappedS);
+    } catch (err: any) {
+      setError(err?.message || "Failed to load jobs");
+    } finally {
+      setLoading(false);
     }
   }, []);
 

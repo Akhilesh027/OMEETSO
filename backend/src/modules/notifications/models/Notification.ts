@@ -3,10 +3,11 @@ import mongoose, { Schema, Document } from "mongoose";
 export interface INotification extends Document {
   _id: mongoose.Types.ObjectId;
   userId: mongoose.Types.ObjectId;
-  type: "chat_message" | "offer_received" | "offer_status" | "listing_moderation" | "store_moderation" | "system";
+  type: "chat_message" | "offer_received" | "offer_status" | "listing_moderation" | "store_moderation" | "nearby_changes" | "job_application" | "system";
   title: string;
   body: string;
   link?: string;
+  thumbnail?: string;
   isRead: boolean;
   readAt?: Date;
   createdAt: Date;
@@ -18,12 +19,13 @@ const NotificationSchema = new Schema<INotification>(
     userId: { type: Schema.Types.ObjectId, ref: "User", required: true, index: true },
     type: {
       type: String,
-      enum: ["chat_message", "offer_received", "offer_status", "listing_moderation", "store_moderation", "system"],
+      enum: ["chat_message", "offer_received", "offer_status", "listing_moderation", "store_moderation", "nearby_changes", "job_application", "system"],
       required: true
     },
     title: { type: String, required: true },
     body: { type: String, required: true },
     link: { type: String },
+    thumbnail: { type: String },
     isRead: { type: Boolean, default: false, index: true },
     readAt: { type: Date }
   },

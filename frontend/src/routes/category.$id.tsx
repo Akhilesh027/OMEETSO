@@ -1,4 +1,4 @@
-import { createFileRoute, Link, notFound, useNavigate } from "@tanstack/react-router";
+import { createFileRoute, Link, notFound, useNavigate, redirect } from "@tanstack/react-router";
 import { useMemo, useState, useEffect, useCallback } from "react";
 import {
   ArrowLeft, Search, Loader2, RefreshCw, SlidersHorizontal,
@@ -51,7 +51,14 @@ export const Route = createFileRoute("/category/$id")({
     quickSale: typeof s.quickSale === "string" ? s.quickSale : undefined,
     hasVideo: typeof s.hasVideo === "string" ? s.hasVideo : undefined,
   }),
-  loader: ({ params }) => {
+  loader: ({ params, location }) => {
+    const catId = (params.id || "").toLowerCase();
+    if (catId === "jobs") {
+      throw redirect({ to: "/jobs", search: location.search as any });
+    }
+    if (catId === "services") {
+      throw redirect({ to: "/services", search: location.search as any });
+    }
     const c = getCategory(params.id);
     if (!c) throw notFound();
     return { category: c };

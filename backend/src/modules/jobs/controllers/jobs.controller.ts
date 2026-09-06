@@ -5,6 +5,7 @@ import { JobApplication } from "../models/JobApplication";
 import { CandidateProfile } from "../models/CandidateProfile";
 import { JobCategory } from "../models/JobCategory";
 import { AuthenticatedUserRequest } from "../../../middleware/authenticateUser";
+import { Notification } from "../../notifications/models/Notification";
 
 // DEFAULT JOB CATEGORIES SEED DATA
 const DEFAULT_JOB_CATEGORIES = [
@@ -409,6 +410,26 @@ export async function applyToJob(req: AuthenticatedUserRequest, res: Response, n
 
     await Job.findByIdAndUpdate(job._id, { $inc: { applicationsCount: 1 } });
 
+    // Candidate notification
+    await Notification.create({
+      userId: req.user._id,
+      type: "job_application",
+      title: `Application Sent: ${job.title}`,
+      body: `Your application has been submitted to ${job.companyName}.`,
+      link: "/account/jobs"
+    }).catch(() => {});
+
+    // Employer notification
+    if (job.employerId) {
+      await Notification.create({
+        userId: job.employerId,
+        type: "job_application",
+        title: `New Applicant: ${job.title}`,
+        body: `${application.applicantProfileSnapshot?.name || "A candidate"} applied for ${job.title}.`,
+        link: "/my/employer/jobs"
+      }).catch(() => {});
+    }
+
     res.status(201).json({ success: true, data: { ...application.toObject(), id: application._id.toString() } });
   } catch (err: any) {
     if (err.code === 11000) {
@@ -564,6 +585,17 @@ export async function updateApplicantStatus(req: AuthenticatedUserRequest, res: 
       await Job.findByIdAndUpdate(app.jobId, { $inc: { interviewsCount: 1 } });
     } else if (status.toUpperCase() === "HIRED") {
       await Job.findByIdAndUpdate(app.jobId, { $inc: { hiredCount: 1 } });
+    }
+
+    // Notify candidate of status update
+    if (app.applicantId) {
+      await Notification.create({
+        userId: app.applicantId,
+        type: "job_application",
+        title: `Job Application Update: ${status}`,
+        body: `Your job application status is now "${status}".`,
+        link: "/account/jobs"
+      }).catch(() => {});
     }
 
     res.status(200).json({ success: true, data: { ...app.toObject(), id: app._id.toString() } });

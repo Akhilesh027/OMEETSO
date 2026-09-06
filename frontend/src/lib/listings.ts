@@ -183,7 +183,9 @@ export async function fetchLivePublicListings(params?: {
           id: item.id || item._id,
           title: item.title,
           price: item.priceInPaise ? item.priceInPaise / 100 : item.price || 0,
-          negotiable: item.pricingType === "NEGOTIABLE" || Boolean(item.negotiable),
+          negotiable: (item.pricingType === "FIXED" || item.negotiable === false)
+            ? false
+            : (item.pricingType === "NEGOTIABLE" || item.negotiable === true),
           condition: (item.condition?.toLowerCase() || "good") as Condition,
           description: item.description || item.title,
           category: item.categoryId || "general",
@@ -193,6 +195,7 @@ export async function fetchLivePublicListings(params?: {
           video: item.videoUrl || item.video,
           videoUrl: item.videoUrl || item.video,
           whatsappPhone: item.whatsappPhone,
+          sellerPhone: item.sellerPhone || item.whatsappPhone || item.seller?.phone || "",
           enableWhatsapp: item.enableWhatsapp ?? true,
           pincode: item.pincode || "500072",
           area: item.area || "Kukatpally",
@@ -224,50 +227,89 @@ export async function fetchLivePublicListings(params?: {
 
 export async function fetchLiveUserListings(): Promise<Listing[]> {
   const token = typeof window !== "undefined" ? (getUserAccessToken() || localStorage.getItem("omeetso_user_token")) : null;
-  if (!token) return [];
+  const localListings = listListings();
 
+  let soldIds: string[] = [];
   try {
-    const res = await fetch(`${API_BASE}/listings/user/me`, {
-      headers: { Authorization: `Bearer ${token}` }
-    });
-    const json = await res.json();
-    if (json.success && Array.isArray(json.data)) {
-      const mapped: Listing[] = json.data.map((item: any) => {
-        const validImages = Array.isArray(item.images) && item.images.length > 0 && !item.images[0].startsWith("blob:")
-          ? item.images
-          : ["https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=400"];
+    const raw = typeof window !== "undefined" ? localStorage.getItem("omeetso_sold_listing_ids") : null;
+    if (raw) soldIds = JSON.parse(raw);
+  } catch {}
 
-        return {
-          id: item.id || item._id,
-          title: item.title,
-          price: item.priceInPaise ? item.priceInPaise / 100 : item.price || 0,
-          negotiable: item.pricingType === "NEGOTIABLE" || Boolean(item.negotiable),
-          condition: (item.condition?.toLowerCase() || "good") as Condition,
-          description: item.description || item.title,
-          category: item.categoryId || "general",
-          subcategory: item.subcategoryId || item.categoryId || "general",
-          images: validImages,
-          cover: item.coverIndex || 0,
-          pincode: item.pincode || "500072",
-          area: item.area || "Kukatpally",
-          city: item.city || "Hyderabad",
-          fulfilment: "pickup" as Fulfilment,
-          specs: item.specs || {},
-          contactPref: "call_and_chat" as ContactPref,
-          bestContactTime: "anytime" as BestContactTime,
-          sellerName: item.sellerName || "Omeetso Seller",
-          sellerId: item.sellerId?._id?.toString() || item.sellerId?.toString() || item.sellerId || "",
-          status: (item.status?.toLowerCase() || "active") as ListingStatus,
-          createdAt: new Date(item.createdAt || item.publishedAt || Date.now()).getTime(),
-          updatedAt: new Date(item.createdAt || item.publishedAt || Date.now()).getTime()
-        };
+  let remoteMapped: Listing[] = [];
+
+  if (token) {
+    try {
+      const res = await fetch(`${API_BASE}/listings/user/me`, {
+        headers: { Authorization: `Bearer ${token}` }
       });
-      return mapped;
+      const json = await res.json();
+      if (json.success && Array.isArray(json.data)) {
+        remoteMapped = json.data.map((item: any) => {
+          const validImages = Array.isArray(item.images) && item.images.length > 0 && !item.images[0].startsWith("blob:")
+            ? item.images
+            : ["https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=400"];
+
+          const itemId = item.id || item._id;
+          const isMarkedSold = item.status === "SOLD" || item.status === "sold" || soldIds.includes(itemId) || soldIds.includes(item._id);
+
+          return {
+            id: itemId,
+            title: item.title,
+            price: item.priceInPaise ? item.priceInPaise / 100 : item.price || 0,
+            negotiable: (item.pricingType === "FIXED" || item.negotiable === false)
+              ? false
+              : (item.pricingType === "NEGOTIABLE" || item.negotiable === true),
+            condition: (item.condition?.toLowerCase() || "good") as Condition,
+            description: item.description || item.title,
+            category: item.categoryId || "general",
+            subcategory: item.subcategoryId || item.categoryId || "general",
+            images: validImages,
+            cover: item.coverIndex || 0,
+            pincode: item.pincode || "500072",
+            area: item.area || "Kukatpally",
+            city: item.city || "Hyderabad",
+            fulfilment: "pickup" as Fulfilment,
+            specs: item.specs || {},
+            contactPref: "call_and_chat" as ContactPref,
+            bestContactTime: "anytime" as BestContactTime,
+            sellerName: item.sellerName || "Omeetso Seller",
+            sellerId: item.sellerId?._id?.toString() || item.sellerId?.toString() || item.sellerId || "",
+            status: isMarkedSold ? ("sold" as ListingStatus) : ((item.status?.toLowerCase() || "active") as ListingStatus),
+            createdAt: new Date(item.createdAt || item.publishedAt || Date.now()).getTime(),
+            updatedAt: new Date(item.createdAt || item.publishedAt || Date.now()).getTime()
+          };
+        });
+      }
+    } catch (err) {
+      console.warn("Failed to fetch user listings from backend:", err);
     }
-  } catch (err) {
-    console.warn("Failed to fetch user listings from backend:", err);
   }
-  return [];
+
+  // Merge remote items with local listings
+  const remoteIds = new Set(remoteMapped.map((l) => l.id));
+  const merged: Listing[] = [...remoteMapped];
+
+  for (const local of localListings) {
+    const isSoldLocal = local.status === "sold" || soldIds.includes(local.id);
+    if (!remoteIds.has(local.id)) {
+      merged.push({
+        ...local,
+        status: isSoldLocal ? "sold" : local.status
+      });
+    } else {
+      // If local marked as sold, ensure remote also reflects sold status
+      if (isSoldLocal) {
+        const idx = merged.findIndex((l) => l.id === local.id);
+        if (idx !== -1) {
+          merged[idx].status = "sold";
+          merged[idx].soldChannel = local.soldChannel || merged[idx].soldChannel;
+        }
+      }
+    }
+  }
+
+  write(LS.listings, merged);
+  return merged;
 }
 
 export async function fetchLiveListingById(id: string): Promise<Listing | null> {
@@ -284,7 +326,9 @@ export async function fetchLiveListingById(id: string): Promise<Listing | null> 
         id: item.id || item._id,
         title: item.title,
         price: item.priceInPaise ? item.priceInPaise / 100 : item.price || 0,
-        negotiable: item.pricingType === "NEGOTIABLE" || Boolean(item.negotiable),
+        negotiable: (item.pricingType === "FIXED" || item.negotiable === false)
+          ? false
+          : (item.pricingType === "NEGOTIABLE" || item.negotiable === true),
         condition: (item.condition?.toLowerCase() || "good") as Condition,
         description: item.description || item.title,
         category: item.categoryId || item.category || "general",
@@ -295,10 +339,11 @@ export async function fetchLiveListingById(id: string): Promise<Listing | null> 
         video: item.videoUrl || item.video,
         videoUrl: item.videoUrl || item.video,
         whatsappPhone: item.whatsappPhone,
+        sellerPhone: item.sellerPhone || item.whatsappPhone || item.seller?.phone || "",
         enableWhatsapp: item.enableWhatsapp ?? true,
-        pincode: item.pincode || "500072",
-        area: item.area || item.city || "Madhapur",
-        city: item.city || "Hyderabad",
+        pincode: item.pincode || "",
+        area: item.area || item.city || "",
+        city: item.city || "",
         fulfilment: (item.fulfilment || "pickup") as Fulfilment,
         specs: item.specs || {},
         contactPref: (item.contactPref || "call_and_chat") as ContactPref,
@@ -358,20 +403,53 @@ export function renewListing(id: string) {
   const days30 = 30 * 24 * 3600 * 1000;
   upsertListing({ ...l, status: "active", expiresAt: Date.now() + days30 });
 }
-export function markSold(
+export async function markSold(
   id: string,
   info: { channel: "omeetso" | "outside"; finalPrice?: number; note?: string },
+  fallbackListing?: Listing,
 ) {
-  const l = getListing(id);
-  if (!l) return;
-  const hist = [...(l.editHistory ?? []), { at: Date.now(), note: `Marked sold (${info.channel})` }];
-  upsertListing({
-    ...l,
-    status: "sold",
-    finalSalePrice: info.finalPrice,
-    soldChannel: info.channel,
-    editHistory: hist,
-  });
+  const l = getListing(id) || fallbackListing;
+  const hist = [...(l?.editHistory ?? []), { at: Date.now(), note: `Marked sold (${info.channel})` }];
+  
+  if (l) {
+    upsertListing({
+      ...l,
+      status: "sold",
+      finalSalePrice: info.finalPrice,
+      soldChannel: info.channel,
+      editHistory: hist,
+    });
+  }
+
+  // Persist to local sold registry for seamless offline and cross-component sync
+  if (typeof window !== "undefined") {
+    try {
+      const raw = localStorage.getItem("omeetso_sold_listing_ids") || "[]";
+      const ids: string[] = JSON.parse(raw);
+      if (!ids.includes(id)) {
+        ids.push(id);
+        localStorage.setItem("omeetso_sold_listing_ids", JSON.stringify(ids));
+      }
+      window.dispatchEvent(new CustomEvent("omeetso_listing_updated"));
+    } catch {}
+  }
+
+  // Sync to MongoDB backend in background
+  const token = typeof window !== "undefined" ? (getUserAccessToken() || localStorage.getItem("omeetso_user_token")) : null;
+  if (token) {
+    try {
+      await fetch(`${API_BASE}/listings/${id}/mark-sold`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`
+        },
+        body: JSON.stringify(info)
+      });
+    } catch (err) {
+      console.warn("Backend mark-sold sync deferred:", err);
+    }
+  }
 }
 
 export function toggleListingNearbyChanges(

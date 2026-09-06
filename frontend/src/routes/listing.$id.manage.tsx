@@ -300,10 +300,12 @@ function Manage() {
           open={showSold}
           onClose={() => setShowSold(false)}
           listing={l}
-          onConfirm={(info) => {
-            markSold(id, info);
+          onConfirm={async (info) => {
+            await markSold(id, info, l);
+            setL((prev) => prev ? { ...prev, status: "sold", soldChannel: info.channel } : prev);
             setShowSold(false);
-            toast.success("Listing marked as sold");
+            toast.success("Listing marked as sold!");
+            nav({ to: "/listings", search: { tab: "sold" } as any });
           }}
         />
 

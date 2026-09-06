@@ -31,6 +31,7 @@ export async function getNotifications(req: AuthenticatedUserRequest, res: Respo
         title: n.title,
         body: n.body,
         link: n.link,
+        thumbnail: n.thumbnail,
         isRead: n.isRead,
         createdAt: n.createdAt
       })),

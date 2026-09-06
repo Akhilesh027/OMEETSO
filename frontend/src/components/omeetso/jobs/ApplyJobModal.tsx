@@ -3,6 +3,7 @@ import { X, CheckCircle2, ArrowRight, ArrowLeft, Upload, FileText, ShieldAlert, 
 import { JobItem, submitJobApplicationLocal } from "@/lib/jobs";
 import { uploadFile } from "@/lib/upload";
 import { toast } from "sonner";
+import { pushNotification } from "@/lib/account";
 
 interface ApplyJobModalProps {
   job: JobItem;
@@ -132,6 +133,18 @@ export function ApplyJobModal({ job, isOpen, onClose, onSuccess }: ApplyJobModal
         screeningAnswers: formattedAnswers,
         status: "APPLIED"
       });
+
+      pushNotification({
+        id: `job-app-${job.id}-${Date.now()}`,
+        category: "system",
+        title: `Job Application Submitted: ${job.title}`,
+        body: `Your application for "${job.title}" at ${job.companyName} was submitted successfully.`,
+        destination: "/account/jobs",
+        destinationLabel: "View Applications",
+        read: false,
+        time: Date.now(),
+      });
+
       setLoading(false);
       setStep("success");
       onSuccess();

@@ -6,6 +6,7 @@ import { BottomNav } from "@/components/omeetso/BottomNav";
 import { EmptyState } from "@/components/omeetso/EmptyState";
 import { ConfirmModal } from "@/components/sell";
 import { listDrafts, deleteDraft, computeCompletion, timeAgo, LS, seedIfEmpty, type ListingDraft } from "@/lib/listings";
+import { getCachedCategories } from "@/lib/categories";
 import { CATEGORIES } from "@/lib/mock";
 import { FilePlus2, ImageOff, Trash2 } from "lucide-react";
 import { toast } from "sonner";
@@ -68,7 +69,7 @@ function DraftsScreen() {
                       <div className="min-w-0 flex-1">
                         <p className="line-clamp-1 text-sm font-bold">{d.title ?? "Untitled draft"}</p>
                         <p className="text-[11px] text-muted-foreground">
-                          {CATEGORIES.find((c) => c.id === d.category)?.name ?? "No category"} · {d.method === "detailed" ? "Detailed" : "Quick"} · edited {timeAgo(d.updatedAt)}
+                          {getCachedCategories().find((c) => c.id === d.category)?.name ?? d.category ?? "No category"} · {d.method === "detailed" ? "Detailed" : "Quick"} · edited {timeAgo(d.updatedAt)}
                         </p>
                         <div className="mt-1.5 flex items-center gap-2">
                           <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-secondary">

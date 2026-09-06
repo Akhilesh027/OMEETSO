@@ -7,6 +7,7 @@ import {
   MessageSquare, Zap, CheckCircle2, Star, Users, UserPlus, KeyRound, Phone, UserX
 } from "lucide-react";
 import { loginUserApi, checkPhoneStatusApi, requestUserOtp, verifyUserOtp, resetUserPinApi } from "@/api/auth.api";
+import { formatPhoneDisplay, cleanPhoneInput } from "@/lib/utils";
 import { toast } from "sonner";
 
 export const Route = createFileRoute("/login")({
@@ -408,17 +409,19 @@ function LoginPage() {
                     Mobile Number (10 Digits) *
                   </label>
                   <div className="relative flex items-center rounded-2xl border border-border bg-card px-3.5 py-3 focus-within:border-indigo-brand focus-within:ring-2 focus-within:ring-indigo-brand/20 transition-all">
-                    <span className="text-sm font-black text-foreground font-mono mr-2">+91</span>
+                    <span className="flex items-center gap-1.5 text-sm font-black text-foreground font-mono pr-3 border-r border-border mr-3 shrink-0 select-none">
+                      <span className="text-base">🇮🇳</span> +91
+                    </span>
                     <input
                       ref={phoneInputRef}
                       type="tel"
                       inputMode="numeric"
-                      maxLength={10}
+                      maxLength={11}
                       autoFocus
                       required
                       placeholder="98765 43210"
-                      value={phone}
-                      onChange={(e) => setPhone(e.target.value.replace(/\D/g, "").slice(0, 10))}
+                      value={formatPhoneDisplay(phone)}
+                      onChange={(e) => setPhone(cleanPhoneInput(e.target.value))}
                       className="w-full bg-transparent text-base font-bold text-foreground outline-none placeholder:font-normal placeholder:text-muted-foreground font-mono tracking-wider"
                     />
                   </div>

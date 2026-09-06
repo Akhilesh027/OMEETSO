@@ -19,6 +19,8 @@ import { InfinityLoader } from "@/components/omeetso/InfinityLoader";
 const CATS = [
   { id: "all", label: "All" },
   { id: "nearby_changes", label: "Nearby Changes" },
+  { id: "listings", label: "Listings" },
+  { id: "job_application", label: "Jobs" },
   { id: "chat_message", label: "Messages" },
   { id: "offer_received", label: "Offers" },
   { id: "offer_status", label: "Offer Status" },
@@ -32,6 +34,7 @@ const ICON: Record<string, any> = {
   offer_status: HandCoins,
   listing_moderation: Package,
   store_moderation: Store,
+  job_application: Package,
   system: ShieldCheck,
   offers: HandCoins,
   listings: Package,
@@ -60,33 +63,57 @@ function NotifList() {
 
   const loadNotifications = useCallback(async () => {
     setLoading(true);
-    const res = await getNotificationsApi(1, 50);
-    setLoading(false);
-    if (res.success && Array.isArray(res.data)) {
-      setNotifications(res.data);
-      if (typeof res.unreadCount === "number") {
-        setUnreadCount(res.unreadCount);
-      } else {
-        setUnreadCount(res.data.filter((item) => !item.isRead).length);
+    let serverItems: NotificationItem[] = [];
+    try {
+      const res = await getNotificationsApi(1, 50);
+      if (res.success && Array.isArray(res.data)) {
+        serverItems = res.data;
       }
-    } else {
-      const local = listNotifications();
-      const mapped: NotificationItem[] = local.map((n) => ({
-        id: n.id,
-        type: n.category || "system",
-        title: n.title,
-        body: n.body,
-        link: n.destination || `/notifications/${n.id}`,
-        isRead: Boolean(n.read),
-        createdAt: new Date(n.time).toISOString(),
-      }));
-      setNotifications(mapped);
-      setUnreadCount(mapped.filter((item) => !item.isRead).length);
-    }
+    } catch { /* offline fallback */ }
+
+    const local = listNotifications();
+    const localMapped: NotificationItem[] = local.map((n) => ({
+      id: n.id,
+      type: n.category || "system",
+      title: n.title,
+      body: n.body,
+      link: n.destination || `/notifications/${n.id}`,
+      thumbnail: n.thumbnail,
+      isRead: Boolean(n.read),
+      createdAt: new Date(n.time).toISOString(),
+    }));
+
+    // Merge server & local, deduping by id
+    const map = new Map<string, NotificationItem>();
+    serverItems.forEach((n) => map.set(n.id, n));
+    localMapped.forEach((n) => {
+      if (!map.has(n.id)) {
+        map.set(n.id, n);
+      }
+    });
+
+    const merged = Array.from(map.values()).sort(
+      (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+    );
+
+    setNotifications(merged);
+    setUnreadCount(merged.filter((item) => !item.isRead).length);
+    setLoading(false);
   }, []);
 
   useEffect(() => {
     loadNotifications();
+
+    const handleSync = () => {
+      loadNotifications();
+    };
+
+    window.addEventListener("omeetso_notifications_changed", handleSync);
+    window.addEventListener("storage", handleSync);
+    return () => {
+      window.removeEventListener("omeetso_notifications_changed", handleSync);
+      window.removeEventListener("storage", handleSync);
+    };
   }, [loadNotifications]);
 
   const handleMarkAllRead = async () => {
@@ -138,14 +165,19 @@ function NotifList() {
   };
 
   const filteredList = notifications.filter((n) => {
-    if (tab !== "all" && n.type !== tab) return false;
+    if (tab !== "all") {
+      if (tab === "listings" && (n.type === "listings" || n.type === "listing_moderation")) return true;
+      if (tab === "nearby_changes" && (n.type === "nearby_changes" || n.title.toLowerCase().includes("nearby"))) return true;
+      if (tab === "job_application" && (n.type === "job_application" || n.type === "jobs" || n.title.toLowerCase().includes("job"))) return true;
+      if (n.type !== tab) return false;
+    }
     if (unreadOnly && n.isRead) return false;
     return true;
   });
 
   return (
     <MobileFrame>
-      <div className="min-h-dvh bg-background pb-28">
+      <div className="min-h-dvh bg-background pb-28 font-sans">
         <BackBar
           title="Notifications"
           right={
@@ -198,6 +230,10 @@ function NotifList() {
           ) : (
             filteredList.map((n) => {
               const Icon = ICON[n.type] || Bell;
+              const isNearby = n.type === "nearby_changes" || n.title.toLowerCase().includes("nearby");
+              const isListing = n.type === "listings" || n.type === "listing_moderation" || n.link?.startsWith("/product/");
+              const isJob = n.type === "job_application" || n.type === "jobs" || n.title.toLowerCase().includes("job");
+
               return (
                 <div
                   key={n.id}
@@ -207,27 +243,57 @@ function NotifList() {
                     !n.isRead && "bg-primary/5 border-l-4 border-l-primary"
                   )}
                 >
-                  <div className="grid h-10 w-10 shrink-0 place-items-center rounded-2xl bg-primary/10 text-primary">
-                    <Icon className="h-5 w-5 text-primary" />
-                  </div>
+                  {/* Thumbnail image or category icon */}
+                  {n.thumbnail ? (
+                    <div className="relative h-12 w-12 shrink-0 rounded-2xl overflow-hidden border border-border/80 bg-muted shadow-xs">
+                      <img
+                        src={n.thumbnail}
+                        alt=""
+                        className="h-full w-full object-cover group-hover:scale-105 transition-transform duration-300"
+                        onError={(e) => {
+                          (e.target as HTMLElement).style.display = "none";
+                        }}
+                      />
+                      {isNearby && (
+                        <span className="absolute bottom-0 inset-x-0 bg-primary/90 text-primary-foreground text-[8px] font-black text-center py-0.5 uppercase tracking-tighter">
+                          Nearby
+                        </span>
+                      )}
+                    </div>
+                  ) : (
+                    <div className={cn(
+                      "grid h-11 w-11 shrink-0 place-items-center rounded-2xl transition-transform group-hover:scale-105",
+                      isNearby ? "bg-amber-500/15 text-amber-600 border border-amber-500/30" : "bg-primary/10 text-primary"
+                    )}>
+                      <Icon className="h-5 w-5" />
+                    </div>
+                  )}
+
                   <div className="min-w-0 flex-1">
                     <div className="flex items-center justify-between gap-2">
-                      <p className={cn("truncate text-sm font-bold text-foreground group-hover:text-primary transition-colors", !n.isRead && "font-black")}>
-                        {n.title}
-                      </p>
+                      <div className="flex items-center gap-1.5 min-w-0">
+                        {isNearby && (
+                          <span className="inline-flex items-center gap-1 rounded-full bg-amber-500/15 border border-amber-500/30 px-2 py-0.5 text-[9.5px] font-black text-amber-700 shrink-0">
+                            <Radio className="h-2.5 w-2.5 animate-pulse" /> Nearby Change
+                          </span>
+                        )}
+                        <p className={cn("truncate text-sm font-bold text-foreground group-hover:text-primary transition-colors", !n.isRead && "font-black")}>
+                          {n.title}
+                        </p>
+                      </div>
                       <span className="shrink-0 text-[10px] font-semibold text-muted-foreground">
                         {new Date(n.createdAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
                       </span>
                     </div>
                     <p className="mt-1 line-clamp-2 text-xs text-muted-foreground leading-relaxed">{n.body}</p>
                     
-                    <div className="mt-2 flex items-center justify-between">
+                    <div className="mt-2.5 flex items-center justify-between">
                       <button
                         type="button"
                         onClick={(e) => handleNotifClick(n, e)}
                         className="inline-flex items-center gap-1 text-xs font-extrabold text-primary group-hover:translate-x-1 transition-transform"
                       >
-                        <span>View Details</span>
+                        <span>{isNearby || isListing ? "View Listing" : isJob ? "View Job Application" : "View Details"}</span>
                         <ArrowRight className="h-3.5 w-3.5" />
                       </button>
                       {!n.isRead && (
