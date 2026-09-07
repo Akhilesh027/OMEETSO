@@ -2,6 +2,7 @@ import React, { useState, useEffect } from "react";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { PageContainer } from "@/components/layout/PageContainer";
 import { MockDataService } from "@/services/mockDataService";
+import { API_BASE } from "@/config/api";
 import type { PlatformUser } from "@/types";
 import {
   Search,
@@ -16,7 +17,14 @@ import {
 import { useToast } from "@/contexts/ToastContext";
 
 export default function UsersListPage() {
-  const [users, setUsers] = useState<PlatformUser[]>([]);
+  const [users, setUsers] = useState<PlatformUser[]>(() => {
+    try {
+      const cached = MockDataService.getUsers();
+      return Array.isArray(cached) && cached.length > 0 ? cached : [];
+    } catch {
+      return [];
+    }
+  });
   const [activeTab, setActiveTab] = useState<"all" | "buyer" | "seller" | "business" | "suspended" | "banned">("all");
   const [searchTerm, setSearchTerm] = useState("");
 
@@ -35,17 +43,21 @@ export default function UsersListPage() {
   const { showSuccess } = useToast();
 
   const loadUsers = async () => {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 3500);
+
     try {
-      const res = await fetch("https://api.omeetso.in/api/v1/users/admin/all");
+      const res = await fetch(`${API_BASE}/users/admin/all`, { signal: controller.signal });
+      clearTimeout(timer);
       const json = await res.json();
       if (json.success && Array.isArray(json.data)) {
         setUsers(json.data);
         return;
       }
     } catch (err) {
+      clearTimeout(timer);
       console.warn("MongoDB users fetch warning:", err);
     }
-    setUsers(MockDataService.getUsers());
   };
 
   useEffect(() => {

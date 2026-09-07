@@ -37,7 +37,35 @@ import {
 
 export default function ListingsListPage() {
   const navigate = useNavigate();
-  const [listings, setListings] = useState<Listing[]>([]);
+  const [listings, setListings] = useState<Listing[]>(() => {
+    try {
+      const cached = localStorage.getItem("omeetso_admin_listings_cache");
+      if (cached) {
+        const parsed = JSON.parse(cached);
+        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+      }
+    } catch { }
+    const mock = MockDataService.getListings();
+    return mock.map((item: any) => ({
+      id: item.id || item._id,
+      title: item.title,
+      description: item.description || item.title,
+      price: item.priceInPaise ? item.priceInPaise / 100 : item.price || 0,
+      currency: "INR",
+      condition: item.condition || "Like New",
+      categoryId: item.categoryId || item.category || "General",
+      subcategoryId: item.subcategoryId,
+      sellerId: item.seller?.id || item.sellerId || "user_1",
+      sellerName: item.seller?.name || item.sellerName || "Omeetso Seller",
+      status: (item.status?.toLowerCase() || "active") as any,
+      images: item.images || [],
+      coverIndex: item.coverIndex || 0,
+      location: { city: item.location?.city || item.city || "Hyderabad", area: item.location?.area || item.area || "Madhapur", pincode: item.location?.pincode || item.pincode || "500081" },
+      reportCount: 0,
+      createdAt: item.createdAt || new Date().toISOString(),
+      updatedAt: item.createdAt || new Date().toISOString()
+    }));
+  });
   const [activeTab, setActiveTab] = useState<
     "all" | "pending_review" | "reported" | "requires_changes" | "active" | "rejected" | "removed"
   >("all");
@@ -65,10 +93,8 @@ export default function ListingsListPage() {
 
   const loadListings = async () => {
     try {
-      console.log("[ListingsListPage] Fetching listings from API...");
-      const res = await getAdminListingsQueueApi({ limit: 25 });
-      console.log("[ListingsListPage] API response:", res);
-      if (res.success && Array.isArray(res.data)) {
+      const res = await getAdminListingsQueueApi({ limit: 50 });
+      if (res.success && Array.isArray(res.data) && res.data.length > 0) {
         const mapped: Listing[] = res.data.map((item: any) => ({
           id: item.id || item._id,
           title: item.title,
@@ -88,16 +114,15 @@ export default function ListingsListPage() {
           createdAt: item.createdAt || new Date().toISOString(),
           updatedAt: item.createdAt || new Date().toISOString()
         }));
-        console.log(`[ListingsListPage] Loaded ${mapped.length} listings successfully.`);
         setListings(mapped);
+        try {
+          localStorage.setItem("omeetso_admin_listings_cache", JSON.stringify(mapped));
+        } catch { }
         return;
-      } else {
-        console.warn("[ListingsListPage] Failed to get listing data from response:", res);
       }
     } catch (err) {
       console.error("[ListingsListPage] Error in loadListings:", err);
     }
-    setListings([]);
   };
 
   useEffect(() => {

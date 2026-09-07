@@ -4,8 +4,7 @@ import { MockDataService } from "@/services/mockDataService";
 
 const API_BASE = (import.meta as any).env?.VITE_ADMIN_API_BASE_URL
   ? `${(import.meta as any).env.VITE_ADMIN_API_BASE_URL}/listings`
-  : "https://api.omeetso.in/api/admin/listings";
-const LOCAL_FALLBACK_BASE = "https://api.omeetso.in/api/admin/listings";
+  : `${ROOT_API_BASE}/admin/listings`;
 
 function getHeaders(): Record<string, string> {
   const token = AdminAuthService.getAccessToken();
@@ -16,40 +15,24 @@ function getHeaders(): Record<string, string> {
 }
 
 async function resilientFetch(path: string, options: RequestInit = {}): Promise<Response | null> {
-  const isLocalhost = typeof window !== "undefined" && (window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1");
-
-  // 1. Try Primary configured URL
   try {
+    const controller = typeof AbortController !== "undefined" ? new AbortController() : null;
+    const timeoutId = controller ? setTimeout(() => controller.abort(), 4000) : null;
+
     const res = await fetch(path, {
       ...options,
       headers: { ...getHeaders(), ...(options.headers || {}) },
-      credentials: "include"
+      credentials: "include",
+      signal: controller?.signal
+    }).finally(() => {
+      if (timeoutId) clearTimeout(timeoutId);
     });
-    if (res.ok) return res;
-    console.warn(`[resilientFetch] HTTP status ${res.status} for ${path}`);
-    return res; // Return response even if 4xx/5xx so caller can read json error
+
+    return res;
   } catch (err) {
-    console.error(`[resilientFetch] Network error for ${path}:`, err);
+    console.warn(`[resilientFetch] Network error for ${path}:`, err);
+    return null;
   }
-
-  // 2. Try Localhost fallback if available and different from primary
-  if (isLocalhost && !path.startsWith("https://api.omeetso.in")) {
-    try {
-      const localPath = path.replace(API_BASE, LOCAL_FALLBACK_BASE);
-      const res = await fetch(localPath, {
-        ...options,
-        headers: { ...getHeaders(), ...(options.headers || {}) },
-        credentials: "include"
-      });
-      if (res.ok) return res;
-      console.warn(`[resilientFetch fallback] HTTP status ${res.status} for ${localPath}`);
-      return res;
-    } catch (err) {
-      console.error(`[resilientFetch fallback] Network error:`, err);
-    }
-  }
-
-  return null;
 }
 
 export async function getAdminListingsQueueApi(params?: Record<string, any>): Promise<{ success: boolean; data?: any[]; pagination?: any; error?: string }> {

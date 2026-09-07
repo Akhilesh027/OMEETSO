@@ -1,6 +1,7 @@
 import { Router } from "express";
 import {
   getAdminListings,
+  getAdminListingById,
   approveListing,
   rejectListing,
   createAdminListing,
@@ -14,6 +15,7 @@ import { requirePermission } from "../../../middleware/requirePermission";
 export const adminListingsRouter = Router();
 
 adminListingsRouter.get("/", authenticateAdmin, requirePermission("listings.view"), getAdminListings);
+adminListingsRouter.get("/:listingId", authenticateAdmin, requirePermission("listings.view"), getAdminListingById);
 adminListingsRouter.post("/", authenticateAdmin, requirePermission("listings.manage"), createAdminListing);
 adminListingsRouter.patch("/:listingId/approve", authenticateAdmin, requirePermission("listings.approve"), approveListing);
 adminListingsRouter.patch("/:listingId/reject", authenticateAdmin, requirePermission("listings.reject"), rejectListing);

@@ -3,9 +3,27 @@ import { Category } from "../models/Category";
 import { Listing } from "../../listings/models/Listing";
 import { seedCategories } from "../../../database/seeders/categorySeeder";
 
+let categoriesCache: Record<string, { data: any[]; expiresAt: number }> = {};
+
+export function clearCategoriesCache(): void {
+  categoriesCache = {};
+}
+
 export async function getCategories(req: Request, res: Response, next: NextFunction): Promise<void> {
   try {
     const includeInactive = req.query.all === "true" || req.query.includeInactive === "true";
+    const cacheKey = includeInactive ? "all" : "active";
+    const now = Date.now();
+
+    if (categoriesCache[cacheKey] && categoriesCache[cacheKey].expiresAt > now) {
+      res.setHeader("Cache-Control", "public, max-age=15");
+      res.status(200).json({
+        success: true,
+        data: categoriesCache[cacheKey].data
+      });
+      return;
+    }
+
     const filter = includeInactive ? {} : { isActive: true };
 
     let categories = await Category.find(filter)
@@ -32,36 +50,43 @@ export async function getCategories(req: Request, res: Response, next: NextFunct
       }
     });
 
-    res.setHeader("Cache-Control", "no-cache, no-store, must-revalidate");
+    const responseData = categories.map((cat) => {
+      const key = (cat.categoryId || "").toLowerCase();
+      return {
+        id: cat.categoryId,
+        categoryId: cat.categoryId,
+        name: cat.name,
+        row: cat.row,
+        iconName: cat.iconName || "Layers",
+        iconUrl: cat.iconUrl || undefined,
+        imageUrl: cat.imageUrl || undefined,
+        subcategoriesLabel: cat.subcategoriesLabel || undefined,
+        subcategories: cat.subcategories || [],
+        filters: cat.filters || [],
+        listingCardFields: cat.listingCardFields || [],
+        detailsSpecFields: cat.detailsSpecFields || [],
+        sellingFormFields: cat.sellingFormFields || [],
+        verificationBadges: cat.verificationBadges || [],
+        sortOptions: cat.sortOptions || [],
+        compareAttributes: cat.compareAttributes || [],
+        specialFeatures: cat.specialFeatures || [],
+        specFields: cat.specFields || [],
+        count: countMap[key] || 0,
+        isActive: cat.isActive !== false,
+        createdAt: cat.createdAt,
+        updatedAt: cat.updatedAt
+      };
+    });
+
+    categoriesCache[cacheKey] = {
+      data: responseData,
+      expiresAt: now + 30_000 // 30 second TTL
+    };
+
+    res.setHeader("Cache-Control", "public, max-age=15");
     res.status(200).json({
       success: true,
-      data: categories.map((cat) => {
-        const key = (cat.categoryId || "").toLowerCase();
-        return {
-          id: cat.categoryId,
-          categoryId: cat.categoryId,
-          name: cat.name,
-          row: cat.row,
-          iconName: cat.iconName || "Layers",
-          iconUrl: cat.iconUrl || undefined,
-          imageUrl: cat.imageUrl || undefined,
-          subcategoriesLabel: cat.subcategoriesLabel || undefined,
-          subcategories: cat.subcategories || [],
-          filters: cat.filters || [],
-          listingCardFields: cat.listingCardFields || [],
-          detailsSpecFields: cat.detailsSpecFields || [],
-          sellingFormFields: cat.sellingFormFields || [],
-          verificationBadges: cat.verificationBadges || [],
-          sortOptions: cat.sortOptions || [],
-          compareAttributes: cat.compareAttributes || [],
-          specialFeatures: cat.specialFeatures || [],
-          specFields: cat.specFields || [],
-          count: countMap[key] || 0,
-          isActive: cat.isActive !== false,
-          createdAt: cat.createdAt,
-          updatedAt: cat.updatedAt
-        };
-      })
+      data: responseData
     });
   } catch (error) {
     next(error);
@@ -221,6 +246,7 @@ export async function createCategory(req: Request, res: Response, next: NextFunc
       isActive: isActive !== false
     });
 
+    clearCategoriesCache();
     res.status(201).json({
       success: true,
       message: `Category "${newCategory.name}" created successfully`,
@@ -285,6 +311,7 @@ export async function updateCategory(req: Request, res: Response, next: NextFunc
     if (isActive !== undefined) category.isActive = Boolean(isActive);
 
     await category.save();
+    clearCategoriesCache();
 
     res.status(200).json({
       success: true,
@@ -314,6 +341,7 @@ export async function deleteCategory(req: Request, res: Response, next: NextFunc
     const permanent = req.query.permanent === "true";
     if (permanent) {
       await Category.deleteOne({ _id: category._id });
+      clearCategoriesCache();
       res.status(200).json({
         success: true,
         message: `Category "${category.name}" permanently deleted`
@@ -321,6 +349,7 @@ export async function deleteCategory(req: Request, res: Response, next: NextFunc
     } else {
       category.isActive = false;
       await category.save();
+      clearCategoriesCache();
       res.status(200).json({
         success: true,
         message: `Category "${category.name}" disabled successfully`
@@ -334,6 +363,7 @@ export async function deleteCategory(req: Request, res: Response, next: NextFunc
 export async function seedCategoriesController(req: Request, res: Response, next: NextFunction): Promise<void> {
   try {
     await seedCategories();
+    clearCategoriesCache();
     const count = await Category.countDocuments({ isActive: true });
     res.status(200).json({
       success: true,

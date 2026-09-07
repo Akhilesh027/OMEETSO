@@ -1,6 +1,10 @@
 import { AdminAuthService } from "@/services/adminAuthService";
+import { API_BASE as ROOT_API_BASE } from "@/config/api";
 
-const API_BASE = "https://api.omeetso.in/api/v1/admin/ad-campaigns";
+const API_BASE = `${ROOT_API_BASE}/admin/ad-campaigns`;
+const PLACEMENTS_API = `${ROOT_API_BASE}/admin/ad-placements`;
+const PUBLIC_PLACEMENTS_API = `${ROOT_API_BASE}/ad-placements`;
+const PRODUCTS_API = `${ROOT_API_BASE}/admin/ad-products`;
 
 function getHeaders(): Record<string, string> {
   const token = AdminAuthService.getAccessToken();
@@ -15,14 +19,19 @@ export async function getAdminAdCampaignsApi(params?: Record<string, any>): Prom
   data?: any[];
   error?: string;
 }> {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), 3500);
+
   try {
     const query = new URLSearchParams(params || {}).toString();
     const url = query ? `${API_BASE}?${query}` : API_BASE;
 
     const res = await fetch(url, {
       headers: getHeaders(),
-      credentials: "include"
+      credentials: "include",
+      signal: controller.signal
     });
+    clearTimeout(timer);
 
     const json = await res.json();
     if (!res.ok || !json.success) {
@@ -30,6 +39,7 @@ export async function getAdminAdCampaignsApi(params?: Record<string, any>): Prom
     }
     return { success: true, data: json.data };
   } catch (error) {
+    clearTimeout(timer);
     return { success: false, error: "Network error: Unable to fetch ad campaigns" };
   }
 }
@@ -87,17 +97,23 @@ export async function getAdminAdPlacementsApi(): Promise<{
   data?: any[];
   error?: string;
 }> {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), 3500);
+
   try {
-    const res = await fetch("https://api.omeetso.in/api/v1/ad-placements", {
+    const res = await fetch(PUBLIC_PLACEMENTS_API, {
       headers: getHeaders(),
-      credentials: "include"
+      credentials: "include",
+      signal: controller.signal
     });
+    clearTimeout(timer);
     const json = await res.json();
     if (!res.ok || !json.success) {
       return { success: false, error: json.error?.message || "Failed to fetch ad placements" };
     }
     return { success: true, data: json.data };
   } catch (error) {
+    clearTimeout(timer);
     return { success: false, error: "Network error: Unable to fetch ad placements" };
   }
 }
@@ -108,7 +124,7 @@ export async function createAdminAdPlacementApi(placementData: Record<string, an
   error?: string;
 }> {
   try {
-    const res = await fetch("https://api.omeetso.in/api/v1/admin/ad-placements", {
+    const res = await fetch(PLACEMENTS_API, {
       method: "POST",
       headers: getHeaders(),
       credentials: "include",
@@ -133,7 +149,7 @@ export async function updateAdminAdPlacementApi(
   error?: string;
 }> {
   try {
-    const res = await fetch(`https://api.omeetso.in/api/v1/admin/ad-placements/${placementId}`, {
+    const res = await fetch(`${PLACEMENTS_API}/${placementId}`, {
       method: "PUT",
       headers: getHeaders(),
       credentials: "include",
@@ -155,7 +171,7 @@ export async function deleteAdminAdPlacementApi(placementId: string): Promise<{
   error?: string;
 }> {
   try {
-    const res = await fetch(`https://api.omeetso.in/api/v1/admin/ad-placements/${placementId}`, {
+    const res = await fetch(`${PLACEMENTS_API}/${placementId}`, {
       method: "DELETE",
       headers: getHeaders(),
       credentials: "include"
@@ -175,17 +191,23 @@ export async function getAdminAdProductsApi(): Promise<{
   data?: any[];
   error?: string;
 }> {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), 3500);
+
   try {
-    const res = await fetch("https://api.omeetso.in/api/v1/admin/ad-products", {
+    const res = await fetch(PRODUCTS_API, {
       headers: getHeaders(),
-      credentials: "include"
+      credentials: "include",
+      signal: controller.signal
     });
+    clearTimeout(timer);
     const json = await res.json();
     if (!res.ok || !json.success) {
       return { success: false, error: json.error?.message || "Failed to fetch ad products" };
     }
     return { success: true, data: json.data };
   } catch (error) {
+    clearTimeout(timer);
     return { success: false, error: "Network error: Unable to fetch ad products" };
   }
 }
@@ -196,7 +218,7 @@ export async function createAdminAdProductApi(productData: Record<string, any>):
   error?: string;
 }> {
   try {
-    const res = await fetch("https://api.omeetso.in/api/v1/admin/ad-products", {
+    const res = await fetch(PRODUCTS_API, {
       method: "POST",
       headers: getHeaders(),
       credentials: "include",
@@ -221,7 +243,7 @@ export async function updateAdminAdProductApi(
   error?: string;
 }> {
   try {
-    const res = await fetch(`https://api.omeetso.in/api/v1/admin/ad-products/${productId}`, {
+    const res = await fetch(`${PRODUCTS_API}/${productId}`, {
       method: "PUT",
       headers: getHeaders(),
       credentials: "include",
@@ -243,7 +265,7 @@ export async function deleteAdminAdProductApi(productId: string): Promise<{
   error?: string;
 }> {
   try {
-    const res = await fetch(`https://api.omeetso.in/api/v1/admin/ad-products/${productId}`, {
+    const res = await fetch(`${PRODUCTS_API}/${productId}`, {
       method: "DELETE",
       headers: getHeaders(),
       credentials: "include"
@@ -264,7 +286,7 @@ export async function toggleAdminAdProductStatusApi(productId: string): Promise<
   error?: string;
 }> {
   try {
-    const res = await fetch(`https://api.omeetso.in/api/v1/admin/ad-products/${productId}/toggle-status`, {
+    const res = await fetch(`${PRODUCTS_API}/${productId}/toggle-status`, {
       method: "PATCH",
       headers: getHeaders(),
       credentials: "include"

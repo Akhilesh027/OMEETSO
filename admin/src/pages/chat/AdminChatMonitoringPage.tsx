@@ -8,6 +8,7 @@ import {
   sendAdminWarningMessageApi
 } from "@/api/adminChats.api";
 import { AdminAuthService } from "@/services/adminAuthService";
+import { BACKEND_URL } from "@/config/api";
 import {
   MessageSquare,
   Search,
@@ -113,9 +114,10 @@ export default function AdminChatMonitoringPage() {
     const token = AdminAuthService.getAccessToken();
     if (!token) return;
 
-    const socket = io("https://api.omeetso.in", {
+    const socket = io(BACKEND_URL, {
       auth: { token },
-      transports: ["websocket", "polling"]
+      transports: ["websocket", "polling"],
+      timeout: 5000,
     });
 
     socketRef.current = socket;

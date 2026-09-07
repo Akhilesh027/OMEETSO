@@ -2,6 +2,7 @@ import React, { useState, useEffect } from "react";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { PageContainer } from "@/components/layout/PageContainer";
 import { Activity, Server, Database, Radio, HardDrive, CheckCircle2, RefreshCw } from "lucide-react";
+import { API_BASE } from "@/config/api";
 
 export default function MaintenancePage() {
   const [healthData, setHealthData] = useState<{
@@ -23,7 +24,7 @@ export default function MaintenancePage() {
   const checkHealth = async () => {
     setLoading(true);
     try {
-      const res = await fetch("https://api.omeetso.in/api/v1/health");
+      const res = await fetch(`${API_BASE}/health`);
       const json = await res.json();
       if (json.success) {
         setHealthData((prev) => ({ ...prev, api: "HEALTHY", mongodb: "CONNECTED (31 Collections)" }));

@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback, useMemo } from "react";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { PageContainer } from "@/components/layout/PageContainer";
+import { API_BASE } from "@/config/api";
 import {
   getAdminAdProductsApi,
   createAdminAdProductApi,
@@ -120,9 +121,57 @@ type FilterTab =
   | "ACTIVE"
   | "INACTIVE";
 
+const PRESET_PACKAGES = [
+  {
+    id: "pkg_quick_boost",
+    name: "Quick Boost (3 Days)",
+    description: "Ideal for fast weekend clearance & urgent sales",
+    campaignType: "LISTING_BOOST",
+    durationDays: 3,
+    priceInPaise: 9900,
+    originalPriceInPaise: 19900,
+    badge: "⚡ Quick Sale",
+    estimatedReach: "1,500 - 3,500 Local Buyers",
+    features: ["Top Search Results", "URGENT Ribbon Badge", "Immediate WhatsApp Leads"],
+    permittedPlacements: ["SEARCH_TOP", "URGENT_BADGE"],
+    priority: 1,
+    active: true,
+  },
+  {
+    id: "pkg_featured_pro",
+    name: "Featured Pro (7 Days)",
+    description: "Most popular boost with high visibility across search and category hubs",
+    campaignType: "LISTING_BOOST",
+    durationDays: 7,
+    priceInPaise: 24900,
+    originalPriceInPaise: 39900,
+    badge: "🔥 Most Popular",
+    estimatedReach: "5,000 - 12,000 Local Buyers",
+    features: ["#1 Search Ranking", "Category Header Spotlight", "Golden Border Card", "5x Buyer Inquiries"],
+    permittedPlacements: ["SEARCH_TOP", "CATEGORY_FEATURED", "HIGHLIGHTED_CARD"],
+    priority: 2,
+    active: true,
+  },
+  {
+    id: "pkg_store_max",
+    name: "Store & Brand Billboard (15 Days)",
+    description: "Premium high-impact showcase billboard for businesses and verified showrooms",
+    campaignType: "BANNER_AD",
+    durationDays: 15,
+    priceInPaise: 99900,
+    originalPriceInPaise: 149900,
+    badge: "👑 Enterprise",
+    estimatedReach: "25,000+ City-wide Shoppers",
+    features: ["Homepage Billboard Banner", "Direct Website & Call-to-Action", "Full Analytics & Click Tracking"],
+    permittedPlacements: ["HOMEPAGE_HERO", "CATEGORY_HEADER", "STORE_BANNER"],
+    priority: 3,
+    active: true,
+  },
+];
+
 export default function PromotionPackagesPage() {
-  const [packages, setPackages] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [packages, setPackages] = useState<any[]>(PRESET_PACKAGES);
+  const [loading, setLoading] = useState(false);
   const [activeFilter, setActiveFilter] = useState<FilterTab>("ALL");
   const [searchQuery, setSearchQuery] = useState("");
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -156,15 +205,15 @@ export default function PromotionPackagesPage() {
   const { showSuccess, showError } = useToast();
 
   const loadPackages = useCallback(async () => {
-    setLoading(true);
+    setSyncing(true);
     const res = await getAdminAdProductsApi();
-    setLoading(false);
-    if (res.success && res.data) {
+    setSyncing(false);
+    if (res.success && Array.isArray(res.data) && res.data.length > 0) {
       setPackages(res.data);
-    } else {
-      showError("Failed to Load Packages", res.error);
+    } else if (res.error) {
+      console.warn("Packages fetch:", res.error);
     }
-  }, [showError]);
+  }, []);
 
   useEffect(() => {
     loadPackages();
@@ -173,7 +222,7 @@ export default function PromotionPackagesPage() {
   const handleSyncDefaults = async () => {
     setSyncing(true);
     try {
-      const res = await fetch("https://api.omeetso.in/api/v1/ad-products?reset=true");
+      const res = await fetch(`${API_BASE}/ad-products?reset=true`);
       const json = await res.json();
       setSyncing(false);
       if (json.success && json.data) {

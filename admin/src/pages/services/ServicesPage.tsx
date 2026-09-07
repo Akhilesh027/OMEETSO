@@ -42,7 +42,7 @@ export function ServicesPage() {
   const [searchQuery, setSearchQuery] = useState("");
   const [services, setServices] = useState<any[]>([]);
   const [categories, setCategories] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
   const [isLiveDb, setIsLiveDb] = useState(false);
 
   // Inspector & Action Modals
@@ -71,7 +71,6 @@ export function ServicesPage() {
   const { showSuccess, showError } = useToast();
 
   const loadAdminServices = async () => {
-    setLoading(true);
     try {
       const res = await getAdminServicesQueueApi({
         status: statusFilter === "all" ? "ALL" : statusFilter.toUpperCase(),
@@ -81,14 +80,10 @@ export function ServicesPage() {
         setServices(res.data);
         setIsLiveDb(true);
       } else {
-        setServices([]);
         setIsLiveDb(false);
       }
     } catch {
-      setServices([]);
       setIsLiveDb(false);
-    } finally {
-      setLoading(false);
     }
   };
 

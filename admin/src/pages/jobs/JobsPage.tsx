@@ -36,7 +36,7 @@ export function JobsPage() {
   const [searchQuery, setSearchQuery] = useState("");
   const [jobs, setJobs] = useState<any[]>([]);
   const [categories, setCategories] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
 
   // Inspector & Action Modals
   const [selectedJob, setSelectedJob] = useState<any | null>(null);
@@ -64,26 +64,26 @@ export function JobsPage() {
   const { showSuccess, showError } = useToast();
 
   const loadAdminJobs = async () => {
-    setLoading(true);
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 3500);
+
     try {
       const token = typeof localStorage !== "undefined" ? localStorage.getItem("omeetso_admin_token") : null;
       const res = await fetch(`${API_BASE}/admin/jobs?status=ALL`, {
         headers: { ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+        signal: controller.signal,
       });
+      clearTimeout(timer);
       if (res.ok) {
         const json = await res.json();
         if (json.success && Array.isArray(json.data)) {
           setJobs(json.data);
-          setLoading(false);
           return;
         }
       }
     } catch {
-      // fallback
+      clearTimeout(timer);
     }
-
-    setJobs([]);
-    setLoading(false);
   };
 
   const loadAdminCategories = async () => {

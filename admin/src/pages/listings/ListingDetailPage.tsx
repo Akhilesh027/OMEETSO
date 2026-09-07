@@ -5,6 +5,7 @@ import { PageContainer } from "@/components/layout/PageContainer";
 import { MOCK_LISTINGS, MockDataService } from "@/services/mockDataService";
 import { approveListingApi, rejectListingApi, updateListingStatusApi } from "@/api/adminListings.api";
 import { API_BASE as ROOT_API_BASE } from "@/config/api";
+import { AdminAuthService } from "@/services/adminAuthService";
 import type { Listing } from "@/types";
 import {
   Package,
@@ -58,6 +59,7 @@ export default function ListingDetailPage() {
   const navigate = useNavigate();
   const { showSuccess } = useToast();
   const [liveListing, setLiveListing] = useState<Listing | null>(null);
+  const [loading, setLoading] = useState(true);
   const mockDefault = MOCK_LISTINGS.find((l) => l.id === listingId) || null;
   const listing = liveListing || mockDefault || ({} as any);
 
@@ -75,49 +77,76 @@ export default function ListingDetailPage() {
     if (localFound) {
       setLiveListing(localFound);
       setStatus(localFound.status);
+      setLoading(false);
     }
 
-    // 2. Fetch fresh live data from backend if available
-    const urls = [
+    // 2. Fetch fresh live data from backend
+    const token = AdminAuthService.getAccessToken();
+    const headers: Record<string, string> = {
+      "Content-Type": "application/json",
+      ...(token ? { Authorization: `Bearer ${token}` } : {})
+    };
+
+    const endpoints = [
+      `${ROOT_API_BASE}/admin/listings/${listingId}`,
       `${ROOT_API_BASE}/listings/${listingId}`,
-      `https://api.omeetso.in/api/v1/listings/${listingId}`
     ];
 
     (async () => {
-      for (const url of urls) {
+      for (const url of endpoints) {
         try {
-          const res = await fetch(url).catch(() => null);
+          const controller = new AbortController();
+          const timer = setTimeout(() => controller.abort(), 3500);
+
+          const res = await fetch(url, {
+            headers,
+            credentials: "include",
+            signal: controller.signal,
+          });
+          clearTimeout(timer);
+
           if (res && res.ok) {
             const json = await res.json();
             if (json.success && json.data) {
               const item = json.data;
               const mapped: Listing = {
-                id: item.id || item._id,
-                title: item.title,
-                price: item.price || (item.priceInPaise ? item.priceInPaise / 100 : 0),
+                ...item,
+                id: item.id || item._id || listingId,
+                title: item.title || "Marketplace Listing",
+                price: item.price ?? (item.priceInPaise ? item.priceInPaise / 100 : 0),
                 category: item.category || item.categoryId || "General",
-                condition: item.condition || "Like New",
-                area: item.area || "Madhapur",
-                city: item.city || "Hyderabad",
-                pincode: item.pincode || "500081",
-                description: item.description || item.title,
-                images: item.images || [item.image || "https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=400"],
-                sellerName: item.seller?.name || item.sellerName || "Omeetso Seller",
-                sellerId: item.seller?.id || item.sellerId || "u_live",
-                aiAudit: item.aiAudit,
-                sellerRiskScore: item.seller?.verificationSummary?.riskScore || 94,
+                subcategory: item.subcategory || item.subcategoryId || "",
+                condition: item.condition || "Used - Like New",
+                area: item.area || item.location?.area || "Madhapur",
+                city: item.city || item.location?.city || "Hyderabad",
+                pincode: item.pincode || item.location?.pincode || "500081",
+                description: item.description || item.title || "",
+                images: Array.isArray(item.images) && item.images.length > 0
+                  ? item.images
+                  : [item.image || "https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=400"],
+                sellerName: item.sellerName || item.seller?.name || item.sellerOwnerName || "Omeetso Seller",
+                sellerId: item.sellerId || item.seller?.id || item.seller?._id || "u_seller",
+                sellerRiskScore: item.sellerRiskScore || item.seller?.verificationSummary?.riskScore || 94,
+                specs: item.specs || {},
+                analytics: item.analytics || { views: 0, saves: 0, chats: 0 },
                 status: (item.status?.toLowerCase() || "active") as any,
-                createdAt: item.createdAt || new Date().toISOString()
+                createdAt: item.createdAt || new Date().toISOString(),
+                publishedAt: item.publishedAt || item.createdAt,
+                expiresAt: item.expiresAt,
+                storeId: item.storeId || item.store?.id || item.store?._id,
+                aiAudit: item.aiAudit || { resolution: "1920x1080 (HD)", noPhoneText: true, watermarkPassed: true },
               } as any;
               setLiveListing(mapped);
               setStatus(mapped.status);
+              setLoading(false);
               break;
             }
           }
         } catch {
-          // ignore network failure
+          // try next endpoint
         }
       }
+      setLoading(false);
     })();
   }, [listingId]);
 
@@ -151,11 +180,42 @@ export default function ListingDetailPage() {
     showSuccess("Internal Note Saved", "Private admin note added.");
   };
 
+  if (loading && !liveListing && !mockDefault) {
+    return (
+      <PageContainer>
+        <div className="p-16 text-center space-y-3 bg-white rounded-2xl border border-[#E2E8F0] shadow-sm">
+          <div className="w-8 h-8 border-3 border-[#3547D4] border-t-transparent rounded-full animate-spin mx-auto" />
+          <p className="text-xs font-semibold text-slate-500">Loading listing details from MongoDB...</p>
+        </div>
+      </PageContainer>
+    );
+  }
+
+  if (!loading && !liveListing && !mockDefault) {
+    return (
+      <PageContainer>
+        <div className="p-16 text-center space-y-4 bg-white rounded-2xl border border-[#E2E8F0] shadow-sm">
+          <AlertTriangle className="w-10 h-10 text-amber-500 mx-auto" />
+          <h2 className="text-base font-bold text-slate-800">Listing Not Found</h2>
+          <p className="text-xs text-slate-500 max-w-sm mx-auto">
+            The listing with ID <code className="font-mono text-indigo-600 font-bold">{listingId}</code> could not be located in the database.
+          </p>
+          <button
+            onClick={() => navigate("/admin/listings")}
+            className="px-4 py-2 bg-[#3547D4] text-white text-xs font-bold rounded-xl hover:bg-[#111E4D] transition-colors"
+          >
+            Back to Listings Table
+          </button>
+        </div>
+      </PageContainer>
+    );
+  }
+
   return (
     <PageContainer>
       <PageHeader
-        title={`Complete Listing Detail: ${listing.title}`}
-        description={`Listing ID: ${listing.id} | Category: ${listing.category} | Seller: ${listing.sellerName}`}
+        title={`Complete Listing Detail: ${listing.title || "Marketplace Listing"}`}
+        description={`Listing ID: ${listing.id || listingId} | Category: ${listing.category || "General"} | Seller: ${listing.sellerName || "Omeetso Seller"}`}
         badge={`Status: ${status.toUpperCase()}`}
         badgeColor="indigo"
         secondaryActions={

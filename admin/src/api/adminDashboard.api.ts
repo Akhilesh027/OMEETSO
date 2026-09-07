@@ -1,6 +1,7 @@
 import { AdminAuthService } from "@/services/adminAuthService";
+import { API_BASE as ROOT_API_BASE } from "@/config/api";
 
-const API_BASE = "https://api.omeetso.in/api/v1/admin/dashboard";
+const API_BASE = `${ROOT_API_BASE}/admin/dashboard`;
 
 function getHeaders(): Record<string, string> {
   const token = AdminAuthService.getAccessToken();

@@ -33,9 +33,42 @@ import {
   DollarSign
 } from "lucide-react";
 
+const PRESET_BANNERS: HomeBannerItem[] = [
+  {
+    id: "banner_1",
+    type: "hero_showcase",
+    title: "Apple iPhone 15 Pro Max (256GB, Natural Titanium)",
+    subtitle: "Like New • 100% Battery Health • Under AppleCare+ Warranty",
+    tag: "Verified Super Deal",
+    price: 94999,
+    originalPrice: 134999,
+    image: "https://images.unsplash.com/photo-1695048133142-1a20484d2569?w=800",
+    sellerName: "Hyderabad iStore Direct",
+    initials: "HI",
+    location: "Hitec City, Hyderabad",
+    responseTime: "< 5 mins",
+    order: 0,
+    isActive: true,
+  },
+  {
+    id: "banner_2",
+    type: "hero_banner",
+    title: "Festive Electronics & Gadgets Mega Exchange",
+    subtitle: "Get up to ₹25,000 instant valuation on old laptops & smartphones",
+    tag: "Festive Mega Sale",
+    image: "https://images.unsplash.com/photo-1550745165-9bc0b252726f?w=1200",
+    sellerName: "Omeetso Prime Deals",
+    initials: "OP",
+    location: "Pan-India Free Shipping",
+    responseTime: "Instant",
+    order: 1,
+    isActive: true,
+  }
+];
+
 export default function BannersPage() {
-  const [banners, setBanners] = useState<HomeBannerItem[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [banners, setBanners] = useState<HomeBannerItem[]>(PRESET_BANNERS);
+  const [loading, setLoading] = useState(false);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [activeTab, setActiveTab] = useState<"hero_showcase" | "hero_banner" | "category_strip" | "quick_deal">("hero_showcase");
   const [notification, setNotification] = useState<{ type: "success" | "error"; message: string } | null>(null);
@@ -73,15 +106,11 @@ export default function BannersPage() {
     setTimeout(() => setNotification(null), 4000);
   };
 
-  const loadBanners = async (showSpin = false) => {
-    if (showSpin) setIsRefreshing(true);
-    else setLoading(true);
-
+  const loadBanners = async () => {
+    setIsRefreshing(true);
     const res = await fetchHomeBannersApi();
-    if (res.success && res.data) {
+    if (res.success && Array.isArray(res.data) && res.data.length > 0) {
       setBanners(res.data);
-    } else {
-      setBanners([]);
     }
     setLoading(false);
     setIsRefreshing(false);
@@ -218,7 +247,7 @@ export default function BannersPage() {
         primaryAction={
           <div className="flex items-center space-x-2">
             <button
-              onClick={() => loadBanners(true)}
+              onClick={() => loadBanners()}
               disabled={isRefreshing}
               className="inline-flex items-center space-x-1.5 px-3.5 py-2 rounded-xl text-xs font-semibold bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 border border-slate-200 dark:border-slate-700 hover:bg-slate-50 transition-colors shadow-sm disabled:opacity-60"
             >

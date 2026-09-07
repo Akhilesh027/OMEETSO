@@ -10,9 +10,10 @@
     "packages/*"
   ],
   "scripts": {
-    "dev:backend": "npm run dev --workspace=backend",
-    "dev:frontend": "npm run dev --workspace=frontend",
+    "dev": "npm run dev --workspace=admin",
     "dev:admin": "npm run dev --workspace=admin",
+    "dev:frontend": "npm run dev --workspace=frontend",
+    "dev:backend": "npm run dev --workspace=backend",
     "build:contracts": "npm run build --workspace=@omeetso/contracts",
     "build:backend": "npm run build --workspace=backend",
     "build": "npm run build:contracts && npm run build --workspaces"

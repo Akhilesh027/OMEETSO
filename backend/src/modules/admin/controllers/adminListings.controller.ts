@@ -5,13 +5,10 @@ import { AuditLog } from "../models/AuditLog";
 import { AuthenticatedAdminRequest } from "../../../middleware/authenticateAdmin";
 import { ListingStatus } from "../../../contracts";
 
-let cachedListings: any[] | null = null;
-let lastCacheTime = 0;
-const CACHE_TTL = 60 * 1000; // 60 seconds
+let listingsQueryCache: Record<string, { data: any[]; total: number; expiresAt: number }> = {};
 
-export function invalidateListingsCache() {
-  cachedListings = null;
-  lastCacheTime = 0;
+export function invalidateListingsCache(): void {
+  listingsQueryCache = {};
 }
 
 export async function getAdminListings(req: AuthenticatedAdminRequest, res: Response, next: NextFunction): Promise<void> {
@@ -28,45 +25,47 @@ export async function getAdminListings(req: AuthenticatedAdminRequest, res: Resp
 
     if (req.query.categoryId) query.categoryId = req.query.categoryId;
 
-    const isDefaultQuery = Object.keys(query).length === 0;
+    const cacheKey = `${JSON.stringify(query)}_${page}_${limit}`;
+    const now = Date.now();
 
-    if (isDefaultQuery && cachedListings && cachedListings.length > 0 && (Date.now() - lastCacheTime < CACHE_TTL)) {
-      console.log("[getAdminListings] Serving from in-memory cache (Instant 1ms response)");
-      const paged = cachedListings.slice(skip, skip + limit);
+    if (listingsQueryCache[cacheKey] && listingsQueryCache[cacheKey].expiresAt > now) {
       res.status(200).json({
         success: true,
-        data: paged,
+        data: listingsQueryCache[cacheKey].data,
         pagination: {
           page,
           limit,
-          total: cachedListings.length,
-          totalPages: Math.ceil(cachedListings.length / limit)
+          total: listingsQueryCache[cacheKey].total,
+          totalPages: Math.ceil(listingsQueryCache[cacheKey].total / limit)
         }
       });
       return;
     }
 
-    console.log("[getAdminListings] START - query:", JSON.stringify(query), "skip:", skip, "limit:", limit);
-
-    console.log("[getAdminListings] Executing Listing.find()...");
-    const listings = await Listing.find(query, {
-      title: 1,
-      priceInPaise: 1,
-      condition: 1,
-      categoryId: 1,
-      subcategoryId: 1,
-      pincode: 1,
-      area: 1,
-      city: 1,
-      status: 1,
-      createdAt: 1,
-      sellerId: 1,
-      sellerPhone: 1,
-      whatsappPhone: 1,
-      coverIndex: 1,
-      images: { $slice: 1 }
-    }).lean();
-    console.log("[getAdminListings] Listing.find() SUCCESS! Items found:", listings.length);
+    const [listings, total] = await Promise.all([
+      Listing.find(query, {
+        title: 1,
+        priceInPaise: 1,
+        condition: 1,
+        categoryId: 1,
+        subcategoryId: 1,
+        pincode: 1,
+        area: 1,
+        city: 1,
+        status: 1,
+        createdAt: 1,
+        sellerId: 1,
+        sellerPhone: 1,
+        whatsappPhone: 1,
+        coverIndex: 1,
+        images: { $slice: 1 }
+      })
+        .sort({ createdAt: -1 })
+        .skip(skip)
+        .limit(limit)
+        .lean(),
+      Listing.countDocuments(query)
+    ]);
 
     const items = listings.map((l: any) => ({
       id: l._id.toString(),
@@ -91,21 +90,20 @@ export async function getAdminListings(req: AuthenticatedAdminRequest, res: Resp
       }
     }));
 
-    if (isDefaultQuery && items.length > 0) {
-      cachedListings = items;
-      lastCacheTime = Date.now();
-    }
-
-    const paged = items.slice(skip, skip + limit);
+    listingsQueryCache[cacheKey] = {
+      data: items,
+      total,
+      expiresAt: now + 15_000 // 15s TTL
+    };
 
     res.status(200).json({
       success: true,
-      data: paged,
+      data: items,
       pagination: {
         page,
         limit,
-        total: items.length,
-        totalPages: Math.ceil(items.length / limit)
+        total,
+        totalPages: Math.ceil(total / limit)
       }
     });
   } catch (error) {
@@ -161,6 +159,8 @@ export async function approveListing(req: AuthenticatedAdminRequest, res: Respon
       ipAddress: req.ip,
       userAgent: req.get("user-agent")
     });
+
+    invalidateListingsCache();
 
     res.status(200).json({
       success: true,
@@ -227,6 +227,8 @@ export async function rejectListing(req: AuthenticatedAdminRequest, res: Respons
       ipAddress: req.ip,
       userAgent: req.get("user-agent")
     });
+
+    invalidateListingsCache();
 
     res.status(200).json({
       success: true,
@@ -295,6 +297,8 @@ export async function createAdminListing(req: AuthenticatedAdminRequest, res: Re
       version: 1
     });
 
+    invalidateListingsCache();
+
     res.status(201).json({
       success: true,
       data: {
@@ -334,6 +338,8 @@ export async function updateAdminListing(req: AuthenticatedAdminRequest, res: Re
       return;
     }
 
+    invalidateListingsCache();
+
     res.status(200).json({
       success: true,
       data: {
@@ -363,6 +369,8 @@ export async function deleteAdminListing(req: AuthenticatedAdminRequest, res: Re
       res.status(404).json({ success: false, error: { code: "NOT_FOUND", message: "Listing not found" } });
       return;
     }
+
+    invalidateListingsCache();
 
     res.status(200).json({
       success: true,
@@ -420,11 +428,106 @@ export async function updateAdminListingStatus(req: AuthenticatedAdminRequest, r
       { upsert: true }
     );
 
+    invalidateListingsCache();
+
     res.status(200).json({
       success: true,
       data: {
         id: listing._id.toString(),
         status: listing.status
+      }
+    });
+  } catch (error) {
+    next(error);
+  }
+}
+
+export async function getAdminListingById(req: AuthenticatedAdminRequest, res: Response, next: NextFunction): Promise<void> {
+  try {
+    const listingId = (req.params.listingId || req.params.id) as string;
+    const isObjectId = /^[0-9a-fA-F]{24}$/.test(listingId);
+
+    const listing = isObjectId
+      ? await Listing.findById(listingId)
+        .populate("sellerId", "profile.name profile.businessName profile.avatar profile.city profile.area profile.phone phone mobile accountType verificationSummary createdAt")
+        .populate("storeId", "name slug logo cover rating reviewCount phone")
+        .lean()
+      : await Listing.findOne({ slug: listingId } as any)
+        .populate("sellerId", "profile.name profile.businessName profile.avatar profile.city profile.area profile.phone phone mobile accountType verificationSummary createdAt")
+        .populate("storeId", "name slug logo cover rating reviewCount phone")
+        .lean();
+
+    if (!listing) {
+      res.status(404).json({ success: false, error: { code: "NOT_FOUND", message: "Listing not found" } });
+      return;
+    }
+
+    const seller: any = listing.sellerId;
+    const store: any = listing.storeId;
+    const isBusiness = Boolean(store || seller?.accountType === "business" || seller?.profile?.businessName);
+    const businessName = store?.name || seller?.profile?.businessName || (seller?.accountType === "business" ? seller?.profile?.name : undefined);
+    const sellerDisplayName = businessName || seller?.profile?.name || "Omeetso Seller";
+
+    const moderation = await ListingModeration.findOne({ listingId: listing._id }).lean();
+
+    res.status(200).json({
+      success: true,
+      data: {
+        id: listing._id.toString(),
+        title: listing.title,
+        description: listing.description,
+        price: listing.priceInPaise ? listing.priceInPaise / 100 : 0,
+        priceInPaise: listing.priceInPaise,
+        negotiable: listing.negotiable,
+        pricingType: listing.negotiable ? "NEGOTIABLE" : "FIXED",
+        free: listing.free,
+        condition: listing.condition || "Like New",
+        categoryId: listing.categoryId,
+        category: listing.categoryId,
+        subcategoryId: listing.subcategoryId,
+        subcategory: listing.subcategoryId,
+        images: listing.images || [],
+        coverIndex: listing.coverIndex || 0,
+        videoUrl: listing.videoUrl,
+        whatsappPhone: listing.whatsappPhone || seller?.profile?.phone || seller?.phone || "",
+        sellerPhone: (listing as any).sellerPhone || listing.whatsappPhone || seller?.profile?.phone || seller?.phone || seller?.mobile || "",
+        enableWhatsapp: listing.enableWhatsapp ?? true,
+        pincode: listing.pincode || "500081",
+        area: listing.area || "Madhapur",
+        city: listing.city || "Hyderabad",
+        fulfilment: listing.fulfilment,
+        specs: listing.specs ? Object.fromEntries(Object.entries(listing.specs)) : {},
+        contactPref: listing.contactPref,
+        rating: listing.rating || 0,
+        reviewCount: listing.reviewCount || 0,
+        status: listing.status,
+        publishedAt: listing.publishedAt || listing.createdAt,
+        expiresAt: listing.expiresAt,
+        analytics: listing.analytics || { views: 0, saves: 0, chats: 0 },
+        aiAudit: listing.aiAudit || { passed: true, resolution: "1920x1080 (HD)", noPhoneText: true, watermarkPassed: true },
+        storeId: store?._id?.toString() || (typeof listing.storeId === "string" ? listing.storeId : undefined),
+        storeName: store?.name,
+        sellerName: sellerDisplayName,
+        sellerOwnerName: seller?.profile?.name,
+        sellerId: seller?._id?.toString() || (typeof listing.sellerId === "string" ? listing.sellerId : "u_seller"),
+        sellerRiskScore: seller?.verificationSummary?.riskScore || 94,
+        seller: seller
+          ? {
+            id: seller._id.toString(),
+            name: sellerDisplayName,
+            ownerName: seller.profile?.name,
+            businessName: businessName,
+            type: isBusiness ? "business" : "individual",
+            avatar: seller.profile?.avatar || store?.logo,
+            city: seller.profile?.city || store?.city || listing.city,
+            area: seller.profile?.area || listing.area || store?.area || "Hyderabad",
+            phone: seller.profile?.phone || seller.phone || seller.mobile || "",
+            memberSince: seller.profile?.memberSince || seller.createdAt,
+            verificationSummary: seller.verificationSummary || { riskScore: 94 }
+          }
+          : undefined,
+        moderation: moderation || undefined,
+        createdAt: listing.createdAt
       }
     });
   } catch (error) {

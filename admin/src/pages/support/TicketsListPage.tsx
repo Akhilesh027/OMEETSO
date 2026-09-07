@@ -10,7 +10,7 @@ import {
 import { useToast } from "@/contexts/ToastContext";
 
 export default function TicketsListPage() {
-  const [tickets, setTickets] = useState<SupportTicket[]>([]);
+  const [tickets, setTickets] = useState<SupportTicket[]>(() => MockDataService.getTickets());
   const [activeTab, setActiveTab] = useState<"all" | "open" | "assigned" | "resolved">("all");
   const [searchTerm, setSearchTerm] = useState("");
 
@@ -21,14 +21,6 @@ export default function TicketsListPage() {
   const [assignedAgent, setAssignedAgent] = useState("Support Agent A");
 
   const { showSuccess } = useToast();
-
-  const loadTickets = () => {
-    setTickets(MockDataService.getTickets());
-  };
-
-  useEffect(() => {
-    loadTickets();
-  }, []);
 
   const filteredTickets = tickets.filter((t) => {
     const matchesSearch =

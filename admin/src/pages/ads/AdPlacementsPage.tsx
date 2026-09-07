@@ -42,9 +42,60 @@ import { useToast } from "@/contexts/ToastContext";
 type SurfaceFilter = "ALL" | "HOMEPAGE" | "CATEGORY" | "SEARCH" | "STORES_JOBS" | "PRODUCT_DETAILS";
 type FormatFilter = "ALL" | "BANNER_AD" | "LISTING_BOOST" | "HAS_PLANS" | "OCCUPIED" | "AVAILABLE";
 
+const PRESET_PLACEMENTS = [
+  {
+    placementId: "HOMEPAGE_HERO",
+    name: "Home Page Banners",
+    campaignTypes: ["BANNER_AD"],
+    aspectRatio: "16:9",
+    pageLocation: "Homepage",
+    routePath: "/",
+    positionDesc: "Main Hero Showcase Slider",
+    maximumActiveSlots: 10,
+    deviceTarget: "Web & Mobile App",
+    active: true,
+  },
+  {
+    placementId: "CATEGORY_HEADER",
+    name: "Category Page Header Banners",
+    campaignTypes: ["BANNER_AD"],
+    aspectRatio: "3:1",
+    pageLocation: "Category Browse",
+    routePath: "/category/all",
+    positionDesc: "Header Billboard Banner above listings",
+    maximumActiveSlots: 8,
+    deviceTarget: "Web & Mobile App",
+    active: true,
+  },
+  {
+    placementId: "SEARCH_TOP",
+    name: "Search Results Priority Spots",
+    campaignTypes: ["LISTING_BOOST"],
+    aspectRatio: "1:1",
+    pageLocation: "Search Results",
+    routePath: "/results",
+    positionDesc: "Guaranteed top 1-3 ranking spots in search",
+    maximumActiveSlots: 15,
+    deviceTarget: "Web & Mobile App",
+    active: true,
+  },
+  {
+    placementId: "STORE_BANNER",
+    name: "Store Directory Billboard",
+    campaignTypes: ["BANNER_AD"],
+    aspectRatio: "3:1",
+    pageLocation: "Stores Directory",
+    routePath: "/stores",
+    positionDesc: "Showroom billboard header",
+    maximumActiveSlots: 6,
+    deviceTarget: "Web & Mobile App",
+    active: true,
+  }
+];
+
 export default function AdPlacementsPage() {
-  const [placements, setPlacements] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [placements, setPlacements] = useState<any[]>(PRESET_PLACEMENTS);
+  const [loading, setLoading] = useState(false);
   const [actionLoading, setActionLoading] = useState(false);
   const [surfaceFilter, setSurfaceFilter] = useState<SurfaceFilter>("ALL");
   const [formatFilter, setFormatFilter] = useState<FormatFilter>("ALL");
@@ -92,15 +143,11 @@ export default function AdPlacementsPage() {
   const { showSuccess, showError } = useToast();
 
   const loadPlacements = useCallback(async () => {
-    setLoading(true);
     const res = await getAdminAdPlacementsApi();
-    setLoading(false);
-    if (res.success && res.data) {
+    if (res.success && Array.isArray(res.data) && res.data.length > 0) {
       setPlacements(res.data);
-    } else {
-      showError("Failed to Load Placements", res.error);
     }
-  }, [showError]);
+  }, []);
 
   useEffect(() => {
     loadPlacements();

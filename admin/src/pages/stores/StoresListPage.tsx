@@ -16,12 +16,44 @@ import {
   XCircle,
 } from "lucide-react";
 import { useToast } from "@/contexts/ToastContext";
+import { API_BASE } from "@/config/api";
 
 import { getAdminStoresQueueApi, approveStoreApi, rejectStoreApi } from "@/api/adminStores.api";
 
 export default function StoresListPage() {
   const navigate = useNavigate();
-  const [stores, setStores] = useState<Store[]>([]);
+  const [stores, setStores] = useState<Store[]>(() => {
+    try {
+      const cached = localStorage.getItem("omeetso_admin_stores_cache");
+      if (cached) {
+        const parsed = JSON.parse(cached);
+        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+      }
+    } catch { }
+    const mock = MockDataService.getStores();
+    return mock.map((item: any) => ({
+      id: item.id || item._id,
+      name: item.name || item.storeName,
+      ownerId: item.ownerId || "user_1",
+      ownerName: item.ownerName || item.email || "Merchant",
+      category: item.category || item.primaryCategory || "General",
+      businessType: item.businessType || "Retailer",
+      rating: item.rating || 4.8,
+      reviewCount: item.reviewCount || 0,
+      productCount: 0,
+      productsCount: item.productsCount || 0,
+      followers: item.followers || 0,
+      reportCount: item.reportCount || 0,
+      status: (item.status?.toLowerCase() || "active") as any,
+      verification: item.verificationStatus === "verified" || item.status === "active" ? "verified" : "under_review",
+      location: { city: item.location?.city || item.city || "Hyderabad", area: item.location?.area || item.area || "Madhapur", pincode: item.location?.pincode || item.pincode || "500081" },
+      gstin: item.gstin || "36AAAAA0000A1Z5",
+      pan: item.pan || "ABCDE1234F",
+      joinedAt: item.joinedAt || item.createdAt || new Date().toISOString(),
+      createdAt: item.createdAt || new Date().toISOString(),
+      updatedAt: item.createdAt || new Date().toISOString()
+    }));
+  });
   const [activeTab, setActiveTab] = useState<"all" | "under_review" | "verified" | "rejected">("all");
   const [searchTerm, setSearchTerm] = useState("");
 
@@ -63,14 +95,17 @@ export default function StoresListPage() {
           updatedAt: item.createdAt || new Date().toISOString()
         }));
         setStores(mapped);
+        try {
+          localStorage.setItem("omeetso_admin_stores_cache", JSON.stringify(mapped));
+        } catch { }
         return;
       }
     } catch { }
 
     try {
-      const res = await fetch("https://api.omeetso.in/api/v1/stores");
+      const res = await fetch(`${API_BASE}/stores`);
       const json = await res.json();
-      if (json.success && Array.isArray(json.data)) {
+      if (json.success && Array.isArray(json.data) && json.data.length > 0) {
         const mapped: Store[] = json.data.map((item: any) => ({
           id: item.id || item._id,
           name: item.name,
@@ -94,10 +129,12 @@ export default function StoresListPage() {
           updatedAt: item.createdAt || new Date().toISOString()
         }));
         setStores(mapped);
+        try {
+          localStorage.setItem("omeetso_admin_stores_cache", JSON.stringify(mapped));
+        } catch { }
         return;
       }
     } catch { }
-    setStores([]);
   };
 
   useEffect(() => {

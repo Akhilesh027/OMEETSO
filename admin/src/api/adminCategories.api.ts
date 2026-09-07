@@ -28,24 +28,20 @@ export interface CategoryMutationResponse {
 
 export async function fetchCategoriesFromDbApi(): Promise<FetchCategoriesResponse> {
   try {
-    let res = await fetch(`${API_BASE}?all=true`, {
-      headers: getHeaders()
-    }).catch(() => null);
+    const controller = typeof AbortController !== "undefined" ? new AbortController() : null;
+    const timeoutId = controller ? setTimeout(() => controller.abort(), 4000) : null;
 
-    // Fallback to localhost if production domain is unreachable during local development
-    if (!res || !res.ok) {
-      const localRes = await fetch("https://api.omeetso.in/api/v1/categories?all=true", {
-        headers: getHeaders()
-      }).catch(() => null);
-      if (localRes && localRes.ok) {
-        res = localRes;
-      }
-    }
+    const res = await fetch(`${API_BASE}?all=true`, {
+      headers: getHeaders(),
+      signal: controller?.signal
+    }).finally(() => {
+      if (timeoutId) clearTimeout(timeoutId);
+    });
 
-    if (!res) {
+    if (!res.ok) {
       return {
         success: false,
-        error: "Network error: Unable to connect to backend on " + API_BASE
+        error: `Server responded with status ${res.status}`
       };
     }
 
@@ -53,7 +49,7 @@ export async function fetchCategoriesFromDbApi(): Promise<FetchCategoriesRespons
     if (!json.success || !Array.isArray(json.data)) {
       return {
         success: false,
-        error: json.error?.message || "Failed to fetch categories from MongoDB"
+        error: json.error?.message || "Failed to fetch categories from database"
       };
     }
 
@@ -64,26 +60,19 @@ export async function fetchCategoriesFromDbApi(): Promise<FetchCategoriesRespons
   } catch (error: any) {
     return {
       success: false,
-      error: error.message || "Network error: Unable to connect to backend"
+      error: error.name === "AbortError" ? "Request timed out" : error.message || "Network error"
     };
   }
 }
 
 export async function seedCategoriesApi(): Promise<{ success: boolean; message?: string; count?: number; error?: string }> {
   try {
-    let res = await fetch(`${API_BASE}/seed`, {
+    const res = await fetch(`${API_BASE}/seed`, {
       method: "POST",
       headers: getHeaders()
-    }).catch(() => null);
+    });
 
-    if (!res || !res.ok) {
-      res = await fetch("https://api.omeetso.in/api/v1/categories/seed", {
-        method: "POST",
-        headers: getHeaders()
-      }).catch(() => null);
-    }
-
-    if (!res) throw new Error("Could not reach backend API");
+    if (!res.ok) throw new Error("Could not reach backend API");
     const json = await res.json();
     return json;
   } catch (error: any) {
@@ -93,24 +82,13 @@ export async function seedCategoriesApi(): Promise<{ success: boolean; message?:
 
 export async function createCategoryApi(categoryData: Partial<CategoryData>): Promise<CategoryMutationResponse> {
   try {
-    let res = await fetch(API_BASE, {
+    const res = await fetch(API_BASE, {
       method: "POST",
       headers: getHeaders(),
       body: JSON.stringify(categoryData)
-    }).catch(() => null);
+    });
 
-    if (!res || !res.ok) {
-      const localRes = await fetch("https://api.omeetso.in/api/v1/categories", {
-        method: "POST",
-        headers: getHeaders(),
-        body: JSON.stringify(categoryData)
-      }).catch(() => null);
-      if (localRes && localRes.ok) {
-        res = localRes;
-      }
-    }
-
-    if (!res) {
+    if (!res.ok) {
       return {
         success: false,
         error: "Network error: Unable to connect to backend API"

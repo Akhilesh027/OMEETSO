@@ -1,6 +1,7 @@
 import { AdminAuthService } from "@/services/adminAuthService";
+import { API_BASE as ROOT_API_BASE } from "@/config/api";
 
-const API_BASE = "https://api.omeetso.in/api/v1/admin/chats";
+const API_BASE = `${ROOT_API_BASE}/admin/chats`;
 
 function getHeaders(): Record<string, string> {
   const token = AdminAuthService.getAccessToken();
@@ -16,14 +17,19 @@ export async function getAdminConversationsApi(params?: Record<string, any>): Pr
   pagination?: any;
   error?: string;
 }> {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), 3500);
+
   try {
     const query = new URLSearchParams(params || {}).toString();
     const url = query ? `${API_BASE}/conversations?${query}` : `${API_BASE}/conversations`;
 
     const res = await fetch(url, {
       headers: getHeaders(),
-      credentials: "include"
+      credentials: "include",
+      signal: controller.signal
     });
+    clearTimeout(timer);
 
     const json = await res.json();
     if (!res.ok || !json.success) {
@@ -31,6 +37,7 @@ export async function getAdminConversationsApi(params?: Record<string, any>): Pr
     }
     return { success: true, data: json.data, pagination: json.pagination };
   } catch (error) {
+    clearTimeout(timer);
     return { success: false, error: "Network error: Unable to fetch conversations" };
   }
 }
@@ -40,11 +47,16 @@ export async function getAdminConversationMessagesApi(conversationId: string): P
   data?: any[];
   error?: string;
 }> {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), 3500);
+
   try {
     const res = await fetch(`${API_BASE}/conversations/${conversationId}/messages`, {
       headers: getHeaders(),
-      credentials: "include"
+      credentials: "include",
+      signal: controller.signal
     });
+    clearTimeout(timer);
 
     const json = await res.json();
     if (!res.ok || !json.success) {
@@ -52,6 +64,7 @@ export async function getAdminConversationMessagesApi(conversationId: string): P
     }
     return { success: true, data: json.data };
   } catch (error) {
+    clearTimeout(timer);
     return { success: false, error: "Network error: Unable to fetch message transcript" };
   }
 }

@@ -1,5 +1,6 @@
 import { AdminUser, AdminSession, AuthStatus, LoginCredentials, TwoFactorVerification } from "@/types/auth";
 import { Permission, PERMISSIONS } from "@/permissions/permissions";
+import { API_BASE as ROOT_API_BASE } from "@/config/api";
 
 const resolvePermissions = (role: string, rawPermissions: string[] = []): Permission[] => {
   if (role === "Super Admin" || rawPermissions?.includes("*")) {
@@ -8,7 +9,7 @@ const resolvePermissions = (role: string, rawPermissions: string[] = []): Permis
   return (rawPermissions || []) as Permission[];
 };
 
-const API_BASE = "https://api.omeetso.in/api/v1/admin/auth";
+const API_BASE = `${ROOT_API_BASE}/admin/auth`;
 
 let memoryAccessToken: string | null = null;
 let currentAdmin: AdminUser | null = null;
@@ -169,9 +170,20 @@ export class AdminAuthService {
 
   static async restoreSession(): Promise<{ status: AuthStatus; session: AdminSession | null; admin: AdminUser | null }> {
     try {
+      const token = AdminAuthService.getAccessToken();
+      const controller = typeof AbortController !== "undefined" ? new AbortController() : null;
+      const timeoutId = controller ? setTimeout(() => controller.abort(), 3500) : null;
+
       const res = await fetch(`${API_BASE}/refresh`, {
         method: "POST",
-        credentials: "include"
+        credentials: "include",
+        headers: {
+          "Content-Type": "application/json",
+          ...(token ? { Authorization: `Bearer ${token}` } : {})
+        },
+        signal: controller?.signal
+      }).finally(() => {
+        if (timeoutId) clearTimeout(timeoutId);
       });
 
       if (!res.ok) {

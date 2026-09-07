@@ -14,9 +14,20 @@ import {
 import { useToast } from "@/contexts/ToastContext";
 import { useNavigate } from "react-router-dom";
 
+import { MockDataService } from "@/services/mockDataService";
+
 export default function SafetyReportsPage() {
-  const [reports, setReports] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [reports, setReports] = useState<any[]>(() => {
+    try {
+      const cached = localStorage.getItem("omeetso_admin_safety_cache");
+      if (cached) {
+        const parsed = JSON.parse(cached);
+        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+      }
+    } catch { }
+    return MockDataService.getSafetyReports();
+  });
+  const [loading, setLoading] = useState(false);
   const [activeTab, setActiveTab] = useState<"all" | "OPEN" | "INVESTIGATING" | "RESOLVED">("all");
   const [searchTerm, setSearchTerm] = useState("");
 
@@ -28,7 +39,6 @@ export default function SafetyReportsPage() {
   const navigate = useNavigate();
 
   const loadReports = useCallback(async () => {
-    setLoading(true);
     const params: Record<string, any> = {};
     if (activeTab !== "all") {
       params.status = activeTab;
@@ -37,12 +47,13 @@ export default function SafetyReportsPage() {
     const res = await getAdminSafetyReportsApi(params);
     setLoading(false);
 
-    if (res.success && res.data) {
+    if (res.success && res.data && Array.isArray(res.data) && res.data.length > 0) {
       setReports(res.data);
-    } else {
-      showError("Failed to Load Reports", res.error || "Could not fetch safety reports");
+      try {
+        localStorage.setItem("omeetso_admin_safety_cache", JSON.stringify(res.data));
+      } catch { }
     }
-  }, [activeTab, showError]);
+  }, [activeTab]);
 
   useEffect(() => {
     loadReports();

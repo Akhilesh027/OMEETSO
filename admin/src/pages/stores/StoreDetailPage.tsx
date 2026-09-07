@@ -3,6 +3,7 @@ import { useParams, useNavigate } from "react-router-dom";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { PageContainer } from "@/components/layout/PageContainer";
 import { MOCK_STORES } from "@/services/mockDataService";
+import { API_BASE } from "@/config/api";
 import type { Store } from "@/types";
 import {
   Store as StoreIcon,
@@ -78,7 +79,7 @@ export default function StoreDetailPage() {
 
   React.useEffect(() => {
     if (!storeId) return;
-    fetch(`https://api.omeetso.in/api/v1/stores/${storeId}`)
+    fetch(`${API_BASE}/stores/${storeId}`)
       .then((res) => res.json())
       .then((json) => {
         if (json.success && json.data) {
@@ -113,7 +114,7 @@ export default function StoreDetailPage() {
       })
       .catch(() => { });
 
-    fetch(`https://api.omeetso.in/api/v1/stores/${storeId}/listings`)
+    fetch(`${API_BASE}/stores/${storeId}/listings`)
       .then((res) => res.json())
       .then((json) => {
         if (json.success && Array.isArray(json.data) && json.data.length > 0) {

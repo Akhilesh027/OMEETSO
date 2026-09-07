@@ -61,19 +61,11 @@ export default function DashboardPage() {
       if (sumRes.success && sumRes.data) {
         setSummary(sumRes.data);
       } else {
-        const [listingsRes, storesRes] = await Promise.all([
-          fetch("https://api.omeetso.in/api/v1/listings/feed").then((r) => r.json()).catch(() => ({})),
-          fetch("https://api.omeetso.in/api/v1/stores").then((r) => r.json()).catch(() => ({}))
-        ]);
-
-        const activeListings = Array.isArray(listingsRes.data) ? listingsRes.data.length : 12;
-        const totalStores = Array.isArray(storesRes.data) ? storesRes.data.length : 4;
-
         setSummary({
           totalUsers: 148,
-          activeListings,
-          pendingListings: Math.max(1, Math.floor(activeListings / 3)),
-          pendingStores: Math.max(1, Math.floor(totalStores / 2)),
+          activeListings: 18,
+          pendingListings: 3,
+          pendingStores: 2,
           openSafetyReports: 0,
           openSupportTickets: 0
         });

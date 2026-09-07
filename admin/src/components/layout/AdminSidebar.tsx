@@ -4,6 +4,7 @@ import { useAdminAuth } from "@/contexts/AdminAuthContext";
 import { ADMIN_NAVIGATION } from "@/constants/adminNavigation";
 import { NavItem } from "@/types/navigation";
 import type { Permission } from "@/permissions/permissions";
+import { prefetchRoute } from "@/routes/routePrefetch";
 import {
   Shield,
   LayoutDashboard,
@@ -262,6 +263,7 @@ export const AdminSidebar: React.FC<AdminSidebarProps> = ({
                     <Link
                       key={item.id}
                       to={item.route}
+                      onMouseEnter={() => prefetchRoute(item.route)}
                       onClick={onCloseMobile}
                       className={`flex items-center justify-between px-3 py-2.5 rounded-xl text-xs font-medium transition-colors ${
                         isActive

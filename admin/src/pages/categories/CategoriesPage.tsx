@@ -9,6 +9,7 @@ import {
   uploadCategoryImageApi,
   seedCategoriesApi
 } from "@/api/adminCategories.api";
+import { CATEGORY_SCHEMAS } from "@/data/categorySchema";
 import {
   Car,
   Bike,
@@ -99,10 +100,37 @@ const AVAILABLE_ICONS: Record<string, React.FC<{ className?: string }>> = {
 };
 
 export default function CategoriesPage() {
-  const [categories, setCategories] = useState<CategoryData[]>([]);
-  const [loading, setLoading] = useState<boolean>(true);
+  const [categories, setCategories] = useState<CategoryData[]>(() => {
+    try {
+      const cached = localStorage.getItem("omeetso_admin_categories_cache");
+      if (cached) {
+        const parsed = JSON.parse(cached);
+        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+      }
+    } catch { }
+    return CATEGORY_SCHEMAS.map((c) => ({
+      id: c.id,
+      categoryId: c.id,
+      name: c.name,
+      row: c.row,
+      iconName: c.iconName,
+      subcategoriesLabel: c.subcategoriesLabel,
+      subcategories: c.subcategories,
+      filters: c.filters,
+      listingCardFields: c.listingCardFields,
+      detailsSpecFields: c.detailsSpecFields,
+      sellingFormFields: c.sellingFormFields,
+      verificationBadges: c.verificationBadges,
+      sortOptions: c.sortOptions,
+      compareAttributes: c.compareAttributes,
+      specialFeatures: c.specialFeatures,
+      count: 0,
+      isActive: true
+    }));
+  });
+  const [loading, setLoading] = useState<boolean>(false);
   const [isRefreshing, setIsRefreshing] = useState<boolean>(false);
-  const [lastFetchedAt, setLastFetchedAt] = useState<Date | null>(null);
+  const [lastFetchedAt, setLastFetchedAt] = useState<Date | null>(() => new Date());
   const [fetchError, setFetchError] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState<string>("");
   const [notification, setNotification] = useState<{ type: "success" | "error"; message: string } | null>(null);
@@ -151,7 +179,7 @@ export default function CategoriesPage() {
   };
 
   const loadCategoriesFromDb = async (showRefreshSpinner = false) => {
-    if (showRefreshSpinner) {
+    if (showRefreshSpinner || categories.length > 0) {
       setIsRefreshing(true);
     } else {
       setLoading(true);
@@ -162,9 +190,13 @@ export default function CategoriesPage() {
     if (res.success && Array.isArray(res.data)) {
       setCategories(res.data);
       setLastFetchedAt(new Date());
+      try {
+        localStorage.setItem("omeetso_admin_categories_cache", JSON.stringify(res.data));
+      } catch { }
     } else {
-      setCategories([]);
-      setFetchError(res.error || "Failed to load categories from MongoDB database.");
+      if (categories.length === 0) {
+        setFetchError(res.error || "Failed to load categories from database.");
+      }
     }
     setLoading(false);
     setIsRefreshing(false);

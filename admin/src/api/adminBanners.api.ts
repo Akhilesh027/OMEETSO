@@ -1,8 +1,7 @@
 import { AdminAuthService } from "@/services/adminAuthService";
+import { API_BASE as ROOT_API_BASE } from "@/config/api";
 
-const API_BASE = (typeof window !== "undefined" && window.location.hostname === "localhost")
-  ? "https://api.omeetso.in/api/v1/banners"
-  : "https://api.omeetso.in/api/v1/banners";
+const API_BASE = `${ROOT_API_BASE}/banners`;
 
 function getHeaders(): Record<string, string> {
   const token = AdminAuthService.getAccessToken();
