@@ -65,7 +65,9 @@ export default function ListingsListPage() {
 
   const loadListings = async () => {
     try {
-      const res = await getAdminListingsQueueApi({ limit: 100 });
+      console.log("[ListingsListPage] Fetching listings from API...");
+      const res = await getAdminListingsQueueApi({ limit: 25 });
+      console.log("[ListingsListPage] API response:", res);
       if (res.success && Array.isArray(res.data)) {
         const mapped: Listing[] = res.data.map((item: any) => ({
           id: item.id || item._id,
@@ -86,10 +88,15 @@ export default function ListingsListPage() {
           createdAt: item.createdAt || new Date().toISOString(),
           updatedAt: item.createdAt || new Date().toISOString()
         }));
+        console.log(`[ListingsListPage] Loaded ${mapped.length} listings successfully.`);
         setListings(mapped);
         return;
+      } else {
+        console.warn("[ListingsListPage] Failed to get listing data from response:", res);
       }
-    } catch { }
+    } catch (err) {
+      console.error("[ListingsListPage] Error in loadListings:", err);
+    }
     setListings([]);
   };
 
@@ -99,7 +106,7 @@ export default function ListingsListPage() {
 
   const filteredListings = listings.filter((l) => {
     const matchesSearch =
-      l.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (l.title || "").toLowerCase().includes(searchTerm.toLowerCase()) ||
       (l.sellerName || "").toLowerCase().includes(searchTerm.toLowerCase()) ||
       (l.categoryId || "").toLowerCase().includes(searchTerm.toLowerCase()) ||
       (l.location?.city && l.location.city.toLowerCase().includes(searchTerm.toLowerCase()));

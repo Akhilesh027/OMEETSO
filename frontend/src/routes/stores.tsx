@@ -125,15 +125,8 @@ function Stores() {
       setError(res.error);
     }
 
-    // Merge API stores with standard sample stores (Adilabad, Hyderabad, Bangalore, Mumbai)
-    const allStores = [...mappedApiStores];
-    for (const sample of DEFAULT_SAMPLE_STORES) {
-      if (!allStores.some((s) => s.id === sample.id || (s.name && s.name.toLowerCase() === sample.name.toLowerCase()))) {
-        allStores.push(sample);
-      }
-    }
-
-    setStores(allStores);
+    // Only display real stores from MongoDB database
+    setStores(mappedApiStores);
   }, [locCity, locArea, locPincode]);
 
   useEffect(() => {

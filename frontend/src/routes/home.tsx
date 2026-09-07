@@ -783,13 +783,8 @@ function Home() {
   }, [organic]);
 
   const storesToDisplay = useMemo(() => {
-    // Combine live stores with sample stores, deduplicating by id/name
+    // Only display actual live stores from MongoDB database
     const allStores = [...liveStores];
-    for (const sample of DEFAULT_SAMPLE_STORES) {
-      if (!allStores.some((s) => s.id === sample.id || (s.name && s.name.toLowerCase() === sample.name.toLowerCase()))) {
-        allStores.push(sample);
-      }
-    }
 
     if (!loc?.area && !loc?.pincode && !loc?.city) return allStores;
 
@@ -799,7 +794,7 @@ function Home() {
       pincode: loc?.pincode
     };
 
-    // Strictly match stores based on user's location (no fake-spoofing other cities)
+    // Strictly match stores based on user's location
     return allStores.filter((s: any) => matchStoreLocation(s, targetLoc));
   }, [liveStores, loc]);
 

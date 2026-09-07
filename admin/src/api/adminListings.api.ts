@@ -2,8 +2,10 @@ import { AdminAuthService } from "@/services/adminAuthService";
 import { API_BASE as ROOT_API_BASE } from "@/config/api";
 import { MockDataService } from "@/services/mockDataService";
 
-const API_BASE = `${ROOT_API_BASE}/admin/listings`;
-const LOCAL_FALLBACK_BASE = "https://api.omeetso.in/api/v1/admin/listings";
+const API_BASE = (import.meta as any).env?.VITE_ADMIN_API_BASE_URL
+  ? `${(import.meta as any).env.VITE_ADMIN_API_BASE_URL}/listings`
+  : "https://api.omeetso.in/api/admin/listings";
+const LOCAL_FALLBACK_BASE = "https://api.omeetso.in/api/admin/listings";
 
 function getHeaders(): Record<string, string> {
   const token = AdminAuthService.getAccessToken();
@@ -24,8 +26,10 @@ async function resilientFetch(path: string, options: RequestInit = {}): Promise<
       credentials: "include"
     });
     if (res.ok) return res;
-  } catch {
-    // Network / offline error - attempt local fallback if running in dev
+    console.warn(`[resilientFetch] HTTP status ${res.status} for ${path}`);
+    return res; // Return response even if 4xx/5xx so caller can read json error
+  } catch (err) {
+    console.error(`[resilientFetch] Network error for ${path}:`, err);
   }
 
   // 2. Try Localhost fallback if available and different from primary
@@ -38,8 +42,10 @@ async function resilientFetch(path: string, options: RequestInit = {}): Promise<
         credentials: "include"
       });
       if (res.ok) return res;
-    } catch {
-      // Local backend offline
+      console.warn(`[resilientFetch fallback] HTTP status ${res.status} for ${localPath}`);
+      return res;
+    } catch (err) {
+      console.error(`[resilientFetch fallback] Network error:`, err);
     }
   }
 
@@ -50,16 +56,19 @@ export async function getAdminListingsQueueApi(params?: Record<string, any>): Pr
   try {
     const query = new URLSearchParams(params || {}).toString();
     const url = query ? `${API_BASE}?${query}` : API_BASE;
+    console.log(`[adminListings.api] Calling ${url}...`);
 
     const res = await resilientFetch(url);
     if (res) {
       const json = await res.json();
+      console.log(`[adminListings.api] Response from ${url}:`, json);
       if (json.success && Array.isArray(json.data)) {
         return { success: true, data: json.data, pagination: json.pagination };
       }
+      return { success: false, error: json.error?.message || "Server returned failure" };
     }
   } catch (error) {
-    // fallback to storage
+    console.error("[adminListings.api] Failed to fetch queue:", error);
   }
 
   // Resilient offline / storage fallback so network disconnects don't blank the UI

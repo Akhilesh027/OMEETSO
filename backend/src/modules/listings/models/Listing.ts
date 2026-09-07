@@ -116,6 +116,7 @@ const ListingSchema = new Schema<IListing>(
 );
 
 // Indexes
+ListingSchema.index({ createdAt: -1 });
 ListingSchema.index({ status: 1, createdAt: -1 });
 ListingSchema.index({ status: 1, categoryId: 1, createdAt: -1 });
 ListingSchema.index({ status: 1, categoryId: 1, priceInPaise: 1 });

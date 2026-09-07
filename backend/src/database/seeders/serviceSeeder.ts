@@ -72,37 +72,9 @@ export const SERVICE_CATEGORIES_SEED = [
 
 export async function seedInitialServices() {
   try {
-    // 1. Seed authoritative service categories
-    for (const cat of SERVICE_CATEGORIES_SEED) {
-      await ServiceCategory.findOneAndUpdate(
-        { categoryId: cat.categoryId },
-        cat,
-        { upsert: true, new: true }
-      );
-    }
-
-    // 2. Permanently delete all mock/dummy services from MongoDB
-    const deleted = await Service.deleteMany({
-      $or: [
-        { _id: { $in: [
-          new mongoose.Types.ObjectId("66df10000000000000000001"),
-          new mongoose.Types.ObjectId("66df10000000000000000002"),
-          new mongoose.Types.ObjectId("66df10000000000000000003")
-        ] } },
-        { businessName: { $in: [
-          "CoolBreeze AC Care & HVAC Solutions",
-          "SparkleClean Pro Home & Office Deep Cleaners",
-          "VoltMaster 24/7 Electrician & Emergency Plumbing"
-        ] } },
-        { id: { $in: ["srv-ac-001", "srv-clean-002", "srv-elec-003"] } }
-      ]
-    });
-
-    if (deleted.deletedCount > 0) {
-      console.log(`[ServiceSeeder] Purged ${deleted.deletedCount} mock services from MongoDB.`);
-    }
-    console.log("[ServiceSeeder] Service categories verified. No mock services seeded.");
+    const count = await Service.countDocuments();
+    console.log(`[ServiceSeeder] Verified ${count} services in MongoDB (auto-seeding disabled).`);
   } catch (err) {
-    console.error("[ServiceSeeder] Error verifying service categories:", err);
+    console.error("[ServiceSeeder] Error checking services:", err);
   }
 }

@@ -2,9 +2,6 @@ import { connectDatabase, disconnectDatabase } from "../connect";
 import { seedAdminUsers } from "./adminSeeder";
 import { seedCategories } from "./categorySeeder";
 import { seedAdConfiguration } from "./adSeeder";
-import { seedStores } from "./storeSeeder";
-import { seedApprovedListings } from "./listingSeeder";
-import { seedInitialServices } from "./serviceSeeder";
 
 export async function runAllSeeders(): Promise<void> {
   console.log("[Seeder Runner] Connecting to MongoDB...");
@@ -19,16 +16,7 @@ export async function runAllSeeders(): Promise<void> {
   console.log("\n--- Seeding Ad Configurations & Pricing ---");
   await seedAdConfiguration();
 
-  console.log("\n--- Seeding Stores ---");
-  await seedStores();
-
-  console.log("\n--- Seeding Approved Listings ---");
-  await seedApprovedListings();
-
-  console.log("\n--- Seeding Initial Services ---");
-  await seedInitialServices();
-
-  console.log("\n[Seeder Runner] All seeders completed successfully.");
+  console.log("\n[Seeder Runner] All essential infrastructure seeders completed successfully.");
   await disconnectDatabase();
 }
 

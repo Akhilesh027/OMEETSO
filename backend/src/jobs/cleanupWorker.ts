@@ -5,8 +5,8 @@ import { ListingStatus } from "../contracts";
 export function startBackgroundWorkers(): void {
   console.log("[Worker] Background cleanup worker initialized (Interval: 1 hour)");
 
-  // Run cleanup once on startup, then every hour
-  runBackgroundTasks();
+  // Delay initial cleanup by 45 seconds so server startup and initial requests are unhindered
+  setTimeout(runBackgroundTasks, 45 * 1000);
   setInterval(runBackgroundTasks, 60 * 60 * 1000);
 }
 

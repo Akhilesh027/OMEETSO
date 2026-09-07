@@ -163,14 +163,8 @@ If high rental flexibility and career mobility are your priorities, renting in G
 export async function seedBlogs(): Promise<void> {
   try {
     const count = await Blog.countDocuments({});
-    if (count === 0) {
-      console.log("[Seeder] Seeding initial high-quality blog articles...");
-      for (const item of INITIAL_BLOGS) {
-        await Blog.create(item);
-      }
-      console.log(`[Seeder] Seeded ${INITIAL_BLOGS.length} blog articles successfully.`);
-    }
+    console.log(`[BlogSeeder] Verified ${count} blog articles in MongoDB (auto-seeding disabled).`);
   } catch (err) {
-    console.error("[Seeder] Failed to seed blogs:", err);
+    console.error("[BlogSeeder] Error checking blogs:", err);
   }
 }

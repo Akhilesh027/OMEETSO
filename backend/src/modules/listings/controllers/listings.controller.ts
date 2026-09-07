@@ -88,7 +88,7 @@ export async function createListing(req: AuthenticatedUserRequest, res: Response
       body: `Your listing "${listing.title}" was submitted and is pending review.`,
       link: `/product/${listing._id}`,
       thumbnail: listing.images?.[0]
-    }).catch(() => {});
+    }).catch(() => { });
 
     // Generate nearby changes notification if enabled or broadcast
     if (req.body.nearbyChanges?.enabled) {
@@ -99,7 +99,7 @@ export async function createListing(req: AuthenticatedUserRequest, res: Response
         body: `Nearby changes and broadcast active for "${listing.title}" within ${req.body.nearbyChanges.radiusKm || 10} km of ${listing.area || "your area"}.`,
         link: `/product/${listing._id}`,
         thumbnail: listing.images?.[0]
-      }).catch(() => {});
+      }).catch(() => { });
     }
 
     res.status(201).json({
@@ -291,13 +291,13 @@ export async function getListingById(req: Request, res: Response, next: NextFunc
     const isObjectId = /^[0-9a-fA-F]{24}$/.test(listingId);
     const listing = isObjectId
       ? await Listing.findById(listingId)
-          .populate("sellerId", "profile.name profile.businessName profile.avatar profile.city profile.area profile.phone phone mobile accountType verificationSummary createdAt")
-          .populate("storeId", "name slug logo cover rating reviewCount phone")
-          .lean()
+        .populate("sellerId", "profile.name profile.businessName profile.avatar profile.city profile.area profile.phone phone mobile accountType verificationSummary createdAt")
+        .populate("storeId", "name slug logo cover rating reviewCount phone")
+        .lean()
       : await Listing.findOne({ slug: listingId } as any)
-          .populate("sellerId", "profile.name profile.businessName profile.avatar profile.city profile.area profile.phone phone mobile accountType verificationSummary createdAt")
-          .populate("storeId", "name slug logo cover rating reviewCount phone")
-          .lean();
+        .populate("sellerId", "profile.name profile.businessName profile.avatar profile.city profile.area profile.phone phone mobile accountType verificationSummary createdAt")
+        .populate("storeId", "name slug logo cover rating reviewCount phone")
+        .lean();
 
     if (!listing) {
       res.status(404).json({ success: false, error: { code: "NOT_FOUND", message: "Listing not found" } });
@@ -348,18 +348,18 @@ export async function getListingById(req: Request, res: Response, next: NextFunc
         sellerType: isBusiness ? "business" : "individual",
         seller: seller
           ? {
-              id: seller._id.toString(),
-              name: sellerDisplayName,
-              ownerName: seller.profile?.name,
-              businessName: businessName,
-              type: isBusiness ? "business" : "individual",
-              avatar: seller.profile?.avatar || store?.logo,
-              city: seller.profile?.city || store?.city || listing.city,
-              area: (seller.profile?.area && seller.profile.area !== "Madhapur" ? seller.profile.area : null) || listing.area || store?.area || "Hyderabad",
-              phone: (listing as any).sellerPhone || listing.whatsappPhone || seller?.profile?.phone || seller?.phone || seller?.mobile || "",
-              memberSince: seller.profile?.memberSince || seller.createdAt,
-              verificationSummary: seller.verificationSummary || { riskScore: 94 }
-            }
+            id: seller._id.toString(),
+            name: sellerDisplayName,
+            ownerName: seller.profile?.name,
+            businessName: businessName,
+            type: isBusiness ? "business" : "individual",
+            avatar: seller.profile?.avatar || store?.logo,
+            city: seller.profile?.city || store?.city || listing.city,
+            area: (seller.profile?.area && seller.profile.area !== "Madhapur" ? seller.profile.area : null) || listing.area || store?.area || "Hyderabad",
+            phone: (listing as any).sellerPhone || listing.whatsappPhone || seller?.profile?.phone || seller?.phone || seller?.mobile || "",
+            memberSince: seller.profile?.memberSince || seller.createdAt,
+            verificationSummary: seller.verificationSummary || { riskScore: 94 }
+          }
           : undefined
       }
     });
@@ -521,7 +521,7 @@ export async function updateListing(req: AuthenticatedUserRequest, res: Response
       body: `Your changes to "${listing.title}" have been saved.`,
       link: `/product/${listing._id}`,
       thumbnail: listing.images?.[0]
-    }).catch(() => {});
+    }).catch(() => { });
 
     if (req.body.nearbyChanges?.enabled) {
       await Notification.create({
@@ -531,7 +531,7 @@ export async function updateListing(req: AuthenticatedUserRequest, res: Response
         body: `Nearby broadcast updated for "${listing.title}".`,
         link: `/product/${listing._id}`,
         thumbnail: listing.images?.[0]
-      }).catch(() => {});
+      }).catch(() => { });
     }
 
     res.status(200).json({

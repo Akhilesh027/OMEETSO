@@ -424,11 +424,11 @@ export class MockDataService {
     const tickets = this.getTickets().map((t) =>
       t.id === ticketId
         ? {
-            ...t,
-            status,
-            ...(assignedTo !== undefined ? { assignedTo } : {}),
-            lastReplyAt: new Date().toISOString(),
-          }
+          ...t,
+          status,
+          ...(assignedTo !== undefined ? { assignedTo } : {}),
+          lastReplyAt: new Date().toISOString(),
+        }
         : t
     );
     this.saveTickets(tickets);
