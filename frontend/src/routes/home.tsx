@@ -19,6 +19,7 @@ import { cn } from "@/lib/utils";
 
 import { fetchLivePublicListings } from "@/lib/listings";
 import { serveAdsApi } from "@/api/adCampaigns.api";
+import { API_BASE } from "@/config/api";
 
 export const Route = createFileRoute("/home")({
   head: () => ({
@@ -571,7 +572,7 @@ function Home() {
       });
 
     // Fetch Live Stores
-    const storeFetchUrl = `https://api.omeetso.in/api/v1/stores/public${activeCity ? `?city=${encodeURIComponent(activeCity)}` : ""}`;
+    const storeFetchUrl = `${API_BASE}/stores/public${activeCity ? `?city=${encodeURIComponent(activeCity)}` : ""}`;
     fetch(storeFetchUrl)
       .then((res) => res.json())
       .then((json) => {
@@ -606,9 +607,7 @@ function Home() {
       });
 
     // Fetch Admin-curated Home Hero Showcase & Banners
-    const bannerFetchUrl = (typeof window !== "undefined" && window.location.hostname === "localhost")
-      ? `https://api.omeetso.in/api/v1/banners${activeCity ? `?city=${encodeURIComponent(activeCity)}` : ""}`
-      : `https://api.omeetso.in/api/v1/banners${activeCity ? `?city=${encodeURIComponent(activeCity)}` : ""}`;
+    const bannerFetchUrl = `${API_BASE}/banners${activeCity ? `?city=${encodeURIComponent(activeCity)}` : ""}`;
 
     fetch(bannerFetchUrl)
       .then((res) => res.json())

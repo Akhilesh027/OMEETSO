@@ -70,17 +70,16 @@ const CATEGORY_ICON_NAME_MAP: Record<string, string> = {
   agri: "Sprout",
 };
 
-export async function fetchLiveCategories(): Promise<LiveCategory[]> {
-  try {
-    let res = await fetch(`${API_BASE}/categories`).catch(() => null);
+let categoriesMemoryCache: { data: LiveCategory[]; expiresAt: number } | null = null;
 
-    // Fallback to local server if production URL fails
-    if (!res || !res.ok) {
-      const localRes = await fetch("https://api.omeetso.in/api/v1/categories").catch(() => null);
-      if (localRes && localRes.ok) {
-        res = localRes;
-      }
-    }
+export async function fetchLiveCategories(forceRefresh = false): Promise<LiveCategory[]> {
+  const now = Date.now();
+  if (!forceRefresh && categoriesMemoryCache && categoriesMemoryCache.expiresAt > now) {
+    return categoriesMemoryCache.data;
+  }
+
+  try {
+    const res = await fetch(`${API_BASE}/categories`).catch(() => null);
 
     if (res && res.ok) {
       const json = await res.json();
@@ -118,6 +117,10 @@ export async function fetchLiveCategories(): Promise<LiveCategory[]> {
         });
 
         cachedCategories = mapped;
+        categoriesMemoryCache = {
+          data: mapped,
+          expiresAt: Date.now() + 60_000
+        };
         try {
           localStorage.setItem("omeetso_cached_categories", JSON.stringify(mapped));
         } catch { }
@@ -260,19 +263,11 @@ export async function addNewCategory(newCat: {
       subcategories: cleanSubs
     };
 
-    let res = await fetch(`${API_BASE}/categories`, {
+    await fetch(`${API_BASE}/categories`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(payload)
     }).catch(() => null);
-
-    if (!res || !res.ok) {
-      await fetch("https://api.omeetso.in/api/v1/categories", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload)
-      }).catch(() => null);
-    }
   } catch (err) {
     console.warn("Backend category sync deferred:", err);
   }

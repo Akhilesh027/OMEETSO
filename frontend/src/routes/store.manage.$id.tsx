@@ -13,6 +13,7 @@ import {
 import { toast } from "sonner";
 import { getUserAccessToken } from "@/api/auth.api";
 import { uploadImageToCloudinary } from "@/lib/upload";
+import { API_BASE } from "@/config/api";
 
 export const Route = createFileRoute("/store/manage/$id")({
   head: () => ({ meta: [{ title: "Store Dashboard — Omeetso" }] }),
@@ -475,7 +476,7 @@ function EditStoreModal({ open, onClose, store, onSaved }: { open: boolean; onCl
 
     if (token) {
       try {
-        await fetch(`https://api.omeetso.in/api/v1/stores/${store.id}`, {
+        await fetch(`${API_BASE}/stores/${store.id}`, {
           method: "PATCH",
           headers: {
             "Content-Type": "application/json",

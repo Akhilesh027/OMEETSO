@@ -10,6 +10,7 @@ import { startBackgroundWorkers } from "./jobs/cleanupWorker";
 import { seedAdminUsers } from "./database/seeders/adminSeeder";
 import { seedCategories } from "./database/seeders/categorySeeder";
 import { seedBannersAndAds } from "./database/seeders/bannerAdSeeder";
+import { User } from "./modules/users/models/User";
 
 // Server initialization timestamp: 2026-09-05T21:43:20
 const server = http.createServer(app);
@@ -19,6 +20,7 @@ export const io = initSocketServer(server);
 
 async function startServer() {
   await connectDatabase();
+  try { await User.deleteMany({ phone: "9900000000" }); } catch {}
   try { await seedAdminUsers(); } catch (e) { console.error("[Seed] Admin users failed:", e); }
   try { await seedCategories(); } catch (e) { console.error("[Seed] Categories failed:", e); }
   try { await seedBannersAndAds(); } catch (e) { console.error("[Seed] Banners and ads failed:", e); }

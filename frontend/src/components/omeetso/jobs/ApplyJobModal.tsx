@@ -4,6 +4,7 @@ import { JobItem, submitJobApplicationLocal } from "@/lib/jobs";
 import { uploadFile } from "@/lib/upload";
 import { toast } from "sonner";
 import { pushNotification } from "@/lib/account";
+import { API_BASE } from "@/config/api";
 
 interface ApplyJobModalProps {
   job: JobItem;
@@ -109,7 +110,7 @@ export function ApplyJobModal({ job, isOpen, onClose, onSuccess }: ApplyJobModal
       const formattedAnswers = Object.entries(screeningAnswers).map(([question, answer]) => ({ question, answer }));
 
       try {
-        await fetch(`https://api.omeetso.in/api/v1/jobs/apply`, {
+        await fetch(`${API_BASE}/jobs/apply`, {
           method: "POST",
           headers: {
             "Content-Type": "application/json",

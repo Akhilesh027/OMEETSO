@@ -13,6 +13,7 @@ import {
   CheckCircle2, Sparkles, AlertCircle, Loader2, ArrowRight, Check
 } from "lucide-react";
 import { uploadFile } from "@/lib/upload";
+import { API_BASE } from "@/config/api";
 
 export const Route = createFileRoute("/verification/$type")({
   head: () => ({ meta: [{ title: "Verification — Omeetso" }] }),
@@ -165,7 +166,7 @@ function EmailVerify({ v, email }: { v: any; email: string }) {
     setLoading(true);
     try {
       const token = typeof window !== "undefined" ? localStorage.getItem("omeetso_user_token") : null;
-      const res = await fetch("https://api.omeetso.in/api/v1/auth/email-otp/request", {
+      const res = await fetch(`${API_BASE}/auth/email-otp/request`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -200,7 +201,7 @@ function EmailVerify({ v, email }: { v: any; email: string }) {
     setLoading(true);
     try {
       const token = typeof window !== "undefined" ? localStorage.getItem("omeetso_user_token") : null;
-      const res = await fetch("https://api.omeetso.in/api/v1/auth/email-otp/verify", {
+      const res = await fetch(`${API_BASE}/auth/email-otp/verify`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -387,7 +388,7 @@ function IdentityVerify({ v }: { v: any }) {
 
     try {
       if (token) {
-        await fetch("https://api.omeetso.in/api/v1/verification", {
+        await fetch(`${API_BASE}/verification`, {
           method: "POST",
           headers: {
             "Content-Type": "application/json",

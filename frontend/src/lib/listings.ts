@@ -154,6 +154,8 @@ export function listListings(): Listing[] {
   return read<Listing[]>(LS.listings, []);
 }
 
+const publicListingsMemoryCache: Map<string, { data: Listing[]; expiresAt: number }> = new Map();
+
 export async function fetchLivePublicListings(params?: {
   area?: string;
   city?: string;
@@ -161,9 +163,29 @@ export async function fetchLivePublicListings(params?: {
   location?: string;
   category?: string;
   q?: string;
+  limit?: number;
+  forceRefresh?: boolean;
 }): Promise<Listing[]> {
+  const cacheKey = JSON.stringify({
+    a: params?.area,
+    c: params?.city,
+    p: params?.pincode,
+    l: params?.location,
+    cat: params?.category,
+    q: params?.q,
+    lim: params?.limit || 40
+  });
+
+  const now = Date.now();
+  if (!params?.forceRefresh) {
+    const cached = publicListingsMemoryCache.get(cacheKey);
+    if (cached && cached.expiresAt > now) {
+      return cached.data;
+    }
+  }
+
   try {
-    const search = new URLSearchParams({ limit: "100" });
+    const search = new URLSearchParams({ limit: String(params?.limit || 40) });
     if (params?.area) search.set("area", params.area);
     if (params?.city) search.set("city", params.city);
     if (params?.pincode) search.set("pincode", params.pincode);
@@ -215,6 +237,10 @@ export async function fetchLivePublicListings(params?: {
           createdAt: new Date(item.createdAt || item.publishedAt || Date.now()).getTime(),
           updatedAt: new Date(item.createdAt || item.publishedAt || Date.now()).getTime()
         };
+      });
+      publicListingsMemoryCache.set(cacheKey, {
+        data: mapped,
+        expiresAt: Date.now() + 45_000
       });
       write(LS.listings, mapped);
       return mapped;

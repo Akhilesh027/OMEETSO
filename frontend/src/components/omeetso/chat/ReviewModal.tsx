@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { Star, X, Check, ShieldCheck, ArrowRight } from "lucide-react";
 import { toast } from "sonner";
+import { API_BASE } from "@/config/api";
 
 interface ReviewModalProps {
   isOpen: boolean;
@@ -40,7 +41,7 @@ export function ReviewModal({ isOpen, onClose, targetId, targetType, targetName,
     setIsSubmitting(true);
     try {
       const token = localStorage.getItem("omeetso_user_token");
-      const res = await fetch("https://api.omeetso.in/api/v1/reviews", {
+      const res = await fetch(`${API_BASE}/reviews`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",

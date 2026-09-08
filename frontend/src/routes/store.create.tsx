@@ -12,6 +12,7 @@ import { toast } from "sonner";
 import { getUserAccessToken } from "@/api/auth.api";
 import { uploadImageToCloudinary } from "@/lib/upload";
 import { fetchAreaFromPincode, detectDeviceLocation } from "@/lib/location";
+import { API_BASE } from "@/config/api";
 import {
   ChevronRight, ImagePlus, Check, Sparkles,
   Store as StoreIcon, MapPin, Clock, Truck, ShieldCheck, Eye, Wand2,
@@ -169,7 +170,7 @@ function CreateStore() {
 
     if (token) {
       try {
-        const res = await fetch("https://api.omeetso.in/api/v1/stores", {
+        const res = await fetch(`${API_BASE}/stores`, {
           method: "POST",
           headers: {
             "Content-Type": "application/json",

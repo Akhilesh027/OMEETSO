@@ -90,18 +90,24 @@ export async function getPublicStores(req: Request, res: Response, next: NextFun
       status: { $in: [StoreStatus.APPROVED, StoreStatus.ACTIVE, "active", "APPROVED", "ACTIVE"] }
     };
 
-    if (req.query.category) query.primaryCategory = req.query.category;
+    const escapeRegex = (str: string) => str.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+
+    if (req.query.category) {
+      const cat = (req.query.category as string).trim();
+      query.primaryCategory = { $in: [cat, cat.toLowerCase(), cat.toUpperCase(), new RegExp(`^${escapeRegex(cat)}$`, "i")] };
+    }
     if (req.query.city) {
       const cleanCity = (req.query.city as string).split(",")[0].trim();
-      query.city = new RegExp(cleanCity, "i");
+      const escapedCity = escapeRegex(cleanCity);
+      query.city = { $in: [cleanCity, cleanCity.toLowerCase(), cleanCity.toUpperCase(), new RegExp(`^${escapedCity}$`, "i")] };
     }
     if (req.query.pincode) query.pincode = (req.query.pincode as string).trim();
     if (req.query.area) {
       const cleanArea = (req.query.area as string).split(",")[0].trim();
-      query.area = new RegExp(cleanArea, "i");
+      query.area = new RegExp(`^${escapeRegex(cleanArea)}$`, "i");
     }
     if (req.query.search) {
-      const s = (req.query.search as string).trim();
+      const s = escapeRegex((req.query.search as string).trim());
       query.$or = [
         { name: new RegExp(s, "i") },
         { tagline: new RegExp(s, "i") },
@@ -121,6 +127,8 @@ export async function getPublicStores(req: Request, res: Response, next: NextFun
         .lean(),
       Store.countDocuments(query)
     ]);
+
+    res.setHeader("Cache-Control", "public, max-age=15, stale-while-revalidate=30");
 
     res.status(200).json({
       success: true,

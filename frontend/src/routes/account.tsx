@@ -21,6 +21,7 @@ import { toast } from "sonner";
 import { getUserAccessToken, refreshUserSession } from "@/api/auth.api";
 import { listListings, fetchLiveUserListings, type Listing, toggleListingNearbyChanges } from "@/lib/listings";
 import { uploadImageToCloudinary } from "@/lib/upload";
+import { API_BASE } from "@/config/api";
 
 export const Route = createFileRoute("/account")({
   head: () => ({
@@ -43,6 +44,11 @@ function Account() {
   const [showNearbyModal, setShowNearbyModal] = useState(false);
   const [myListings, setMyListings] = useState<Listing[]>([]);
 
+  // Auto-refresh when account store changes
+  useEffect(() => {
+    return subscribeAccount(() => setTick((t) => t + 1));
+  }, []);
+
   useEffect(() => {
     const token = typeof window !== "undefined" ? (getUserAccessToken() || localStorage.getItem("omeetso_user_token")) : null;
     if (!token) {
@@ -50,7 +56,7 @@ function Account() {
       setLoading(false);
       return;
     }
-    fetch("https://api.omeetso.in/api/v1/users/me", {
+    fetch(`${API_BASE}/users/me`, {
       headers: { Authorization: `Bearer ${token}` }
     })
       .then(async (res) => {

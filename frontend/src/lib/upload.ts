@@ -1,4 +1,5 @@
 import { getUserAccessToken } from "@/api/auth.api";
+import { API_BASE } from "@/config/api";
 
 export async function uploadImageToCloudinary(fileOrBase64: File | string, purpose = "listings"): Promise<string> {
   // If already a hosted HTTP/HTTPS URL, no upload needed
@@ -20,7 +21,7 @@ export async function uploadImageToCloudinary(fileOrBase64: File | string, purpo
 
   const token = typeof window !== "undefined" ? (getUserAccessToken() || localStorage.getItem("omeetso_user_token")) : null;
   try {
-    const res = await fetch("https://api.omeetso.in/api/v1/uploads/direct", {
+    const res = await fetch(`${API_BASE}/uploads/direct`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",

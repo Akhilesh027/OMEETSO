@@ -24,6 +24,14 @@ export async function connectDatabase(): Promise<typeof mongoose> {
       minPoolSize: 2
     });
     console.log(`[MongoDB] Successfully connected to database: ${conn.connection.host}/${conn.connection.name}`);
+    
+    // Sync schema indexes asynchronously in the background so queries use compound B-Tree indexes
+    mongoose.syncIndexes().then(() => {
+      console.log("[MongoDB] Schema indexes successfully verified and synchronized");
+    }).catch((err) => {
+      console.warn("[MongoDB] Background index sync notice:", err?.message || err);
+    });
+
     return conn;
   } catch (error) {
     console.error("[MongoDB] Connection failure:", error);

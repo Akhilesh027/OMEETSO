@@ -16,7 +16,7 @@ export async function getCategories(req: Request, res: Response, next: NextFunct
     const now = Date.now();
 
     if (categoriesCache[cacheKey] && categoriesCache[cacheKey].expiresAt > now) {
-      res.setHeader("Cache-Control", "public, max-age=15");
+      res.setHeader("Cache-Control", "public, max-age=60, stale-while-revalidate=120");
       res.status(200).json({
         success: true,
         data: categoriesCache[cacheKey].data
@@ -80,10 +80,10 @@ export async function getCategories(req: Request, res: Response, next: NextFunct
 
     categoriesCache[cacheKey] = {
       data: responseData,
-      expiresAt: now + 30_000 // 30 second TTL
+      expiresAt: now + 120_000 // 120 second TTL
     };
 
-    res.setHeader("Cache-Control", "public, max-age=15");
+    res.setHeader("Cache-Control", "public, max-age=60, stale-while-revalidate=120");
     res.status(200).json({
       success: true,
       data: responseData

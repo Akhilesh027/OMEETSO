@@ -14,23 +14,11 @@ export async function authenticateUser(
 ): Promise<void> {
   const authHeader = req.headers.authorization;
   if (!authHeader || !authHeader.startsWith("Bearer ")) {
-    try {
-      let defaultUser = await User.findOne({ phone: "9900000000" });
-      if (!defaultUser) {
-        defaultUser = await User.create({
-          phone: "9900000000",
-          accountType: "individual",
-          status: UserStatus.ACTIVE,
-          profile: { name: "Omeetso Seller", city: "Hyderabad", pincode: "500081", area: "Madhapur" },
-          verificationSummary: { mobileVerified: true, emailVerified: false, identityVerified: false, businessVerified: false }
-        });
-      }
-      req.user = defaultUser;
-      return next();
-    } catch (err) {
-      res.status(500).json({ success: false, error: { code: "SERVER_ERROR", message: "Failed to initialize seller context" } });
-      return;
-    }
+    res.status(401).json({
+      success: false,
+      error: { code: "UNAUTHORIZED", message: "Authentication required. Please sign in." }
+    });
+    return;
   }
 
   const token = authHeader.split(" ")[1];
@@ -45,30 +33,13 @@ export async function authenticateUser(
       return;
     }
 
-    let user = await User.findById(payload.userId);
+    const user = await User.findById(payload.userId);
     if (!user) {
-      try {
-        user = await User.create({
-          _id: payload.userId,
-          phone: "9900000000",
-          accountType: "individual",
-          status: UserStatus.ACTIVE,
-          profile: { name: "Omeetso User", city: "Hyderabad", pincode: "500081", area: "Madhapur" },
-          verificationSummary: { mobileVerified: true, emailVerified: false, identityVerified: false, businessVerified: false }
-        });
-      } catch {
-        // Fallback to default user if _id creation fails
-        user = await User.findOne({ phone: "9900000000" });
-        if (!user) {
-          user = await User.create({
-            phone: "9900000000",
-            accountType: "individual",
-            status: UserStatus.ACTIVE,
-            profile: { name: "Omeetso User", city: "Hyderabad", pincode: "500081", area: "Madhapur" },
-            verificationSummary: { mobileVerified: true, emailVerified: false, identityVerified: false, businessVerified: false }
-          });
-        }
-      }
+      res.status(401).json({
+        success: false,
+        error: { code: "USER_NOT_FOUND", message: "User account not found" }
+      });
+      return;
     }
 
     if (user.status === UserStatus.PERMANENTLY_SUSPENDED || user.status === UserStatus.DELETED) {

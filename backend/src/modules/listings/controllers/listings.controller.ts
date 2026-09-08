@@ -160,27 +160,36 @@ export async function getPublicListings(req: Request, res: Response, next: NextF
     };
 
     const andConditions: any[] = [];
+    const escapeRegex = (str: string) => str.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 
     if (req.query.categoryId || req.query.category) {
-      const cat = (req.query.categoryId || req.query.category) as string;
+      const cat = ((req.query.categoryId || req.query.category) as string).trim();
+      const escaped = escapeRegex(cat);
       andConditions.push({
         $or: [
-          { categoryId: { $regex: cat, $options: "i" } },
-          { subcategoryId: { $regex: cat, $options: "i" } }
+          { categoryId: { $in: [cat, cat.toLowerCase(), cat.toUpperCase()] } },
+          { categoryId: new RegExp(`^${escaped}$`, "i") },
+          { subcategoryId: { $in: [cat, cat.toLowerCase(), cat.toUpperCase()] } },
+          { subcategoryId: new RegExp(`^${escaped}$`, "i") }
         ]
       });
     }
 
-    if (req.query.subcategoryId) query.subcategoryId = req.query.subcategoryId;
+    if (req.query.subcategoryId) {
+      const sub = (req.query.subcategoryId as string).trim();
+      query.subcategoryId = { $in: [sub, sub.toLowerCase(), sub.toUpperCase()] };
+    }
     if (req.query.condition) query.condition = req.query.condition;
 
-    // Direct City-based Filtering
+    // Direct City-based Filtering (indexed exact and anchored regex fallback)
     const cityParam = (req.query.city as string)?.split(",")[0]?.trim();
     if (cityParam && cityParam.toLowerCase() !== "all") {
+      const escapedCity = escapeRegex(cityParam);
       andConditions.push({
         $or: [
-          { city: { $regex: cityParam, $options: "i" } },
-          { area: { $regex: cityParam, $options: "i" } }
+          { city: { $in: [cityParam, cityParam.toLowerCase(), cityParam.toUpperCase()] } },
+          { city: new RegExp(`^${escapedCity}$`, "i") },
+          { area: new RegExp(`^${escapedCity}$`, "i") }
         ]
       });
     }
@@ -232,6 +241,8 @@ export async function getPublicListings(req: Request, res: Response, next: NextF
         .lean(),
       Listing.countDocuments(query)
     ]);
+
+    res.setHeader("Cache-Control", "public, max-age=10, stale-while-revalidate=30");
 
     const items = listings.map((l: any) => {
       const isBusiness = Boolean(l.storeId || l.sellerId?.accountType === "business" || l.sellerId?.profile?.businessName);

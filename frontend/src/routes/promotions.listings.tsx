@@ -10,6 +10,7 @@ import { getAnalytics } from "@/lib/listings";
 import { Search, Filter, Package, ChevronRight, Zap, CheckCircle2, AlertCircle, Eye, MousePointerClick, ArrowRight } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { getUserAccessToken } from "@/api/auth.api";
+import { API_BASE } from "@/config/api";
 
 export const Route = createFileRoute("/promotions/listings")({
   head: () => ({ meta: [{ title: "Select a Listing to Boost — Omeetso" }] }),
@@ -36,7 +37,7 @@ function SelectListing() {
 
     // Fetch live backend listings
     const token = getUserAccessToken();
-    fetch("https://api.omeetso.in/api/v1/listings", {
+    fetch(`${API_BASE}/listings`, {
       headers: token ? { Authorization: `Bearer ${token}` } : {}
     })
       .then((res) => res.json())

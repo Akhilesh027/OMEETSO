@@ -6,11 +6,12 @@ import { ProductCard } from "@/components/omeetso/ProductCard";
 import { EmptyState } from "@/components/omeetso/EmptyState";
 import { isFollowingSeller, toggleFollowSeller } from "@/lib/saved";
 import { toast } from "sonner";
+import { API_BASE } from "@/config/api";
 
 export const Route = createFileRoute("/seller/$id")({
   loader: async ({ params }) => {
     try {
-      const res = await fetch(`https://api.omeetso.in/api/v1/users/${params.id}/public`);
+      const res = await fetch(`${API_BASE}/users/${params.id}/public`);
       const json = await res.json();
       if (json.success && json.data) {
         return {
@@ -76,7 +77,7 @@ function SellerPage() {
   const [reported, setReported] = useState(false);
 
   useEffect(() => {
-    fetch(`https://api.omeetso.in/api/v1/users/${id}/public`)
+    fetch(`${API_BASE}/users/${id}/public`)
       .then((res) => res.json())
       .then((json) => {
         if (json.success && json.data) {
@@ -98,7 +99,7 @@ function SellerPage() {
       })
       .catch(() => { });
 
-    fetch(`https://api.omeetso.in/api/v1/listings?sellerId=${id}`)
+    fetch(`${API_BASE}/listings?sellerId=${id}`)
       .then((res) => res.json())
       .then((json) => {
         if (json.success && Array.isArray(json.data)) {

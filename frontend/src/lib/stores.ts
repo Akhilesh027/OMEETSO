@@ -125,6 +125,7 @@ export const newStoreId = () =>
   `ST${Date.now().toString(36)}${Math.random().toString(36).slice(2, 5)}`.toUpperCase();
 
 import { getUserAccessToken } from "@/api/auth.api";
+import { API_BASE } from "@/config/api";
 
 // ---- Stores ----
 export function listStores(): Store[] { return read<Store[]>(LS.stores, []); }
@@ -134,7 +135,7 @@ export async function fetchLiveUserStores(): Promise<Store[]> {
   if (!token) return listStores();
 
   try {
-    const res = await fetch("https://api.omeetso.in/api/v1/stores/user/me", {
+    const res = await fetch(`${API_BASE}/stores/user/me`, {
       headers: { Authorization: `Bearer ${token}` }
     });
     const json = await res.json();

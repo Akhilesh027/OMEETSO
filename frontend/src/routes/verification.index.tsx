@@ -26,6 +26,7 @@ import {
 import { uploadFile } from "@/lib/upload";
 import { formatPhoneDisplay, cleanPhoneInput } from "@/lib/utils";
 import { toast } from "sonner";
+import { API_BASE } from "@/config/api";
 
 export const Route = createFileRoute("/verification/")({
   head: () => ({ meta: [{ title: "Verification & Trust Score — Omeetso" }] }),
@@ -193,7 +194,7 @@ function VerificationCentre() {
 
     try {
       if (token) {
-        await fetch("https://api.omeetso.in/api/v1/verification", {
+        await fetch(`${API_BASE}/verification`, {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
@@ -238,7 +239,7 @@ function VerificationCentre() {
     setEmailLoading(true);
     try {
       const token = typeof window !== "undefined" ? localStorage.getItem("omeetso_user_token") : null;
-      const res = await fetch("https://api.omeetso.in/api/v1/auth/email-otp/request", {
+      const res = await fetch(`${API_BASE}/auth/email-otp/request`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -271,7 +272,7 @@ function VerificationCentre() {
     setEmailLoading(true);
     try {
       const token = typeof window !== "undefined" ? localStorage.getItem("omeetso_user_token") : null;
-      const res = await fetch("https://api.omeetso.in/api/v1/auth/email-otp/verify", {
+      const res = await fetch(`${API_BASE}/auth/email-otp/verify`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
