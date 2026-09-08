@@ -11,6 +11,18 @@ export const ProtectedAdminRoute: React.FC<ProtectedAdminRouteProps> = ({ childr
   const { status, setIntendedRoute } = useAdminAuth();
   const location = useLocation();
 
+  React.useEffect(() => {
+    if (
+      status !== "authenticated" &&
+      status !== "initializing" &&
+      status !== "two_factor_required" &&
+      status !== "session_expired" &&
+      status !== "account_locked"
+    ) {
+      setIntendedRoute(location.pathname + location.search);
+    }
+  }, [status, location.pathname, location.search, setIntendedRoute]);
+
   if (status === "initializing") {
     return <RouteLoader message="Restoring admin session..." />;
   }
@@ -28,8 +40,6 @@ export const ProtectedAdminRoute: React.FC<ProtectedAdminRouteProps> = ({ childr
   }
 
   if (status !== "authenticated") {
-    // Save intended route for post-login redirect
-    setIntendedRoute(location.pathname + location.search);
     return <Navigate to="/admin/login" replace />;
   }
 

@@ -341,6 +341,7 @@ export type NotifCategory =
   | "promotions" | "payments" | "system" | "nearby_changes" | "job_application";
 export type Notification = {
   id: string;
+  userId?: string;
   category: NotifCategory;
   title: string;
   body: string;
@@ -353,15 +354,45 @@ export type Notification = {
   thumbnail?: string;
 };
 
-const DEFAULT_NOTIFS: Notification[] = [];
+export function getCurrentUserId(): string | null {
+  if (typeof window === "undefined") return null;
+  try {
+    const raw = localStorage.getItem("omeetso_user");
+    if (!raw) return null;
+    const u = JSON.parse(raw);
+    return u._id || u.id || null;
+  } catch {
+    return null;
+  }
+}
+
+function getNotifStorageKey(): string | null {
+  const uid = getCurrentUserId();
+  return uid ? `omeetso_notifications_${uid}` : null;
+}
 
 export function listNotifications(): Notification[] {
-  const stored = read<Notification[] | null>(AK.notifications, null);
+  const uid = getCurrentUserId();
+  if (!uid) {
+    if (typeof window !== "undefined") {
+      try { localStorage.removeItem(AK.notifications); } catch {}
+    }
+    return [];
+  }
+
+  const key = `omeetso_notifications_${uid}`;
+  // Clean legacy shared storage to prevent leakage from previous accounts
+  if (typeof window !== "undefined") {
+    try { localStorage.removeItem(AK.notifications); } catch {}
+  }
+
+  const stored = read<Notification[] | null>(key, null);
   if (!stored || !Array.isArray(stored) || stored.length === 0) return [];
 
-  // Automatically filter out and purge mock notifications
+  // Automatically filter out notifications not belonging to current user and purge mock notifications
   const clean = stored.filter(
     (n) =>
+      (!n.userId || n.userId === uid) &&
       !n.id.startsWith("N") &&
       !n.title?.includes("Ramesh Kumar") &&
       !n.title?.includes("Sanjay") &&
@@ -372,7 +403,7 @@ export function listNotifications(): Notification[] {
   );
 
   if (clean.length !== stored.length) {
-    write(AK.notifications, clean);
+    write(key, clean);
   }
   return clean;
 }
@@ -387,32 +418,44 @@ function emitNotifEvent() {
 }
 
 export function markRead(id: string, read = true) {
+  const key = getNotifStorageKey();
+  if (!key) return;
   const cur = listNotifications().map((n) => n.id === id ? { ...n, read } : n);
-  write(AK.notifications, cur);
+  write(key, cur);
   emitNotifEvent();
 }
 export function markAllRead(category?: NotifCategory) {
+  const key = getNotifStorageKey();
+  if (!key) return;
   const cur = listNotifications().map((n) => (!category || n.category === category) ? { ...n, read: true } : n);
-  write(AK.notifications, cur);
+  write(key, cur);
   emitNotifEvent();
 }
 export function deleteNotification(id: string) {
-  write(AK.notifications, listNotifications().filter((n) => n.id !== id));
+  const key = getNotifStorageKey();
+  if (!key) return;
+  write(key, listNotifications().filter((n) => n.id !== id));
   emitNotifEvent();
 }
 export function clearCategory(category: NotifCategory) {
-  write(AK.notifications, listNotifications().filter((n) => n.category !== category));
+  const key = getNotifStorageKey();
+  if (!key) return;
+  write(key, listNotifications().filter((n) => n.category !== category));
   emitNotifEvent();
 }
 export function unreadCount(): number { return listNotifications().filter((n) => !n.read).length; }
 
 export function pushNotification(n: Omit<Notification, "time"> & { time?: number }) {
+  const uid = getCurrentUserId();
+  const key = getNotifStorageKey();
+  if (!key) return null;
   const cur = listNotifications();
   const full: Notification = {
     ...n,
+    userId: uid || undefined,
     time: n.time || Date.now(),
   };
-  write(AK.notifications, [full, ...cur.filter((item) => item.id !== full.id)]);
+  write(key, [full, ...cur.filter((item) => item.id !== full.id)]);
   emitNotifEvent();
   return full;
 }
@@ -836,6 +879,11 @@ export async function logout() {
 
   setUserAccessToken(null);
 
+  const uid = getCurrentUserId();
+  if (uid) {
+    localStorage.removeItem(`omeetso_notifications_${uid}`);
+  }
+
   const keysToRemove = [
     "omeetso_user",
     "omeetso_user_token",
@@ -859,6 +907,7 @@ export async function logout() {
   });
 
   emit();
+  emitNotifEvent();
   window.dispatchEvent(new Event("storage"));
   window.dispatchEvent(new Event("omeetso_auth_changed"));
 }

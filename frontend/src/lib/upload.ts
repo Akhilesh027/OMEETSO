@@ -1,34 +1,83 @@
 import { getUserAccessToken } from "@/api/auth.api";
 import { API_BASE } from "@/config/api";
 
+/**
+ * Fast client-side canvas compression to reduce multi-MB photos down to ~100-200KB before upload,
+ * radically speeding up listing publishing and network transfer.
+ */
+async function compressImageForUpload(dataUrlOrFile: string | File, maxDim = 1280, quality = 0.82): Promise<string> {
+  return new Promise<string>((resolve) => {
+    try {
+      if (typeof window === "undefined") {
+        return resolve(typeof dataUrlOrFile === "string" ? dataUrlOrFile : "");
+      }
+      const img = new Image();
+      img.onload = () => {
+        try {
+          let { width, height } = img;
+          if (width > maxDim || height > maxDim) {
+            if (width > height) {
+              height = Math.round((height * maxDim) / width);
+              width = maxDim;
+            } else {
+              width = Math.round((width * maxDim) / height);
+              height = maxDim;
+            }
+          }
+          const canvas = document.createElement("canvas");
+          canvas.width = width;
+          canvas.height = height;
+          const ctx = canvas.getContext("2d");
+          if (!ctx) return resolve(typeof dataUrlOrFile === "string" ? dataUrlOrFile : "");
+          ctx.drawImage(img, 0, 0, width, height);
+          const compressed = canvas.toDataURL("image/jpeg", quality);
+          resolve(compressed);
+        } catch {
+          resolve(typeof dataUrlOrFile === "string" ? dataUrlOrFile : "");
+        }
+      };
+      img.onerror = () => resolve(typeof dataUrlOrFile === "string" ? dataUrlOrFile : "");
+      if (typeof dataUrlOrFile === "string") {
+        img.src = dataUrlOrFile;
+      } else {
+        const reader = new FileReader();
+        reader.onload = () => { img.src = String(reader.result); };
+        reader.onerror = () => resolve("");
+        reader.readAsDataURL(dataUrlOrFile);
+      }
+    } catch {
+      resolve(typeof dataUrlOrFile === "string" ? dataUrlOrFile : "");
+    }
+  });
+}
+
 export async function uploadImageToCloudinary(fileOrBase64: File | string, purpose = "listings"): Promise<string> {
   // If already a hosted HTTP/HTTPS URL, no upload needed
   if (typeof fileOrBase64 === "string" && (fileOrBase64.startsWith("http://") || fileOrBase64.startsWith("https://"))) {
     return fileOrBase64;
   }
 
-  let base64String = "";
-  if (typeof fileOrBase64 === "string") {
-    base64String = fileOrBase64;
-  } else {
-    base64String = await new Promise<string>((resolve, reject) => {
-      const reader = new FileReader();
-      reader.onload = () => resolve(String(reader.result));
-      reader.onerror = reject;
-      reader.readAsDataURL(fileOrBase64);
-    });
-  }
+  // Fast client-side compression before network transmission
+  const compressedBase64 = await compressImageForUpload(fileOrBase64, 1280, 0.82);
+  const base64String = compressedBase64 || (typeof fileOrBase64 === "string" ? fileOrBase64 : "");
+
+  if (!base64String) return "";
 
   const token = typeof window !== "undefined" ? (getUserAccessToken() || localStorage.getItem("omeetso_user_token")) : null;
   try {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 8000); // 8s timeout per image
+
     const res = await fetch(`${API_BASE}/uploads/direct`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
         ...(token ? { Authorization: `Bearer ${token}` } : {})
       },
+      signal: controller.signal,
       body: JSON.stringify({ image: base64String, purpose })
     });
+    clearTimeout(timeout);
     const json = await res.json();
     if (json.success && json.data?.url) {
       return json.data.url;
@@ -39,6 +88,64 @@ export async function uploadImageToCloudinary(fileOrBase64: File | string, purpo
 
   return base64String;
 }
+
+export async function uploadVideoToCloudinary(fileOrBase64: File | string, purpose = "listing_videos"): Promise<string> {
+  if (!fileOrBase64) return "";
+  if (typeof fileOrBase64 === "string" && (fileOrBase64.startsWith("http://") || fileOrBase64.startsWith("https://"))) {
+    return fileOrBase64;
+  }
+
+  let base64String = "";
+  if (typeof fileOrBase64 === "string") {
+    base64String = fileOrBase64;
+  } else {
+    base64String = await new Promise<string>((resolve) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(String(reader.result));
+      reader.onerror = () => resolve("");
+      reader.readAsDataURL(fileOrBase64);
+    });
+  }
+
+  if (!base64String) return "";
+
+  const token = typeof window !== "undefined" ? (getUserAccessToken() || localStorage.getItem("omeetso_user_token")) : null;
+  try {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 20000); // 20s timeout for video
+
+    const res = await fetch(`${API_BASE}/uploads/direct`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        ...(token ? { Authorization: `Bearer ${token}` } : {})
+      },
+      signal: controller.signal,
+      body: JSON.stringify({ video: base64String, purpose })
+    });
+    clearTimeout(timeout);
+    const json = await res.json();
+    if (json.success && json.data?.url) {
+      return json.data.url;
+    }
+  } catch (err) {
+    console.warn("Cloudinary video upload fallback:", err);
+  }
+
+  return base64String;
+}
+
+export const uploadMedia = async (mediaOrUrl: string | File, purpose = "listings"): Promise<string> => {
+  if (!mediaOrUrl) return "";
+  const isVideo = typeof mediaOrUrl === "string" 
+    ? (mediaOrUrl.startsWith("data:video/") || mediaOrUrl.endsWith(".mp4") || mediaOrUrl.endsWith(".webm") || mediaOrUrl.endsWith(".mov"))
+    : (mediaOrUrl.type?.startsWith("video/"));
+
+  if (isVideo) {
+    return uploadVideoToCloudinary(mediaOrUrl, `${purpose}_videos`);
+  }
+  return uploadImageToCloudinary(mediaOrUrl, purpose);
+};
 
 export const uploadFile = uploadImageToCloudinary;
 export default uploadImageToCloudinary;

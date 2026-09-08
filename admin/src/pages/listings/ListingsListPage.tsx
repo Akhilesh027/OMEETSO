@@ -42,29 +42,10 @@ export default function ListingsListPage() {
       const cached = localStorage.getItem("omeetso_admin_listings_cache");
       if (cached) {
         const parsed = JSON.parse(cached);
-        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+        if (Array.isArray(parsed)) return parsed;
       }
     } catch { }
-    const mock = MockDataService.getListings();
-    return mock.map((item: any) => ({
-      id: item.id || item._id,
-      title: item.title,
-      description: item.description || item.title,
-      price: item.priceInPaise ? item.priceInPaise / 100 : item.price || 0,
-      currency: "INR",
-      condition: item.condition || "Like New",
-      categoryId: item.categoryId || item.category || "General",
-      subcategoryId: item.subcategoryId,
-      sellerId: item.seller?.id || item.sellerId || "user_1",
-      sellerName: item.seller?.name || item.sellerName || "Omeetso Seller",
-      status: (item.status?.toLowerCase() || "active") as any,
-      images: item.images || [],
-      coverIndex: item.coverIndex || 0,
-      location: { city: item.location?.city || item.city || "Hyderabad", area: item.location?.area || item.area || "Madhapur", pincode: item.location?.pincode || item.pincode || "500081" },
-      reportCount: 0,
-      createdAt: item.createdAt || new Date().toISOString(),
-      updatedAt: item.createdAt || new Date().toISOString()
-    }));
+    return [];
   });
   const [activeTab, setActiveTab] = useState<
     "all" | "pending_review" | "reported" | "requires_changes" | "active" | "rejected" | "removed"
@@ -76,7 +57,6 @@ export default function ListingsListPage() {
   const [selectedListing, setSelectedListing] = useState<Listing | null>(null);
   const [isInspectorOpen, setIsInspectorOpen] = useState(false);
   const [isEditOpen, setIsEditOpen] = useState(false);
-  const [isAddOpen, setIsAddOpen] = useState(false);
   const [isBoostOpen, setIsBoostOpen] = useState(false);
 
   // Form states
@@ -93,20 +73,20 @@ export default function ListingsListPage() {
 
   const loadListings = async () => {
     try {
-      const res = await getAdminListingsQueueApi({ limit: 50 });
-      if (res.success && Array.isArray(res.data) && res.data.length > 0) {
+      const res = await getAdminListingsQueueApi({ limit: 100 });
+      if (res.success && Array.isArray(res.data)) {
         const mapped: Listing[] = res.data.map((item: any) => ({
           id: item.id || item._id,
           title: item.title,
           description: item.description || item.title,
           price: item.priceInPaise ? item.priceInPaise / 100 : item.price || 0,
           currency: "INR",
-          condition: item.condition,
-          categoryId: item.categoryId || item.category,
+          condition: item.condition || "Like New",
+          categoryId: item.categoryId || item.category || "General",
           subcategoryId: item.subcategoryId,
           sellerId: item.seller?.id || item.sellerId || "user_1",
           sellerName: item.seller?.name || item.sellerName || "Omeetso Seller",
-          status: (item.status?.toLowerCase() || "active") as any,
+          status: (item.status?.toLowerCase() || "submitted") as any,
           images: item.images || [],
           coverIndex: item.coverIndex || 0,
           location: { city: item.city || "Hyderabad", area: item.area || "Madhapur", pincode: item.pincode || "500081" },
@@ -138,7 +118,7 @@ export default function ListingsListPage() {
 
     if (!matchesSearch) return false;
 
-    if (activeTab === "pending_review") return l.status === "pending_review" || l.status === "submitted";
+    if (activeTab === "pending_review") return l.status === "pending_review" || l.status === "submitted" || l.status === "under_review";
     if (activeTab === "reported") return l.status === "reported" || (l.reportCount || 0) > 0;
     if (activeTab === "requires_changes") return l.status === "requires_changes" || l.status === "changes_required";
     if (activeTab === "active") return l.status === "active" || l.status === "approved";
@@ -170,15 +150,7 @@ export default function ListingsListPage() {
   const handleSaveListing = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
-      if (isAddOpen) {
-        const res = await createAdminListingApi(formData);
-        if (res.success) {
-          showSuccess("Listing Created", "New product listing created in database.");
-        } else {
-          showError("Creation Failed", res.error || "Could not save listing");
-        }
-        setIsAddOpen(false);
-      } else if (isEditOpen && selectedListing) {
+      if (isEditOpen && selectedListing) {
         const res = await updateAdminListingApi(selectedListing.id, formData);
         if (res.success) {
           showSuccess("Listing Updated", "Product listing updated in database.");
@@ -225,18 +197,6 @@ export default function ListingsListPage() {
         description="Review product submissions, counterfeit checks, price approvals, and ad boosting."
         badge={`${listings.length} Catalog Items`}
         badgeColor="warning"
-        primaryAction={
-          <button
-            onClick={() => {
-              setFormData({ categoryId: "electronics", priceInPaise: 499900 });
-              setIsAddOpen(true);
-            }}
-            className="inline-flex items-center space-x-1.5 px-3.5 py-2 rounded-xl text-xs font-semibold bg-[#3547D4] text-white hover:bg-[#111E4D] transition-colors shadow-sm"
-          >
-            <Plus className="w-4 h-4" />
-            <span>Create Product Listing</span>
-          </button>
-        }
       />
 
       <div className="bg-white rounded-2xl border border-[#E2E8F0] shadow-sm p-5 space-y-4">
@@ -497,24 +457,72 @@ export default function ListingsListPage() {
               </div>
             </div>
 
-            <div className="pt-3 border-t border-[#E2E8F0] space-y-2">
-              <div className="text-xs font-bold text-[#111827]">Moderation Action Buttons:</div>
+            <div className="pt-3 border-t border-[#E2E8F0] space-y-3">
+              <div>
+                <div className="text-xs font-bold text-[#111827] mb-1">Image & Listing Moderation Feedback:</div>
+                <div className="flex flex-wrap gap-1.5 mb-2">
+                  {[
+                    "Product images are blurry or low resolution",
+                    "Please provide clear photos showing all angles",
+                    "Poor lighting or glare makes details unclear",
+                    "Please upload well-lit photos with clear condition labels"
+                  ].map((preset) => (
+                    <button
+                      key={preset}
+                      type="button"
+                      onClick={() => setChangeNotes(preset)}
+                      className={`px-2 py-1 text-[11px] rounded-lg border transition-colors ${
+                        changeNotes === preset
+                          ? "bg-amber-100 border-amber-400 text-amber-900 font-bold"
+                          : "bg-slate-50 border-slate-200 text-slate-700 hover:bg-slate-100"
+                      }`}
+                    >
+                      {preset}
+                    </button>
+                  ))}
+                </div>
+                <input
+                  type="text"
+                  value={changeNotes}
+                  onChange={(e) => setChangeNotes(e.target.value)}
+                  placeholder="Optional custom moderation notes / instructions for seller..."
+                  className="w-full p-2 text-xs rounded-xl border border-[#E2E8F0] bg-[#F5F7FC] focus:outline-none focus:ring-1 focus:ring-[#3547D4]"
+                />
+              </div>
+
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
                 <button
-                  onClick={() => handleStatusChange(selectedListing.id, "active", "Approved by admin moderator")}
-                  className="py-2 bg-emerald-600 text-white font-bold rounded-xl text-xs hover:bg-emerald-700"
+                  onClick={() => {
+                    handleStatusChange(selectedListing.id, "active", changeNotes || "Approved by admin moderator");
+                    setIsInspectorOpen(false);
+                  }}
+                  className="py-2 bg-emerald-600 text-white font-bold rounded-xl text-xs hover:bg-emerald-700 transition-colors"
                 >
                   ✓ Approve
                 </button>
                 <button
-                  onClick={() => handleStatusChange(selectedListing.id, "requires_changes", "Requested changes")}
-                  className="py-2 bg-amber-500 text-white font-bold rounded-xl text-xs hover:bg-amber-600"
+                  onClick={() => {
+                    handleStatusChange(
+                      selectedListing.id,
+                      "requires_changes",
+                      changeNotes || "Product images appear blurry or require additional detail photos. Please upload clearer photos."
+                    );
+                    setIsInspectorOpen(false);
+                  }}
+                  className="py-2 bg-amber-500 text-white font-bold rounded-xl text-xs hover:bg-amber-600 transition-colors"
                 >
                   ✎ Needs Changes
                 </button>
                 <button
-                  onClick={() => handleStatusChange(selectedListing.id, "rejected", "Rejected due to policy violation")}
-                  className="py-2 bg-[#DC3545] text-white font-bold rounded-xl text-xs hover:bg-red-700"
+                  onClick={() => {
+                    handleStatusChange(
+                      selectedListing.id,
+                      "rejected",
+                      changeNotes || "Rejected due to content or image clarity policy violation"
+                    );
+                    setIsInspectorOpen(false);
+                  }}
+                  className="py-2 bg-[#DC3545] text-white font-bold rounded-xl text-xs hover:bg-red-700 transition-colors"
                 >
                   ✕ Reject Listing
                 </button>
@@ -523,7 +531,7 @@ export default function ListingsListPage() {
                     setIsInspectorOpen(false);
                     setIsBoostOpen(true);
                   }}
-                  className="py-2 bg-[#3547D4] text-white font-bold rounded-xl text-xs hover:bg-[#111E4D]"
+                  className="py-2 bg-[#3547D4] text-white font-bold rounded-xl text-xs hover:bg-[#111E4D] transition-colors"
                 >
                   ⚡ Boost as Ad
                 </button>
@@ -592,13 +600,13 @@ export default function ListingsListPage() {
         </div>
       )}
 
-      {/* CREATE / EDIT LISTING MODAL */}
-      {(isAddOpen || isEditOpen) && (
+      {/* EDIT LISTING DETAILS MODAL */}
+      {isEditOpen && selectedListing && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm">
           <form onSubmit={handleSaveListing} className="bg-white rounded-2xl max-w-md w-full p-6 space-y-4 shadow-2xl animate-in fade-in-50">
             <div className="flex items-center justify-between border-b border-[#E2E8F0] pb-3">
-              <h3 className="text-sm font-bold text-[#111827]">{isAddOpen ? "Create New Product Listing" : "Edit Listing Details"}</h3>
-              <button type="button" onClick={() => { setIsAddOpen(false); setIsEditOpen(false); }} className="text-slate-400 hover:text-slate-600">✕</button>
+              <h3 className="text-sm font-bold text-[#111827]">Edit Listing Details</h3>
+              <button type="button" onClick={() => setIsEditOpen(false)} className="text-slate-400 hover:text-slate-600">✕</button>
             </div>
             <div className="space-y-3 text-xs">
               <div>
@@ -642,7 +650,7 @@ export default function ListingsListPage() {
             <div className="pt-2 flex justify-end space-x-2">
               <button
                 type="button"
-                onClick={() => { setIsAddOpen(false); setIsEditOpen(false); }}
+                onClick={() => setIsEditOpen(false)}
                 className="px-4 py-2 text-xs font-semibold bg-[#F5F7FC] rounded-xl text-[#111827]"
               >
                 Cancel

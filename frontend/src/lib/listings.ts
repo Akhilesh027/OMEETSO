@@ -250,8 +250,18 @@ export async function fetchLivePublicListings(params?: {
   return [];
 }
 
-export async function fetchLiveUserListings(): Promise<Listing[]> {
+let userListingsMemoryCache: { data: Listing[]; expiresAt: number } | null = null;
+
+export function invalidateUserListingsCache() {
+  userListingsMemoryCache = null;
+}
+
+export async function fetchLiveUserListings(forceRefresh = false): Promise<Listing[]> {
   const token = typeof window !== "undefined" ? (getUserAccessToken() || localStorage.getItem("omeetso_user_token")) : null;
+
+  if (!forceRefresh && userListingsMemoryCache && userListingsMemoryCache.expiresAt > Date.now()) {
+    return userListingsMemoryCache.data;
+  }
 
   let soldIds: string[] = [];
   try {
@@ -302,14 +312,42 @@ export async function fetchLiveUserListings(): Promise<Listing[]> {
           };
         });
 
+        // Merge remote listings with existing local listings so newly created items are never lost
+        const currentLocal = listListings();
+        const mergedMap = new Map<string, Listing>();
+
+        // 1. Add remote items
+        for (const item of remoteMapped) {
+          mergedMap.set(item.id, item);
+        }
+
+        // 2. Preserve any local items that haven't synced or are pending
+        for (const local of currentLocal) {
+          if (!mergedMap.has(local.id)) {
+            // Keep locally saved items unless older than 7 days
+            if (Date.now() - (local.createdAt || 0) < 7 * 86400 * 1000) {
+              mergedMap.set(local.id, local);
+            }
+          }
+        }
+
+        const mergedListings = Array.from(mergedMap.values()).sort(
+          (a, b) => (b.createdAt || 0) - (a.createdAt || 0)
+        );
+
+        userListingsMemoryCache = {
+          data: mergedListings,
+          expiresAt: Date.now() + 30_000,
+        };
+
         // Silently persist user's own listings without triggering infinite subscription loop
         if (typeof window !== "undefined") {
           try {
-            localStorage.setItem(LS.listings, JSON.stringify(remoteMapped));
+            localStorage.setItem(LS.listings, JSON.stringify(mergedListings));
           } catch {}
         }
 
-        return remoteMapped;
+        return mergedListings;
       }
     } catch (err) {
       console.warn("Failed to fetch user listings from backend:", err);
@@ -388,6 +426,7 @@ export function getListing(id: string): Listing | undefined {
   return listListings().find((l) => l.id === id);
 }
 export function upsertListing(l: Listing) {
+  invalidateUserListingsCache();
   const all = listListings();
   const i = all.findIndex((x) => x.id === l.id);
   const now = Date.now();
@@ -398,9 +437,11 @@ export function upsertListing(l: Listing) {
   return next;
 }
 export function deleteListing(id: string) {
+  invalidateUserListingsCache();
   write(LS.listings, listListings().filter((l) => l.id !== id));
 }
 export function setStatus(id: string, status: ListingStatus, extra: Partial<Listing> = {}) {
+  invalidateUserListingsCache();
   const l = getListing(id);
   if (!l) return;
   upsertListing({ ...l, ...extra, status });

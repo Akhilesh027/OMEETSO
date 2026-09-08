@@ -469,17 +469,43 @@ function EmployerJobsDashboardPage() {
 
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-muted-foreground mb-1">Interview Date</label>
+                  <div className="flex items-center justify-between mb-1">
+                    <label className="text-muted-foreground text-xs font-bold">Interview Date *</label>
+                    <select
+                      aria-label="Select Year"
+                      value={interviewForm.date ? interviewForm.date.split("-")[0] : "2026"}
+                      onChange={(e) => {
+                        const yr = e.target.value;
+                        const cur = interviewForm.date || new Date().toISOString().split("T")[0];
+                        const parts = cur.split("-");
+                        setInterviewForm({ ...interviewForm, date: `${yr}-${parts[1] || "01"}-${parts[2] || "01"}` });
+                      }}
+                      className="text-[10px] font-bold text-indigo-700 bg-indigo-500/10 border border-indigo-500/30 rounded px-1 outline-none"
+                    >
+                      {[2026, 2027, 2028, 2029, 2030].map((y) => (
+                        <option key={y} value={y}>{y}</option>
+                      ))}
+                    </select>
+                  </div>
                   <input
                     type="date"
                     required
+                    min="2026-01-01"
+                    max="2032-12-31"
+                    onKeyDown={(e) => {
+                      const allowed = ["Backspace", "Tab", "ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown", "Delete", "Enter", "Home", "End"];
+                      if (allowed.includes(e.key) || e.ctrlKey || e.metaKey) return;
+                      if (!/^[0-9\-]$/.test(e.key)) {
+                        e.preventDefault();
+                      }
+                    }}
                     value={interviewForm.date}
                     onChange={(e) => setInterviewForm({ ...interviewForm, date: e.target.value })}
-                    className="w-full h-10 rounded-xl border border-border bg-background px-3 font-bold text-foreground outline-none"
+                    className="w-full h-10 rounded-xl border border-border bg-background px-3 font-bold text-foreground outline-none text-xs"
                   />
                 </div>
                 <div>
-                  <label className="block text-muted-foreground mb-1">Time Window</label>
+                  <label className="block text-muted-foreground mb-1 text-xs font-bold">Time Window</label>
                   <input
                     type="text"
                     required

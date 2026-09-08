@@ -224,19 +224,8 @@ function EditProfile() {
                 </div>
               </div>
 
-              <div className="mt-4 space-y-3 md:mt-6 md:grid md:grid-cols-2 md:gap-4 md:space-y-0">
+              <div className="mt-4 space-y-3 md:mt-6">
                 <Field label="Full name" value={name} onChange={setName} error={nameError} required maxLength={60} />
-                <div>
-                  <p className="mb-1 text-[11px] font-semibold text-muted-foreground">Preferred language</p>
-                  <div className="flex gap-2">
-                    {[["en", "English"], ["te", "తెలుగు"], ["hi", "हिन्दी"]].map(([code, label]) => (
-                      <button key={code} onClick={() => setLang(code)}
-                        className={`rounded-full border px-3 py-1.5 text-xs font-semibold ${lang === code ? "border-primary bg-primary text-primary-foreground" : "border-border bg-card"}`}>
-                        {label}
-                      </button>
-                    ))}
-                  </div>
-                </div>
               </div>
 
               <div className="mt-3 md:mt-4">

@@ -44,28 +44,39 @@ export async function createListing(req: AuthenticatedUserRequest, res: Response
       ? negotiable
       : (pricingType ? pricingType.toUpperCase() === "NEGOTIABLE" : true);
 
-    const contactNumber = sellerPhone || whatsappPhone || (req.user as any).profile?.phone || (req.user as any).phone || "";
+    const contactNumber = sellerPhone || whatsappPhone || (req.user as any)?.profile?.phone || (req.user as any)?.phone || "";
+
+    const userProfile = (req.user as any)?.profile || {};
+    const safeCity = (city && String(city).trim()) || userProfile.city || "Hyderabad";
+    const safeArea = (area && String(area).trim()) || userProfile.area || "Madhapur";
+    const safePincode = (pincode && String(pincode).trim()) || userProfile.pincode || "500081";
+    const safeCategory = (categoryId && String(categoryId).trim()) || "mobiles";
+    const safeSubcategory = (subcategoryId && String(subcategoryId).trim()) || safeCategory;
+    const safeCondition = (condition && String(condition).trim()) || "good";
+    const safeFulfilment = (fulfilment && String(fulfilment).trim()) || "pickup";
+    const safeTitle = (title && String(title).trim()) || "Untitled Product";
+    const safeDescription = (description && String(description).trim()) || safeTitle;
 
     const listing = await Listing.create({
       sellerId,
-      categoryId,
-      subcategoryId,
-      title,
-      description,
-      priceInPaise,
+      categoryId: safeCategory,
+      subcategoryId: safeSubcategory,
+      title: safeTitle,
+      description: safeDescription,
+      priceInPaise: Number(priceInPaise) || 0,
       negotiable: isNegotiable,
       free: Boolean(free),
-      condition,
-      images: images || [],
+      condition: safeCondition,
+      images: Array.isArray(images) && images.length > 0 ? images : ["https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=400"],
       coverIndex: coverIndex || 0,
       videoUrl,
       whatsappPhone: whatsappPhone || contactNumber,
       sellerPhone: sellerPhone || contactNumber,
       enableWhatsapp: enableWhatsapp ?? true,
-      pincode: pincode || req.user.profile.pincode || "500081",
-      area: area || req.user.profile.area || "",
-      city: city || req.user.profile.city || "",
-      fulfilment: fulfilment || "pickup",
+      pincode: safePincode,
+      area: safeArea,
+      city: safeCity,
+      fulfilment: safeFulfilment,
       specs: specs || {},
       contactPref: contactPref || "call_and_chat",
       status: ListingStatus.SUBMITTED,
@@ -79,6 +90,12 @@ export async function createListing(req: AuthenticatedUserRequest, res: Response
       status: "unassigned",
       version: 1
     });
+
+    // Invalidate Admin Listings Cache immediately
+    try {
+      const { invalidateListingsCache } = await import("../../admin/controllers/adminListings.controller");
+      invalidateListingsCache();
+    } catch {}
 
     // Generate listing created notification
     await Notification.create({

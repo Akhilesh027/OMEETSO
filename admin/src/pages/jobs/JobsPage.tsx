@@ -26,6 +26,7 @@ import {
   FileText
 } from "lucide-react";
 import { useToast } from "@/contexts/ToastContext";
+import { AdminAuthService } from "@/services/adminAuthService";
 import { API_BASE } from "@/config/api";
 
 type JobStatus = "all" | "submitted" | "approved" | "active" | "paused" | "filled" | "expired" | "rejected";
@@ -34,7 +35,16 @@ export function JobsPage() {
   const [activeTab, setActiveTab] = useState<"jobs" | "categories">("jobs");
   const [statusFilter, setStatusFilter] = useState<JobStatus>("all");
   const [searchQuery, setSearchQuery] = useState("");
-  const [jobs, setJobs] = useState<any[]>([]);
+  const [jobs, setJobs] = useState<any[]>(() => {
+    try {
+      const cached = localStorage.getItem("omeetso_admin_jobs_cache");
+      if (cached) {
+        const parsed = JSON.parse(cached);
+        if (Array.isArray(parsed)) return parsed;
+      }
+    } catch {}
+    return [];
+  });
   const [categories, setCategories] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
 
@@ -64,25 +74,30 @@ export function JobsPage() {
   const { showSuccess, showError } = useToast();
 
   const loadAdminJobs = async () => {
-    const controller = new AbortController();
-    const timer = setTimeout(() => controller.abort(), 3500);
-
+    setLoading(true);
     try {
-      const token = typeof localStorage !== "undefined" ? localStorage.getItem("omeetso_admin_token") : null;
+      const token =
+        AdminAuthService.getAccessToken() ||
+        (typeof localStorage !== "undefined"
+          ? localStorage.getItem("omeetso_admin_token") || localStorage.getItem("adminToken")
+          : null);
+
       const res = await fetch(`${API_BASE}/admin/jobs?status=ALL`, {
         headers: { ...(token ? { Authorization: `Bearer ${token}` } : {}) },
-        signal: controller.signal,
       });
-      clearTimeout(timer);
       if (res.ok) {
         const json = await res.json();
         if (json.success && Array.isArray(json.data)) {
           setJobs(json.data);
-          return;
+          try {
+            localStorage.setItem("omeetso_admin_jobs_cache", JSON.stringify(json.data));
+          } catch {}
         }
       }
-    } catch {
-      clearTimeout(timer);
+    } catch (err) {
+      console.error("[JobsPage] Sync error:", err);
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -104,6 +119,19 @@ export function JobsPage() {
   useEffect(() => {
     loadAdminJobs();
     loadAdminCategories();
+
+    const handleSync = () => {
+      loadAdminJobs();
+    };
+
+    window.addEventListener("omeetso_jobs_changed", handleSync);
+    window.addEventListener("storage", handleSync);
+    window.addEventListener("focus", handleSync);
+    return () => {
+      window.removeEventListener("omeetso_jobs_changed", handleSync);
+      window.removeEventListener("storage", handleSync);
+      window.removeEventListener("focus", handleSync);
+    };
   }, []);
 
   const handleUpdateJobStatus = async (jobId: string, status: string, reason?: string) => {

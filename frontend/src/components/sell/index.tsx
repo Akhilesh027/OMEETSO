@@ -375,7 +375,7 @@ export function ContactPreferenceSelector({
             <input
               type="tel"
               inputMode="numeric"
-              maxLength={11}
+              maxLength={16}
               value={formatPhoneDisplay(sellerPhone ?? "")}
               onKeyDown={(e) => preventNonNumericKeyDown(e)}
               onChange={(e) => {
@@ -419,7 +419,7 @@ export function ContactPreferenceSelector({
               <input
                 type="tel"
                 inputMode="numeric"
-                maxLength={11}
+                maxLength={16}
                 value={formatPhoneDisplay(whatsappPhone ?? "")}
                 onKeyDown={(e) => preventNonNumericKeyDown(e)}
                 onChange={(e) => {
@@ -511,14 +511,32 @@ export function ConfirmModal({
 }
 
 // ---------------- Loading overlay ----------------
+// ---------------- Loading overlay ----------------
 export function LoadingOverlay({ open, label }: { open: boolean; label?: string }) {
   if (!open) return null;
   return (
-    <div role="status" aria-live="assertive" className="fixed inset-0 z-[70] grid place-items-center bg-navy/40 backdrop-blur-sm">
-      <div className="rounded-2xl bg-card px-5 py-4 shadow-xl">
-        <p className="flex items-center gap-2 text-sm font-semibold">
-          <Loader2 className="h-4 w-4 animate-spin text-primary" /> {label ?? "Working…"}
-        </p>
+    <div role="status" aria-live="assertive" className="fixed inset-0 z-[100] grid place-items-center bg-background/80 backdrop-blur-md p-4 animate-in fade-in duration-200">
+      <div className="w-full max-w-sm rounded-3xl bg-card border border-border/80 p-6 shadow-2xl text-center space-y-4">
+        <div className="relative mx-auto h-16 w-16 grid place-items-center">
+          <div className="absolute inset-0 rounded-full border-4 border-indigo-brand/20 animate-ping opacity-40" />
+          <div className="h-14 w-14 rounded-full border-4 border-t-indigo-brand border-r-indigo-brand border-b-indigo-brand/20 border-l-indigo-brand/20 animate-spin" />
+          <div className="absolute inset-0 grid place-items-center">
+            <span className="text-xl">⚡</span>
+          </div>
+        </div>
+
+        <div className="space-y-1.5">
+          <h3 className="text-base font-extrabold text-foreground tracking-tight">
+            {label ?? "Publishing Listing…"}
+          </h3>
+          <p className="text-xs text-muted-foreground font-medium animate-pulse">
+            Compressing photos, saving to MongoDB, and alerting nearby buyers…
+          </p>
+        </div>
+
+        <div className="h-1.5 w-full rounded-full bg-secondary overflow-hidden">
+          <div className="h-full rounded-full bg-indigo-brand animate-[pulse_1.2s_ease-in-out_infinite]" style={{ width: "85%" }} />
+        </div>
       </div>
     </div>
   );

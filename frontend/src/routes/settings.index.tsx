@@ -3,7 +3,7 @@ import { MobileFrame } from "@/components/omeetso/MobileFrame";
 import { BackBar } from "@/components/omeetso/TopBar";
 import { SectionTitle, MenuGroup, MenuRow } from "@/components/omeetso/account";
 import {
-  Languages, Palette, MapPin, Bell, Lock, Megaphone, Users, Shield, Trash2, LogOut,
+  Palette, MapPin, Bell, Lock, Megaphone, Users, Shield, Trash2, LogOut,
   Radar, Search, History, Download, User, Settings2,
 } from "lucide-react";
 

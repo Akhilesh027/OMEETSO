@@ -112,6 +112,9 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
 
     // Real-time Push & In-App Notifications
     socket.on("notification:new", (notif: { title: string; body: string; type: string; link?: string }) => {
+      try {
+        window.dispatchEvent(new CustomEvent("omeetso_notifications_changed"));
+      } catch {}
       toast.info(notif.title, {
         description: notif.body,
         action: notif.link

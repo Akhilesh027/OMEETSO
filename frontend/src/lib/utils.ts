@@ -13,7 +13,12 @@ export function preventNonNumericKeyDown(
   e: React.KeyboardEvent<HTMLInputElement | HTMLTextAreaElement>,
   allowDecimal = false
 ) {
-  // Allow navigation and editing control keys
+  // Allow mobile / IME virtual keyboards (Android / Gboard key codes)
+  if (e.key === "Unidentified" || (e as any).keyCode === 229) {
+    return;
+  }
+
+  // Allow navigation, editing control keys and spaces
   if (
     e.key === "Backspace" ||
     e.key === "Delete" ||
@@ -25,7 +30,8 @@ export function preventNonNumericKeyDown(
     e.key === "ArrowUp" ||
     e.key === "ArrowDown" ||
     e.key === "Home" ||
-    e.key === "End"
+    e.key === "End" ||
+    e.key === " "
   ) {
     return;
   }

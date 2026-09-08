@@ -19,28 +19,30 @@ export const ApiResponseMetaSchema = z.object({
 });
 
 export const CreateListingRequestSchema = z.object({
-  title: z.string().min(2).max(120),
-  description: z.string().min(2).max(4000).default("Detailed product listing on Omeetso"),
-  priceInPaise: z.number().int().nonnegative(),
+  title: z.string().min(1).max(200).default("Untitled Listing"),
+  description: z.string().max(10000).optional().default(""),
+  priceInPaise: z.coerce.number().int().nonnegative().optional().default(0),
+  price: z.coerce.number().optional(),
   negotiable: z.boolean().optional().default(true),
   pricingType: z.string().optional(),
-  free: z.boolean().default(false),
-  condition: z.string().default("good"),
-  categoryId: z.string().min(1).default("mobiles"),
+  free: z.boolean().optional().default(false),
+  condition: z.string().optional().default("good"),
+  categoryId: z.string().optional().default("mobiles"),
   subcategoryId: z.string().optional().default("mobiles"),
-  images: z.array(z.string()).default([]),
-  coverIndex: z.number().int().nonnegative().default(0),
+  images: z.array(z.string()).optional().default([]),
+  coverIndex: z.coerce.number().int().nonnegative().optional().default(0),
   videoUrl: z.string().optional(),
+  video: z.string().optional(),
   whatsappPhone: z.string().optional(),
   sellerPhone: z.string().optional(),
   enableWhatsapp: z.boolean().optional().default(true),
-  pincode: z.string().default("500081"),
-  area: z.string().default("Madhapur"),
-  city: z.string().default("Hyderabad"),
-  fulfilment: z.string().default("pickup"),
-  specs: z.record(z.string(), z.string()).default({}),
-  contactPref: z.string().default("call_and_chat")
-});
+  pincode: z.string().optional().default("500081"),
+  area: z.string().optional().default("Madhapur"),
+  city: z.string().optional().default("Hyderabad"),
+  fulfilment: z.string().optional().default("pickup"),
+  specs: z.union([z.record(z.string(), z.any()), z.any()]).optional().default({}),
+  contactPref: z.string().optional().default("call_and_chat")
+}).passthrough();
 
 export const ListingSearchQuerySchema = PaginationQuerySchema.extend({
   q: z.string().optional(),

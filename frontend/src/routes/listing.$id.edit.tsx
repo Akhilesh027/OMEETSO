@@ -4,7 +4,7 @@ import { MobileFrame } from "@/components/omeetso/MobileFrame";
 import { BackBar } from "@/components/omeetso/TopBar";
 import {
   ConditionSelector, PriceInput, ContactPreferenceSelector, LocationSelector,
-  ValidationSummary, LoadingOverlay, MissingFieldsModal, AddCategoryModal,
+  ValidationSummary, LoadingOverlay, MissingFieldsModal,
 } from "@/components/sell";
 import { ImageUploader } from "@/components/sell/ImageUploader";
 import { SpecForm } from "@/components/sell/SpecForm";
@@ -20,7 +20,7 @@ import {
 import { validateAll } from "@/lib/listingValidation";
 import { specFieldsFor } from "@/lib/specConfig";
 import { toast } from "sonner";
-import { Save, AlertCircle, Sparkles, MapPin, PhoneCall, Sliders, Layers } from "lucide-react";
+import { Save, AlertCircle, Sparkles, MapPin, PhoneCall, Sliders, Layers, Loader2 } from "lucide-react";
 import { API_BASE } from "@/config/api";
 import { pushNotification } from "@/lib/account";
 import { getUserAccessToken } from "@/api/auth.api";
@@ -39,7 +39,6 @@ function EditListing() {
   const [showMissingModal, setShowMissingModal] = useState(false);
   const [saving, setSaving] = useState(false);
   const [categories, setCategories] = useState<LiveCategory[]>(() => getCachedCategories());
-  const [showAddCategoryModal, setShowAddCategoryModal] = useState(false);
 
   // Load live categories & listen for updates
   useEffect(() => {
@@ -176,6 +175,17 @@ function EditListing() {
         <BackBar title="Edit Listing" />
 
         <div className="p-4 md:mx-auto md:max-w-[1200px] md:grid md:grid-cols-[1.1fr_0.9fr] md:gap-8 md:p-6 space-y-5 md:space-y-0">
+          {(l.status === "requires_changes" || l.status === "rejected" || l.rejection?.reason) && (
+            <div className="md:col-span-2 rounded-2xl border border-amber-300 bg-amber-50 p-4 text-amber-900 shadow-sm flex items-start gap-3">
+              <AlertCircle className="h-5 w-5 text-amber-600 shrink-0 mt-0.5" />
+              <div className="text-xs space-y-1">
+                <p className="font-extrabold text-sm text-amber-950">Action Required: Update Listing & Photos</p>
+                <p className="leading-relaxed font-medium">
+                  {l.rejection?.reason || "Please upload clear, well-lit photos showing all product angles and condition details before submitting for approval."}
+                </p>
+              </div>
+            </div>
+          )}
 
           {/* LEFT COLUMN - Media & Core Listing Fields */}
           <div className="space-y-5">
@@ -247,62 +257,23 @@ function EditListing() {
 
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <div className="flex items-center justify-between mb-1">
-                    <label className="block text-xs font-extrabold text-foreground">Category</label>
-                    <button
-                      type="button"
-                      onClick={() => setShowAddCategoryModal(true)}
-                      className="text-[11px] font-extrabold text-indigo-brand hover:underline cursor-pointer flex items-center gap-0.5"
-                    >
-                      + Add
-                    </button>
-                  </div>
+                  <label className="block text-xs font-extrabold text-foreground mb-1">Category</label>
                   <select
                     value={l.category}
                     onChange={(e) => {
                       const cat = e.target.value;
-                      if (cat === "__new__") {
-                        setShowAddCategoryModal(true);
-                        return;
-                      }
-                      const subs = getLiveSubcategories(cat);
-                      patch({ category: cat, subcategory: subs[0]?.id || "" });
+                      patch({ category: cat, subcategory: "" });
                     }}
                     className="w-full h-12 rounded-2xl border border-border bg-background px-3 text-xs font-extrabold outline-none focus:border-indigo-brand transition-all"
                   >
                     {categories.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
-                    <option value="__new__">➕ + Add New Category...</option>
                   </select>
                 </div>
                 <div>
-                  <div className="flex items-center justify-between mb-1">
-                    <label className="block text-xs font-extrabold text-foreground">Subcategory</label>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        const custom = window.prompt("Enter custom subcategory name:");
-                        if (custom && custom.trim()) {
-                          patch({ subcategory: custom.trim() });
-                        }
-                      }}
-                      className="text-[11px] font-extrabold text-indigo-brand hover:underline cursor-pointer flex items-center gap-0.5"
-                    >
-                      + Custom
-                    </button>
-                  </div>
+                  <label className="block text-xs font-extrabold text-foreground mb-1">Subcategory</label>
                   <select
                     value={l.subcategory}
-                    onChange={(e) => {
-                      const val = e.target.value;
-                      if (val === "__custom__") {
-                        const custom = window.prompt("Enter custom subcategory name:");
-                        if (custom && custom.trim()) {
-                          patch({ subcategory: custom.trim() });
-                        }
-                        return;
-                      }
-                      patch({ subcategory: val });
-                    }}
+                    onChange={(e) => patch({ subcategory: e.target.value })}
                     className="w-full h-12 rounded-2xl border border-border bg-background px-3 text-xs font-extrabold outline-none focus:border-indigo-brand transition-all"
                   >
                     <option value="">Select Subcategory</option>
@@ -310,7 +281,6 @@ function EditListing() {
                     {l.subcategory && !getLiveSubcategories(l.category).some(s => s.id === l.subcategory || s.name === l.subcategory) && (
                       <option value={l.subcategory}>{l.subcategory}</option>
                     )}
-                    <option value="__custom__">➕ + Add Custom Subcategory...</option>
                   </select>
                 </div>
               </div>
@@ -384,9 +354,19 @@ function EditListing() {
               <button
                 onClick={save}
                 disabled={saving}
-                className="flex h-13 w-full items-center justify-center gap-2 rounded-2xl bg-indigo-brand hover:opacity-95 text-sm font-extrabold text-white shadow-md disabled:opacity-70 transition-all"
+                className={`flex h-13 w-full items-center justify-center gap-2 rounded-2xl bg-indigo-brand text-sm font-extrabold text-white shadow-md transition-all ${
+                  saving ? "opacity-80 cursor-not-allowed" : "hover:opacity-95 cursor-pointer"
+                }`}
               >
-                <Save className="h-4 w-4" /> Save & Update Listing
+                {saving ? (
+                  <>
+                    <Loader2 className="h-4 w-4 animate-spin" /> Saving Changes…
+                  </>
+                ) : (
+                  <>
+                    <Save className="h-4 w-4" /> Save & Update Listing
+                  </>
+                )}
               </button>
               <p className="text-center text-[11px] font-semibold text-muted-foreground">
                 Updates sync directly with your live MongoDB database listing feed.
@@ -401,9 +381,19 @@ function EditListing() {
           <button
             onClick={save}
             disabled={saving}
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-2xl bg-indigo-brand hover:opacity-95 text-sm font-extrabold text-white shadow-md disabled:opacity-70 transition-all"
+            className={`flex h-12 w-full items-center justify-center gap-2 rounded-2xl bg-indigo-brand text-sm font-extrabold text-white shadow-md transition-all ${
+              saving ? "opacity-80 cursor-not-allowed" : "hover:opacity-95 cursor-pointer"
+            }`}
           >
-            <Save className="h-4 w-4" /> Save Listing Changes
+            {saving ? (
+              <>
+                <Loader2 className="h-4 w-4 animate-spin" /> Saving Listing…
+              </>
+            ) : (
+              <>
+                <Save className="h-4 w-4" /> Save Listing Changes
+              </>
+            )}
           </button>
         </div>
 
@@ -414,16 +404,6 @@ function EditListing() {
           open={showMissingModal}
           onClose={() => setShowMissingModal(false)}
           missingItems={summary}
-        />
-
-        {/* Add New Category Modal */}
-        <AddCategoryModal
-          isOpen={showAddCategoryModal}
-          onClose={() => setShowAddCategoryModal(false)}
-          onCategoryAdded={(cat) => {
-            const subs = getLiveSubcategories(cat.id);
-            patch({ category: cat.id, subcategory: subs[0]?.id || "" });
-          }}
         />
       </div>
     </MobileFrame>

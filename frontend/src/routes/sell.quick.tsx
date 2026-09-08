@@ -5,7 +5,7 @@ import { BackBar } from "@/components/omeetso/TopBar";
 import {
   ConditionSelector, PriceInput, ContactPreferenceSelector,
   LocationSelector, ValidationSummary, ConfirmModal, LoadingOverlay,
-  MissingFieldsModal, AddCategoryModal,
+  MissingFieldsModal,
 } from "@/components/sell";
 import { ImageUploader } from "@/components/sell/ImageUploader";
 import { CATEGORIES, SUBCATEGORIES, getSubcategoriesForCategory } from "@/lib/mock";
@@ -15,11 +15,11 @@ import {
 } from "@/lib/categories";
 import {
   type Listing, type Condition, type ContactPref, type BestContactTime, type Fulfilment,
-  newId, upsertListing, saveDraft as saveDraftFn, LS, formatINR, CONDITION_LABEL,
+  newId, upsertListing, saveDraft as saveDraftFn, deleteDraft, LS, formatINR, CONDITION_LABEL,
   pushRecentCategory, getSellerPrefs,
 } from "@/lib/listings";
 import { getTrustScore, pushNotification } from "@/lib/account";
-import { uploadImageToCloudinary } from "@/lib/upload";
+import { uploadImageToCloudinary, uploadVideoToCloudinary } from "@/lib/upload";
 import { validateBasic, validateMedia, validateCategory, validateLocation, validateContact } from "@/lib/listingValidation";
 import { BRANDS_BY_CATEGORY, generateTitleSuggestions, generateAiDescription } from "@/lib/aiAssistance";
 import { createListingApi } from "@/api/listings.api";
@@ -28,7 +28,7 @@ import { useRef } from "react";
 import {
   Sparkles, Bolt, ShieldCheck, MapPin, Tag, Eye, ArrowRight,
   CheckCircle2, AlertCircle, Layers, Image as ImageIcon, Zap, Wand2, Phone, MessageSquare,
-  RefreshCw, Clock, Trash2, Radio,
+  RefreshCw, Clock, Trash2, Radio, Loader2,
 } from "lucide-react";
 
 export const Route = createFileRoute("/sell/quick")({
@@ -60,7 +60,7 @@ function QuickSellPage() {
     contactPref: "call_and_chat", bestContactTime: "anytime",
     sellerName: "You", sellerType: "individual",
     city: "", area: "", pincode: "",
-    category: "mobiles", subcategory: "smartphones", condition: "good"
+    category: "mobiles", subcategory: "", condition: "good"
   });
   const [selectedBrand, setSelectedBrand] = useState<string>("");
   const [errors, setErrors] = useState<Record<string, string>>({});
@@ -71,7 +71,6 @@ function QuickSellPage() {
   const [confirmed, setConfirmed] = useState(true);
   const [aiLoading, setAiLoading] = useState(false);
   const [categories, setCategories] = useState<LiveCategory[]>(() => getCachedCategories());
-  const [showAddCategoryModal, setShowAddCategoryModal] = useState(false);
 
   // Auto-Save Management State
   const [autoSaveEnabled, setAutoSaveEnabled] = useState(true);
@@ -179,7 +178,9 @@ function QuickSellPage() {
     setIsAutoSaving(true);
     const timer = setTimeout(() => {
       const now = Date.now();
-      const payload = { ...data, lastAutoSavedAt: now };
+      // Keep payload lightweight by avoiding multi-MB raw data URLs in localStorage
+      const safeVideo = data.videoUrl && data.videoUrl.startsWith("data:video/") ? data.videoUrl.slice(0, 100) : (data.videoUrl || data.video);
+      const payload = { ...data, videoUrl: safeVideo, video: safeVideo, lastAutoSavedAt: now };
       try {
         localStorage.setItem(DRAFT_KEY, JSON.stringify(payload));
         saveDraftFn({
@@ -188,7 +189,7 @@ function QuickSellPage() {
           category: data.category || "mobiles",
           subcategory: data.subcategory || "smartphones",
           price: data.price,
-          images: data.images,
+          images: (data.images || []).slice(0, 4),
           cover: data.cover,
           method: "quick",
           createdAt: now,
@@ -209,7 +210,10 @@ function QuickSellPage() {
   useEffect(() => {
     const handleBeforeUnload = () => {
       if (autoSaveEnabled && data.title) {
-        localStorage.setItem(DRAFT_KEY, JSON.stringify({ ...data, lastAutoSavedAt: Date.now() }));
+        try {
+          const safeVideo = data.videoUrl && data.videoUrl.startsWith("data:video/") ? "" : (data.videoUrl || data.video);
+          localStorage.setItem(DRAFT_KEY, JSON.stringify({ ...data, videoUrl: safeVideo, video: safeVideo, lastAutoSavedAt: Date.now() }));
+        } catch {}
       }
     };
     window.addEventListener("beforeunload", handleBeforeUnload);
@@ -218,74 +222,33 @@ function QuickSellPage() {
 
   const handleDiscardDraft = () => {
     localStorage.removeItem(DRAFT_KEY);
+    deleteDraft("quick-draft-1");
+    if ((data as any).draftId) deleteDraft((data as any).draftId);
     setDraftRestored(false);
     setData({
       images: [], cover: 0, negotiable: true, fulfilment: "pickup",
       contactPref: "call_and_chat", bestContactTime: "anytime",
       sellerName: "You", sellerType: "individual",
       city: "Hyderabad", area: "Madhapur", pincode: "500081",
-      category: "mobiles", subcategory: "smartphones", condition: "good"
     });
-    setLastSavedTime(null);
-    toast.info("Draft cleared. Starting fresh.");
+    toast.success("Draft cleared");
   };
 
-  const patch = (p: Partial<Listing>) => setData((d) => ({ ...d, ...p }));
-
-  const categoryBrands = useMemo(() => {
-    const rawCat = (data.category || "").toLowerCase();
-    const cat = rawCat.replace(/_/g, "-");
-    if (cat.includes("commercial") || cat.includes("truck")) {
-      return BRANDS_BY_CATEGORY["commercial-vehicles"] || [];
-    }
-    if (cat.includes("car")) {
-      return BRANDS_BY_CATEGORY["cars"] || [];
-    }
-    if (cat.includes("bike")) {
-      return BRANDS_BY_CATEGORY["bikes"] || [];
-    }
-    if (cat.includes("home") || cat.includes("appliance")) {
-      return BRANDS_BY_CATEGORY["home-appliances"] || [];
-    }
-    return BRANDS_BY_CATEGORY[cat] || BRANDS_BY_CATEGORY[cat.replace(/-vehicles$/, "")] || BRANDS_BY_CATEGORY["mobiles"] || [];
-  }, [data.category]);
-
-  const titleSuggestions = useMemo(() => {
-    return generateTitleSuggestions(data.category, selectedBrand, CONDITION_LABEL[(data.condition as Condition) || "good"]);
-  }, [data.category, selectedBrand, data.condition]);
-
-  const handleGenerateAiDescription = () => {
-    setAiLoading(true);
-    setTimeout(() => {
-      const desc = generateAiDescription({
-        title: data.title,
-        category: data.category,
-        brand: selectedBrand,
-        condition: CONDITION_LABEL[(data.condition as Condition) || "good"],
-        price: data.price,
-        area: `${data.area || "Madhapur"}, ${data.city || "Hyderabad"}`
-      });
-      patch({ description: desc });
-      setAiLoading(false);
-      toast.success("✨ AI Description generated!");
-    }, 400);
-  };
-
-  async function publish() {
-    const all = [validateMedia, validateBasic, validateCategory, validateLocation, validateContact].map((fn) => fn(data as Listing));
-    const errs = Object.assign({}, ...all.map((r) => r.errors));
-    const sums = all.flatMap((r) => r.summary);
-    setErrors(errs);
-    setSummary(sums);
-    if (sums.length > 0) {
-      setShowMissingModal(true);
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const v = validateMedia(data.images ?? []);
+    if (!v.ok) {
+      toast.error(v.error ?? "Please upload at least 1 product image");
       return;
     }
-    if (!confirmed) { toast.error("Please confirm the listing declaration"); return; }
-
-    const user = typeof localStorage !== "undefined" && localStorage.getItem("omeetso_user");
-    if (!user) {
-      toast.info("Sign in to publish your listing", { action: { label: "Sign in", onClick: () => nav({ to: "/login" }) } });
+    const catCheck = validateCategory(data.category, data.subcategory);
+    if (!catCheck.ok) {
+      toast.error(catCheck.error);
+      return;
+    }
+    const basicCheck = validateBasic(data.title ?? "", data.price ?? 0, data.condition ?? "good");
+    if (!basicCheck.ok) {
+      toast.error(basicCheck.error);
       return;
     }
     if (getTrustScore() < 35) {
@@ -294,9 +257,15 @@ function QuickSellPage() {
       return;
     }
     setPublishing(true);
-    const uploadedImages = await Promise.all(
-      (data.images || []).map((img) => uploadImageToCloudinary(img, "listings"))
-    );
+
+    const [uploadedImages, uploadedVideo] = await Promise.all([
+      Promise.all((data.images || []).map((img) => uploadImageToCloudinary(img, "listings"))),
+      data.videoUrl || data.video
+        ? uploadVideoToCloudinary(data.videoUrl || data.video, "listing_videos")
+        : Promise.resolve("")
+    ]);
+
+    const finalVideo = uploadedVideo || data.videoUrl || data.video || "";
     const now = Date.now();
     let id = newId();
 
@@ -310,9 +279,9 @@ function QuickSellPage() {
         condition: (data.condition || "good").toLowerCase().replace(" ", "_"),
         categoryId: data.category || "mobiles",
         subcategoryId: data.subcategory || data.category || "mobiles",
-        images: uploadedImages && uploadedImages.length > 0 ? uploadedImages : ["https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=400"],
+        images: uploadedImages || [],
         coverIndex: data.cover || 0,
-        videoUrl: data.videoUrl || data.video,
+        videoUrl: finalVideo,
         whatsappPhone: data.whatsappPhone || data.sellerPhone || "",
         sellerPhone: data.sellerPhone || data.whatsappPhone || "",
         enableWhatsapp: data.enableWhatsapp ?? true,
@@ -336,8 +305,8 @@ function QuickSellPage() {
       description: data.description || "Fast quick sell product",
       category: data.category!, subcategory: data.subcategory || data.category!,
       images: uploadedImages, cover: data.cover ?? 0,
-      video: data.videoUrl || data.video,
-      videoUrl: data.videoUrl || data.video,
+      video: finalVideo,
+      videoUrl: finalVideo,
       whatsappPhone: data.whatsappPhone || data.sellerPhone,
       sellerPhone: data.sellerPhone || data.whatsappPhone,
       enableWhatsapp: data.enableWhatsapp ?? true,
@@ -348,11 +317,18 @@ function QuickSellPage() {
       bestContactTime: (data.bestContactTime ?? "anytime") as BestContactTime,
       sellerName: data.sellerName ?? "You", sellerPhone: data.sellerPhone || data.whatsappPhone,
       sellerType: data.sellerType ?? "individual",
-      status: "submitted", createdAt: now, updatedAt: now, method: "quick",
+      status: "under_review", createdAt: now, updatedAt: now, method: "quick",
       nearbyChanges: data.nearbyChanges,
     };
 
     upsertListing(listing);
+
+    // Clean up draft so it doesn't revert to draft
+    try {
+      localStorage.removeItem(DRAFT_KEY);
+      deleteDraft("quick-draft-1");
+      if ((data as any).draftId) deleteDraft((data as any).draftId);
+    } catch {}
 
     // 1. Listing Created Notification
     pushNotification({
@@ -384,7 +360,7 @@ function QuickSellPage() {
     localStorage.removeItem(DRAFT_KEY);
     setPublishing(false);
     toast.success("Listing submitted for review! It will go live once approved by admin.");
-    nav({ to: "/listings" });
+    nav({ to: "/listings", search: { tab: "review" } as any });
   }
 
   const coverImg = data.images?.[data.cover ?? 0] || data.images?.[0];
@@ -497,26 +473,12 @@ function QuickSellPage() {
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div>
-                    <div className="flex items-center justify-between mb-1">
-                      <label className="block text-xs font-bold text-muted-foreground">Main Category</label>
-                      <button
-                        type="button"
-                        onClick={() => setShowAddCategoryModal(true)}
-                        className="text-[11px] font-extrabold text-indigo-brand hover:underline cursor-pointer flex items-center gap-0.5"
-                      >
-                        + Add Category
-                      </button>
-                    </div>
+                    <label className="block text-xs font-bold text-muted-foreground mb-1">Main Category</label>
                     <select
                       value={data.category ?? categories[0]?.id ?? "mobiles"}
                       onChange={(e) => {
                         const cat = e.target.value;
-                        if (cat === "__new__") {
-                          setShowAddCategoryModal(true);
-                          return;
-                        }
-                        const subs = getLiveSubcategories(cat);
-                        patch({ category: cat, subcategory: subs[0]?.id || cat });
+                        patch({ category: cat, subcategory: "" });
                         setSelectedBrand("");
                       }}
                       className="w-full h-11 rounded-2xl border border-border bg-background px-3 text-xs font-bold text-foreground outline-none focus:border-indigo-brand"
@@ -524,49 +486,25 @@ function QuickSellPage() {
                       {categories.map((c) => (
                         <option key={c.id} value={c.id}>{c.name}</option>
                       ))}
-                      <option value="__new__">➕ + Add New Category...</option>
                     </select>
                   </div>
 
                   <div>
-                    <div className="flex items-center justify-between mb-1">
-                      <label className="block text-xs font-bold text-muted-foreground">Subcategory</label>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          const custom = window.prompt("Enter custom subcategory name:");
-                          if (custom && custom.trim()) {
-                            patch({ subcategory: custom.trim() });
-                          }
-                        }}
-                        className="text-[11px] font-extrabold text-indigo-brand hover:underline cursor-pointer flex items-center gap-0.5"
-                      >
-                        + Custom
-                      </button>
-                    </div>
+                    <label className="block text-xs font-bold text-muted-foreground mb-1">Subcategory</label>
                     <select
                       value={data.subcategory ?? ""}
-                      onChange={(e) => {
-                        const val = e.target.value;
-                        if (val === "__custom__") {
-                          const custom = window.prompt("Enter custom subcategory name:");
-                          if (custom && custom.trim()) {
-                            patch({ subcategory: custom.trim() });
-                          }
-                          return;
-                        }
-                        patch({ subcategory: val });
-                      }}
+                      onChange={(e) => patch({ subcategory: e.target.value })}
                       className="w-full h-11 rounded-2xl border border-border bg-background px-3 text-xs font-bold text-foreground outline-none focus:border-indigo-brand"
                     >
+                      <option value="">Select Subcategory…</option>
                       {getLiveSubcategories(data.category ?? categories[0]?.id ?? "mobiles").map((s) => (
                         <option key={s.id} value={s.id}>{s.name}</option>
                       ))}
                       {data.subcategory && !getLiveSubcategories(data.category ?? categories[0]?.id ?? "mobiles").some(s => s.id === data.subcategory || s.name === data.subcategory) && (
                         <option value={data.subcategory}>{data.subcategory}</option>
                       )}
-                      <option value="__custom__">➕ + Add Custom Subcategory...</option>
                     </select>
+                    {errors.subcategory && <p className="text-xs font-bold text-rose-600 mt-1">{errors.subcategory}</p>}
                   </div>
                 </div>
 
@@ -706,10 +644,12 @@ function QuickSellPage() {
                 <ContactPreferenceSelector
                   pref={(data.contactPref as ContactPref) ?? "call_and_chat"}
                   bestTime={(data.bestContactTime as BestContactTime) ?? "anytime"}
+                  sellerPhone={data.sellerPhone}
                   whatsappPhone={data.whatsappPhone}
                   enableWhatsapp={data.enableWhatsapp ?? true}
                   onPrefChange={(contactPref) => patch({ contactPref })}
                   onTimeChange={(bestContactTime) => patch({ bestContactTime })}
+                  onSellerPhoneChange={(sellerPhone) => patch({ sellerPhone })}
                   onWhatsappPhoneChange={(whatsappPhone) => patch({ whatsappPhone })}
                   onEnableWhatsappChange={(enableWhatsapp) => patch({ enableWhatsapp })}
                 />
@@ -840,10 +780,21 @@ function QuickSellPage() {
                   type="button"
                   onClick={publish}
                   disabled={publishing}
-                  className="w-full h-14 rounded-2xl bg-indigo-brand text-sm font-extrabold text-white shadow-xl hover:opacity-95 flex items-center justify-center gap-2"
+                  className={`w-full h-14 rounded-2xl bg-indigo-brand text-sm font-extrabold text-white shadow-xl flex items-center justify-center gap-2.5 transition-all ${
+                    publishing ? "opacity-80 cursor-not-allowed" : "hover:opacity-95 hover:shadow-2xl active:scale-[0.99] cursor-pointer"
+                  }`}
                 >
-                  <Bolt className="h-5 w-5" />
-                  <span>Publish Quick Listing</span>
+                  {publishing ? (
+                    <>
+                      <Loader2 className="h-5 w-5 animate-spin" />
+                      <span>Publishing Quick Listing…</span>
+                    </>
+                  ) : (
+                    <>
+                      <Bolt className="h-5 w-5" />
+                      <span>Publish Quick Listing</span>
+                    </>
+                  )}
                 </button>
               </div>
 
@@ -969,22 +920,14 @@ function QuickSellPage() {
           </div>
         </div>
 
+        {/* Publishing Loading Overlay */}
+        <LoadingOverlay open={publishing} label="Publishing Quick Listing…" />
+
         {/* Missing Fields Pop-up Modal */}
         <MissingFieldsModal
           open={showMissingModal}
           onClose={() => setShowMissingModal(false)}
           missingItems={summary}
-        />
-
-        {/* Add New Category Modal */}
-        <AddCategoryModal
-          isOpen={showAddCategoryModal}
-          onClose={() => setShowAddCategoryModal(false)}
-          onCategoryAdded={(cat) => {
-            const subs = getLiveSubcategories(cat.id);
-            patch({ category: cat.id, subcategory: subs[0]?.id || cat.id });
-            setSelectedBrand("");
-          }}
         />
       </div>
     </MobileFrame>

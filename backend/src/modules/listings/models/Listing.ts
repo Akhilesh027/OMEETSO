@@ -87,7 +87,7 @@ const ListingSchema = new Schema<IListing>(
       coordinates: { type: [Number], default: [78.3871, 17.4486] }
     },
     fulfilment: { type: String, required: true, default: "pickup" },
-    specs: { type: Map, of: String, default: {} },
+    specs: { type: Map, of: Schema.Types.Mixed, default: {} },
     contactPref: { type: String, default: "call_and_chat" },
     rating: { type: Number, default: 0 },
     reviewCount: { type: Number, default: 0 },

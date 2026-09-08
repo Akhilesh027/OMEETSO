@@ -1,6 +1,7 @@
 import { Response, NextFunction } from "express";
 import { Listing } from "../../listings/models/Listing";
 import { ListingModeration } from "../../listings/models/ListingModeration";
+import { Notification } from "../../notifications/models/Notification";
 import { AuditLog } from "../models/AuditLog";
 import { AuthenticatedAdminRequest } from "../../../middleware/authenticateAdmin";
 import { ListingStatus } from "../../../contracts";
@@ -43,23 +44,8 @@ export async function getAdminListings(req: AuthenticatedAdminRequest, res: Resp
     }
 
     const [listings, total] = await Promise.all([
-      Listing.find(query, {
-        title: 1,
-        priceInPaise: 1,
-        condition: 1,
-        categoryId: 1,
-        subcategoryId: 1,
-        pincode: 1,
-        area: 1,
-        city: 1,
-        status: 1,
-        createdAt: 1,
-        sellerId: 1,
-        sellerPhone: 1,
-        whatsappPhone: 1,
-        coverIndex: 1,
-        images: { $slice: 1 }
-      })
+      Listing.find(query)
+        .populate("sellerId", "profile.name profile.businessName profile.avatar profile.city profile.area profile.phone phone mobile accountType verificationSummary createdAt")
         .sort({ createdAt: -1 })
         .skip(skip)
         .limit(limit)
@@ -67,28 +53,39 @@ export async function getAdminListings(req: AuthenticatedAdminRequest, res: Resp
       Listing.countDocuments(query)
     ]);
 
-    const items = listings.map((l: any) => ({
-      id: l._id.toString(),
-      title: l.title,
-      description: l.description,
-      priceInPaise: l.priceInPaise,
-      condition: l.condition,
-      categoryId: l.categoryId,
-      subcategoryId: l.subcategoryId,
-      images: l.images || [],
-      coverIndex: l.coverIndex || 0,
-      pincode: l.pincode,
-      area: l.area,
-      city: l.city,
-      status: l.status,
-      createdAt: l.createdAt,
-      seller: {
-        id: l.sellerId ? l.sellerId.toString() : "seller",
-        name: "Omeetso Seller",
-        phone: l.sellerPhone || l.whatsappPhone || "",
-        verified: true
-      }
-    }));
+    const items = listings.map((l: any) => {
+      const seller = l.sellerId;
+      const sellerName = seller?.profile?.businessName || seller?.profile?.name || "Omeetso Seller";
+      const sellerPhone = l.sellerPhone || l.whatsappPhone || seller?.profile?.phone || seller?.phone || seller?.mobile || "";
+
+      return {
+        id: l._id.toString(),
+        _id: l._id.toString(),
+        title: l.title,
+        description: l.description || l.title,
+        price: l.priceInPaise ? l.priceInPaise / 100 : 0,
+        priceInPaise: l.priceInPaise,
+        condition: l.condition || "Like New",
+        categoryId: l.categoryId || "General",
+        category: l.categoryId || "General",
+        subcategoryId: l.subcategoryId || l.categoryId || "General",
+        subcategory: l.subcategoryId || l.categoryId || "General",
+        images: Array.isArray(l.images) && l.images.length > 0 ? l.images : ["https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=400"],
+        coverIndex: l.coverIndex || 0,
+        pincode: l.pincode || "500081",
+        area: l.area || "Madhapur",
+        city: l.city || "Hyderabad",
+        status: l.status,
+        createdAt: l.createdAt,
+        updatedAt: l.updatedAt || l.createdAt,
+        seller: {
+          id: seller?._id ? seller._id.toString() : (l.sellerId ? l.sellerId.toString() : "seller"),
+          name: sellerName,
+          phone: sellerPhone,
+          verified: Boolean(seller?.verificationSummary?.mobileVerified || true)
+        }
+      };
+    });
 
     listingsQueryCache[cacheKey] = {
       data: items,
@@ -160,6 +157,18 @@ export async function approveListing(req: AuthenticatedAdminRequest, res: Respon
       userAgent: req.get("user-agent")
     });
 
+    // Notify the listing owner
+    if (listing.sellerId) {
+      await Notification.create({
+        userId: listing.sellerId,
+        type: "listing_moderation",
+        title: `Listing Approved: ${listing.title}`,
+        body: `Your listing "${listing.title}" has been approved and is now live on Omeetso!`,
+        link: `/product/${listing._id}`,
+        thumbnail: listing.images?.[0]
+      }).catch(() => {});
+    }
+
     invalidateListingsCache();
 
     res.status(200).json({
@@ -227,6 +236,18 @@ export async function rejectListing(req: AuthenticatedAdminRequest, res: Respons
       ipAddress: req.ip,
       userAgent: req.get("user-agent")
     });
+
+    // Notify the listing owner with specific action/reason
+    if (listing.sellerId) {
+      await Notification.create({
+        userId: listing.sellerId,
+        type: "listing_moderation",
+        title: `Action Required on Listing: ${listing.title}`,
+        body: reason || "Your listing requires clearer images or additional details. Please edit your listing to update photos.",
+        link: `/listing/${listing._id}/edit`,
+        thumbnail: listing.images?.[0]
+      }).catch(() => {});
+    }
 
     invalidateListingsCache();
 
@@ -427,6 +448,35 @@ export async function updateAdminListingStatus(req: AuthenticatedAdminRequest, r
       },
       { upsert: true }
     );
+
+    if (listing.sellerId) {
+      let notifTitle = `Listing Status: ${listing.title}`;
+      let notifBody = reason || `Your listing status has been updated to ${targetStatus.toLowerCase().replace("_", " ")}.`;
+      let notifLink = `/product/${listing._id}`;
+
+      if (targetStatus === ListingStatus.CHANGES_REQUIRED) {
+        notifTitle = `Action Required: Photos/Details for "${listing.title}"`;
+        notifBody = reason || "Your product photos appear blurry, unclear, or require additional angle details. Please tap here to upload clearer images.";
+        notifLink = `/listing/${listing._id}/edit`;
+      } else if (targetStatus === ListingStatus.REJECTED) {
+        notifTitle = `Listing Moderation Update: ${listing.title}`;
+        notifBody = reason || "Your listing was not approved. Please review our product image and quality guidelines.";
+        notifLink = `/listing/${listing._id}/edit`;
+      } else if (targetStatus === ListingStatus.APPROVED) {
+        notifTitle = `Listing Approved: ${listing.title}`;
+        notifBody = `Your listing "${listing.title}" has been approved and is now active on Omeetso!`;
+        notifLink = `/product/${listing._id}`;
+      }
+
+      await Notification.create({
+        userId: listing.sellerId,
+        type: "listing_moderation",
+        title: notifTitle,
+        body: notifBody,
+        link: notifLink,
+        thumbnail: listing.images?.[0]
+      }).catch(() => {});
+    }
 
     invalidateListingsCache();
 

@@ -123,9 +123,11 @@ export function WebsiteHeader() {
     };
 
     window.addEventListener("omeetso_notifications_changed", handleSync);
+    window.addEventListener("omeetso_auth_changed", handleSync);
     window.addEventListener("storage", handleSync);
     return () => {
       window.removeEventListener("omeetso_notifications_changed", handleSync);
+      window.removeEventListener("omeetso_auth_changed", handleSync);
       window.removeEventListener("storage", handleSync);
     };
   }, [loadHeaderNotifs]);

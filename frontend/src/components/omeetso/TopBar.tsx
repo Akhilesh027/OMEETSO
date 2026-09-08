@@ -81,12 +81,14 @@ export function LocationTopBar({
     updateNotifCount();
 
     window.addEventListener("omeetso_notifications_changed", updateNotifCount);
+    window.addEventListener("omeetso_auth_changed", updateNotifCount);
     window.addEventListener("storage", updateNotifCount);
 
     return () => {
       unsubSaved();
       unsubChat();
       window.removeEventListener("omeetso_notifications_changed", updateNotifCount);
+      window.removeEventListener("omeetso_auth_changed", updateNotifCount);
       window.removeEventListener("storage", updateNotifCount);
     };
   }, []);

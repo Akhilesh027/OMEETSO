@@ -12,21 +12,23 @@ export async function directUpload(req: AuthenticatedUserRequest, res: Response,
       return;
     }
 
-    const { image, purpose } = req.body;
-    if (!image) {
-      res.status(400).json({ success: false, error: { code: "VALIDATION_ERROR", message: "Image content is required" } });
+    const { image, video, media, purpose } = req.body;
+    const mediaContent = image || video || media;
+    if (!mediaContent) {
+      res.status(400).json({ success: false, error: { code: "VALIDATION_ERROR", message: "Media content is required" } });
       return;
     }
 
-    let url = image;
+    let url = mediaContent;
     if (env.CLOUDINARY_CLOUD_NAME && env.CLOUDINARY_CLOUD_NAME !== "mock_cloud_name" && env.CLOUDINARY_API_KEY && env.CLOUDINARY_API_SECRET) {
       cloudinary.v2.config({
         cloud_name: env.CLOUDINARY_CLOUD_NAME,
         api_key: env.CLOUDINARY_API_KEY,
         api_secret: env.CLOUDINARY_API_SECRET
       });
-      const result = await cloudinary.v2.uploader.upload(image, {
-        folder: `omeetso/${purpose || "listings"}`
+      const result = await cloudinary.v2.uploader.upload(mediaContent, {
+        folder: `omeetso/${purpose || "listings"}`,
+        resource_type: "auto"
       });
       url = result.secure_url;
     }

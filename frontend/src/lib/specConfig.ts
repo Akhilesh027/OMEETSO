@@ -23,7 +23,7 @@ export const SPEC_CONFIG: Record<string, SpecField[]> = {
     { key: "Kilometres driven", label: "Kilometres driven", type: "number", required: true },
     { key: "Number of owners", label: "Number of owners", type: "select", options: ["1st", "2nd", "3rd", "4th or more"], required: true },
     { key: "Registration state", label: "Registration state", type: "text" },
-    { key: "Insurance validity", label: "Insurance validity", type: "text" },
+    { key: "Insurance validity", label: "Insurance validity", type: "toggle" },
     { key: "Colour", label: "Colour", type: "text" },
   ],
   bikes: [
@@ -34,6 +34,7 @@ export const SPEC_CONFIG: Record<string, SpecField[]> = {
     { key: "Engine capacity", label: "Engine capacity (cc)", type: "number" },
     { key: "Number of owners", label: "Number of owners", type: "select", options: ["1st", "2nd", "3rd", "4th or more"], required: true },
     { key: "Registration state", label: "Registration state", type: "text" },
+    { key: "Insurance validity", label: "Insurance validity", type: "toggle" },
   ],
   mobiles: [
     { key: "Brand", label: "Brand", type: "select", options: ["Apple", "Samsung", "Xiaomi", "OnePlus", "Realme", "Vivo", "Oppo", "Google", "Motorola", "Nothing", "Other"], required: true },
@@ -135,6 +136,7 @@ export const SPEC_CONFIG: Record<string, SpecField[]> = {
     { key: "Payload Capacity", label: "Payload / Load Capacity (Tonnes)", type: "text" },
     { key: "Fuel Type", label: "Fuel Type", type: "select", options: ["Diesel", "CNG", "Electric", "Petrol"], required: true },
     { key: "Permit Type", label: "Permit Type", type: "select", options: ["National Permit", "All India Tourist Permit", "State Permit", "Local Goods Permit"] },
+    { key: "Insurance validity", label: "Insurance validity", type: "toggle" },
   ],
   "books-sports": [
     { key: "Item Type", label: "Item Classification", type: "select", options: ["School / College Book", "Competitive Exam Book", "Novel / Fiction", "Gym & Fitness Equipment", "Cricket Equipment", "Cycling / Bicycle", "Badminton / Rackets", "Sports Gear", "Other"], required: true },

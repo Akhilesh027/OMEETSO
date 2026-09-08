@@ -45,12 +45,17 @@ function MyListings() {
     if (typeof window !== "undefined") {
       const q = new URLSearchParams(window.location.search).get("tab");
       if (q && TABS.some((t) => t.key === q)) return q;
+      const all = listListings();
+      const hasActive = all.some(TABS[0].match);
+      const hasReview = all.some(TABS[1].match);
+      if (!hasActive && hasReview) return "review";
     }
     return "active";
   });
-  const [listings, setListings] = useState<Listing[]>([]);
-  const [drafts, setDrafts] = useState(0);
-  const [loading, setLoading] = useState(true);
+  // Instant initial load from cache / localStorage (0ms time-to-content)
+  const [listings, setListings] = useState<Listing[]>(() => listListings());
+  const [drafts, setDrafts] = useState<number>(() => listDrafts().length);
+  const [loading, setLoading] = useState<boolean>(() => listListings().length === 0);
 
   useEffect(() => {
     let active = true;
@@ -65,8 +70,7 @@ function MyListings() {
         console.error("Failed to load listings:", err);
       } finally {
         if (active) {
-          // Subtle pause ensures skeleton feels intentional and avoids flicker
-          setTimeout(() => setLoading(false), 200);
+          setLoading(false);
         }
       }
     };

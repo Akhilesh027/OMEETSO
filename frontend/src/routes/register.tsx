@@ -2,7 +2,7 @@ import { createFileRoute, useNavigate, Link } from "@tanstack/react-router";
 import { useEffect, useState, useRef } from "react";
 import { Logo } from "@/components/omeetso/Logo";
 import {
-  Camera, User, Mail, Phone, MapPinned, Languages, ShoppingBag, Store as StoreIcon,
+  Camera, User, Mail, Phone, MapPinned, ShoppingBag, Store as StoreIcon,
   ArrowRight, Check, Sparkles, Lock, ArrowLeft, Eye, EyeOff, ShieldCheck, CheckCircle2,
   Briefcase, KeyRound, RefreshCw, AlertCircle, Users, Star
 } from "lucide-react";
@@ -545,29 +545,6 @@ function RegisterPage() {
                         <p className="text-[10px] text-muted-foreground truncate">Local Store & Jobs</p>
                       </div>
                     </button>
-                  </div>
-                </div>
-
-                {/* Preferred Language */}
-                <div>
-                  <label className="block text-xs font-bold text-muted-foreground mb-1.5">Preferred Language</label>
-                  <div className="flex items-center gap-2">
-                    {[
-                      { code: "en", label: "English" },
-                      { code: "te", label: "తెలుగు" },
-                      { code: "hi", label: "हिन्दी" },
-                    ].map((l) => (
-                      <button
-                        key={l.code}
-                        type="button"
-                        onClick={() => setLang(l.code)}
-                        className={`px-3.5 py-1.5 rounded-full text-xs font-bold border transition-all cursor-pointer ${
-                          lang === l.code ? "border-indigo-brand bg-indigo-brand text-white shadow-xs" : "border-border bg-card text-muted-foreground hover:bg-secondary"
-                        }`}
-                      >
-                        {l.label}
-                      </button>
-                    ))}
                   </div>
                 </div>
 

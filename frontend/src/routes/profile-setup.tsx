@@ -2,7 +2,7 @@ import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { BackBar } from "@/components/omeetso/TopBar";
 import {
-  Camera, User, Mail, Phone, MapPinned, Languages, ShoppingBag, Store as StoreIcon, ArrowRight, Check, Sparkles,
+  Camera, User, Mail, Phone, MapPinned, ShoppingBag, Store as StoreIcon, ArrowRight, Check, Sparkles,
 } from "lucide-react";
 import { API_BASE } from "@/config/api";
 import { registerUserApi } from "@/api/auth.api";
@@ -278,30 +278,6 @@ function ProfileSetup() {
                   className="w-full bg-transparent text-sm font-semibold outline-none placeholder:font-normal placeholder:text-muted-foreground"
                 />
               </Field>
-            </div>
-
-            <div>
-              <div className="mb-2 text-xs font-bold text-muted-foreground uppercase tracking-wider">Preferred language</div>
-              <div className="flex items-center gap-2.5 overflow-x-auto no-scrollbar">
-                {[
-                  { code: "en", label: "English" },
-                  { code: "te", label: "తెలుగు" },
-                  { code: "hi", label: "हिन्दी" },
-                ].map((l) => {
-                  const active = lang === l.code;
-                  return (
-                    <button
-                      key={l.code}
-                      onClick={() => setLang(l.code)}
-                      className={`inline-flex items-center gap-1.5 rounded-full border px-4 py-2 text-xs font-bold transition-all ${active ? "border-navy bg-navy text-white shadow-sm" : "border-border bg-card text-foreground hover:bg-secondary"
-                        }`}
-                    >
-                      <Languages className="h-3.5 w-3.5" />
-                      {l.label}
-                    </button>
-                  );
-                })}
-              </div>
             </div>
 
             <div>

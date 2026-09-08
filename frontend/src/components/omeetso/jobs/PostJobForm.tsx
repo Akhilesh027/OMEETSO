@@ -453,6 +453,15 @@ export function PostJobForm() {
             experience: formData.experience || "Fresher / Entry Level"
           }
         });
+
+        // Trigger immediate synchronization with admin panel and listening tabs
+        if (typeof window !== "undefined") {
+          try {
+            window.dispatchEvent(new CustomEvent("omeetso_jobs_changed"));
+            localStorage.setItem("omeetso_jobs_last_update", String(Date.now()));
+          } catch {}
+        }
+
         toast.success("Job submitted for approval! It will go live once reviewed by admin.");
         nav({ to: "/my/employer/jobs" });
       } else {
@@ -463,6 +472,12 @@ export function PostJobForm() {
       setIsSubmitting(false);
       console.error("Job publishing error:", err);
       const fallbackCreated = createJobLocal({ ...previewJobItem, status: "SUBMITTED" });
+      if (typeof window !== "undefined") {
+        try {
+          window.dispatchEvent(new CustomEvent("omeetso_jobs_changed"));
+          localStorage.setItem("omeetso_jobs_last_update", String(Date.now()));
+        } catch {}
+      }
       toast.info("Job submitted for approval (saved locally).");
       nav({ to: "/my/employer/jobs" });
     }
@@ -972,14 +987,46 @@ export function PostJobForm() {
             </div>
 
             {formData.isWalkIn && (
-              <div className="space-y-3 pt-2">
+              <div className="space-y-4 pt-2">
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
                   <div>
-                    <label className="block text-muted-foreground mb-1 text-xs font-bold">Interview Start Date *</label>
+                    <div className="flex items-center justify-between mb-1">
+                      <label className="text-muted-foreground text-xs font-bold">Interview Start Date *</label>
+                      <select
+                        aria-label="Select Start Year"
+                        value={formData.walkInStartDate ? formData.walkInStartDate.split("-")[0] : "2026"}
+                        onChange={(e) => {
+                          const chosenYear = e.target.value;
+                          const curDate = formData.walkInStartDate || new Date().toISOString().split("T")[0];
+                          const parts = curDate.split("-");
+                          const newStart = `${chosenYear}-${parts[1] || "01"}-${parts[2] || "01"}`;
+                          setFormData((prev) => ({
+                            ...prev,
+                            walkInStartDate: newStart,
+                            walkInEndDate: prev.walkInEndDate && prev.walkInEndDate >= newStart ? prev.walkInEndDate : newStart,
+                            walkInDate: newStart,
+                          }));
+                          if (formErrors.walkInStartDate) setFormErrors((prev) => ({ ...prev, walkInStartDate: "" }));
+                        }}
+                        className="text-[11px] font-bold text-amber-800 bg-amber-500/10 border border-amber-500/30 rounded-lg px-1.5 py-0.5 outline-none cursor-pointer"
+                      >
+                        {[2026, 2027, 2028, 2029, 2030].map((yr) => (
+                          <option key={yr} value={yr}>Year {yr}</option>
+                        ))}
+                      </select>
+                    </div>
                     <input
                       type="date"
                       value={formData.walkInStartDate}
-                      min={new Date().toISOString().split("T")[0]}
+                      min="2026-01-01"
+                      max="2032-12-31"
+                      onKeyDown={(e) => {
+                        const allowed = ["Backspace", "Tab", "ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown", "Delete", "Enter", "Home", "End"];
+                        if (allowed.includes(e.key) || e.ctrlKey || e.metaKey) return;
+                        if (!/^[0-9\-]$/.test(e.key)) {
+                          e.preventDefault();
+                        }
+                      }}
                       onChange={(e) => {
                         const newStart = e.target.value;
                         setFormData((prev) => ({
@@ -1001,11 +1048,41 @@ export function PostJobForm() {
                   </div>
 
                   <div>
-                    <label className="block text-muted-foreground mb-1 text-xs font-bold">Interview End Date *</label>
+                    <div className="flex items-center justify-between mb-1">
+                      <label className="text-muted-foreground text-xs font-bold">Interview End Date *</label>
+                      <select
+                        aria-label="Select End Year"
+                        value={formData.walkInEndDate ? formData.walkInEndDate.split("-")[0] : "2026"}
+                        onChange={(e) => {
+                          const chosenYear = e.target.value;
+                          const curDate = formData.walkInEndDate || formData.walkInStartDate || new Date().toISOString().split("T")[0];
+                          const parts = curDate.split("-");
+                          const newEnd = `${chosenYear}-${parts[1] || "01"}-${parts[2] || "01"}`;
+                          setFormData((prev) => ({
+                            ...prev,
+                            walkInEndDate: newEnd,
+                          }));
+                          if (formErrors.walkInEndDate) setFormErrors((prev) => ({ ...prev, walkInEndDate: "" }));
+                        }}
+                        className="text-[11px] font-bold text-amber-800 bg-amber-500/10 border border-amber-500/30 rounded-lg px-1.5 py-0.5 outline-none cursor-pointer"
+                      >
+                        {[2026, 2027, 2028, 2029, 2030].map((yr) => (
+                          <option key={yr} value={yr}>Year {yr}</option>
+                        ))}
+                      </select>
+                    </div>
                     <input
                       type="date"
                       value={formData.walkInEndDate}
-                      min={formData.walkInStartDate || new Date().toISOString().split("T")[0]}
+                      min={formData.walkInStartDate || "2026-01-01"}
+                      max="2032-12-31"
+                      onKeyDown={(e) => {
+                        const allowed = ["Backspace", "Tab", "ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown", "Delete", "Enter", "Home", "End"];
+                        if (allowed.includes(e.key) || e.ctrlKey || e.metaKey) return;
+                        if (!/^[0-9\-]$/.test(e.key)) {
+                          e.preventDefault();
+                        }
+                      }}
                       onChange={(e) => {
                         const newEnd = e.target.value;
                         setFormData((prev) => ({
@@ -1048,7 +1125,7 @@ export function PostJobForm() {
 
                 <div className="flex items-center gap-2 text-[11px] text-muted-foreground bg-amber-500/10 border border-amber-500/20 px-3 py-2 rounded-xl font-medium">
                   <Calendar className="h-4 w-4 text-amber-700 shrink-0" />
-                  <span>For single-day walk-ins, Start Date and End Date can be the same day. For multi-day recruitment drives, select the desired date range.</span>
+                  <span>Choose applicable years (2026–2030) and interview dates directly. For single-day walk-ins, Start Date and End Date can be the same day.</span>
                 </div>
 
                 <div>

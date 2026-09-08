@@ -4,8 +4,8 @@ import { MobileFrame } from "@/components/omeetso/MobileFrame";
 import { BackBar } from "@/components/omeetso/TopBar";
 import {
   ConditionSelector, PriceInput, ContactPreferenceSelector,
-  LocationSelector, ConfirmModal, LoadingOverlay,
-  MissingFieldsModal, AddCategoryModal,
+  LocationSelector, ValidationSummary, ConfirmModal, LoadingOverlay,
+  MissingFieldsModal,
 } from "@/components/sell";
 import { ImageUploader } from "@/components/sell/ImageUploader";
 import { SpecForm } from "@/components/sell/SpecForm";
@@ -17,11 +17,11 @@ import {
 import { specFieldsFor } from "@/lib/specConfig";
 import {
   type Listing, type Condition, type ContactPref, type BestContactTime, type Fulfilment,
-  newId, upsertListing, saveDraft as saveDraftFn, LS, formatINR,
+  newId, upsertListing, saveDraft as saveDraftFn, deleteDraft, LS, formatINR,
   CONDITION_LABEL, getSellerPrefs,
 } from "@/lib/listings";
 import { getTrustScore, pushNotification } from "@/lib/account";
-import { uploadImageToCloudinary } from "@/lib/upload";
+import { uploadImageToCloudinary, uploadVideoToCloudinary } from "@/lib/upload";
 import {
   validateBasic, validateMedia, validateCategory,
   validateLocation, validateContact, validateSpecs,
@@ -33,7 +33,7 @@ import { useRef } from "react";
 import {
   Sparkles, ClipboardList, ShieldCheck, MapPin, Tag, Eye,
   Wand2, Image as ImageIcon, Layers, Phone, MessageSquare, CheckCircle2, X,
-  Radio, ArrowRight, RefreshCw, Clock, Trash2,
+  Radio, ArrowRight, RefreshCw, Clock, Trash2, Loader2,
 } from "lucide-react";
 
 export const Route = createFileRoute("/sell/detailed")({
@@ -65,7 +65,7 @@ function DetailedSellPage() {
     contactPref: "call_and_chat", bestContactTime: "anytime",
     sellerName: "You", sellerType: "individual",
     city: "", area: "", pincode: "",
-    category: "commercial-vehicles", subcategory: "Mini Truck", condition: "good",
+    category: "commercial-vehicles", subcategory: "", condition: "good",
     specs: {}
   });
   const [selectedBrand, setSelectedBrand] = useState<string>("");
@@ -78,7 +78,6 @@ function DetailedSellPage() {
   const [storeId, setStoreId] = useState<string | undefined>();
   const [mobilePreviewOpen, setMobilePreviewOpen] = useState(false);
   const [categories, setCategories] = useState<LiveCategory[]>(() => getCachedCategories());
-  const [showAddCategoryModal, setShowAddCategoryModal] = useState(false);
 
   // Auto-Save Management State
   const [autoSaveEnabled, setAutoSaveEnabled] = useState(true);
@@ -199,7 +198,8 @@ function DetailedSellPage() {
     setIsAutoSaving(true);
     const timer = setTimeout(() => {
       const now = Date.now();
-      const payload = { ...data, lastAutoSavedAt: now };
+      const safeVideo = data.videoUrl && data.videoUrl.startsWith("data:video/") ? data.videoUrl.slice(0, 100) : (data.videoUrl || data.video);
+      const payload = { ...data, videoUrl: safeVideo, video: safeVideo, lastAutoSavedAt: now };
       try {
         localStorage.setItem(DRAFT_KEY, JSON.stringify(payload));
         saveDraftFn({
@@ -208,7 +208,7 @@ function DetailedSellPage() {
           category: data.category || "electronics",
           subcategory: data.subcategory || "laptops",
           price: data.price,
-          images: data.images,
+          images: (data.images || []).slice(0, 4),
           cover: data.cover,
           specs: data.specs,
           method: "detailed",
@@ -230,7 +230,10 @@ function DetailedSellPage() {
   useEffect(() => {
     const handleBeforeUnload = () => {
       if (autoSaveEnabled && data.title) {
-        localStorage.setItem(DRAFT_KEY, JSON.stringify({ ...data, lastAutoSavedAt: Date.now() }));
+        try {
+          const safeVideo = data.videoUrl && data.videoUrl.startsWith("data:video/") ? "" : (data.videoUrl || data.video);
+          localStorage.setItem(DRAFT_KEY, JSON.stringify({ ...data, videoUrl: safeVideo, video: safeVideo, lastAutoSavedAt: Date.now() }));
+        } catch {}
       }
     };
     window.addEventListener("beforeunload", handleBeforeUnload);
@@ -239,15 +242,19 @@ function DetailedSellPage() {
 
   const handleDiscardDraft = () => {
     localStorage.removeItem(DRAFT_KEY);
+    deleteDraft("detailed-draft-1");
+    if ((data as any).draftId) deleteDraft((data as any).draftId);
+    setDraftRestored(false);
     setDraftRestored(false);
     setData({
       images: [], cover: 0, negotiable: true, fulfilment: "pickup",
       contactPref: "call_and_chat", bestContactTime: "anytime",
       sellerName: "You", sellerType: "individual",
       city: "Hyderabad", area: "Hitec City", pincode: "500081",
-      category: "electronics", subcategory: "laptops", condition: "good",
+      category: "electronics", subcategory: "", condition: "good",
       specs: {}
     });
+    setSelectedBrand("");
     setLastSavedTime(null);
     toast.info("Draft cleared. Starting fresh.");
   };
@@ -303,9 +310,14 @@ function DetailedSellPage() {
       return;
     }
     setPublishing(true);
-    const uploadedImages = await Promise.all(
-      (data.images || []).map((img) => uploadImageToCloudinary(img, "listings"))
-    );
+    const [uploadedImages, uploadedVideo] = await Promise.all([
+      Promise.all((data.images || []).map((img) => uploadImageToCloudinary(img, "listings"))),
+      data.videoUrl || data.video
+        ? uploadVideoToCloudinary(data.videoUrl || data.video, "listing_videos")
+        : Promise.resolve("")
+    ]);
+
+    const finalVideo = uploadedVideo || data.videoUrl || data.video || "";
     const now = Date.now();
     let id = newId();
 
@@ -319,9 +331,9 @@ function DetailedSellPage() {
         condition: (data.condition || "good").toLowerCase().replace(" ", "_"),
         categoryId: data.category || "electronics",
         subcategoryId: data.subcategory || data.category || "electronics",
-        images: uploadedImages && uploadedImages.length > 0 ? uploadedImages : ["https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=400"],
+        images: uploadedImages || [],
         coverIndex: data.cover || 0,
-        videoUrl: data.videoUrl || data.video,
+        videoUrl: finalVideo,
         whatsappPhone: data.whatsappPhone || data.sellerPhone || "",
         sellerPhone: data.sellerPhone || data.whatsappPhone || "",
         enableWhatsapp: data.enableWhatsapp ?? true,
@@ -344,8 +356,8 @@ function DetailedSellPage() {
       description: data.description || "Detailed spec product listing",
       category: data.category!, subcategory: data.subcategory!,
       images: uploadedImages, cover: data.cover ?? 0,
-      video: data.videoUrl || data.video,
-      videoUrl: data.videoUrl || data.video,
+      video: finalVideo,
+      videoUrl: finalVideo,
       whatsappPhone: data.whatsappPhone || data.sellerPhone,
       sellerPhone: data.sellerPhone || data.whatsappPhone,
       enableWhatsapp: data.enableWhatsapp ?? true,
@@ -356,13 +368,20 @@ function DetailedSellPage() {
       bestContactTime: (data.bestContactTime ?? "anytime") as BestContactTime,
       sellerName: data.sellerName ?? "You", sellerPhone: data.sellerPhone || data.whatsappPhone,
       sellerType: data.sellerType ?? "individual",
-      status: "submitted", createdAt: now, updatedAt: now, method: "detailed",
+      status: "under_review", createdAt: now, updatedAt: now, method: "detailed",
       storeId: storeId,
       storeMeta: storeId ? { stockStatus: "in_stock" } : undefined,
       nearbyChanges: data.nearbyChanges,
     };
 
     upsertListing(listing);
+
+    // Clean up draft so it doesn't revert to draft
+    try {
+      localStorage.removeItem(DRAFT_KEY);
+      deleteDraft("detailed-draft-1");
+      if ((data as any).draftId) deleteDraft((data as any).draftId);
+    } catch {}
 
     // 1. Listing Created Notification
     pushNotification({
@@ -393,7 +412,7 @@ function DetailedSellPage() {
     localStorage.removeItem(DRAFT_KEY);
     setPublishing(false);
     toast.success("Detailed listing submitted for review! It will go live once approved by admin.");
-    nav({ to: "/listings" });
+    nav({ to: "/listings", search: { tab: "review" } as any });
   }
 
   const fields = useMemo(() => {
@@ -512,27 +531,12 @@ function DetailedSellPage() {
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div>
-                    <div className="flex items-center justify-between mb-1">
-                      <label className="block text-xs font-bold text-muted-foreground">Category</label>
-                      <button
-                        type="button"
-                        onClick={() => setShowAddCategoryModal(true)}
-                        className="text-[11px] font-extrabold text-indigo-brand hover:underline cursor-pointer flex items-center gap-0.5"
-                      >
-                        + Add Category
-                      </button>
-                    </div>
+                    <label className="block text-xs font-bold text-muted-foreground mb-1">Category</label>
                     <select
                       value={data.category ?? categories[0]?.id ?? "electronics"}
                       onChange={(e) => {
                         const cat = e.target.value;
-                        if (cat === "__new__") {
-                          setShowAddCategoryModal(true);
-                          return;
-                        }
-                        const subs = getLiveSubcategories(cat);
-                        const firstSub = subs[0]?.id || cat;
-                        patch({ category: cat, subcategory: firstSub, specs: {} });
+                        patch({ category: cat, subcategory: "", specs: {} });
                         setSelectedBrand("");
                       }}
                       className="w-full h-11 rounded-2xl border border-border bg-background px-3 text-xs font-bold text-foreground outline-none focus:border-indigo-brand"
@@ -540,49 +544,25 @@ function DetailedSellPage() {
                       {categories.map((c) => (
                         <option key={c.id} value={c.id}>{c.name}</option>
                       ))}
-                      <option value="__new__">➕ + Add New Category...</option>
                     </select>
                   </div>
 
                   <div>
-                    <div className="flex items-center justify-between mb-1">
-                      <label className="block text-xs font-bold text-muted-foreground">Subcategory</label>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          const custom = window.prompt("Enter custom subcategory name:");
-                          if (custom && custom.trim()) {
-                            patch({ subcategory: custom.trim(), specs: {} });
-                          }
-                        }}
-                        className="text-[11px] font-extrabold text-indigo-brand hover:underline cursor-pointer flex items-center gap-0.5"
-                      >
-                        + Custom
-                      </button>
-                    </div>
+                    <label className="block text-xs font-bold text-muted-foreground mb-1">Subcategory</label>
                     <select
                       value={data.subcategory ?? ""}
-                      onChange={(e) => {
-                        const val = e.target.value;
-                        if (val === "__custom__") {
-                          const custom = window.prompt("Enter custom subcategory name:");
-                          if (custom && custom.trim()) {
-                            patch({ subcategory: custom.trim(), specs: {} });
-                          }
-                          return;
-                        }
-                        patch({ subcategory: val, specs: {} });
-                      }}
+                      onChange={(e) => patch({ subcategory: e.target.value, specs: {} })}
                       className="w-full h-11 rounded-2xl border border-border bg-background px-3 text-xs font-bold text-foreground outline-none focus:border-indigo-brand"
                     >
+                      <option value="">Select Subcategory…</option>
                       {getLiveSubcategories(data.category ?? categories[0]?.id ?? "electronics").map((s) => (
                         <option key={s.id} value={s.id}>{s.name}</option>
                       ))}
                       {data.subcategory && !getLiveSubcategories(data.category ?? categories[0]?.id ?? "electronics").some(s => s.id === data.subcategory || s.name === data.subcategory) && (
                         <option value={data.subcategory}>{data.subcategory}</option>
                       )}
-                      <option value="__custom__">➕ + Add Custom Subcategory...</option>
                     </select>
+                    {errors.subcategory && <p className="text-xs font-bold text-rose-600 mt-1">{errors.subcategory}</p>}
                   </div>
                 </div>
 
@@ -764,10 +744,12 @@ function DetailedSellPage() {
                 <ContactPreferenceSelector
                   pref={(data.contactPref as ContactPref) ?? "call_and_chat"}
                   bestTime={(data.bestContactTime as BestContactTime) ?? "anytime"}
+                  sellerPhone={data.sellerPhone}
                   whatsappPhone={data.whatsappPhone}
                   enableWhatsapp={data.enableWhatsapp ?? true}
                   onPrefChange={(contactPref) => patch({ contactPref })}
                   onTimeChange={(bestContactTime) => patch({ bestContactTime })}
+                  onSellerPhoneChange={(sellerPhone) => patch({ sellerPhone })}
                   onWhatsappPhoneChange={(whatsappPhone) => patch({ whatsappPhone })}
                   onEnableWhatsappChange={(enableWhatsapp) => patch({ enableWhatsapp })}
                 />
@@ -898,10 +880,21 @@ function DetailedSellPage() {
                   type="button"
                   onClick={publish}
                   disabled={publishing}
-                  className="w-full h-14 rounded-2xl bg-indigo-brand text-sm font-extrabold text-white shadow-xl hover:opacity-95 flex items-center justify-center gap-2"
+                  className={`w-full h-14 rounded-2xl bg-indigo-brand text-sm font-extrabold text-white shadow-xl flex items-center justify-center gap-2.5 transition-all ${
+                    publishing ? "opacity-80 cursor-not-allowed" : "hover:opacity-95 hover:shadow-2xl active:scale-[0.99] cursor-pointer"
+                  }`}
                 >
-                  <ClipboardList className="h-5 w-5" />
-                  <span>Publish Detailed Listing</span>
+                  {publishing ? (
+                    <>
+                      <Loader2 className="h-5 w-5 animate-spin" />
+                      <span>Publishing Detailed Listing…</span>
+                    </>
+                  ) : (
+                    <>
+                      <ClipboardList className="h-5 w-5" />
+                      <span>Publish Detailed Listing</span>
+                    </>
+                  )}
                 </button>
               </div>
 
@@ -1030,23 +1023,14 @@ function DetailedSellPage() {
           </div>
         )}
 
+        {/* Publishing Loading Overlay */}
+        <LoadingOverlay open={publishing} label="Publishing Detailed Listing…" />
+
         {/* Missing Fields Pop-up Modal */}
         <MissingFieldsModal
           open={showMissingModal}
           onClose={() => setShowMissingModal(false)}
           missingItems={summary}
-        />
-
-        {/* Add New Category Modal */}
-        <AddCategoryModal
-          isOpen={showAddCategoryModal}
-          onClose={() => setShowAddCategoryModal(false)}
-          onCategoryAdded={(cat) => {
-            const subs = getLiveSubcategories(cat.id);
-            const firstSub = subs[0]?.id || cat.id;
-            patch({ category: cat.id, subcategory: firstSub, specs: {} });
-            setSelectedBrand("");
-          }}
         />
       </div>
     </MobileFrame>
