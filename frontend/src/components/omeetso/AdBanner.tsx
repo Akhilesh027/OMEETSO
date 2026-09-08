@@ -5,9 +5,15 @@ import { dismissAd, isAdDismissed, trackAdClick, trackAdImpression } from "@/lib
 import { trackAdImpressionApi, trackAdClickApi } from "@/api/adCampaigns.api";
 import type { Ad } from "@/lib/mock";
 
+const trackedImpressions = new Set<string>();
+
 function useImpression(adId: string, campaignId?: string, placementId?: string, dismissed?: boolean) {
   useEffect(() => {
     if (!dismissed) {
+      const key = `${adId}_${campaignId || ""}_${placementId || ""}`;
+      if (trackedImpressions.has(key)) return;
+      trackedImpressions.add(key);
+
       trackAdImpression(adId);
       if (campaignId) {
         trackAdImpressionApi(campaignId, placementId || "BANNER_AD");

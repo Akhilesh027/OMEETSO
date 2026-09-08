@@ -1716,24 +1716,20 @@ export async function trackAdImpression(req: Request, res: Response, next: NextF
       return;
     }
 
+    // Immediately respond to unblock the client & event loop
+    res.status(200).json({ success: true, tracked: true });
+
     const dateStr = new Date().toISOString().split("T")[0];
 
-    // Increment overall campaign impressions
-    await AdCampaign.findByIdAndUpdate(campaignId, { $inc: { impressionsCount: 1 } });
-
-    // Update daily time-series analytics
-    const analytics = await AdAnalytics.findOneAndUpdate(
-      { campaignId, placementId: placementId || "GENERAL", date: dateStr },
-      { $inc: { impressions: 1 } },
-      { upsert: true, new: true }
-    );
-
-    if (analytics) {
-      analytics.ctr = analytics.impressions > 0 ? (analytics.clicks / analytics.impressions) * 100 : 0;
-      await analytics.save();
-    }
-
-    res.status(200).json({ success: true, tracked: true });
+    // Asynchronously update analytics in background
+    Promise.all([
+      AdCampaign.findByIdAndUpdate(campaignId, { $inc: { impressionsCount: 1 } }).catch(() => {}),
+      AdAnalytics.findOneAndUpdate(
+        { campaignId, placementId: placementId || "GENERAL", date: dateStr },
+        { $inc: { impressions: 1 } },
+        { upsert: true }
+      ).catch(() => {})
+    ]).catch(() => {});
   } catch (error) {
     next(error);
   }
@@ -1747,24 +1743,20 @@ export async function trackAdClick(req: Request, res: Response, next: NextFuncti
       return;
     }
 
+    // Immediately respond to unblock the client & event loop
+    res.status(200).json({ success: true, tracked: true });
+
     const dateStr = new Date().toISOString().split("T")[0];
 
-    // Increment overall campaign clicks
-    await AdCampaign.findByIdAndUpdate(campaignId, { $inc: { clicksCount: 1 } });
-
-    // Update daily time-series analytics
-    const analytics = await AdAnalytics.findOneAndUpdate(
-      { campaignId, placementId: placementId || "GENERAL", date: dateStr },
-      { $inc: { clicks: 1 } },
-      { upsert: true, new: true }
-    );
-
-    if (analytics) {
-      analytics.ctr = analytics.impressions > 0 ? (analytics.clicks / analytics.impressions) * 100 : 0;
-      await analytics.save();
-    }
-
-    res.status(200).json({ success: true, tracked: true });
+    // Asynchronously update analytics in background
+    Promise.all([
+      AdCampaign.findByIdAndUpdate(campaignId, { $inc: { clicksCount: 1 } }).catch(() => {}),
+      AdAnalytics.findOneAndUpdate(
+        { campaignId, placementId: placementId || "GENERAL", date: dateStr },
+        { $inc: { clicks: 1 } },
+        { upsert: true }
+      ).catch(() => {})
+    ]).catch(() => {});
   } catch (error) {
     next(error);
   }
