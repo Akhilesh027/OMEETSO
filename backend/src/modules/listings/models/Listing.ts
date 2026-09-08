@@ -123,6 +123,7 @@ ListingSchema.index({ status: 1, city: 1, categoryId: 1, createdAt: -1 });
 ListingSchema.index({ status: 1, categoryId: 1, createdAt: -1 });
 ListingSchema.index({ status: 1, categoryId: 1, priceInPaise: 1 });
 ListingSchema.index({ sellerId: 1, status: 1 });
+ListingSchema.index({ sellerId: 1, createdAt: -1 });
 ListingSchema.index({ storeId: 1, status: 1 });
 ListingSchema.index({ location: "2dsphere" });
 ListingSchema.index({ title: "text", description: "text" });

@@ -242,7 +242,6 @@ export async function fetchLivePublicListings(params?: {
         data: mapped,
         expiresAt: Date.now() + 45_000
       });
-      write(LS.listings, mapped);
       return mapped;
     }
   } catch (err) {
@@ -253,15 +252,12 @@ export async function fetchLivePublicListings(params?: {
 
 export async function fetchLiveUserListings(): Promise<Listing[]> {
   const token = typeof window !== "undefined" ? (getUserAccessToken() || localStorage.getItem("omeetso_user_token")) : null;
-  const localListings = listListings();
 
   let soldIds: string[] = [];
   try {
     const raw = typeof window !== "undefined" ? localStorage.getItem("omeetso_sold_listing_ids") : null;
     if (raw) soldIds = JSON.parse(raw);
   } catch {}
-
-  let remoteMapped: Listing[] = [];
 
   if (token) {
     try {
@@ -270,7 +266,7 @@ export async function fetchLiveUserListings(): Promise<Listing[]> {
       });
       const json = await res.json();
       if (json.success && Array.isArray(json.data)) {
-        remoteMapped = json.data.map((item: any) => {
+        const remoteMapped: Listing[] = json.data.map((item: any) => {
           const validImages = Array.isArray(item.images) && item.images.length > 0 && !item.images[0].startsWith("blob:")
             ? item.images
             : ["https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=400"];
@@ -305,37 +301,23 @@ export async function fetchLiveUserListings(): Promise<Listing[]> {
             updatedAt: new Date(item.createdAt || item.publishedAt || Date.now()).getTime()
           };
         });
+
+        // Silently persist user's own listings without triggering infinite subscription loop
+        if (typeof window !== "undefined") {
+          try {
+            localStorage.setItem(LS.listings, JSON.stringify(remoteMapped));
+          } catch {}
+        }
+
+        return remoteMapped;
       }
     } catch (err) {
       console.warn("Failed to fetch user listings from backend:", err);
     }
   }
 
-  // Merge remote items with local listings
-  const remoteIds = new Set(remoteMapped.map((l) => l.id));
-  const merged: Listing[] = [...remoteMapped];
-
-  for (const local of localListings) {
-    const isSoldLocal = local.status === "sold" || soldIds.includes(local.id);
-    if (!remoteIds.has(local.id)) {
-      merged.push({
-        ...local,
-        status: isSoldLocal ? "sold" : local.status
-      });
-    } else {
-      // If local marked as sold, ensure remote also reflects sold status
-      if (isSoldLocal) {
-        const idx = merged.findIndex((l) => l.id === local.id);
-        if (idx !== -1) {
-          merged[idx].status = "sold";
-          merged[idx].soldChannel = local.soldChannel || merged[idx].soldChannel;
-        }
-      }
-    }
-  }
-
-  write(LS.listings, merged);
-  return merged;
+  // Fallback to local user listings only if offline
+  return listListings();
 }
 
 export async function fetchLiveListingById(id: string): Promise<Listing | null> {

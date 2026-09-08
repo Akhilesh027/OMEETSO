@@ -72,14 +72,12 @@ function MyListings() {
     };
     loadData();
 
-    const unsub = subscribe(async () => {
-      const myItems = await fetchLiveUserListings();
-      if (active) setListings(myItems);
+    const unsub = subscribe(() => {
+      if (active) setListings(listListings());
     });
 
-    const onListingUpdated = async () => {
-      const myItems = await fetchLiveUserListings();
-      if (active) setListings(myItems);
+    const onListingUpdated = () => {
+      if (active) setListings(listListings());
     };
 
     window.addEventListener("omeetso_listing_updated", onListingUpdated);
