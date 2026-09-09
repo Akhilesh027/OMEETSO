@@ -96,6 +96,13 @@ export async function loginUserApi(phone: string, pin?: string): Promise<{ succe
       localStorage.setItem("omeetso_profile", "1");
       localStorage.removeItem("omeetso_guest");
       localStorage.removeItem("omeetso_guest_session");
+      localStorage.removeItem("omeetso_user_listings");
+      localStorage.removeItem("omeetso_notifications");
+      try {
+        window.dispatchEvent(new CustomEvent("omeetso_auth_changed"));
+        window.dispatchEvent(new CustomEvent("omeetso_notifications_changed"));
+        window.dispatchEvent(new CustomEvent("omeetso_listing_updated"));
+      } catch {}
     }
     return { success: true, data: json.data };
   } catch (error) {
@@ -141,6 +148,13 @@ export async function registerUserApi(payload: RegisterPayload): Promise<{ succe
       }
       localStorage.removeItem("omeetso_guest");
       localStorage.removeItem("omeetso_guest_session");
+      localStorage.removeItem("omeetso_user_listings");
+      localStorage.removeItem("omeetso_notifications");
+      try {
+        window.dispatchEvent(new CustomEvent("omeetso_auth_changed"));
+        window.dispatchEvent(new CustomEvent("omeetso_notifications_changed"));
+        window.dispatchEvent(new CustomEvent("omeetso_listing_updated"));
+      } catch {}
     }
     return { success: true, data: json.data };
   } catch (error) {
@@ -181,6 +195,16 @@ export async function verifyUserOtp(phone: string, code: string): Promise<{ succ
     setUserAccessToken(json.data.accessToken);
     if (typeof localStorage !== "undefined" && json.data.user) {
       localStorage.setItem("omeetso_user", JSON.stringify(json.data.user));
+      localStorage.setItem("omeetso_profile", "1");
+      localStorage.removeItem("omeetso_guest");
+      localStorage.removeItem("omeetso_guest_session");
+      localStorage.removeItem("omeetso_user_listings");
+      localStorage.removeItem("omeetso_notifications");
+      try {
+        window.dispatchEvent(new CustomEvent("omeetso_auth_changed"));
+        window.dispatchEvent(new CustomEvent("omeetso_notifications_changed"));
+        window.dispatchEvent(new CustomEvent("omeetso_listing_updated"));
+      } catch {}
     }
     return { success: true, data: json.data };
   } catch (error) {
@@ -213,6 +237,13 @@ export async function resetUserPinApi(
       localStorage.setItem("omeetso_profile", "1");
       localStorage.removeItem("omeetso_guest");
       localStorage.removeItem("omeetso_guest_session");
+      localStorage.removeItem("omeetso_user_listings");
+      localStorage.removeItem("omeetso_notifications");
+      try {
+        window.dispatchEvent(new CustomEvent("omeetso_auth_changed"));
+        window.dispatchEvent(new CustomEvent("omeetso_notifications_changed"));
+        window.dispatchEvent(new CustomEvent("omeetso_listing_updated"));
+      } catch {}
     }
     return { success: true, data: json.data, message: json.message };
   } catch (error: any) {

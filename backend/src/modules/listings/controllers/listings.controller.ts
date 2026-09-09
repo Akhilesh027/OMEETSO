@@ -6,6 +6,7 @@ import { ListingModeration } from "../models/ListingModeration";
 import { AuthenticatedUserRequest } from "../../../middleware/authenticateUser";
 import { ListingStatus } from "../../../contracts";
 import { Notification } from "../../notifications/models/Notification";
+import { convertImagesToCloudinary, convertVideoToCloudinary } from "../../../utils/cloudinaryUpload";
 
 export async function createListing(req: AuthenticatedUserRequest, res: Response, next: NextFunction): Promise<void> {
   try {
@@ -57,6 +58,12 @@ export async function createListing(req: AuthenticatedUserRequest, res: Response
     const safeTitle = (title && String(title).trim()) || "Untitled Product";
     const safeDescription = (description && String(description).trim()) || safeTitle;
 
+    const rawImages = Array.isArray(images) && images.length > 0 ? images : ["https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=400"];
+    const [processedImages, processedVideo] = await Promise.all([
+      convertImagesToCloudinary(rawImages, "omeetso/listings"),
+      videoUrl ? convertVideoToCloudinary(videoUrl, "omeetso/listing_videos") : Promise.resolve(videoUrl)
+    ]);
+
     const listing = await Listing.create({
       sellerId,
       categoryId: safeCategory,
@@ -67,9 +74,9 @@ export async function createListing(req: AuthenticatedUserRequest, res: Response
       negotiable: isNegotiable,
       free: Boolean(free),
       condition: safeCondition,
-      images: Array.isArray(images) && images.length > 0 ? images : ["https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=400"],
+      images: processedImages,
       coverIndex: coverIndex || 0,
-      videoUrl,
+      videoUrl: processedVideo,
       whatsappPhone: whatsappPhone || contactNumber,
       sellerPhone: sellerPhone || contactNumber,
       enableWhatsapp: enableWhatsapp ?? true,
@@ -95,7 +102,7 @@ export async function createListing(req: AuthenticatedUserRequest, res: Response
     try {
       const { invalidateListingsCache } = await import("../../admin/controllers/adminListings.controller");
       invalidateListingsCache();
-    } catch {}
+    } catch { }
 
     // Generate listing created notification
     await Notification.create({
@@ -492,6 +499,17 @@ export async function updateListing(req: AuthenticatedUserRequest, res: Response
       ? negotiable
       : (pricingType ? pricingType.toUpperCase() === "NEGOTIABLE" : listing.negotiable);
 
+    // Convert any base64 images and video to Cloudinary URLs
+    let processedImages = images;
+    let processedVideo = req.body.videoUrl || req.body.video;
+
+    if (images && Array.isArray(images) && images.length > 0) {
+      processedImages = await convertImagesToCloudinary(images, "omeetso/listings");
+    }
+    if (processedVideo && typeof processedVideo === "string" && processedVideo.startsWith("data:")) {
+      processedVideo = await convertVideoToCloudinary(processedVideo, "omeetso/listing_videos");
+    }
+
     // Listing Revision Logic: If listing is active/approved, create revision for review rather than overwriting live content
     if (listing.status === ListingStatus.APPROVED || listing.status === ListingStatus.ACTIVE) {
       const revision = await ListingRevision.create({
@@ -501,7 +519,7 @@ export async function updateListing(req: AuthenticatedUserRequest, res: Response
         description: description || listing.description,
         priceInPaise: priceInPaise ?? listing.priceInPaise,
         condition: condition || listing.condition,
-        images: images || listing.images,
+        images: processedImages || listing.images,
         specs: specs || listing.specs,
         status: "pending_review"
       });
@@ -509,6 +527,7 @@ export async function updateListing(req: AuthenticatedUserRequest, res: Response
       if (negotiable !== undefined || pricingType !== undefined) listing.negotiable = isNegotiable;
       if (sellerPhone) listing.sellerPhone = sellerPhone;
       if (whatsappPhone) listing.whatsappPhone = whatsappPhone;
+      if (processedVideo) listing.videoUrl = processedVideo;
       if (area) listing.area = area;
       if (city) listing.city = city;
       if (pincode) listing.pincode = pincode;
@@ -531,7 +550,8 @@ export async function updateListing(req: AuthenticatedUserRequest, res: Response
     if (priceInPaise !== undefined) listing.priceInPaise = priceInPaise;
     if (negotiable !== undefined || pricingType !== undefined) listing.negotiable = isNegotiable;
     if (condition) listing.condition = condition;
-    if (images) listing.images = images;
+    if (processedImages) listing.images = processedImages;
+    if (processedVideo) listing.videoUrl = processedVideo;
     if (specs) listing.specs = specs;
     if (sellerPhone) listing.sellerPhone = sellerPhone;
     if (whatsappPhone) listing.whatsappPhone = whatsappPhone;

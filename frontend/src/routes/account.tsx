@@ -590,7 +590,7 @@ function Account() {
                     <MenuRow icon={Briefcase} label="My Applied Jobs" to="/my/jobs" />
                     <MenuRow icon={Building} label="Employer Dashboard (Review Applications)" to="/my/employer/jobs" />
                     <MenuRow icon={Plus} label="Post a Job Opening" to="/jobs/new" />
-                    <MenuRow icon={User} label="Candidate Profile & Resume" to="/account/profile/jobs" />
+                    <MenuRow icon={User} label="Candidate Profile & Resume" to="/my/profile/jobs" />
                   </MenuGroup>
                 </section>
               )}

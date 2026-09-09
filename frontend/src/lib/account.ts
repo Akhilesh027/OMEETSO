@@ -392,7 +392,7 @@ export function listNotifications(): Notification[] {
   // Automatically filter out notifications not belonging to current user and purge mock notifications
   const clean = stored.filter(
     (n) =>
-      (!n.userId || n.userId === uid) &&
+      n.userId === uid &&
       !n.id.startsWith("N") &&
       !n.title?.includes("Ramesh Kumar") &&
       !n.title?.includes("Sanjay") &&

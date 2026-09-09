@@ -16,6 +16,7 @@
     "dev:backend": "npm run dev --workspace=backend",
     "build:contracts": "npm run build --workspace=@omeetso/contracts",
     "build:backend": "npm run build --workspace=backend",
+    "migrate:images": "npm run migrate:images --workspace=backend",
     "build": "npm run build:contracts && npm run build --workspaces"
   },
   "dependencies": {

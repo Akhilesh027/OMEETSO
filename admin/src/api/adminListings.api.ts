@@ -194,11 +194,14 @@ export async function deleteAdminListingApi(listingId: string): Promise<{ succes
 
     if (res) {
       const json = await res.json();
-      MockDataService.deleteListing(listingId);
-      return { success: true, data: json.data };
+      if (json.success) {
+        MockDataService.deleteListing(listingId);
+        return { success: true, data: json.data };
+      }
+      return { success: false, error: json.error?.message || "Failed to delete listing" };
     }
   } catch (error) {
-    // fallback
+    console.error("[deleteAdminListingApi] Error:", error);
   }
 
   // Always delete locally so offline or network disconnect doesn't leave ghost items

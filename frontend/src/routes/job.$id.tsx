@@ -159,6 +159,42 @@ function JobDetailPage() {
               )}
             </div>
 
+            {/* Manual Resume Builder & ATS Profile Card */}
+            <div className="p-4 rounded-3xl bg-gradient-to-br from-indigo-50/90 via-indigo-50/50 to-purple-50/60 dark:from-indigo-950/40 dark:via-indigo-950/20 dark:to-purple-950/30 border border-indigo-200/80 dark:border-indigo-800/50 shadow-sm space-y-3">
+              <div className="flex items-start justify-between gap-3">
+                <div className="flex items-start gap-3">
+                  <div className="w-10 h-10 rounded-2xl bg-indigo-600 text-white flex items-center justify-center shrink-0 shadow-md">
+                    <Sparkles className="w-5 h-5 text-amber-300" />
+                  </div>
+                  <div>
+                    <h3 className="text-sm font-black text-foreground">Create Manual Resume (10 Sections)</h3>
+                    <p className="text-xs text-muted-foreground font-semibold mt-0.5 leading-relaxed">
+                      Don't have a PDF resume? Build your verified 10-section ATS Resume profile here, then return to this job to 1-Tap apply!
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              <div className="flex flex-wrap items-center gap-2 pt-1">
+                <Link
+                  to="/my/profile/jobs"
+                  search={{ returnTo: `/job/${job.id}` }}
+                  className="px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-black text-xs shadow-md transition-all flex items-center gap-1.5 active:scale-95"
+                >
+                  <span>Create Manual Resume Now</span>
+                  <ArrowRight className="w-3.5 h-3.5" />
+                </Link>
+
+                <Link
+                  to="/my/profile/jobs"
+                  search={{ returnTo: `/job/${job.id}` }}
+                  className="px-3.5 py-2 rounded-xl bg-card border border-border hover:bg-secondary text-foreground font-extrabold text-xs transition-colors flex items-center gap-1.5"
+                >
+                  <span>Edit / View Existing CV</span>
+                </Link>
+              </div>
+            </div>
+
             {/* Quick Action Buttons */}
             <div className="flex flex-wrap items-center gap-3 pt-2">
               <button

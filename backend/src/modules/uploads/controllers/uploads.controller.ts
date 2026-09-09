@@ -4,6 +4,7 @@ import cloudinary from "cloudinary";
 import { MediaAsset } from "../models/MediaAsset";
 import { AuthenticatedUserRequest } from "../../../middleware/authenticateUser";
 import { env } from "../../../config/env";
+import { uploadToCloudinary } from "../../../utils/cloudinaryUpload";
 
 export async function directUpload(req: AuthenticatedUserRequest, res: Response, next: NextFunction): Promise<void> {
   try {
@@ -19,19 +20,9 @@ export async function directUpload(req: AuthenticatedUserRequest, res: Response,
       return;
     }
 
-    let url = mediaContent;
-    if (env.CLOUDINARY_CLOUD_NAME && env.CLOUDINARY_CLOUD_NAME !== "mock_cloud_name" && env.CLOUDINARY_API_KEY && env.CLOUDINARY_API_SECRET) {
-      cloudinary.v2.config({
-        cloud_name: env.CLOUDINARY_CLOUD_NAME,
-        api_key: env.CLOUDINARY_API_KEY,
-        api_secret: env.CLOUDINARY_API_SECRET
-      });
-      const result = await cloudinary.v2.uploader.upload(mediaContent, {
-        folder: `omeetso/${purpose || "listings"}`,
-        resource_type: "auto"
-      });
-      url = result.secure_url;
-    }
+    const folder = `omeetso/${purpose || "listings"}`;
+    const resourceType = video ? "video" : (image ? "image" : "auto");
+    const url = await uploadToCloudinary(mediaContent, folder, resourceType);
 
     res.status(200).json({
       success: true,

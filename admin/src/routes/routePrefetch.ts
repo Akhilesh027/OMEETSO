@@ -32,7 +32,7 @@ const routeLoaders: Record<string, () => Promise<any>> = {
 export function prefetchRoute(route: string): void {
   const loader = routeLoaders[route] || Object.entries(routeLoaders).find(([key]) => route.startsWith(key))?.[1];
   if (loader) {
-    loader().catch(() => {});
+    loader().catch(() => { });
   }
 }
 
@@ -41,7 +41,7 @@ export function prefetchAllAdminRoutes(): void {
   const idleCallback = (window as any).requestIdleCallback || ((cb: Function) => setTimeout(cb, 1000));
   idleCallback(() => {
     Object.values(routeLoaders).forEach((loader) => {
-      loader().catch(() => {});
+      loader().catch(() => { });
     });
   });
 }

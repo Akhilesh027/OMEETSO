@@ -4,6 +4,7 @@ import { ArrowLeft, Briefcase, Calendar, Clock, MapPin, CheckCircle2, AlertCircl
 import { MobileFrame } from "@/components/omeetso/MobileFrame";
 import { listCandidateApplicationsLocal, withdrawJobApplicationLocal, getSavedJobIds, fetchPublicJobs, JobItem, JobApplicationItem } from "@/lib/jobs";
 import { JobCard } from "@/components/omeetso/jobs/JobCard";
+import { API_BASE } from "@/config/api";
 
 export const Route = createFileRoute("/my/jobs")({
   head: () => ({ meta: [{ title: "My Jobs & Applications — Omeetso" }] }),
@@ -15,10 +16,54 @@ function MyJobsDashboardPage() {
   const [applications, setApplications] = useState<JobApplicationItem[]>([]);
   const [savedJobs, setSavedJobs] = useState<JobItem[]>([]);
   const [withdrawAppId, setWithdrawAppId] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
 
-  const loadData = () => {
-    const apps = listCandidateApplicationsLocal();
-    setApplications(apps);
+  const loadData = async () => {
+    setLoading(true);
+    const token = typeof window !== "undefined" ? localStorage.getItem("omeetso_user_token") : null;
+    let serverApps: JobApplicationItem[] = [];
+
+    if (token) {
+      try {
+        const res = await fetch(`${API_BASE}/jobs/candidate/applications`, {
+          headers: { Authorization: `Bearer ${token}` }
+        });
+        if (res.ok) {
+          const json = await res.json();
+          if (json.success && Array.isArray(json.data)) {
+            serverApps = json.data;
+          }
+        }
+      } catch { }
+    }
+
+    const localApps = listCandidateApplicationsLocal();
+    
+    // Deduplicate by job ID / application ID to get only jobs applied by this candidate
+    const appMap = new Map<string, JobApplicationItem>();
+    
+    // Server apps take priority
+    for (const app of serverApps) {
+      const jId = app.jobId || app.job?.id || (app.job as any)?._id || app.id;
+      appMap.set(jId, app);
+    }
+    
+    // Add local apps if not already present
+    for (const app of localApps) {
+      const jId = app.jobId || app.job?.id || (app.job as any)?._id || app.id;
+      if (!appMap.has(jId)) {
+        appMap.set(jId, app);
+      }
+    }
+
+    const merged = Array.from(appMap.values()).sort((a, b) => {
+      const timeA = new Date(a.createdAt || 0).getTime();
+      const timeB = new Date(b.createdAt || 0).getTime();
+      return timeB - timeA;
+    });
+
+    setApplications(merged);
+    setLoading(false);
 
     const savedIds = getSavedJobIds();
     fetchPublicJobs().then((all) => {
@@ -30,12 +75,26 @@ function MyJobsDashboardPage() {
     loadData();
   }, []);
 
-  const handleConfirmWithdraw = () => {
-    if (withdrawAppId) {
-      withdrawJobApplicationLocal(withdrawAppId, "Candidate withdrew application");
-      setWithdrawAppId(null);
-      loadData();
+  const handleConfirmWithdraw = async () => {
+    if (!withdrawAppId) return;
+
+    const token = typeof window !== "undefined" ? localStorage.getItem("omeetso_user_token") : null;
+    if (token) {
+      try {
+        await fetch(`${API_BASE}/jobs/candidate/applications/${withdrawAppId}/withdraw`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`
+          },
+          body: JSON.stringify({ reason: "Candidate withdrew application" })
+        });
+      } catch { }
     }
+
+    withdrawJobApplicationLocal(withdrawAppId, "Candidate withdrew application");
+    setWithdrawAppId(null);
+    loadData();
   };
 
   const interviewApps = applications.filter((a) => a.status === "INTERVIEW_SCHEDULED" || a.interviewDetails?.date);
@@ -52,7 +111,7 @@ function MyJobsDashboardPage() {
             </button>
             <h1 className="text-sm font-extrabold text-foreground">My Jobs & Applications</h1>
           </div>
-          <Link to="/account/profile/jobs" className="text-xs font-extrabold text-indigo-brand hover:underline flex items-center gap-1">
+          <Link to="/my/profile/jobs" className="text-xs font-extrabold text-indigo-brand hover:underline flex items-center gap-1">
             <User className="h-3.5 w-3.5" /> Job Profile
           </Link>
         </header>

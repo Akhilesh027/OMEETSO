@@ -544,9 +544,19 @@ export async function getJobApplicants(req: AuthenticatedUserRequest, res: Respo
 
     let applications = await JobApplication.find(query).sort({ createdAt: -1 }).lean();
 
+    const seenApplicant = new Set<string>();
+    const uniqueApps: any[] = [];
+    for (const app of applications) {
+      const appKey = `${app.jobId}_${app.applicantId || app.applicantProfileSnapshot?.phone || app.applicantProfileSnapshot?.name}`;
+      if (!seenApplicant.has(appKey)) {
+        seenApplicant.add(appKey);
+        uniqueApps.push(app);
+      }
+    }
+
     res.status(200).json({
       success: true,
-      data: applications.map((a: any) => ({ ...a, id: a._id.toString() }))
+      data: uniqueApps.map((a: any) => ({ ...a, id: a._id.toString() }))
     });
   } catch (err) {
     next(err);

@@ -114,24 +114,132 @@ export type JobApplicationItem = {
   createdAt: number;
 };
 
+export type SkillProficiency = "Beginner" | "Intermediate" | "Advanced" | "Expert";
+
+export type SkillItem = {
+  name: string;
+  category?: string;
+  proficiency: SkillProficiency;
+  yearsOfExperience: string;
+};
+
+export type WorkExperienceItem = {
+  id: string;
+  companyName: string;
+  jobTitle: string;
+  employmentType: string;
+  startDate: string;
+  endDate?: string;
+  isCurrentlyWorking: boolean;
+  location?: string;
+  responsibilities: string;
+  achievements?: string;
+};
+
+export type EducationItem = {
+  id: string;
+  qualification: string;
+  specialization?: string;
+  college?: string;
+  university?: string;
+  courseType?: string;
+  startYear: string;
+  completionYear: string;
+  percentageOrCgpa?: string;
+};
+
+export type CertificationItem = {
+  name: string;
+  issuer?: string;
+  issueDate?: string;
+  credentialUrl?: string;
+};
+
+export type ProjectItem = {
+  title: string;
+  description?: string;
+  link?: string;
+  role?: string;
+};
+
 export type CandidateProfileItem = {
   id?: string;
   userId: string;
-  title: string;
+  // 1. Personal Information
+  fullName?: string;
   photoUrl?: string;
+  title: string;
+  phone?: string;
+  email?: string;
   city: string;
+  area?: string;
+  preferredLocations: string[];
+  dob?: string;
+  gender?: string;
+  languages: string[];
+  // 2. Professional Summary
+  summary?: string;
   experienceYears: string;
   currentCompany?: string;
   currentRole?: string;
-  education: string;
-  skills: string[];
-  languages: string[];
-  resumeUrl?: string;
+  currentSalary?: number;
   expectedSalary?: number;
   noticePeriod: string;
+  employmentStatus?: string;
+  openToWork: boolean;
+  // 3. Skills
+  skillsList: SkillItem[];
+  skills: string[];
+  // 4. Work Experience
+  workExperiences: WorkExperienceItem[];
+  // 5. Education
+  educations: EducationItem[];
+  education: string;
+  // 6. Job Preferences
+  desiredRole?: string;
+  preferredIndustry?: string;
   preferredJobTypes: string[];
-  preferredLocations: string[];
+  preferredWorkplaceModes: string[];
+  willingToRelocate: boolean;
+  preferredShift?: string;
+  immediateJoining: boolean;
+  // 7. Additional Details
+  certifications: CertificationItem[];
+  projects: ProjectItem[];
+  internshipExperience?: string;
+  portfolioUrl?: string;
+  linkedinUrl?: string;
+  githubUrl?: string;
+  awards?: string;
+  drivingLicence?: string;
+  ownVehicle?: string;
+  disabilityAccommodations?: string;
+  // 8. Resume & Documents
+  resumeUrl?: string;
+  resumeFileName?: string;
+  savedResumes?: Array<{ id: string; name: string; url: string; uploadedAt?: string }>;
+  educationalDocs?: Array<{ name: string; url: string }>;
+  experienceCerts?: Array<{ name: string; url: string }>;
+  idVerificationStatus?: string;
+  // 9. Profile Privacy
+  visibilityMode: "ALL_VERIFIED" | "ONLY_AFTER_APPLY" | "PAUSED";
+  hideCurrentEmployer: boolean;
+  hidePhone: boolean;
+  hideEmail: boolean;
+  blockedRecruiters: string[];
   allowDirectContact: boolean;
+  // 10. Features
+  profileViewsCount: number;
+  verifiedCandidate: boolean;
+  updateReminderEnabled: boolean;
+  oneTapApplyEnabled: boolean;
+  jobAlertsEnabled: boolean;
+  jobAlertPreferences?: {
+    roles?: string[];
+    cities?: string[];
+    minSalary?: number;
+    frequency?: "DAILY" | "WEEKLY" | "INSTANT";
+  };
   savedJobs: string[];
 };
 
@@ -273,10 +381,11 @@ export function listCandidateApplicationsLocal(): JobApplicationItem[] {
 
 export function submitJobApplicationLocal(app: Partial<JobApplicationItem>): JobApplicationItem {
   const all = listCandidateApplicationsLocal();
+  const targetJobId = app.jobId || app.job?.id || (app.job as any)?._id || "";
   const newApp: JobApplicationItem = {
-    id: `APP-${Date.now()}`,
-    jobId: app.jobId || "",
-    applicantId: "me",
+    id: app.id || `APP-${Date.now()}`,
+    jobId: targetJobId,
+    applicantId: app.applicantId || "me",
     employerId: app.employerId || "emp",
     job: app.job,
     applicantProfileSnapshot: app.applicantProfileSnapshot || {
@@ -292,9 +401,13 @@ export function submitJobApplicationLocal(app: Partial<JobApplicationItem>): Job
     createdAt: Date.now()
   };
 
-  const existingIdx = all.findIndex(a => a.jobId === app.jobId && a.applicantId === "me");
+  const existingIdx = all.findIndex(a => {
+    const aJobId = a.jobId || a.job?.id || (a.job as any)?._id;
+    return aJobId === targetJobId;
+  });
+
   if (existingIdx !== -1) {
-    all[existingIdx] = newApp;
+    all[existingIdx] = { ...all[existingIdx], ...newApp };
   } else {
     all.unshift(newApp);
   }
@@ -353,6 +466,7 @@ export async function fetchEmployerJobs(userId?: string, token?: string | null):
 
 export async function fetchEmployerJobApplicants(jobId: string, token?: string | null, jobTitle?: string): Promise<JobApplicationItem[]> {
   let serverApps: JobApplicationItem[] = [];
+  let serverSuccess = false;
   try {
     const authToken = token || (typeof window !== "undefined" ? localStorage.getItem("omeetso_user_token") : null);
     const authHeaders: Record<string, string> = authToken ? { Authorization: `Bearer ${authToken}` } : {};
@@ -362,10 +476,25 @@ export async function fetchEmployerJobApplicants(jobId: string, token?: string |
     if (res.ok) {
       const json = await res.json();
       if (json.success && Array.isArray(json.data)) {
-        serverApps = json.data;
+        serverApps = json.data.map((item: any) => ({
+          ...item,
+          id: item.id || item._id?.toString() || item._id
+        }));
+        serverSuccess = true;
       }
     }
   } catch { /* offline fallback */ }
+
+  if (serverSuccess) {
+    const seenMap = new Map<string, JobApplicationItem>();
+    for (const app of serverApps) {
+      const dedupeKey = app.id || `${app.jobId}_${app.applicantId || app.applicantProfileSnapshot?.phone || app.applicantProfileSnapshot?.name}`;
+      if (!seenMap.has(dedupeKey)) {
+        seenMap.set(dedupeKey, app);
+      }
+    }
+    return Array.from(seenMap.values());
+  }
 
   const localApps = getLocal<JobApplicationItem[]>(LS_APPLICATIONS, []);
   const matchingLocal = localApps.filter(a => {
@@ -376,15 +505,14 @@ export async function fetchEmployerJobApplicants(jobId: string, token?: string |
     return false;
   });
 
-  const seen = new Set(serverApps.map(a => a.id));
-  const merged = [...serverApps];
+  const seenMap = new Map<string, JobApplicationItem>();
   for (const item of matchingLocal) {
-    if (!seen.has(item.id)) {
-      merged.push(item);
-      seen.add(item.id);
+    const dedupeKey = item.id || `${item.jobId}_${item.applicantId || item.applicantProfileSnapshot?.phone || item.applicantProfileSnapshot?.name}`;
+    if (!seenMap.has(dedupeKey)) {
+      seenMap.set(dedupeKey, item);
     }
   }
 
-  return merged;
+  return Array.from(seenMap.values());
 }
 

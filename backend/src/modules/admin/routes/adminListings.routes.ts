@@ -21,5 +21,5 @@ adminListingsRouter.patch("/:listingId/approve", authenticateAdmin, requirePermi
 adminListingsRouter.patch("/:listingId/reject", authenticateAdmin, requirePermission("listings.reject"), rejectListing);
 adminListingsRouter.patch("/:listingId/status", authenticateAdmin, requirePermission("listings.approve"), updateAdminListingStatus);
 adminListingsRouter.patch("/:listingId", authenticateAdmin, requirePermission("listings.manage"), updateAdminListing);
-adminListingsRouter.delete("/:listingId", authenticateAdmin, requirePermission("listings.manage"), deleteAdminListing);
+adminListingsRouter.delete("/:listingId", authenticateAdmin, requirePermission("listings.manage", "listings.remove"), deleteAdminListing);
 

@@ -1,6 +1,11 @@
 import React, { useState, useRef, useEffect } from "react";
-import { X, CheckCircle2, ArrowRight, ArrowLeft, Upload, FileText, ShieldAlert, Loader2, Trash2 } from "lucide-react";
-import { JobItem, submitJobApplicationLocal } from "@/lib/jobs";
+import {
+  X, CheckCircle2, ArrowRight, ArrowLeft, Upload, FileText,
+  ShieldAlert, Loader2, Trash2, Sparkles, User, Briefcase,
+  GraduationCap, Check, MapPin, Award, ExternalLink, ShieldCheck,
+  Zap, Lock
+} from "lucide-react";
+import { JobItem, submitJobApplicationLocal, CandidateProfileItem } from "@/lib/jobs";
 import { uploadFile } from "@/lib/upload";
 import { toast } from "sonner";
 import { pushNotification } from "@/lib/account";
@@ -19,43 +24,115 @@ export function ApplyJobModal({ job, isOpen, onClose, onSuccess }: ApplyJobModal
   const [uploadingResume, setUploadingResume] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  const [profile, setProfile] = useState<CandidateProfileItem | null>(null);
+
   const [formData, setFormData] = useState({
     name: "",
     phone: "",
     email: "",
-    city: "Hyderabad",
-    experience: job.candidateCriteria.experience || "Fresher",
+    city: "",
+    area: "",
+    title: "",
+    experience: job.candidateCriteria?.experience || "Fresher",
     currentRole: "",
     currentCompany: "",
-    currentSalary: 0,
-    expectedSalary: job.salary?.minSalary || 30000,
+    currentSalary: undefined as number | undefined,
+    expectedSalary: job.salary?.minSalary || undefined as number | undefined,
     noticePeriod: "Immediate",
     resumeUrl: "",
     resumeFileName: "",
+    skills: [] as string[],
+    skillsList: [] as any[],
+    education: "",
+    college: "",
+    portfolioUrl: "",
+    linkedinUrl: "",
+    githubUrl: "",
+    certifications: [] as string[],
+    workExperiences: [] as any[]
   });
 
-  useEffect(() => {
-    if (typeof window === "undefined") return;
-    try {
-      const u = JSON.parse(localStorage.getItem("omeetso_user") || "{}");
-      const rawLoc = localStorage.getItem("omeetso_location") || localStorage.getItem("omeetso_selected_location");
-      let activeCity = "";
-      if (rawLoc) {
-        const loc = JSON.parse(rawLoc);
-        activeCity = loc.city || (loc.area ? loc.area.split(",")[1]?.trim() : "");
-      }
-
-      setFormData((prev) => ({
-        ...prev,
-        name: u.profile?.name || u.name || prev.name || "Candidate",
-        phone: u.phone || u.mobile || prev.phone,
-        email: u.email || prev.email,
-        city: activeCity || u.profile?.city || prev.city || "Hyderabad",
-      }));
-    } catch { }
-  }, [isOpen]);
-
   const [screeningAnswers, setScreeningAnswers] = useState<Record<string, string>>({});
+
+  useEffect(() => {
+    if (!isOpen || typeof window === "undefined") return;
+
+    // Load saved candidate profile
+    const token = localStorage.getItem("omeetso_user_token");
+    const loadProfile = async () => {
+      try {
+        const local = localStorage.getItem("omeetso_candidate_profile");
+        if (local) {
+          const parsed = JSON.parse(local);
+          setProfile(parsed);
+          setFormData((prev) => ({
+            ...prev,
+            name: parsed.fullName || prev.name,
+            phone: parsed.phone || prev.phone,
+            email: parsed.email || prev.email,
+            city: parsed.city || prev.city,
+            area: parsed.area || prev.area,
+            title: parsed.title || prev.title,
+            experience: parsed.experienceYears || prev.experience,
+            currentRole: parsed.currentRole || prev.currentRole,
+            currentCompany: parsed.currentCompany || prev.currentCompany,
+            currentSalary: parsed.currentSalary || prev.currentSalary,
+            expectedSalary: parsed.expectedSalary || prev.expectedSalary,
+            noticePeriod: parsed.noticePeriod || prev.noticePeriod,
+            resumeUrl: parsed.resumeUrl || prev.resumeUrl,
+            resumeFileName: parsed.resumeFileName || prev.resumeFileName,
+            skills: parsed.skills || prev.skills,
+            skillsList: parsed.skillsList || prev.skillsList,
+            education: parsed.education || (parsed.educations?.[0]?.qualification) || prev.education,
+            college: parsed.educations?.[0]?.college || prev.college,
+            portfolioUrl: parsed.portfolioUrl || prev.portfolioUrl,
+            linkedinUrl: parsed.linkedinUrl || prev.linkedinUrl,
+            githubUrl: parsed.githubUrl || prev.githubUrl,
+            certifications: parsed.certifications?.map((c: any) => c.name) || prev.certifications,
+            workExperiences: parsed.workExperiences || prev.workExperiences
+          }));
+        }
+
+        const res = await fetch(`${API_BASE}/jobs/candidate/profile`, {
+          headers: { ...(token ? { Authorization: `Bearer ${token}` } : {}) }
+        });
+        if (res.ok) {
+          const json = await res.json();
+          if (json.success && json.data) {
+            const data = json.data;
+            setProfile(data);
+            setFormData((prev) => ({
+              ...prev,
+              name: data.fullName || prev.name,
+              phone: data.phone || prev.phone,
+              email: data.email || prev.email,
+              city: data.city || prev.city,
+              area: data.area || prev.area,
+              title: data.title || prev.title,
+              experience: data.experienceYears || prev.experience,
+              currentRole: data.currentRole || prev.currentRole,
+              currentCompany: data.currentCompany || prev.currentCompany,
+              currentSalary: data.currentSalary || prev.currentSalary,
+              expectedSalary: data.expectedSalary || prev.expectedSalary,
+              noticePeriod: data.noticePeriod || prev.noticePeriod,
+              resumeUrl: data.resumeUrl || prev.resumeUrl,
+              resumeFileName: data.resumeFileName || prev.resumeFileName,
+              skills: data.skills || prev.skills,
+              skillsList: data.skillsList || prev.skillsList,
+              education: data.education || (data.educations?.[0]?.qualification) || prev.education,
+              college: data.educations?.[0]?.college || prev.college,
+              portfolioUrl: data.portfolioUrl || prev.portfolioUrl,
+              linkedinUrl: data.linkedinUrl || prev.linkedinUrl,
+              githubUrl: data.githubUrl || prev.githubUrl,
+              certifications: data.certifications?.map((c: any) => c.name) || prev.certifications,
+              workExperiences: data.workExperiences || prev.workExperiences
+            }));
+          }
+        }
+      } catch { }
+    };
+    loadProfile();
+  }, [isOpen]);
 
   if (!isOpen) return null;
 
@@ -65,15 +142,14 @@ export function ApplyJobModal({ job, isOpen, onClose, onSuccess }: ApplyJobModal
 
     setUploadingResume(true);
     try {
-      const url = await uploadFile(file, "general");
+      const url = await uploadFile(file, "resumes");
       setFormData((prev) => ({
         ...prev,
         resumeUrl: url,
         resumeFileName: file.name,
       }));
       toast.success(`Resume "${file.name}" uploaded successfully!`);
-    } catch (err) {
-      console.warn("Resume upload fallback:", err);
+    } catch {
       const localUrl = URL.createObjectURL(file);
       setFormData((prev) => ({
         ...prev,
@@ -109,8 +185,9 @@ export function ApplyJobModal({ job, isOpen, onClose, onSuccess }: ApplyJobModal
       const token = typeof window !== "undefined" ? localStorage.getItem("omeetso_user_token") : null;
       const formattedAnswers = Object.entries(screeningAnswers).map(([question, answer]) => ({ question, answer }));
 
+      let serverApp: any = null;
       try {
-        await fetch(`${API_BASE}/jobs/apply`, {
+        const res = await fetch(`${API_BASE}/jobs/apply`, {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
@@ -122,11 +199,18 @@ export function ApplyJobModal({ job, isOpen, onClose, onSuccess }: ApplyJobModal
             screeningAnswers: formattedAnswers
           })
         });
+        if (res.ok) {
+          const json = await res.json();
+          if (json.success && json.data) {
+            serverApp = json.data;
+          }
+        }
       } catch (err) {
         console.warn("Backend job apply fallback:", err);
       }
 
       submitJobApplicationLocal({
+        id: serverApp?.id || serverApp?._id || undefined,
         jobId: job.id,
         employerId: job.employerId,
         job: { title: job.title, companyName: job.companyName, location: job.location, salary: job.salary },
@@ -155,123 +239,216 @@ export function ApplyJobModal({ job, isOpen, onClose, onSuccess }: ApplyJobModal
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm safe-t">
-      <div className="w-full max-w-lg rounded-3xl border border-border bg-card p-6 shadow-2xl space-y-4 max-h-[90vh] overflow-y-auto font-sans">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm safe-t font-sans">
+      <div className="w-full max-w-xl rounded-3xl border border-border bg-card p-6 shadow-2xl space-y-4 max-h-[90vh] overflow-y-auto">
 
         {/* Header */}
         <div className="flex items-center justify-between border-b border-border pb-3">
           <div>
-            <h2 className="text-lg font-black text-foreground">Apply for {job.title}</h2>
-            <p className="text-xs text-muted-foreground font-semibold">{job.companyName} • {job.location.city}</p>
+            <div className="flex items-center gap-2">
+              <h2 className="text-base font-black text-foreground">Apply for {job.title}</h2>
+              <span className="px-2 py-0.5 rounded-md bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 font-extrabold text-[10px]">
+                1-Tap Verified Apply
+              </span>
+            </div>
+            <p className="text-xs text-muted-foreground font-semibold">{job.companyName} • {job.location?.city || "Hyderabad"}</p>
           </div>
           <button onClick={onClose} className="grid h-8 w-8 place-items-center rounded-full hover:bg-secondary">
             <X className="h-5 w-5" />
           </button>
         </div>
 
-        {/* Safety Warning */}
-        <div className="flex items-start gap-2 bg-amber-500/10 border border-amber-500/20 p-3 rounded-2xl text-[11px] font-bold text-amber-800">
-          <ShieldAlert className="h-4 w-4 shrink-0 text-amber-600 mt-0.5" />
-          <span>Never pay money for job applications or interview fees. Omeetso employers never ask for registration fees.</span>
+        {/* RESUME PROFILE ATTACHMENT CARD */}
+        <div className="p-4 rounded-2xl border border-indigo-500/30 bg-gradient-to-br from-indigo-50/60 to-purple-50/40 dark:from-indigo-950/30 dark:to-purple-950/20 space-y-3">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <Sparkles className="w-4 h-4 text-indigo-600 dark:text-indigo-400" />
+              <span className="text-xs font-black text-indigo-900 dark:text-indigo-200">
+                {formData.resumeFileName ? "Resume File Attached" : "Candidate Profile Snapshot"}
+              </span>
+            </div>
+            <div className="flex items-center gap-2">
+              <a
+                href={`/my/profile/jobs?returnTo=/job/${job.id}`}
+                className="text-[11px] font-black text-indigo-600 dark:text-indigo-400 hover:underline flex items-center gap-1"
+              >
+                <span>✍️ Edit 10-Sec Resume</span>
+              </a>
+              {formData.resumeFileName ? (
+                <span className="inline-flex items-center gap-1 text-[10px] font-black text-emerald-700 bg-emerald-500/15 px-2 py-0.5 rounded-full">
+                  <ShieldCheck className="w-3 h-3" /> File Ready
+                </span>
+              ) : (
+                <span className="inline-flex items-center gap-1 text-[10px] font-bold text-muted-foreground bg-secondary px-2 py-0.5 rounded-full">
+                  Profile Snapshot
+                </span>
+              )}
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-xs font-semibold text-muted-foreground">
+            <div><span className="text-foreground font-bold">{formData.name || "Candidate"}</span></div>
+            <div><span>{formData.experience || "Fresher"}</span></div>
+            <div>Expected: <span className="font-extrabold text-emerald-600">{formData.expectedSalary ? `₹${formData.expectedSalary.toLocaleString("en-IN")}/Mo` : "Negotiable"}</span></div>
+            <div>Notice: <span className="font-bold text-foreground">{formData.noticePeriod || "Immediate"}</span></div>
+          </div>
+
+          {/* Skills Chips */}
+          {formData.skills && formData.skills.length > 0 && (
+            <div className="flex flex-wrap items-center gap-1 pt-1">
+              {formData.skills.map((skill, idx) => (
+                <span key={idx} className="px-2 py-0.5 rounded-lg bg-card text-foreground border border-border text-[10px] font-extrabold shadow-xs">
+                  {skill}
+                </span>
+              ))}
+            </div>
+          )}
         </div>
 
-        {/* STEP 1: APPLICANT FORM */}
+        {/* STEP 1: APPLICANT FORM & CUSTOMIZATION */}
         {step === "form" && (
           <div className="space-y-4 text-xs font-semibold">
-            <h3 className="text-xs font-extrabold uppercase tracking-wide text-indigo-brand">1. Candidate Information</h3>
-            <div className="grid grid-cols-2 gap-3">
+            <div className="flex items-center justify-between">
+              <h3 className="text-xs font-black uppercase tracking-wide text-indigo-600 dark:text-indigo-400">
+                1. Candidate Profile Snapshot
+              </h3>
+              <span className="text-[11px] text-muted-foreground">Review or edit before submitting</span>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div>
-                <label className="block text-muted-foreground mb-1">Full Name</label>
+                <label className="block text-muted-foreground mb-1 font-bold">Full Name *</label>
                 <input
                   type="text"
-                  value={formData.name}
+                  value={formData.name || ""}
                   onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                  className="w-full h-10 rounded-xl border border-border bg-background px-3 font-bold text-foreground outline-none focus:border-indigo-brand"
+                  placeholder="Enter your full name"
+                  className="w-full h-10 rounded-xl border border-border bg-background px-3 font-bold text-foreground outline-none focus:border-indigo-600"
                 />
               </div>
               <div>
-                <label className="block text-muted-foreground mb-1">Mobile Phone</label>
+                <label className="block text-muted-foreground mb-1 font-bold">Professional Title</label>
                 <input
                   type="text"
-                  value={formData.phone}
-                  onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
-                  className="w-full h-10 rounded-xl border border-border bg-background px-3 font-bold text-foreground outline-none focus:border-indigo-brand"
+                  value={formData.title || ""}
+                  onChange={(e) => setFormData({ ...formData, title: e.target.value })}
+                  placeholder="e.g. Software Engineer, Sales Manager"
+                  className="w-full h-10 rounded-xl border border-border bg-background px-3 font-bold text-foreground outline-none focus:border-indigo-600"
                 />
               </div>
             </div>
 
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div>
-                <label className="block text-muted-foreground mb-1">Email</label>
+                <label className="block text-muted-foreground mb-1 font-bold">Mobile Phone *</label>
+                <input
+                  type="text"
+                  value={formData.phone || ""}
+                  onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
+                  placeholder="Enter mobile number"
+                  className="w-full h-10 rounded-xl border border-border bg-background px-3 font-bold text-foreground outline-none focus:border-indigo-600"
+                />
+              </div>
+              <div>
+                <label className="block text-muted-foreground mb-1 font-bold">Email Address *</label>
                 <input
                   type="email"
-                  value={formData.email}
+                  value={formData.email || ""}
                   onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                  className="w-full h-10 rounded-xl border border-border bg-background px-3 font-bold text-foreground outline-none focus:border-indigo-brand"
-                />
-              </div>
-              <div>
-                <label className="block text-muted-foreground mb-1">Current City</label>
-                <input
-                  type="text"
-                  value={formData.city}
-                  onChange={(e) => setFormData({ ...formData, city: e.target.value })}
-                  className="w-full h-10 rounded-xl border border-border bg-background px-3 font-bold text-foreground outline-none focus:border-indigo-brand"
+                  placeholder="Enter email address"
+                  className="w-full h-10 rounded-xl border border-border bg-background px-3 font-bold text-foreground outline-none focus:border-indigo-600"
                 />
               </div>
             </div>
 
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
               <div>
-                <label className="block text-muted-foreground mb-1">Total Experience</label>
+                <label className="block text-muted-foreground mb-1 font-bold">Current City</label>
+                <input
+                  type="text"
+                  value={formData.city || ""}
+                  onChange={(e) => setFormData({ ...formData, city: e.target.value })}
+                  placeholder="e.g. Hyderabad"
+                  className="w-full h-10 rounded-xl border border-border bg-background px-3 font-bold text-foreground outline-none focus:border-indigo-600"
+                />
+              </div>
+              <div>
+                <label className="block text-muted-foreground mb-1 font-bold">Current Company</label>
+                <input
+                  type="text"
+                  value={formData.currentCompany || ""}
+                  onChange={(e) => setFormData({ ...formData, currentCompany: e.target.value })}
+                  placeholder="e.g. Acme Corp"
+                  className="w-full h-10 rounded-xl border border-border bg-background px-3 font-bold text-foreground outline-none focus:border-indigo-600"
+                />
+              </div>
+              <div>
+                <label className="block text-muted-foreground mb-1 font-bold">Expected Monthly Salary (₹)</label>
+                <input
+                  type="number"
+                  value={formData.expectedSalary || ""}
+                  onChange={(e) => setFormData({ ...formData, expectedSalary: e.target.value ? Number(e.target.value) : undefined })}
+                  placeholder="e.g. 50000"
+                  className="w-full h-10 rounded-xl border border-border bg-background px-3 font-bold text-foreground outline-none focus:border-indigo-600"
+                />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div>
+                <label className="block text-muted-foreground mb-1 font-bold">Total Experience</label>
                 <select
                   value={formData.experience}
                   onChange={(e) => setFormData({ ...formData, experience: e.target.value })}
-                  className="w-full h-10 rounded-xl border border-border bg-background px-3 font-bold text-foreground outline-none focus:border-indigo-brand"
+                  className="w-full h-10 rounded-xl border border-border bg-background px-2 font-bold text-foreground outline-none focus:border-indigo-600"
                 >
-                  <option value="Fresher">Fresher / No Experience</option>
+                  <option value="Fresher">Fresher / No Exp</option>
                   <option value="1-2 Years">1-2 Years</option>
                   <option value="3-5 Years">3-5 Years</option>
-                  <option value="5+ Years">5+ Years</option>
+                  <option value="5-8 Years">5-8 Years</option>
+                  <option value="8+ Years">8+ Years</option>
                 </select>
               </div>
               <div>
-                <label className="block text-muted-foreground mb-1">Notice Period</label>
+                <label className="block text-muted-foreground mb-1 font-bold">Notice Period</label>
                 <select
                   value={formData.noticePeriod}
                   onChange={(e) => setFormData({ ...formData, noticePeriod: e.target.value })}
-                  className="w-full h-10 rounded-xl border border-border bg-background px-3 font-bold text-foreground outline-none focus:border-indigo-brand"
+                  className="w-full h-10 rounded-xl border border-border bg-background px-2 font-bold text-foreground outline-none focus:border-indigo-600"
                 >
                   <option value="Immediate">Immediate</option>
                   <option value="15 Days">15 Days</option>
                   <option value="30 Days">30 Days</option>
+                  <option value="60 Days">60 Days</option>
                 </select>
               </div>
             </div>
 
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div>
-                <label className="block text-muted-foreground mb-1">Current Salary (₹/Mo)</label>
-                <input
-                  type="number"
-                  value={formData.currentSalary}
-                  onChange={(e) => setFormData({ ...formData, currentSalary: Number(e.target.value) })}
-                  className="w-full h-10 rounded-xl border border-border bg-background px-3 font-bold text-foreground outline-none focus:border-indigo-brand"
-                />
-              </div>
-              <div>
-                <label className="block text-muted-foreground mb-1">Expected Salary (₹/Mo)</label>
+                <label className="block text-muted-foreground mb-1 font-bold">Expected Monthly Salary (₹) *</label>
                 <input
                   type="number"
                   value={formData.expectedSalary}
                   onChange={(e) => setFormData({ ...formData, expectedSalary: Number(e.target.value) })}
-                  className="w-full h-10 rounded-xl border border-border bg-background px-3 font-bold text-foreground outline-none focus:border-indigo-brand"
+                  className="w-full h-10 rounded-xl border border-border bg-background px-3 font-bold text-foreground outline-none focus:border-indigo-600"
+                />
+              </div>
+              <div>
+                <label className="block text-muted-foreground mb-1 font-bold">Current Company / Role</label>
+                <input
+                  type="text"
+                  value={formData.currentCompany ? `${formData.currentRole} at ${formData.currentCompany}` : formData.currentRole}
+                  onChange={(e) => setFormData({ ...formData, currentRole: e.target.value })}
+                  className="w-full h-10 rounded-xl border border-border bg-background px-3 font-bold text-foreground outline-none focus:border-indigo-600"
+                  placeholder="e.g. Software Engineer at Omeetso"
                 />
               </div>
             </div>
 
+            {/* Resume Attachment & Manual Resume Choice */}
             <div>
-              <label className="block text-muted-foreground mb-1">Resume / CV (PDF, DOCX)</label>
+              <label className="block text-muted-foreground mb-1 font-bold">Resume Document (PDF / DOCX)</label>
               <input
                 ref={fileInputRef}
                 type="file"
@@ -280,72 +457,102 @@ export function ApplyJobModal({ job, isOpen, onClose, onSuccess }: ApplyJobModal
                 onChange={handleResumeFileChange}
               />
 
-              {formData.resumeUrl ? (
-                <div className="flex items-center justify-between p-3 rounded-2xl border border-indigo-brand/30 bg-indigo-brand/5">
-                  <div className="flex items-center gap-2 min-w-0">
-                    <FileText className="h-5 w-5 text-indigo-brand shrink-0" />
-                    <span className="font-bold text-foreground truncate text-xs">
-                      {formData.resumeFileName || "Attached_Resume.pdf"}
-                    </span>
+              {formData.resumeFileName ? (
+                <div className="flex items-center justify-between p-3.5 rounded-2xl border border-emerald-500/30 bg-emerald-50/50 dark:bg-emerald-950/20">
+                  <div className="flex items-center gap-2.5 min-w-0">
+                    <div className="w-8 h-8 rounded-xl bg-emerald-600 text-white flex items-center justify-center shrink-0">
+                      <FileText className="h-4 w-4" />
+                    </div>
+                    <div className="min-w-0">
+                      <span className="font-extrabold text-foreground truncate text-xs block">
+                        {formData.resumeFileName}
+                      </span>
+                      <span className="text-[10px] text-emerald-700 dark:text-emerald-400 font-semibold">Ready to submit with application</span>
+                    </div>
                   </div>
                   <div className="flex items-center gap-2 shrink-0">
                     <button
                       type="button"
                       onClick={() => fileInputRef.current?.click()}
                       disabled={uploadingResume}
-                      className="text-xs font-extrabold text-indigo-brand hover:underline flex items-center gap-1"
+                      className="text-xs font-black text-indigo-600 dark:text-indigo-400 hover:underline flex items-center gap-1"
                     >
-                      {uploadingResume ? (
-                        <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                      ) : (
-                        <Upload className="h-3.5 w-3.5" />
-                      )}
-                      Replace
+                      <Upload className="h-3.5 w-3.5" />
+                      <span>{uploadingResume ? "Uploading..." : "Replace"}</span>
                     </button>
                     <button
                       type="button"
-                      onClick={() => setFormData((prev) => ({ ...prev, resumeUrl: "", resumeFileName: "" }))}
-                      className="text-xs font-extrabold text-rose-500 hover:underline flex items-center gap-0.5 ml-1"
+                      onClick={() => setFormData(prev => ({ ...prev, resumeUrl: "", resumeFileName: "" }))}
+                      className="p-1 text-muted-foreground hover:text-rose-500 transition-colors"
+                      title="Remove Attachment"
                     >
-                      <Trash2 className="h-3.5 w-3.5" /> Remove
+                      <Trash2 className="h-4 w-4" />
                     </button>
                   </div>
                 </div>
               ) : (
-                <button
-                  type="button"
-                  onClick={() => fileInputRef.current?.click()}
-                  disabled={uploadingResume}
-                  className="w-full flex items-center justify-center gap-2 p-3.5 rounded-2xl border-2 border-dashed border-border hover:border-indigo-brand hover:bg-indigo-brand/5 text-xs font-bold text-foreground transition-all cursor-pointer"
-                >
-                  {uploadingResume ? (
-                    <>
-                      <Loader2 className="h-4 w-4 animate-spin text-indigo-brand" />
-                      <span>Uploading resume...</span>
-                    </>
-                  ) : (
-                    <>
-                      <Upload className="h-4 w-4 text-indigo-brand" />
-                      <span>Upload Resume (PDF, DOC, DOCX)</span>
-                    </>
-                  )}
-                </button>
+                <div className="p-4 rounded-2xl border-2 border-dashed border-border bg-secondary/20 space-y-2.5">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <h4 className="text-xs font-black text-foreground">No Resume File Attached</h4>
+                      <p className="text-[11px] text-muted-foreground font-semibold">
+                        Choose how you want to submit your profile:
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-1">
+                    <button
+                      type="button"
+                      onClick={() => fileInputRef.current?.click()}
+                      disabled={uploadingResume}
+                      className="px-3.5 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-black text-xs shadow-sm transition-all flex items-center justify-center gap-1.5 active:scale-95"
+                    >
+                      <Upload className="w-3.5 h-3.5" />
+                      <span>{uploadingResume ? "Uploading..." : "Upload Resume (PDF/DOCX)"}</span>
+                    </button>
+
+                    <a
+                      href={`/my/profile/jobs?returnTo=/job/${job.id}`}
+                      className="px-3.5 py-2.5 rounded-xl border border-indigo-500/30 bg-card hover:bg-secondary text-foreground font-black text-xs shadow-xs transition-all flex items-center justify-center gap-1.5 text-center"
+                    >
+                      <Sparkles className="w-3.5 h-3.5 text-amber-500" />
+                      <span>Create Manual Resume</span>
+                    </a>
+                  </div>
+                </div>
               )}
             </div>
 
-            <button
-              onClick={handleNextStep}
-              className="w-full h-11 rounded-2xl bg-primary text-primary-foreground font-bold text-xs flex items-center justify-center gap-2 hover:opacity-95 transition-all mt-4"
-            >
-              Continue <ArrowRight className="h-4 w-4" />
-            </button>
+            {/* Action Buttons */}
+            <div className="flex items-center gap-2 pt-2">
+              <button
+                type="button"
+                onClick={handleSubmitFinal}
+                disabled={loading}
+                className="flex-1 h-11 rounded-2xl bg-indigo-600 hover:bg-indigo-700 text-white font-black text-xs flex items-center justify-center gap-2 shadow-md transition-all active:scale-95"
+              >
+                <Zap className="h-4 w-4" />
+                {loading ? "Submitting Application..." : "1-Tap Quick Apply with Omeetso CV"}
+              </button>
+
+              <button
+                type="button"
+                onClick={handleNextStep}
+                className="px-4 h-11 rounded-2xl border border-border bg-card hover:bg-secondary font-bold text-xs flex items-center gap-1"
+              >
+                Review & Customize <ArrowRight className="h-4 w-4" />
+              </button>
+            </div>
           </div>
         )}
 
         {/* STEP 2: SCREENING QUESTIONS */}
         {step === "screening" && (
           <div className="space-y-4 text-xs font-semibold">
-            <h3 className="text-xs font-extrabold uppercase tracking-wide text-indigo-brand">2. Employer Questions</h3>
+            <h3 className="text-xs font-black uppercase tracking-wide text-indigo-600 dark:text-indigo-400">
+              2. Employer Screening Questions
+            </h3>
             {job.screeningQuestions?.map((q, idx) => (
               <div key={idx} className="space-y-1">
                 <label className="block text-foreground font-bold">{q}</label>
@@ -354,7 +561,7 @@ export function ApplyJobModal({ job, isOpen, onClose, onSuccess }: ApplyJobModal
                   placeholder="Your answer..."
                   value={screeningAnswers[q] || ""}
                   onChange={(e) => handleScreeningAnswerChange(q, e.target.value)}
-                  className="w-full h-10 rounded-xl border border-border bg-background px-3 font-bold text-foreground outline-none focus:border-indigo-brand"
+                  className="w-full h-10 rounded-xl border border-border bg-background px-3 font-bold text-foreground outline-none focus:border-indigo-600"
                 />
               </div>
             ))}
@@ -368,7 +575,7 @@ export function ApplyJobModal({ job, isOpen, onClose, onSuccess }: ApplyJobModal
               </button>
               <button
                 onClick={handleNextStep}
-                className="w-2/3 h-11 rounded-2xl bg-primary text-primary-foreground font-bold text-xs flex items-center justify-center gap-2 hover:opacity-95"
+                className="w-2/3 h-11 rounded-2xl bg-indigo-600 hover:bg-indigo-700 text-white font-black text-xs flex items-center justify-center gap-2 shadow-md"
               >
                 Review Application <ArrowRight className="h-4 w-4" />
               </button>
@@ -379,19 +586,22 @@ export function ApplyJobModal({ job, isOpen, onClose, onSuccess }: ApplyJobModal
         {/* STEP 3: REVIEW APPLICATION */}
         {step === "review" && (
           <div className="space-y-4 text-xs font-semibold">
-            <h3 className="text-xs font-extrabold uppercase tracking-wide text-indigo-brand">3. Review Your Application</h3>
-            <div className="p-4 rounded-2xl border border-border bg-secondary/30 space-y-2">
-              <div className="flex justify-between"><span className="text-muted-foreground">Name:</span> <span className="font-extrabold text-foreground">{formData.name}</span></div>
-              <div className="flex justify-between"><span className="text-muted-foreground">Phone:</span> <span className="font-bold text-foreground">{formData.phone}</span></div>
-              <div className="flex justify-between"><span className="text-muted-foreground">Experience:</span> <span className="font-bold text-foreground">{formData.experience}</span></div>
-              <div className="flex justify-between"><span className="text-muted-foreground">Expected Salary:</span> <span className="font-bold text-emerald-600">₹{formData.expectedSalary?.toLocaleString("en-IN")} / Mo</span></div>
+            <h3 className="text-xs font-black uppercase tracking-wide text-indigo-600 dark:text-indigo-400">
+              3. Final Application Review
+            </h3>
+            <div className="p-4 rounded-2xl border border-border bg-secondary/20 space-y-2">
+              <div className="flex justify-between"><span className="text-muted-foreground">Candidate:</span> <span className="font-black text-foreground">{formData.name}</span></div>
+              <div className="flex justify-between"><span className="text-muted-foreground">Title:</span> <span className="font-bold text-foreground">{formData.title}</span></div>
+              <div className="flex justify-between"><span className="text-muted-foreground">Phone & Email:</span> <span className="font-bold text-foreground">{formData.phone} • {formData.email}</span></div>
+              <div className="flex justify-between"><span className="text-muted-foreground">Location & Exp:</span> <span className="font-bold text-foreground">{formData.city} • {formData.experience}</span></div>
+              <div className="flex justify-between"><span className="text-muted-foreground">Expected Salary:</span> <span className="font-black text-emerald-600">₹{formData.expectedSalary?.toLocaleString("en-IN")} / Mo</span></div>
               <div className="flex justify-between"><span className="text-muted-foreground">Notice Period:</span> <span className="font-bold text-foreground">{formData.noticePeriod}</span></div>
-              <div className="flex justify-between"><span className="text-muted-foreground">Resume:</span> <span className="font-bold text-indigo-brand">{formData.resumeFileName || (formData.resumeUrl ? "Attached (PDF)" : "Not attached")}</span></div>
+              <div className="flex justify-between"><span className="text-muted-foreground">Attached Resume:</span> <span className="font-bold text-indigo-600">{formData.resumeFileName || "10-Section Manual Profile"}</span></div>
             </div>
 
             {Object.keys(screeningAnswers).length > 0 && (
               <div className="p-3 rounded-2xl border border-border bg-card space-y-1">
-                <p className="text-[11px] font-bold text-muted-foreground uppercase">Answers Overview</p>
+                <p className="text-[11px] font-bold text-muted-foreground uppercase">Answers to Employer Questions</p>
                 {Object.entries(screeningAnswers).map(([q, a]) => (
                   <div key={q} className="text-xs">
                     <span className="font-bold text-foreground">{q}:</span> <span className="text-muted-foreground">{a}</span>
@@ -410,9 +620,9 @@ export function ApplyJobModal({ job, isOpen, onClose, onSuccess }: ApplyJobModal
               <button
                 onClick={handleSubmitFinal}
                 disabled={loading}
-                className="w-2/3 h-11 rounded-2xl bg-indigo-brand text-white font-bold text-xs flex items-center justify-center gap-2 hover:bg-indigo-brand/90"
+                className="w-2/3 h-11 rounded-2xl bg-indigo-600 hover:bg-indigo-700 text-white font-black text-xs flex items-center justify-center gap-2 shadow-md"
               >
-                {loading ? "Submitting..." : "Submit Application ✓"}
+                {loading ? "Submitting Application..." : "Submit Application ✓"}
               </button>
             </div>
           </div>
@@ -427,14 +637,14 @@ export function ApplyJobModal({ job, isOpen, onClose, onSuccess }: ApplyJobModal
             <div>
               <h3 className="text-lg font-black text-foreground">Application Submitted Successfully! ✓</h3>
               <p className="text-xs text-muted-foreground mt-1 font-semibold">
-                Your application has been delivered to <span className="font-extrabold text-foreground">{job.companyName}</span>.
+                Your full Resume Profile has been delivered to <span className="font-extrabold text-foreground">{job.companyName}</span>.
               </p>
             </div>
             <button
               onClick={onClose}
-              className="w-full h-11 rounded-2xl bg-primary text-primary-foreground font-bold text-xs"
+              className="w-full h-11 rounded-2xl bg-indigo-600 hover:bg-indigo-700 text-white font-black text-xs shadow-md"
             >
-              Done & View My Applications
+              Done & View Applications
             </button>
           </div>
         )}

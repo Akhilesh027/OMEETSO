@@ -28,27 +28,36 @@ export async function getCategories(req: Request, res: Response, next: NextFunct
 
     let categories = await Category.find(filter)
       .sort({ row: 1, name: 1 })
-      .lean();
+      .lean()
+      .maxTimeMS(5000)
+      .exec();
 
     if (categories.length === 0) {
       await seedCategories();
       categories = await Category.find(filter)
         .sort({ row: 1, name: 1 })
-        .lean();
+        .lean()
+        .maxTimeMS(5000)
+        .exec();
     }
 
-    // Aggregate active listing counts per category from MongoDB
-    const countsAggregate = await Listing.aggregate([
-      { $match: { status: { $ne: "DELETED" } } },
-      { $group: { _id: "$categoryId", count: { $sum: 1 } } }
-    ]);
-
+    // Aggregate active listing counts per category safely with timeout
     const countMap: Record<string, number> = {};
-    countsAggregate.forEach((item) => {
-      if (item._id) {
-        countMap[String(item._id).toLowerCase()] = item.count;
-      }
-    });
+    try {
+      const countsAggregate = await Listing.aggregate([
+        { $match: { status: { $ne: "DELETED" } } },
+        { $project: { categoryId: 1 } },
+        { $group: { _id: "$categoryId", count: { $sum: 1 } } }
+      ]).option({ maxTimeMS: 2000 });
+
+      countsAggregate.forEach((item) => {
+        if (item._id) {
+          countMap[String(item._id).toLowerCase()] = item.count;
+        }
+      });
+    } catch {
+      // Gracefully continue if count aggregation is slow
+    }
 
     const responseData = categories.map((cat) => {
       const key = (cat.categoryId || "").toLowerCase();
@@ -80,7 +89,7 @@ export async function getCategories(req: Request, res: Response, next: NextFunct
 
     categoriesCache[cacheKey] = {
       data: responseData,
-      expiresAt: now + 120_000 // 120 second TTL
+      expiresAt: now + 300_000 // 5 min TTL in-memory cache
     };
 
     res.setHeader("Cache-Control", "public, max-age=60, stale-while-revalidate=120");

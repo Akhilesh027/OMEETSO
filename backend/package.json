@@ -10,6 +10,7 @@
     "seed": "ts-node src/database/seeders/seedAll.ts",
     "seed:all": "ts-node src/database/seeders/seedAll.ts",
     "db:reset": "ts-node src/database/seeders/resetDatabase.ts",
+    "migrate:images": "ts-node src/database/seeders/migrateImagesToCloudinary.ts",
     "test": "jest --passWithNoTests"
   },
   "dependencies": {

@@ -198,8 +198,9 @@ function DetailedSellPage() {
     setIsAutoSaving(true);
     const timer = setTimeout(() => {
       const now = Date.now();
-      const safeVideo = data.videoUrl && data.videoUrl.startsWith("data:video/") ? data.videoUrl.slice(0, 100) : (data.videoUrl || data.video);
-      const payload = { ...data, videoUrl: safeVideo, video: safeVideo, lastAutoSavedAt: now };
+      const safeImages = (data.images || []).filter((img) => typeof img === "string" && (img.startsWith("http://") || img.startsWith("https://")));
+      const safeVideo = data.videoUrl && data.videoUrl.startsWith("data:video/") ? "" : (data.videoUrl || data.video);
+      const payload = { ...data, images: safeImages, videoUrl: safeVideo, video: safeVideo, lastAutoSavedAt: now };
       try {
         localStorage.setItem(DRAFT_KEY, JSON.stringify(payload));
         saveDraftFn({
@@ -208,7 +209,7 @@ function DetailedSellPage() {
           category: data.category || "electronics",
           subcategory: data.subcategory || "laptops",
           price: data.price,
-          images: (data.images || []).slice(0, 4),
+          images: safeImages.slice(0, 4),
           cover: data.cover,
           specs: data.specs,
           method: "detailed",
@@ -217,7 +218,12 @@ function DetailedSellPage() {
         });
         setLastSavedTime(now);
       } catch (err) {
-        console.warn("Auto-save warning:", err);
+        // Fallback for quota limit
+        try {
+          localStorage.removeItem("omeetso_listings");
+          localStorage.setItem(DRAFT_KEY, JSON.stringify({ ...data, images: [], videoUrl: "", video: "", lastAutoSavedAt: now }));
+          setLastSavedTime(now);
+        } catch { /* ignore */ }
       } finally {
         setIsAutoSaving(false);
       }
@@ -231,8 +237,9 @@ function DetailedSellPage() {
     const handleBeforeUnload = () => {
       if (autoSaveEnabled && data.title) {
         try {
+          const safeImages = (data.images || []).filter((img) => typeof img === "string" && (img.startsWith("http://") || img.startsWith("https://")));
           const safeVideo = data.videoUrl && data.videoUrl.startsWith("data:video/") ? "" : (data.videoUrl || data.video);
-          localStorage.setItem(DRAFT_KEY, JSON.stringify({ ...data, videoUrl: safeVideo, video: safeVideo, lastAutoSavedAt: Date.now() }));
+          localStorage.setItem(DRAFT_KEY, JSON.stringify({ ...data, images: safeImages, videoUrl: safeVideo, video: safeVideo, lastAutoSavedAt: Date.now() }));
         } catch {}
       }
     };
@@ -299,14 +306,9 @@ function DetailedSellPage() {
     }
     if (!confirmed) { toast.error("Please confirm the listing declaration"); return; }
 
-    const user = typeof localStorage !== "undefined" && localStorage.getItem("omeetso_user");
+    const user = typeof localStorage !== "undefined" && (localStorage.getItem("omeetso_user") || localStorage.getItem("omeetso_user_token"));
     if (!user) {
       toast.info("Sign in to publish your listing", { action: { label: "Sign in", onClick: () => nav({ to: "/login" }) } });
-      return;
-    }
-    if (getTrustScore() < 35) {
-      toast.error("Please verify your mobile number or upload KYC documents before listing");
-      nav({ to: "/verification" });
       return;
     }
     setPublishing(true);
@@ -320,6 +322,9 @@ function DetailedSellPage() {
     const finalVideo = uploadedVideo || data.videoUrl || data.video || "";
     const now = Date.now();
     let id = newId();
+
+    let finalImages = uploadedImages;
+    let finalSavedVideo = finalVideo;
 
     try {
       const res = await createListingApi({
@@ -345,6 +350,12 @@ function DetailedSellPage() {
 
       if (res.success && res.data?.id) {
         id = res.data.id;
+        if (res.data.images && Array.isArray(res.data.images) && res.data.images.length > 0) {
+          finalImages = res.data.images;
+        }
+        if (res.data.videoUrl) {
+          finalSavedVideo = res.data.videoUrl;
+        }
       }
     } catch (err) {
       console.warn("MongoDB listing save warning:", err);
@@ -355,9 +366,9 @@ function DetailedSellPage() {
       condition: (data.condition ?? "good") as Condition,
       description: data.description || "Detailed spec product listing",
       category: data.category!, subcategory: data.subcategory!,
-      images: uploadedImages, cover: data.cover ?? 0,
-      video: finalVideo,
-      videoUrl: finalVideo,
+      images: finalImages, cover: data.cover ?? 0,
+      video: finalSavedVideo,
+      videoUrl: finalSavedVideo,
       whatsappPhone: data.whatsappPhone || data.sellerPhone,
       sellerPhone: data.sellerPhone || data.whatsappPhone,
       enableWhatsapp: data.enableWhatsapp ?? true,

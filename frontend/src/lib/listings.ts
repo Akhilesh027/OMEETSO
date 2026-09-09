@@ -149,9 +149,27 @@ export const subscribe = (cb: () => void) => {
   return () => subs.delete(cb);
 };
 
+function getCurrentUserId(): string | null {
+  if (!isB) return null;
+  try {
+    const raw = localStorage.getItem("omeetso_user");
+    if (!raw) return null;
+    const u = JSON.parse(raw);
+    return u._id || u.id || null;
+  } catch {
+    return null;
+  }
+}
+
+function getUserListingsStorageKey(): string {
+  const uid = getCurrentUserId();
+  return uid ? `omeetso_user_listings_${uid}` : "omeetso_user_listings_guest";
+}
+
 // ---- Listings ----
 export function listListings(): Listing[] {
-  return read<Listing[]>(LS.listings, []);
+  const key = getUserListingsStorageKey();
+  return read<Listing[]>(key, []);
 }
 
 const publicListingsMemoryCache: Map<string, { data: Listing[]; expiresAt: number }> = new Map();
@@ -250,7 +268,7 @@ export async function fetchLivePublicListings(params?: {
   return [];
 }
 
-let userListingsMemoryCache: { data: Listing[]; expiresAt: number } | null = null;
+let userListingsMemoryCache: { data: Listing[]; expiresAt: number; uid?: string | null } | null = null;
 
 export function invalidateUserListingsCache() {
   userListingsMemoryCache = null;
@@ -258,8 +276,9 @@ export function invalidateUserListingsCache() {
 
 export async function fetchLiveUserListings(forceRefresh = false): Promise<Listing[]> {
   const token = typeof window !== "undefined" ? (getUserAccessToken() || localStorage.getItem("omeetso_user_token")) : null;
+  const uid = getCurrentUserId();
 
-  if (!forceRefresh && userListingsMemoryCache && userListingsMemoryCache.expiresAt > Date.now()) {
+  if (!forceRefresh && userListingsMemoryCache && userListingsMemoryCache.uid === uid && userListingsMemoryCache.expiresAt > Date.now()) {
     return userListingsMemoryCache.data;
   }
 
@@ -305,56 +324,35 @@ export async function fetchLiveUserListings(forceRefresh = false): Promise<Listi
             contactPref: "call_and_chat" as ContactPref,
             bestContactTime: "anytime" as BestContactTime,
             sellerName: item.sellerName || "Omeetso Seller",
-            sellerId: item.sellerId?._id?.toString() || item.sellerId?.toString() || item.sellerId || "",
+            sellerId: item.sellerId?._id?.toString() || item.sellerId?.toString() || item.sellerId || uid || "",
             status: isMarkedSold ? ("sold" as ListingStatus) : ((item.status?.toLowerCase() || "active") as ListingStatus),
             createdAt: new Date(item.createdAt || item.publishedAt || Date.now()).getTime(),
             updatedAt: new Date(item.createdAt || item.publishedAt || Date.now()).getTime()
           };
         });
 
-        // Merge remote listings with existing local listings so newly created items are never lost
-        const currentLocal = listListings();
-        const mergedMap = new Map<string, Listing>();
-
-        // 1. Add remote items
-        for (const item of remoteMapped) {
-          mergedMap.set(item.id, item);
-        }
-
-        // 2. Preserve any local items that haven't synced or are pending
-        for (const local of currentLocal) {
-          if (!mergedMap.has(local.id)) {
-            // Keep locally saved items unless older than 7 days
-            if (Date.now() - (local.createdAt || 0) < 7 * 86400 * 1000) {
-              mergedMap.set(local.id, local);
-            }
-          }
-        }
-
-        const mergedListings = Array.from(mergedMap.values()).sort(
-          (a, b) => (b.createdAt || 0) - (a.createdAt || 0)
-        );
-
         userListingsMemoryCache = {
-          data: mergedListings,
+          data: remoteMapped,
           expiresAt: Date.now() + 30_000,
+          uid
         };
 
-        // Silently persist user's own listings without triggering infinite subscription loop
+        const key = getUserListingsStorageKey();
         if (typeof window !== "undefined") {
           try {
-            localStorage.setItem(LS.listings, JSON.stringify(mergedListings));
+            localStorage.setItem(key, JSON.stringify(remoteMapped));
+            localStorage.removeItem("omeetso_user_listings");
           } catch {}
         }
 
-        return mergedListings;
+        return remoteMapped;
       }
     } catch (err) {
       console.warn("Failed to fetch user listings from backend:", err);
     }
   }
 
-  // Fallback to local user listings only if offline
+  // Fallback to scoped user listings only
   return listListings();
 }
 
@@ -414,7 +412,6 @@ export async function fetchLiveListingById(id: string): Promise<Listing | null> 
           topAreas: [],
         });
       }
-      upsertListing(listing);
       return listing;
     }
   } catch (err) {
@@ -427,18 +424,20 @@ export function getListing(id: string): Listing | undefined {
 }
 export function upsertListing(l: Listing) {
   invalidateUserListingsCache();
-  const all = listListings();
+  const key = getUserListingsStorageKey();
+  const all = read<Listing[]>(key, []);
   const i = all.findIndex((x) => x.id === l.id);
   const now = Date.now();
   const next: Listing = { ...l, updatedAt: now };
   if (i === -1) all.unshift(next);
   else all[i] = next;
-  write(LS.listings, all);
+  write(key, all);
   return next;
 }
 export function deleteListing(id: string) {
   invalidateUserListingsCache();
-  write(LS.listings, listListings().filter((l) => l.id !== id));
+  const key = getUserListingsStorageKey();
+  write(key, read<Listing[]>(key, []).filter((l) => l.id !== id));
 }
 export function setStatus(id: string, status: ListingStatus, extra: Partial<Listing> = {}) {
   invalidateUserListingsCache();

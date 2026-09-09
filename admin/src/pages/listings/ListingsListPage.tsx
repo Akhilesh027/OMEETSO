@@ -167,16 +167,17 @@ export default function ListingsListPage() {
   };
 
   const handleDeleteListing = async (listingId: string) => {
-    if (window.confirm("Are you sure you want to delete/remove this listing record?")) {
+    if (window.confirm("Are you sure you want to permanently delete this listing from the database?")) {
+      setListings((prev) => prev.filter((item) => item.id !== listingId));
       try {
         const res = await deleteAdminListingApi(listingId);
         if (res.success) {
-          showSuccess("Listing Deleted", "Listing record removed from active catalog.");
+          showSuccess("Listing Deleted", "Product listing permanently deleted from database.");
         } else {
-          showError("Delete Failed", res.error || "Could not remove listing");
+          showError("Delete Failed", res.error || "Could not delete listing from database");
         }
       } catch {
-        showError("Server Error", "Unable to remove listing");
+        showError("Server Error", "Unable to delete listing from database");
       }
       await loadListings();
     }
@@ -471,11 +472,10 @@ export default function ListingsListPage() {
                       key={preset}
                       type="button"
                       onClick={() => setChangeNotes(preset)}
-                      className={`px-2 py-1 text-[11px] rounded-lg border transition-colors ${
-                        changeNotes === preset
+                      className={`px-2 py-1 text-[11px] rounded-lg border transition-colors ${changeNotes === preset
                           ? "bg-amber-100 border-amber-400 text-amber-900 font-bold"
                           : "bg-slate-50 border-slate-200 text-slate-700 hover:bg-slate-100"
-                      }`}
+                        }`}
                     >
                       {preset}
                     </button>

@@ -4,6 +4,7 @@ import { StoreMember } from "../models/StoreMember";
 import { Listing } from "../../listings/models/Listing";
 import { AuthenticatedUserRequest } from "../../../middleware/authenticateUser";
 import { StoreStatus, ListingStatus } from "../../../contracts";
+import { uploadToCloudinary } from "../../../utils/cloudinaryUpload";
 
 export async function createStore(req: AuthenticatedUserRequest, res: Response, next: NextFunction): Promise<void> {
   try {
@@ -35,6 +36,11 @@ export async function createStore(req: AuthenticatedUserRequest, res: Response, 
     const slug = `${name.toLowerCase().replace(/[^a-z0-9]+/g, "-")}-${Date.now().toString().slice(-4)}`;
     const ownerId = req.user._id;
 
+    const [cloudLogo, cloudCover] = await Promise.all([
+      logo ? uploadToCloudinary(logo, "omeetso/stores", "image") : Promise.resolve(logo),
+      cover ? uploadToCloudinary(cover, "omeetso/stores", "image") : Promise.resolve(cover)
+    ]);
+
     const store = await Store.create({
       ownerId,
       name,
@@ -42,8 +48,8 @@ export async function createStore(req: AuthenticatedUserRequest, res: Response, 
       tagline,
       description,
       businessType: businessType || "Retailer",
-      logo,
-      cover,
+      logo: cloudLogo,
+      cover: cloudCover,
       primaryCategory,
       supportingCategories: supportingCategories || [],
       pincode: pincode || req.user.profile.pincode,

@@ -136,6 +136,8 @@ import { Route as ListingIdManageRouteImport } from './routes/listing.$id.manage
 import { Route as ListingIdRejectionRouteImport } from './routes/listing.$id.rejection'
 import { Route as ListingIdRenewRouteImport } from './routes/listing.$id.renew'
 import { Route as MyEmployerJobsRouteImport } from './routes/my.employer.jobs'
+import { Route as MyJobsProfileRouteImport } from './routes/my.jobs.profile'
+import { Route as MyProfileJobsRouteImport } from './routes/my.profile.jobs'
 import { Route as PromotionsIdAnalyticsRouteImport } from './routes/promotions.$id.analytics'
 import { Route as ReviewsReportIdRouteImport } from './routes/reviews.report.$id'
 import { Route as SellDetailedSuccessRouteImport } from './routes/sell.detailed.success'
@@ -783,6 +785,16 @@ const MyEmployerJobsRoute = MyEmployerJobsRouteImport.update({
   path: '/my/employer/jobs',
   getParentRoute: () => rootRouteImport,
 } as any)
+const MyJobsProfileRoute = MyJobsProfileRouteImport.update({
+  id: '/profile',
+  path: '/profile',
+  getParentRoute: () => MyJobsRoute,
+} as any)
+const MyProfileJobsRoute = MyProfileJobsRouteImport.update({
+  id: '/my/profile/jobs',
+  path: '/my/profile/jobs',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const PromotionsIdAnalyticsRoute = PromotionsIdAnalyticsRouteImport.update({
   id: '/analytics',
   path: '/analytics',
@@ -887,7 +899,7 @@ export interface FileRoutesByFullPath {
   '/invoices/wallet': typeof InvoicesWalletRoute
   '/job/$id': typeof JobIdRoute
   '/jobs/new': typeof JobsNewRoute
-  '/my/jobs': typeof MyJobsRoute
+  '/my/jobs': typeof MyJobsRouteWithChildren
   '/my/provider-services': typeof MyProviderServicesRoute
   '/my/services': typeof MyServicesRoute
   '/notifications/$id': typeof NotificationsIdRoute
@@ -957,6 +969,8 @@ export interface FileRoutesByFullPath {
   '/listing/$id/rejection': typeof ListingIdRejectionRoute
   '/listing/$id/renew': typeof ListingIdRenewRoute
   '/my/employer/jobs': typeof MyEmployerJobsRoute
+  '/my/jobs/profile': typeof MyJobsProfileRoute
+  '/my/profile/jobs': typeof MyProfileJobsRoute
   '/promotions/$id/analytics': typeof PromotionsIdAnalyticsRoute
   '/reviews/report/$id': typeof ReviewsReportIdRoute
   '/sell/detailed/success': typeof SellDetailedSuccessRoute
@@ -1023,7 +1037,7 @@ export interface FileRoutesByTo {
   '/invoices/wallet': typeof InvoicesWalletRoute
   '/job/$id': typeof JobIdRoute
   '/jobs/new': typeof JobsNewRoute
-  '/my/jobs': typeof MyJobsRoute
+  '/my/jobs': typeof MyJobsRouteWithChildren
   '/my/provider-services': typeof MyProviderServicesRoute
   '/my/services': typeof MyServicesRoute
   '/notifications/$id': typeof NotificationsIdRoute
@@ -1093,6 +1107,8 @@ export interface FileRoutesByTo {
   '/listing/$id/rejection': typeof ListingIdRejectionRoute
   '/listing/$id/renew': typeof ListingIdRenewRoute
   '/my/employer/jobs': typeof MyEmployerJobsRoute
+  '/my/jobs/profile': typeof MyJobsProfileRoute
+  '/my/profile/jobs': typeof MyProfileJobsRoute
   '/promotions/$id/analytics': typeof PromotionsIdAnalyticsRoute
   '/reviews/report/$id': typeof ReviewsReportIdRoute
   '/sell/detailed/success': typeof SellDetailedSuccessRoute
@@ -1162,7 +1178,7 @@ export interface FileRoutesById {
   '/invoices/wallet': typeof InvoicesWalletRoute
   '/job/$id': typeof JobIdRoute
   '/jobs/new': typeof JobsNewRoute
-  '/my/jobs': typeof MyJobsRoute
+  '/my/jobs': typeof MyJobsRouteWithChildren
   '/my/provider-services': typeof MyProviderServicesRoute
   '/my/services': typeof MyServicesRoute
   '/notifications/$id': typeof NotificationsIdRoute
@@ -1232,6 +1248,8 @@ export interface FileRoutesById {
   '/listing/$id/rejection': typeof ListingIdRejectionRoute
   '/listing/$id/renew': typeof ListingIdRenewRoute
   '/my/employer/jobs': typeof MyEmployerJobsRoute
+  '/my/jobs/profile': typeof MyJobsProfileRoute
+  '/my/profile/jobs': typeof MyProfileJobsRoute
   '/promotions/$id/analytics': typeof PromotionsIdAnalyticsRoute
   '/reviews/report/$id': typeof ReviewsReportIdRoute
   '/sell/detailed/success': typeof SellDetailedSuccessRoute
@@ -1372,6 +1390,8 @@ export interface FileRouteTypes {
     | '/listing/$id/rejection'
     | '/listing/$id/renew'
     | '/my/employer/jobs'
+    | '/my/jobs/profile'
+    | '/my/profile/jobs'
     | '/promotions/$id/analytics'
     | '/reviews/report/$id'
     | '/sell/detailed/success'
@@ -1508,6 +1528,8 @@ export interface FileRouteTypes {
     | '/listing/$id/rejection'
     | '/listing/$id/renew'
     | '/my/employer/jobs'
+    | '/my/jobs/profile'
+    | '/my/profile/jobs'
     | '/promotions/$id/analytics'
     | '/reviews/report/$id'
     | '/sell/detailed/success'
@@ -1646,6 +1668,8 @@ export interface FileRouteTypes {
     | '/listing/$id/rejection'
     | '/listing/$id/renew'
     | '/my/employer/jobs'
+    | '/my/jobs/profile'
+    | '/my/profile/jobs'
     | '/promotions/$id/analytics'
     | '/reviews/report/$id'
     | '/sell/detailed/success'
@@ -1709,7 +1733,7 @@ export interface RootRouteChildren {
   InvoiceIdRoute: typeof InvoiceIdRoute
   JobIdRoute: typeof JobIdRoute
   JobsNewRoute: typeof JobsNewRoute
-  MyJobsRoute: typeof MyJobsRoute
+  MyJobsRoute: typeof MyJobsRouteWithChildren
   MyProviderServicesRoute: typeof MyProviderServicesRoute
   MyServicesRoute: typeof MyServicesRoute
   OfferIdRoute: typeof OfferIdRoute
@@ -1766,6 +1790,7 @@ export interface RootRouteChildren {
   ListingIdRejectionRoute: typeof ListingIdRejectionRoute
   ListingIdRenewRoute: typeof ListingIdRenewRoute
   MyEmployerJobsRoute: typeof MyEmployerJobsRoute
+  MyProfileJobsRoute: typeof MyProfileJobsRoute
   ReviewsReportIdRoute: typeof ReviewsReportIdRoute
   StoreManageIdRoute: typeof StoreManageIdRouteWithChildren
 }
@@ -2661,6 +2686,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof MyEmployerJobsRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/my/jobs/profile': {
+      id: '/my/jobs/profile'
+      path: '/profile'
+      fullPath: '/my/jobs/profile'
+      preLoaderRoute: typeof MyJobsProfileRouteImport
+      parentRoute: typeof MyJobsRoute
+    }
+    '/my/profile/jobs': {
+      id: '/my/profile/jobs'
+      path: '/my/profile/jobs'
+      fullPath: '/my/profile/jobs'
+      preLoaderRoute: typeof MyProfileJobsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/promotions/$id/analytics': {
       id: '/promotions/$id/analytics'
       path: '/analytics'
@@ -2834,6 +2873,17 @@ const AdsIdRouteChildren: AdsIdRouteChildren = {
 
 const AdsIdRouteWithChildren = AdsIdRoute._addFileChildren(AdsIdRouteChildren)
 
+interface MyJobsRouteChildren {
+  MyJobsProfileRoute: typeof MyJobsProfileRoute
+}
+
+const MyJobsRouteChildren: MyJobsRouteChildren = {
+  MyJobsProfileRoute: MyJobsProfileRoute,
+}
+
+const MyJobsRouteWithChildren =
+  MyJobsRoute._addFileChildren(MyJobsRouteChildren)
+
 interface PromotionsIdRouteChildren {
   PromotionsIdAnalyticsRoute: typeof PromotionsIdAnalyticsRoute
 }
@@ -2937,7 +2987,7 @@ const rootRouteChildren: RootRouteChildren = {
   InvoiceIdRoute: InvoiceIdRoute,
   JobIdRoute: JobIdRoute,
   JobsNewRoute: JobsNewRoute,
-  MyJobsRoute: MyJobsRoute,
+  MyJobsRoute: MyJobsRouteWithChildren,
   MyProviderServicesRoute: MyProviderServicesRoute,
   MyServicesRoute: MyServicesRoute,
   OfferIdRoute: OfferIdRoute,
@@ -2994,6 +3044,7 @@ const rootRouteChildren: RootRouteChildren = {
   ListingIdRejectionRoute: ListingIdRejectionRoute,
   ListingIdRenewRoute: ListingIdRenewRoute,
   MyEmployerJobsRoute: MyEmployerJobsRoute,
+  MyProfileJobsRoute: MyProfileJobsRoute,
   ReviewsReportIdRoute: ReviewsReportIdRoute,
   StoreManageIdRoute: StoreManageIdRouteWithChildren,
 }

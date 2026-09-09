@@ -18,10 +18,9 @@ import {
   newId, upsertListing, saveDraft as saveDraftFn, deleteDraft, LS, formatINR, CONDITION_LABEL,
   pushRecentCategory, getSellerPrefs,
 } from "@/lib/listings";
-import { getTrustScore, pushNotification } from "@/lib/account";
+import { pushNotification } from "@/lib/account";
 import { uploadImageToCloudinary, uploadVideoToCloudinary } from "@/lib/upload";
-import { validateBasic, validateMedia, validateCategory, validateLocation, validateContact } from "@/lib/listingValidation";
-import { BRANDS_BY_CATEGORY, generateTitleSuggestions, generateAiDescription } from "@/lib/aiAssistance";
+import { BRANDS_BY_CATEGORY, getBrandsForCategory, generateTitleSuggestions, generateAiDescription } from "@/lib/aiAssistance";
 import { createListingApi } from "@/api/listings.api";
 import { toast } from "sonner";
 import { useRef } from "react";
@@ -71,6 +70,34 @@ function QuickSellPage() {
   const [confirmed, setConfirmed] = useState(true);
   const [aiLoading, setAiLoading] = useState(false);
   const [categories, setCategories] = useState<LiveCategory[]>(() => getCachedCategories());
+
+  const patch = (p: Partial<Listing>) => setData((d) => ({ ...d, ...p }));
+
+  const categoryBrands = useMemo(() => {
+    return getBrandsForCategory(data.category);
+  }, [data.category]);
+
+  const titleSuggestions = useMemo(() => {
+    return generateTitleSuggestions(data.category, selectedBrand, CONDITION_LABEL[(data.condition as Condition) || "good"]);
+  }, [data.category, selectedBrand, data.condition]);
+
+  const handleGenerateAiDescription = () => {
+    setAiLoading(true);
+    setTimeout(() => {
+      const desc = generateAiDescription({
+        title: data.title,
+        category: data.category,
+        brand: selectedBrand,
+        condition: CONDITION_LABEL[(data.condition as Condition) || "good"],
+        price: data.price,
+        specs: data.specs,
+        area: `${data.area || "Madhapur"}, ${data.city || "Hyderabad"}`
+      });
+      patch({ description: desc });
+      setAiLoading(false);
+      toast.success("✨ AI Description generated!");
+    }, 400);
+  };
 
   // Auto-Save Management State
   const [autoSaveEnabled, setAutoSaveEnabled] = useState(true);
@@ -174,30 +201,24 @@ function QuickSellPage() {
     );
 
     if (!hasData) return;
-
     setIsAutoSaving(true);
     const timer = setTimeout(() => {
       const now = Date.now();
       // Keep payload lightweight by avoiding multi-MB raw data URLs in localStorage
-      const safeVideo = data.videoUrl && data.videoUrl.startsWith("data:video/") ? data.videoUrl.slice(0, 100) : (data.videoUrl || data.video);
-      const payload = { ...data, videoUrl: safeVideo, video: safeVideo, lastAutoSavedAt: now };
+      const safeImages = (data.images || []).filter((img) => typeof img === "string" && (img.startsWith("http://") || img.startsWith("https://")));
+      const safeVideo = data.videoUrl && data.videoUrl.startsWith("data:video/") ? "" : (data.videoUrl || data.video);
+      const payload = { ...data, images: safeImages, videoUrl: safeVideo, video: safeVideo, lastAutoSavedAt: now };
+
       try {
         localStorage.setItem(DRAFT_KEY, JSON.stringify(payload));
-        saveDraftFn({
-          id: (data as any).draftId || "quick-draft-1",
-          title: data.title || "Untitled Quick Listing",
-          category: data.category || "mobiles",
-          subcategory: data.subcategory || "smartphones",
-          price: data.price,
-          images: (data.images || []).slice(0, 4),
-          cover: data.cover,
-          method: "quick",
-          createdAt: now,
-          updatedAt: now,
-        });
         setLastSavedTime(now);
-      } catch (err) {
-        console.warn("Auto-save warning:", err);
+      } catch (err: any) {
+        // Handle QuotaExceededError by stripping media and saving text inputs
+        try {
+          localStorage.removeItem("omeetso_listings");
+          localStorage.setItem(DRAFT_KEY, JSON.stringify({ ...data, images: [], videoUrl: "", video: "", lastAutoSavedAt: now }));
+          setLastSavedTime(now);
+        } catch { /* ignore */ }
       } finally {
         setIsAutoSaving(false);
       }
@@ -211,8 +232,9 @@ function QuickSellPage() {
     const handleBeforeUnload = () => {
       if (autoSaveEnabled && data.title) {
         try {
+          const safeImages = (data.images || []).filter((img) => typeof img === "string" && (img.startsWith("http://") || img.startsWith("https://")));
           const safeVideo = data.videoUrl && data.videoUrl.startsWith("data:video/") ? "" : (data.videoUrl || data.video);
-          localStorage.setItem(DRAFT_KEY, JSON.stringify({ ...data, videoUrl: safeVideo, video: safeVideo, lastAutoSavedAt: Date.now() }));
+          localStorage.setItem(DRAFT_KEY, JSON.stringify({ ...data, images: safeImages, videoUrl: safeVideo, video: safeVideo, lastAutoSavedAt: Date.now() }));
         } catch {}
       }
     };
@@ -234,134 +256,157 @@ function QuickSellPage() {
     toast.success("Draft cleared");
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    const v = validateMedia(data.images ?? []);
-    if (!v.ok) {
-      toast.error(v.error ?? "Please upload at least 1 product image");
+  const handleSubmit = async (e?: React.FormEvent) => {
+    if (e && typeof e.preventDefault === "function") e.preventDefault();
+
+    if (!data.images || data.images.length === 0) {
+      toast.error("Please upload at least 1 product image");
       return;
     }
-    const catCheck = validateCategory(data.category, data.subcategory);
-    if (!catCheck.ok) {
-      toast.error(catCheck.error);
+    if (!data.title || data.title.trim().length < 3) {
+      toast.error("Please enter a title for your product (at least 3 characters)");
       return;
     }
-    const basicCheck = validateBasic(data.title ?? "", data.price ?? 0, data.condition ?? "good");
-    if (!basicCheck.ok) {
-      toast.error(basicCheck.error);
+    if (!data.free && (!data.price || data.price <= 0)) {
+      toast.error("Please enter a valid price");
       return;
     }
-    if (getTrustScore() < 35) {
-      toast.error("Please verify your mobile number or upload KYC documents before listing");
-      nav({ to: "/verification" });
+    if (!data.category) {
+      toast.error("Please select a category");
       return;
     }
+
+    const user = typeof localStorage !== "undefined" && (localStorage.getItem("omeetso_user") || localStorage.getItem("omeetso_user_token"));
+    if (!user) {
+      toast.info("Please sign in to publish your listing", {
+        action: { label: "Sign In", onClick: () => nav({ to: "/login" }) }
+      });
+      return;
+    }
+
     setPublishing(true);
 
-    const [uploadedImages, uploadedVideo] = await Promise.all([
-      Promise.all((data.images || []).map((img) => uploadImageToCloudinary(img, "listings"))),
-      data.videoUrl || data.video
-        ? uploadVideoToCloudinary(data.videoUrl || data.video, "listing_videos")
-        : Promise.resolve("")
-    ]);
-
-    const finalVideo = uploadedVideo || data.videoUrl || data.video || "";
-    const now = Date.now();
-    let id = newId();
-
     try {
-      const res = await createListingApi({
-        title: data.title,
-        description: data.description || "Product listed via Omeetso Quick Sell",
-        priceInPaise: Math.round((data.price || 0) * 100),
-        negotiable: Boolean(data.negotiable),
-        pricingType: data.negotiable ? "NEGOTIABLE" : "FIXED",
-        condition: (data.condition || "good").toLowerCase().replace(" ", "_"),
-        categoryId: data.category || "mobiles",
-        subcategoryId: data.subcategory || data.category || "mobiles",
-        images: uploadedImages || [],
-        coverIndex: data.cover || 0,
-        videoUrl: finalVideo,
-        whatsappPhone: data.whatsappPhone || data.sellerPhone || "",
-        sellerPhone: data.sellerPhone || data.whatsappPhone || "",
+      const [uploadedImages, uploadedVideo] = await Promise.all([
+        Promise.all((data.images || []).map((img) => uploadImageToCloudinary(img, "listings"))),
+        data.videoUrl || data.video
+          ? uploadVideoToCloudinary(data.videoUrl || data.video, "listing_videos")
+          : Promise.resolve("")
+      ]);
+
+      const finalVideo = uploadedVideo || data.videoUrl || data.video || "";
+      const now = Date.now();
+      let id = newId();
+
+      let finalImages = uploadedImages;
+      let finalSavedVideo = finalVideo;
+
+      try {
+        const res = await createListingApi({
+          title: data.title.trim(),
+          description: data.description?.trim() || "Product listed via Omeetso Quick Sell",
+          priceInPaise: Math.round((data.price || 0) * 100),
+          negotiable: Boolean(data.negotiable),
+          pricingType: data.negotiable ? "NEGOTIABLE" : "FIXED",
+          condition: (data.condition || "good").toLowerCase().replace(/\s+/g, "_"),
+          categoryId: data.category || "mobiles",
+          subcategoryId: data.subcategory || data.category || "mobiles",
+          images: uploadedImages || [],
+          coverIndex: data.cover || 0,
+          videoUrl: finalVideo,
+          whatsappPhone: data.whatsappPhone || data.sellerPhone || "",
+          sellerPhone: data.sellerPhone || data.whatsappPhone || "",
+          enableWhatsapp: data.enableWhatsapp ?? true,
+          city: data.city || "Hyderabad",
+          area: data.area || "Madhapur",
+          pincode: data.pincode || "500081",
+          specs: data.specs || {}
+        });
+
+        if (res.success && res.data?.id) {
+          id = res.data.id;
+          if (res.data.images && Array.isArray(res.data.images) && res.data.images.length > 0) {
+            finalImages = res.data.images;
+          }
+          if (res.data.videoUrl) {
+            finalSavedVideo = res.data.videoUrl;
+          }
+        }
+      } catch (err) {
+        console.warn("Backend listing save warning:", err);
+      }
+
+      const listing: Listing = {
+        id,
+        title: data.title!, price: data.price ?? 0, negotiable: Boolean(data.negotiable), free: !!data.free,
+        condition: (data.condition ?? "good") as Condition,
+        description: data.description || "Fast quick sell product",
+        category: data.category!, subcategory: data.subcategory || data.category!,
+        images: finalImages, cover: data.cover ?? 0,
+        video: finalSavedVideo,
+        videoUrl: finalSavedVideo,
+        whatsappPhone: data.whatsappPhone || data.sellerPhone,
+        sellerPhone: data.sellerPhone || data.whatsappPhone,
         enableWhatsapp: data.enableWhatsapp ?? true,
-        city: data.city || "",
-        area: data.area || "",
-        pincode: data.pincode || "",
-        specs: data.specs || {}
+        pincode: data.pincode || "500081", area: data.area || "Madhapur", city: data.city || "Hyderabad", state: data.state,
+        fulfilment: (data.fulfilment ?? "pickup") as Fulfilment,
+        specs: data.specs ?? {},
+        contactPref: (data.contactPref ?? "call_and_chat") as ContactPref,
+        bestContactTime: (data.bestContactTime ?? "anytime") as BestContactTime,
+        sellerName: data.sellerName ?? "You", sellerPhone: data.sellerPhone || data.whatsappPhone,
+        sellerType: data.sellerType ?? "individual",
+        status: "under_review", createdAt: now, updatedAt: now, method: "quick",
+        nearbyChanges: data.nearbyChanges,
+      };
+
+      upsertListing(listing);
+
+      // Clean up draft so it doesn't revert to draft
+      try {
+        localStorage.removeItem(DRAFT_KEY);
+        deleteDraft("quick-draft-1");
+        if ((data as any).draftId) deleteDraft((data as any).draftId);
+      } catch { }
+
+      // 1. Listing Created Notification
+      pushNotification({
+        id: `listing-created-${listing.id}-${Date.now()}`,
+        category: "listings",
+        title: `Listing Created: ${listing.title}`,
+        body: `Your listing "${listing.title}" was submitted and is pending review.`,
+        destination: `/product/${listing.id}`,
+        destinationLabel: "View Listing",
+        read: false,
+        time: now,
+        thumbnail: uploadedImages[0] || coverImg
       });
 
-      if (res.success && res.data?.id) {
-        id = res.data.id;
-      }
-    } catch (err) {
-      console.warn("MongoDB listing save warning:", err);
-    }
+      // 2. Nearby Changes Notification
+      pushNotification({
+        id: `nearby-notif-${listing.id}-${Date.now()}`,
+        category: "nearby_changes",
+        title: `Nearby Changes: ${listing.title}`,
+        body: `Nearby changes and local broadcast enabled for "${listing.title}" within ${data.nearbyChanges?.radiusKm || 10} km of ${data.area || "your area"}.`,
+        destination: `/product/${listing.id}`,
+        destinationLabel: "View Listing",
+        read: false,
+        time: now,
+        thumbnail: uploadedImages[0] || coverImg
+      });
 
-    const listing: Listing = {
-      id,
-      title: data.title!, price: data.price ?? 0, negotiable: Boolean(data.negotiable), free: !!data.free,
-      condition: (data.condition ?? "good") as Condition,
-      description: data.description || "Fast quick sell product",
-      category: data.category!, subcategory: data.subcategory || data.category!,
-      images: uploadedImages, cover: data.cover ?? 0,
-      video: finalVideo,
-      videoUrl: finalVideo,
-      whatsappPhone: data.whatsappPhone || data.sellerPhone,
-      sellerPhone: data.sellerPhone || data.whatsappPhone,
-      enableWhatsapp: data.enableWhatsapp ?? true,
-      pincode: data.pincode || "", area: data.area || "", city: data.city || "", state: data.state,
-      fulfilment: (data.fulfilment ?? "pickup") as Fulfilment,
-      specs: data.specs ?? {},
-      contactPref: (data.contactPref ?? "call_and_chat") as ContactPref,
-      bestContactTime: (data.bestContactTime ?? "anytime") as BestContactTime,
-      sellerName: data.sellerName ?? "You", sellerPhone: data.sellerPhone || data.whatsappPhone,
-      sellerType: data.sellerType ?? "individual",
-      status: "under_review", createdAt: now, updatedAt: now, method: "quick",
-      nearbyChanges: data.nearbyChanges,
-    };
-
-    upsertListing(listing);
-
-    // Clean up draft so it doesn't revert to draft
-    try {
+      pushRecentCategory(listing.category);
       localStorage.removeItem(DRAFT_KEY);
-      deleteDraft("quick-draft-1");
-      if ((data as any).draftId) deleteDraft((data as any).draftId);
-    } catch {}
+      toast.success("Listing submitted for review! It will go live once approved by admin.");
+      nav({ to: "/listings", search: { tab: "review" } as any });
+    } catch (err: any) {
+      console.error("Listing publish error:", err);
+      toast.error(err?.message || "Failed to publish listing. Please try again.");
+    } finally {
+      setPublishing(false);
+    }
+  };
 
-    // 1. Listing Created Notification
-    pushNotification({
-      id: `listing-created-${listing.id}-${Date.now()}`,
-      category: "listings",
-      title: `Listing Created: ${listing.title}`,
-      body: `Your listing "${listing.title}" was submitted and is pending review.`,
-      destination: `/product/${listing.id}`,
-      destinationLabel: "View Listing",
-      read: false,
-      time: now,
-      thumbnail: uploadedImages[0] || coverImg
-    });
-
-    // 2. Nearby Changes Notification
-    pushNotification({
-      id: `nearby-notif-${listing.id}-${Date.now()}`,
-      category: "nearby_changes",
-      title: `Nearby Changes: ${listing.title}`,
-      body: `Nearby changes and local broadcast enabled for "${listing.title}" within ${data.nearbyChanges?.radiusKm || 10} km of ${data.area || "your area"}.`,
-      destination: `/product/${listing.id}`,
-      destinationLabel: "View Listing",
-      read: false,
-      time: now,
-      thumbnail: uploadedImages[0] || coverImg
-    });
-
-    pushRecentCategory(listing.category);
-    localStorage.removeItem(DRAFT_KEY);
-    setPublishing(false);
-    toast.success("Listing submitted for review! It will go live once approved by admin.");
-    nav({ to: "/listings", search: { tab: "review" } as any });
-  }
+  const publish = () => handleSubmit();
 
   const coverImg = data.images?.[data.cover ?? 0] || data.images?.[0];
 
@@ -780,9 +825,8 @@ function QuickSellPage() {
                   type="button"
                   onClick={publish}
                   disabled={publishing}
-                  className={`w-full h-14 rounded-2xl bg-indigo-brand text-sm font-extrabold text-white shadow-xl flex items-center justify-center gap-2.5 transition-all ${
-                    publishing ? "opacity-80 cursor-not-allowed" : "hover:opacity-95 hover:shadow-2xl active:scale-[0.99] cursor-pointer"
-                  }`}
+                  className={`w-full h-14 rounded-2xl bg-indigo-brand text-sm font-extrabold text-white shadow-xl flex items-center justify-center gap-2.5 transition-all ${publishing ? "opacity-80 cursor-not-allowed" : "hover:opacity-95 hover:shadow-2xl active:scale-[0.99] cursor-pointer"
+                    }`}
                 >
                   {publishing ? (
                     <>

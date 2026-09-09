@@ -1,10 +1,13 @@
+import mongoose from "mongoose";
 import { Response, NextFunction } from "express";
 import { Listing } from "../../listings/models/Listing";
 import { ListingModeration } from "../../listings/models/ListingModeration";
+import { ListingRevision } from "../../listings/models/ListingRevision";
 import { Notification } from "../../notifications/models/Notification";
 import { AuditLog } from "../models/AuditLog";
 import { AuthenticatedAdminRequest } from "../../../middleware/authenticateAdmin";
 import { ListingStatus } from "../../../contracts";
+import { convertImagesToCloudinary, convertVideoToCloudinary } from "../../../utils/cloudinaryUpload";
 
 let listingsQueryCache: Record<string, { data: any[]; total: number; expiresAt: number }> = {};
 
@@ -45,50 +48,56 @@ export async function getAdminListings(req: AuthenticatedAdminRequest, res: Resp
 
     const [listings, total] = await Promise.all([
       Listing.find(query)
-        .slice("images", 1)
-        .select("title priceInPaise condition categoryId subcategoryId images coverIndex pincode area city status createdAt updatedAt sellerId sellerPhone whatsappPhone")
-        .sort({ createdAt: -1 })
+        .select("title description priceInPaise condition categoryId subcategoryId pincode area city status createdAt updatedAt sellerId sellerPhone images coverIndex")
+        .sort({ _id: -1 })
         .skip(skip)
         .limit(limit)
-        .lean(),
-      Listing.countDocuments(query).catch(() => 0)
+        .lean()
+        .read("nearest")
+        .maxTimeMS(5000)
+        .exec(),
+      Listing.countDocuments(query).maxTimeMS(5000).exec()
     ]);
 
-    const items = listings.map((l: any) => ({
-      id: l._id.toString(),
-      _id: l._id.toString(),
-      title: l.title,
-      description: l.description || l.title,
-      price: l.priceInPaise ? l.priceInPaise / 100 : 0,
-      priceInPaise: l.priceInPaise,
-      condition: l.condition || "Like New",
-      categoryId: l.categoryId || "General",
-      category: l.categoryId || "General",
-      subcategoryId: l.subcategoryId || l.categoryId || "General",
-      subcategory: l.subcategoryId || l.categoryId || "General",
-      images: Array.isArray(l.images) && l.images.length > 0 ? l.images : ["https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=400"],
-      coverIndex: l.coverIndex || 0,
-      pincode: l.pincode || "500081",
-      area: l.area || "Madhapur",
-      city: l.city || "Hyderabad",
-      status: l.status,
-      createdAt: l.createdAt,
-      updatedAt: l.updatedAt || l.createdAt,
-      seller: l.sellerId
-        ? {
-            id: l.sellerId._id ? l.sellerId._id.toString() : l.sellerId.toString(),
-            name: l.sellerId.profile?.name || l.sellerName || "Omeetso Seller",
-            phone: l.sellerId.phone || l.sellerPhone || "",
-            email: l.sellerId.email || "",
-            verified: true
-          }
-        : {
-            id: "seller",
-            name: l.sellerName || "Omeetso Seller",
-            phone: l.sellerPhone || "",
-            verified: true
-          }
-    }));
+    const items = listings.map((l: any) => {
+      const seller = l.sellerId;
+      const sellerName = seller?.profile?.businessName || seller?.profile?.name || "Omeetso Seller";
+      const sellerPhone = l.sellerPhone || l.whatsappPhone || seller?.profile?.phone || seller?.phone || seller?.mobile || "";
+
+      return {
+        id: l._id.toString(),
+        _id: l._id.toString(),
+        title: l.title,
+        description: l.description || l.title,
+        price: l.priceInPaise ? l.priceInPaise / 100 : 0,
+        priceInPaise: l.priceInPaise,
+        condition: l.condition || "Like New",
+        categoryId: l.categoryId || "General",
+        category: l.categoryId || "General",
+        subcategoryId: l.subcategoryId || l.categoryId || "General",
+        subcategory: l.subcategoryId || l.categoryId || "General",
+        images: Array.isArray(l.images) && l.images.length > 0 ? l.images : ["https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=400"],
+        coverIndex: l.coverIndex || 0,
+        pincode: l.pincode || "500081",
+        area: l.area || "Madhapur",
+        city: l.city || "Hyderabad",
+        status: l.status,
+        createdAt: l.createdAt,
+        updatedAt: l.updatedAt || l.createdAt,
+        seller: {
+          id: seller?._id ? seller._id.toString() : (l.sellerId ? l.sellerId.toString() : "seller"),
+          name: sellerName,
+          phone: sellerPhone,
+          verified: Boolean(seller?.verificationSummary?.mobileVerified || true)
+        }
+      };
+    });
+
+    listingsQueryCache[cacheKey] = {
+      data: items,
+      total,
+      expiresAt: now + 15_000 // 15s TTL
+    };
 
     res.status(200).json({
       success: true,
@@ -163,7 +172,7 @@ export async function approveListing(req: AuthenticatedAdminRequest, res: Respon
         body: `Your listing "${listing.title}" has been approved and is now live on Omeetso!`,
         link: `/product/${listing._id}`,
         thumbnail: listing.images?.[0]
-      }).catch(() => {});
+      }).catch(() => { });
     }
 
     invalidateListingsCache();
@@ -243,7 +252,7 @@ export async function rejectListing(req: AuthenticatedAdminRequest, res: Respons
         body: reason || "Your listing requires clearer images or additional details. Please edit your listing to update photos.",
         link: `/listing/${listing._id}/edit`,
         thumbnail: listing.images?.[0]
-      }).catch(() => {});
+      }).catch(() => { });
     }
 
     invalidateListingsCache();
@@ -287,6 +296,12 @@ export async function createAdminListing(req: AuthenticatedAdminRequest, res: Re
 
     const computedPriceInPaise = priceInPaise ? Number(priceInPaise) : price ? Math.round(Number(price) * 100) : 0;
 
+    const rawImages = Array.isArray(images) && images.length > 0 ? images : ["https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=400"];
+    const [processedImages, processedVideo] = await Promise.all([
+      convertImagesToCloudinary(rawImages, "omeetso/listings"),
+      req.body.videoUrl ? convertVideoToCloudinary(req.body.videoUrl, "omeetso/listing_videos") : Promise.resolve(req.body.videoUrl)
+    ]);
+
     const listing = await Listing.create({
       sellerId: req.admin._id,
       title: title || "New Product Listing",
@@ -296,8 +311,9 @@ export async function createAdminListing(req: AuthenticatedAdminRequest, res: Re
       condition: condition || "like_new",
       categoryId: categoryId || "mobiles",
       subcategoryId: subcategoryId || categoryId || "smartphones",
-      images: Array.isArray(images) && images.length > 0 ? images : ["https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=400"],
+      images: processedImages,
       coverIndex: coverIndex || 0,
+      videoUrl: processedVideo,
       city: city || "Hyderabad",
       area: area || "Madhapur",
       pincode: pincode || "500081",
@@ -349,6 +365,12 @@ export async function updateAdminListing(req: AuthenticatedAdminRequest, res: Re
     if (updateData.status) {
       updateData.status = updateData.status.toUpperCase();
     }
+    if (updateData.images && Array.isArray(updateData.images) && updateData.images.length > 0) {
+      updateData.images = await convertImagesToCloudinary(updateData.images, "omeetso/listings");
+    }
+    if (updateData.videoUrl && typeof updateData.videoUrl === "string" && updateData.videoUrl.startsWith("data:")) {
+      updateData.videoUrl = await convertVideoToCloudinary(updateData.videoUrl, "omeetso/listing_videos");
+    }
 
     const listing = await Listing.findByIdAndUpdate(listingId, updateData, { new: true });
     if (!listing) {
@@ -380,20 +402,50 @@ export async function deleteAdminListing(req: AuthenticatedAdminRequest, res: Re
       return;
     }
 
-    const { listingId } = req.params;
-    const listing = await Listing.findByIdAndUpdate(listingId, { status: ListingStatus.REMOVED }, { new: true });
+    const listingId = String(req.params.listingId || "");
+    const isObjectId = mongoose.Types.ObjectId.isValid(listingId);
+    const listing = isObjectId
+      ? await Listing.findById(listingId)
+      : await Listing.findOne({ slug: listingId });
 
     if (!listing) {
       res.status(404).json({ success: false, error: { code: "NOT_FOUND", message: "Listing not found" } });
       return;
     }
 
+    const targetId = listing._id;
+    const targetTitle = listing.title;
+
+    // Permanently remove product listing from MongoDB
+    await Listing.findByIdAndDelete(targetId);
+
+    // Clean up associated moderation entries and revisions
+    await Promise.allSettled([
+      ListingModeration.deleteMany({ listingId: targetId }),
+      ListingRevision.deleteMany({ listingId: targetId })
+    ]);
+
+    // Create Audit Log
+    await AuditLog.create({
+      actorAdminId: req.admin._id,
+      actorName: req.admin.name,
+      actorRole: req.admin.role,
+      action: "LISTING_DELETE",
+      targetType: "Listing",
+      targetId: targetId.toString(),
+      reason: req.body?.reason || "Admin permanently deleted product listing from database",
+      before: { title: targetTitle, status: listing.status, priceInPaise: listing.priceInPaise },
+      after: null,
+      ipAddress: req.ip,
+      userAgent: req.get("user-agent")
+    }).catch(() => { });
+
     invalidateListingsCache();
 
     res.status(200).json({
       success: true,
-      message: "Listing marked as removed",
-      data: { id: listing._id.toString(), status: listing.status }
+      message: "Listing permanently deleted from database",
+      data: { id: targetId.toString(), title: targetTitle }
     });
   } catch (error) {
     next(error);
@@ -472,7 +524,7 @@ export async function updateAdminListingStatus(req: AuthenticatedAdminRequest, r
         body: notifBody,
         link: notifLink,
         thumbnail: listing.images?.[0]
-      }).catch(() => {});
+      }).catch(() => { });
     }
 
     invalidateListingsCache();

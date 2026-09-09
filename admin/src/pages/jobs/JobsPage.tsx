@@ -73,8 +73,10 @@ export function JobsPage() {
 
   const { showSuccess, showError } = useToast();
 
-  const loadAdminJobs = async () => {
-    setLoading(true);
+  const loadAdminJobs = async (isBackground = false) => {
+    if (!isBackground && jobs.length === 0) {
+      setLoading(true);
+    }
     try {
       const token =
         AdminAuthService.getAccessToken() ||
@@ -82,10 +84,17 @@ export function JobsPage() {
           ? localStorage.getItem("omeetso_admin_token") || localStorage.getItem("adminToken")
           : null);
 
+      const controller = typeof AbortController !== "undefined" ? new AbortController() : null;
+      const timeoutId = controller ? setTimeout(() => controller.abort(), 4000) : null;
+
       const res = await fetch(`${API_BASE}/admin/jobs?status=ALL`, {
         headers: { ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+        signal: controller?.signal
+      }).finally(() => {
+        if (timeoutId) clearTimeout(timeoutId);
       });
-      if (res.ok) {
+
+      if (res && res.ok) {
         const json = await res.json();
         if (json.success && Array.isArray(json.data)) {
           setJobs(json.data);
@@ -103,8 +112,18 @@ export function JobsPage() {
 
   const loadAdminCategories = async () => {
     try {
-      const res = await fetch(`${API_BASE}/jobs/categories`);
-      if (res.ok) {
+      const token = AdminAuthService.getAccessToken();
+      const controller = typeof AbortController !== "undefined" ? new AbortController() : null;
+      const timeoutId = controller ? setTimeout(() => controller.abort(), 4000) : null;
+
+      const res = await fetch(`${API_BASE}/admin/jobs/categories`, {
+        headers: { ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+        signal: controller?.signal
+      }).finally(() => {
+        if (timeoutId) clearTimeout(timeoutId);
+      });
+
+      if (res && res.ok) {
         const json = await res.json();
         if (json.success && Array.isArray(json.data)) {
           setCategories(json.data);
@@ -117,26 +136,21 @@ export function JobsPage() {
   };
 
   useEffect(() => {
-    loadAdminJobs();
-    loadAdminCategories();
+    Promise.allSettled([loadAdminJobs(jobs.length > 0), loadAdminCategories()]);
 
     const handleSync = () => {
-      loadAdminJobs();
+      loadAdminJobs(true);
     };
 
     window.addEventListener("omeetso_jobs_changed", handleSync);
-    window.addEventListener("storage", handleSync);
-    window.addEventListener("focus", handleSync);
     return () => {
       window.removeEventListener("omeetso_jobs_changed", handleSync);
-      window.removeEventListener("storage", handleSync);
-      window.removeEventListener("focus", handleSync);
     };
   }, []);
 
   const handleUpdateJobStatus = async (jobId: string, status: string, reason?: string) => {
     try {
-      const token = typeof localStorage !== "undefined" ? localStorage.getItem("omeetso_admin_token") : null;
+      const token = AdminAuthService.getAccessToken();
       const res = await fetch(`${API_BASE}/admin/jobs/${jobId}/status`, {
         method: "PATCH",
         headers: {
@@ -191,14 +205,14 @@ export function JobsPage() {
 
   const handleDeleteJob = async (jobId: string, title?: string) => {
     if (!window.confirm(`Are you sure you want to permanently delete job posting "${title || jobId}"?`)) return;
+    setJobs((prev) => prev.filter((j) => (j.id || j._id) !== jobId));
     try {
-      const token = localStorage.getItem("omeetso_admin_token") || localStorage.getItem("adminToken");
-      await fetch(`${API_BASE}/jobs/${jobId}`, {
+      const token = AdminAuthService.getAccessToken();
+      await fetch(`${API_BASE}/admin/jobs/${jobId}`, {
         method: "DELETE",
-        headers: { Authorization: `Bearer ${token}` }
+        headers: { ...(token ? { Authorization: `Bearer ${token}` } : {}) }
       });
     } catch {}
-    setJobs((prev) => prev.filter((j) => (j.id || j._id) !== jobId));
     showSuccess("Job Deleted", `Job posting "${title || jobId}" was permanently removed.`);
   };
 
@@ -269,7 +283,7 @@ export function JobsPage() {
               <span>Manage Categories</span>
             </button>
             <button
-              onClick={loadAdminJobs}
+              onClick={() => { void loadAdminJobs(); }}
               className="inline-flex items-center gap-1.5 px-3.5 py-2 text-xs font-bold rounded-lg bg-indigo-600 text-white hover:bg-indigo-700 shadow-sm"
             >
               <RefreshCw className={`w-3.5 h-3.5 ${loading ? "animate-spin" : ""}`} />

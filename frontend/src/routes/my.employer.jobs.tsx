@@ -90,7 +90,15 @@ function EmployerJobsDashboardPage() {
 
   const activeJob = jobs.find((j) => j.id === selectedJobId) || jobs[0];
 
-  const filteredApplicants = applicants.filter((a) => {
+  const filteredApplicants = applicants.filter((a, index, self) => {
+    // Deduplicate by id or composite applicant details
+    const currentKey = a.id || `${a.jobId}_${a.applicantId || a.applicantProfileSnapshot?.phone || a.applicantProfileSnapshot?.name}`;
+    const firstIndex = self.findIndex((x) => {
+      const xKey = x.id || `${x.jobId}_${x.applicantId || x.applicantProfileSnapshot?.phone || x.applicantProfileSnapshot?.name}`;
+      return xKey === currentKey;
+    });
+    if (firstIndex !== index) return false;
+
     if (applicantStatusFilter !== "ALL") {
       const aStatus = String(a.status || "").toUpperCase();
       const fStatus = String(applicantStatusFilter || "").toUpperCase();

@@ -466,7 +466,7 @@ function JobsPage() {
                 <span>Employer Dashboard</span>
               </Link>
               <Link
-                to="/account/profile/jobs"
+                to="/my/profile/jobs"
                 className="inline-flex items-center gap-1.5 rounded-full border border-border bg-background px-3 py-1 text-xs font-bold text-foreground hover:bg-secondary transition-colors"
               >
                 <GraduationCap className="h-3.5 w-3.5 text-indigo-brand" />
