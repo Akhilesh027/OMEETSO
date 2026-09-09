@@ -45,7 +45,7 @@ export async function getAdminListings(req: AuthenticatedAdminRequest, res: Resp
 
     const [listings, total] = await Promise.all([
       Listing.find(query)
-        .populate("sellerId", "profile.name profile.businessName profile.avatar profile.city profile.area profile.phone phone mobile accountType verificationSummary createdAt")
+        .populate("sellerId", "profile.name phone email")
         .sort({ createdAt: -1 })
         .skip(skip)
         .limit(limit)
@@ -53,45 +53,41 @@ export async function getAdminListings(req: AuthenticatedAdminRequest, res: Resp
       Listing.countDocuments(query)
     ]);
 
-    const items = listings.map((l: any) => {
-      const seller = l.sellerId;
-      const sellerName = seller?.profile?.businessName || seller?.profile?.name || "Omeetso Seller";
-      const sellerPhone = l.sellerPhone || l.whatsappPhone || seller?.profile?.phone || seller?.phone || seller?.mobile || "";
-
-      return {
-        id: l._id.toString(),
-        _id: l._id.toString(),
-        title: l.title,
-        description: l.description || l.title,
-        price: l.priceInPaise ? l.priceInPaise / 100 : 0,
-        priceInPaise: l.priceInPaise,
-        condition: l.condition || "Like New",
-        categoryId: l.categoryId || "General",
-        category: l.categoryId || "General",
-        subcategoryId: l.subcategoryId || l.categoryId || "General",
-        subcategory: l.subcategoryId || l.categoryId || "General",
-        images: Array.isArray(l.images) && l.images.length > 0 ? l.images : ["https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=400"],
-        coverIndex: l.coverIndex || 0,
-        pincode: l.pincode || "500081",
-        area: l.area || "Madhapur",
-        city: l.city || "Hyderabad",
-        status: l.status,
-        createdAt: l.createdAt,
-        updatedAt: l.updatedAt || l.createdAt,
-        seller: {
-          id: seller?._id ? seller._id.toString() : (l.sellerId ? l.sellerId.toString() : "seller"),
-          name: sellerName,
-          phone: sellerPhone,
-          verified: Boolean(seller?.verificationSummary?.mobileVerified || true)
-        }
-      };
-    });
-
-    listingsQueryCache[cacheKey] = {
-      data: items,
-      total,
-      expiresAt: now + 15_000 // 15s TTL
-    };
+    const items = listings.map((l: any) => ({
+      id: l._id.toString(),
+      _id: l._id.toString(),
+      title: l.title,
+      description: l.description || l.title,
+      price: l.priceInPaise ? l.priceInPaise / 100 : 0,
+      priceInPaise: l.priceInPaise,
+      condition: l.condition || "Like New",
+      categoryId: l.categoryId || "General",
+      category: l.categoryId || "General",
+      subcategoryId: l.subcategoryId || l.categoryId || "General",
+      subcategory: l.subcategoryId || l.categoryId || "General",
+      images: Array.isArray(l.images) && l.images.length > 0 ? l.images : ["https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=400"],
+      coverIndex: l.coverIndex || 0,
+      pincode: l.pincode || "500081",
+      area: l.area || "Madhapur",
+      city: l.city || "Hyderabad",
+      status: l.status,
+      createdAt: l.createdAt,
+      updatedAt: l.updatedAt || l.createdAt,
+      seller: l.sellerId
+        ? {
+            id: l.sellerId._id ? l.sellerId._id.toString() : l.sellerId.toString(),
+            name: l.sellerId.profile?.name || l.sellerName || "Omeetso Seller",
+            phone: l.sellerId.phone || l.sellerPhone || "",
+            email: l.sellerId.email || "",
+            verified: true
+          }
+        : {
+            id: "seller",
+            name: l.sellerName || "Omeetso Seller",
+            phone: l.sellerPhone || "",
+            verified: true
+          }
+    }));
 
     res.status(200).json({
       success: true,
