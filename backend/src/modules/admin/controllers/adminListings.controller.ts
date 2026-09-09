@@ -45,12 +45,13 @@ export async function getAdminListings(req: AuthenticatedAdminRequest, res: Resp
 
     const [listings, total] = await Promise.all([
       Listing.find(query)
-        .populate("sellerId", "profile.name phone email")
+        .slice("images", 1)
+        .select("title priceInPaise condition categoryId subcategoryId images coverIndex pincode area city status createdAt updatedAt sellerId sellerPhone whatsappPhone")
         .sort({ createdAt: -1 })
         .skip(skip)
         .limit(limit)
         .lean(),
-      Listing.countDocuments(query)
+      Listing.countDocuments(query).catch(() => 0)
     ]);
 
     const items = listings.map((l: any) => ({
