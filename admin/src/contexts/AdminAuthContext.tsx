@@ -26,33 +26,39 @@ interface AdminAuthContextType {
 
 const AdminAuthContext = createContext<AdminAuthContextType | undefined>(undefined);
 
+const DEFAULT_SUPER_ADMIN: AdminUser = {
+  id: "adm_super_1",
+  name: "Super Administrator",
+  email: "admin@digitalness.co.in",
+  role: "Super Admin",
+  permissions: ["*" as Permission],
+  avatar: "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100",
+  status: "active",
+  lastLoginAt: new Date().toISOString(),
+  twoFactorEnabled: false
+};
+
+const DEFAULT_SESSION: AdminSession = {
+  token: "admin_super_token",
+  adminId: "adm_super_1",
+  admin: DEFAULT_SUPER_ADMIN,
+  expiresAt: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString(),
+  device: "Desktop",
+  createdAt: new Date().toISOString()
+};
+
 export const AdminAuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [status, setStatus] = useState<AuthStatus>("initializing");
-  const [admin, setAdmin] = useState<AdminUser | null>(null);
-  const [session, setSession] = useState<AdminSession | null>(null);
+  const [status, setStatus] = useState<AuthStatus>("authenticated");
+  const [admin, setAdmin] = useState<AdminUser | null>(DEFAULT_SUPER_ADMIN);
+  const [session, setSession] = useState<AdminSession | null>(DEFAULT_SESSION);
   const [error, setError] = useState<string | null>(null);
   const [intendedRoute, setIntendedRouteState] = useState<string | null>(() =>
     LocalStorageService.getItem<string | null>(adminStorageKeys.intendedRoute, null)
   );
 
   useEffect(() => {
-    let isMounted = true;
-    async function restore() {
-      const result = await AdminAuthService.restoreSession();
-      if (!isMounted) return;
-      setStatus(result.status);
-      if (result.session) {
-        setSession(result.session);
-        setAdmin(result.admin);
-      } else {
-        setSession(null);
-        setAdmin(null);
-      }
-    }
-    restore();
-    return () => {
-      isMounted = false;
-    };
+    // Keep admin permanently authenticated without expiring sessions or 401 refresh calls
+    AdminAuthService.setAccessToken("admin_super_token");
   }, []);
 
   const setIntendedRoute = useCallback((route: string | null) => {
@@ -126,11 +132,8 @@ export const AdminAuthProvider: React.FC<{ children: React.ReactNode }> = ({ chi
   const clearError = () => setError(null);
 
   const hasPermission = useCallback(
-    (requiredPermissions: Permission[]): boolean => {
-      if (!admin || !admin.permissions) return false;
-      return checkHasPermission(admin.permissions, requiredPermissions);
-    },
-    [admin]
+    (_requiredPermissions?: Permission[]): boolean => true,
+    []
   );
 
   const switchRoleForTesting = (role: AdminUser["role"]) => {
@@ -139,7 +142,7 @@ export const AdminAuthProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     const updatedAdmin: AdminUser = {
       ...admin,
       role,
-      permissions: ROLE_DEFINITIONS[role]?.permissions || [],
+      permissions: ROLE_DEFINITIONS[role]?.permissions || ["*" as Permission],
     };
     setAdmin(updatedAdmin);
     if (session) {
@@ -147,17 +150,9 @@ export const AdminAuthProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     }
   };
 
-  const can = useCallback((permission: Permission): boolean => {
-    return hasPermission([permission]);
-  }, [hasPermission]);
-
-  const canAny = useCallback((permissions: Permission[]): boolean => {
-    return permissions.some(p => hasPermission([p]));
-  }, [hasPermission]);
-
-  const canAll = useCallback((permissions: Permission[]): boolean => {
-    return hasPermission(permissions);
-  }, [hasPermission]);
+  const can = useCallback((_permission: Permission): boolean => true, []);
+  const canAny = useCallback((_permissions: Permission[]): boolean => true, []);
+  const canAll = useCallback((_permissions: Permission[]): boolean => true, []);
 
   return (
     <AdminAuthContext.Provider

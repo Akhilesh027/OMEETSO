@@ -1,7 +1,7 @@
 const getBackendUrl = (): string => {
   if (typeof window !== "undefined") {
     const hostname = window.location.hostname;
-    // When running locally in browser, default to localhost:3000 unless explicit localhost port specified
+    // Default to https://api.omeetso.in unless explicit port specified
     if (hostname === "localhost" || hostname === "127.0.0.1") {
       const explicit = (import.meta.env.VITE_API_URL || "").trim();
       if (explicit && (explicit.includes("localhost") || explicit.includes("127.0.0.1"))) {

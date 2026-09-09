@@ -17,20 +17,21 @@ function getHeaders(): Record<string, string> {
 async function resilientFetch(path: string, options: RequestInit = {}): Promise<Response | null> {
   try {
     const controller = typeof AbortController !== "undefined" ? new AbortController() : null;
-    const timeoutId = controller ? setTimeout(() => controller.abort(), 15000) : null;
+    const timeoutId = controller ? setTimeout(() => controller.abort(), 3500) : null;
 
     const res = await fetch(path, {
       ...options,
       headers: { ...getHeaders(), ...(options.headers || {}) },
-      credentials: "include",
       signal: controller?.signal
     }).finally(() => {
       if (timeoutId) clearTimeout(timeoutId);
     });
 
     return res;
-  } catch (err) {
-    console.warn(`[resilientFetch] Network error for ${path}:`, err);
+  } catch (err: any) {
+    if (err?.name !== "AbortError") {
+      console.warn(`[resilientFetch] Network error for ${path}:`, err);
+    }
     return null;
   }
 }
