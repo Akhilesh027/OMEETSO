@@ -4,11 +4,12 @@ import {
   ArrowLeft, User, Briefcase, FileText, Upload, Save, CheckCircle2,
   Trash2, Plus, Sparkles, Eye, Download, ShieldCheck, Lock,
   Globe, Award, GraduationCap, MapPin, Phone, Mail, Calendar,
-  Building, Settings, Bell, ChevronRight, X, ExternalLink,
-  Check, AlertCircle, Share2, Printer
+  Building, Settings, Bell, ChevronRight, ChevronLeft, X, ExternalLink,
+  Check, AlertCircle, Share2, Printer, ArrowRight
 } from "lucide-react";
 import { MobileFrame } from "@/components/omeetso/MobileFrame";
 import { uploadFile } from "@/lib/upload";
+import { downloadDocument } from "@/lib/download";
 import { API_BASE } from "@/config/api";
 import { toast } from "sonner";
 import type {
@@ -44,6 +45,19 @@ type TabKey =
   | "privacy"
   | "features";
 
+const TAB_KEYS: TabKey[] = [
+  "personal",
+  "summary",
+  "skills",
+  "experience",
+  "education",
+  "preferences",
+  "additional",
+  "resume",
+  "privacy",
+  "features"
+];
+
 export function CandidateProfilePage() {
   const nav = useNavigate();
   const search = Route.useSearch();
@@ -57,6 +71,7 @@ export function CandidateProfilePage() {
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const photoInputRef = useRef<HTMLInputElement>(null);
+  const tabsContainerRef = useRef<HTMLDivElement>(null);
 
   // Core Form State for all 10 sections (Clean state with placeholders)
   const [formData, setFormData] = useState<CandidateProfileItem>({
@@ -208,7 +223,6 @@ export function CandidateProfilePage() {
         const local = localStorage.getItem("omeetso_candidate_profile");
         if (local) {
           const parsed = JSON.parse(local);
-          // If stored data was just dummy placeholder data, do not restore
           if (parsed.email === "akhilesh@example.com" && parsed.fullName === "Akhilesh Reddy") {
             localStorage.removeItem("omeetso_candidate_profile");
           } else {
@@ -263,15 +277,22 @@ export function CandidateProfilePage() {
     setUploadingResume(true);
     try {
       const url = await uploadFile(file, "resumes");
+      const finalUrl = url || await new Promise<string>((resolve) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(String(reader.result || ""));
+        reader.onerror = () => resolve(URL.createObjectURL(file));
+        reader.readAsDataURL(file);
+      });
+
       const newResumeObj = {
         id: `res-${Date.now()}`,
         name: file.name,
-        url: url || URL.createObjectURL(file),
+        url: finalUrl,
         uploadedAt: new Date().toISOString()
       };
       setFormData((prev) => ({
         ...prev,
-        resumeUrl: url || newResumeObj.url,
+        resumeUrl: finalUrl,
         resumeFileName: file.name,
         savedResumes: [...(prev.savedResumes || []), newResumeObj]
       }));
@@ -327,6 +348,32 @@ export function CandidateProfilePage() {
       setSaving(false);
       setSaved(true);
       setTimeout(() => setSaved(false), 3500);
+    }
+  };
+
+  // Navigation handlers
+  const currentTabIndex = TAB_KEYS.indexOf(activeTab);
+
+  const goToNextTab = () => {
+    handleSave();
+    if (currentTabIndex < TAB_KEYS.length - 1) {
+      const nextKey = TAB_KEYS[currentTabIndex + 1];
+      setActiveTab(nextKey);
+      window.scrollTo({ top: 220, behavior: "smooth" });
+    } else {
+      if (returnTo) {
+        window.location.assign(returnTo);
+      } else {
+        toast.success("All sections completed and saved!");
+      }
+    }
+  };
+
+  const goToPrevTab = () => {
+    if (currentTabIndex > 0) {
+      const prevKey = TAB_KEYS[currentTabIndex - 1];
+      setActiveTab(prevKey);
+      window.scrollTo({ top: 220, behavior: "smooth" });
     }
   };
 
@@ -401,26 +448,77 @@ export function CandidateProfilePage() {
     toast.success("Added education record!");
   };
 
-  const tabs: Array<{ id: TabKey; label: string; icon: any; count?: number }> = [
-    { id: "personal", label: "1. Personal", icon: User },
-    { id: "summary", label: "2. Summary", icon: Briefcase },
-    { id: "skills", label: "3. Skills", icon: Sparkles, count: formData.skillsList.length },
-    { id: "experience", label: "4. Experience", icon: Building, count: formData.workExperiences.length },
-    { id: "education", label: "5. Education", icon: GraduationCap, count: formData.educations.length },
-    { id: "preferences", label: "6. Preferences", icon: Settings },
-    { id: "additional", label: "7. Additional", icon: Award },
-    { id: "resume", label: "8. Resume & Docs", icon: FileText },
-    { id: "privacy", label: "9. Privacy", icon: Lock },
-    { id: "features", label: "10. Features", icon: Bell },
+  const tabs: Array<{ id: TabKey; label: string; shortLabel: string; icon: any; count?: number }> = [
+    { id: "personal", label: "1. Personal", shortLabel: "Personal", icon: User },
+    { id: "summary", label: "2. Summary", shortLabel: "Summary", icon: Briefcase },
+    { id: "skills", label: "3. Skills", shortLabel: "Skills", icon: Sparkles, count: formData.skillsList.length },
+    { id: "experience", label: "4. Experience", shortLabel: "Experience", icon: Building, count: formData.workExperiences.length },
+    { id: "education", label: "5. Education", shortLabel: "Education", icon: GraduationCap, count: formData.educations.length },
+    { id: "preferences", label: "6. Preferences", shortLabel: "Preferences", icon: Settings },
+    { id: "additional", label: "7. Additional", shortLabel: "Additional", icon: Award },
+    { id: "resume", label: "8. Resume & Docs", shortLabel: "Resume", icon: FileText },
+    { id: "privacy", label: "9. Privacy", shortLabel: "Privacy", icon: Lock },
+    { id: "features", label: "10. Features", shortLabel: "Features", icon: Bell },
   ];
+
+  // Reusable Step Navigation Footer Component for every tab
+  const renderTabFooter = (customNextText?: string) => {
+    const isFirst = currentTabIndex === 0;
+    const isLast = currentTabIndex === TAB_KEYS.length - 1;
+    const nextTab = !isLast ? tabs[currentTabIndex + 1] : null;
+
+    return (
+      <div className="pt-5 border-t border-border/70 flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 mt-4">
+        <div>
+          {!isFirst ? (
+            <button
+              type="button"
+              onClick={goToPrevTab}
+              className="w-full sm:w-auto h-11 px-4 rounded-2xl border border-border bg-card hover:bg-secondary text-foreground font-bold text-xs flex items-center justify-center gap-1.5 transition-colors shadow-xs active:scale-95"
+            >
+              <ArrowLeft className="w-4 h-4" />
+              <span>Previous Section</span>
+            </button>
+          ) : (
+            <div className="hidden sm:block" />
+          )}
+        </div>
+
+        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2.5">
+          {returnTo && (
+            <button
+              type="button"
+              onClick={() => {
+                handleSave();
+                setTimeout(() => window.location.assign(returnTo), 500);
+              }}
+              className="h-11 px-4 rounded-2xl border border-emerald-500/30 bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 font-extrabold text-xs flex items-center justify-center gap-1.5 hover:bg-emerald-100 transition-colors shadow-xs active:scale-95"
+            >
+              <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+              <span>Save & Return to Job</span>
+            </button>
+          )}
+
+          <button
+            type="button"
+            onClick={goToNextTab}
+            className="h-11 px-6 rounded-2xl bg-indigo-600 hover:bg-indigo-700 text-white font-black text-xs flex items-center justify-center gap-2 shadow-md transition-all active:scale-95"
+          >
+            <span>{customNextText || (isLast ? (returnTo ? "Complete & Return to Job" : "Save All Details ✓") : `Next: ${nextTab?.shortLabel || "Next Section"}`)}</span>
+            <ArrowRight className="w-4 h-4" />
+          </button>
+        </div>
+      </div>
+    );
+  };
 
   return (
     <MobileFrame>
-      <div className="min-h-dvh bg-background pb-28 font-sans">
+      <div className="min-h-dvh bg-background pb-32 md:pb-24 font-sans">
         
         {/* Sticky Header */}
-        <header className="sticky top-0 z-40 flex items-center justify-between border-b border-border bg-card/90 backdrop-blur-md px-4 py-3 safe-t shadow-sm">
-          <div className="flex items-center gap-2">
+        <header className="sticky top-0 z-40 flex items-center justify-between border-b border-border bg-card/90 backdrop-blur-md px-3 sm:px-4 py-3 safe-t shadow-sm">
+          <div className="flex items-center gap-2 min-w-0">
             <button
               onClick={() => {
                 if (returnTo) {
@@ -431,54 +529,55 @@ export function CandidateProfilePage() {
                   nav({ to: "/account" });
                 }
               }}
-              className="grid h-9 w-9 place-items-center rounded-full hover:bg-secondary transition-colors"
+              className="grid h-9 w-9 shrink-0 place-items-center rounded-full hover:bg-secondary transition-colors"
             >
               <ArrowLeft className="h-5 w-5" />
             </button>
-            <div>
-              <h1 className="text-sm font-black text-foreground">Candidate Resume Profile</h1>
-              <p className="text-[10px] text-muted-foreground font-bold">10-Section ATS Resume & CV Builder</p>
+            <div className="min-w-0">
+              <h1 className="text-sm font-black text-foreground truncate">Candidate Resume Profile</h1>
+              <p className="text-[10px] text-muted-foreground font-bold truncate">Section {currentTabIndex + 1} of 10 • {tabs[currentTabIndex]?.shortLabel}</p>
             </div>
           </div>
 
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
             {returnTo && (
               <button
                 onClick={() => window.location.assign(returnTo)}
-                className="hidden sm:inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-black rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white shadow-sm transition-all"
+                className="hidden md:inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-black rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white shadow-sm transition-all"
               >
-                <span>Return to Job & Apply</span>
+                <span>Return to Job</span>
                 <ChevronRight className="w-3.5 h-3.5" />
               </button>
             )}
 
             <button
               onClick={() => setShowResumeModal(true)}
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-extrabold rounded-xl border border-indigo-500/30 bg-indigo-50 dark:bg-indigo-950/40 text-indigo-600 dark:text-indigo-400 hover:bg-indigo-100 transition-colors shadow-sm"
+              className="inline-flex items-center gap-1 px-2.5 sm:px-3 py-1.5 text-xs font-extrabold rounded-xl border border-indigo-500/30 bg-indigo-50 dark:bg-indigo-950/40 text-indigo-600 dark:text-indigo-400 hover:bg-indigo-100 transition-colors shadow-sm"
             >
               <Eye className="w-3.5 h-3.5" />
-              <span>Preview CV</span>
+              <span className="hidden sm:inline">Preview CV</span>
+              <span className="sm:hidden">CV</span>
             </button>
 
             <button
               onClick={() => handleSave()}
               disabled={saving}
-              className="inline-flex items-center gap-1.5 px-3.5 py-1.5 text-xs font-black rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white shadow-md transition-all active:scale-95 disabled:opacity-50"
+              className="inline-flex items-center gap-1.5 px-3 sm:px-3.5 py-1.5 text-xs font-black rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white shadow-md transition-all active:scale-95 disabled:opacity-50"
             >
               <Save className="w-3.5 h-3.5" />
-              <span>{saving ? "Saving..." : saved ? "Saved!" : "Save Profile"}</span>
+              <span>{saving ? "Saving..." : saved ? "Saved!" : "Save"}</span>
             </button>
           </div>
         </header>
 
         {/* Return to Job Alert Banner */}
         {returnTo && (
-          <div className="bg-gradient-to-r from-indigo-600 to-indigo-800 text-white px-4 py-3 shadow-md">
-            <div className="max-w-[760px] mx-auto flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 text-xs">
-              <div className="flex items-center gap-2">
+          <div className="bg-gradient-to-r from-indigo-600 via-indigo-700 to-purple-700 text-white px-4 py-3 shadow-md">
+            <div className="max-w-[800px] mx-auto flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 text-xs">
+              <div className="flex items-center gap-2 min-w-0">
                 <Sparkles className="w-4 h-4 text-amber-300 shrink-0" />
-                <p className="font-semibold">
-                  <span className="font-black">Resume Builder for Job Application:</span> Fill in your details below. Once you click "Save Profile", click Return to 1-tap apply!
+                <p className="font-semibold text-xs leading-snug">
+                  <span className="font-black">Resume Builder for Job Application:</span> Enter your details below. Once done, tap Return to 1-tap apply!
                 </p>
               </div>
               <button
@@ -486,7 +585,7 @@ export function CandidateProfilePage() {
                   handleSave();
                   setTimeout(() => window.location.assign(returnTo), 600);
                 }}
-                className="shrink-0 px-3.5 py-1.5 bg-white text-indigo-700 hover:bg-white/95 rounded-xl font-black text-xs flex items-center justify-center gap-1 shadow-sm transition-all"
+                className="shrink-0 px-3.5 py-1.5 bg-white text-indigo-700 hover:bg-white/95 rounded-xl font-black text-xs flex items-center justify-center gap-1 shadow-sm transition-all active:scale-95"
               >
                 <span>Save & Return to Job</span>
                 <ChevronRight className="w-3.5 h-3.5" />
@@ -495,17 +594,19 @@ export function CandidateProfilePage() {
           </div>
         )}
 
-        {/* HERO PROFILE SUMMARY CARD */}
-        <div className="max-w-[760px] mx-auto p-4 space-y-4">
-          <div className="rounded-3xl border border-border bg-card p-5 shadow-sm space-y-4">
+        {/* MAIN FORM CONTAINER */}
+        <div className="max-w-[800px] mx-auto p-3 sm:p-4 space-y-4">
+          
+          {/* HERO PROFILE SUMMARY CARD */}
+          <div className="rounded-3xl border border-border bg-card p-4 sm:p-5 shadow-sm space-y-4">
             <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-              <div className="flex items-center gap-4">
-                <div className="relative group">
-                  <div className="w-16 h-16 rounded-2xl bg-indigo-100 dark:bg-indigo-900/40 border-2 border-indigo-500/30 flex items-center justify-center overflow-hidden shadow-sm">
+              <div className="flex items-center gap-3.5">
+                <div className="relative group shrink-0">
+                  <div className="w-14 sm:w-16 h-14 sm:h-16 rounded-2xl bg-indigo-100 dark:bg-indigo-900/40 border-2 border-indigo-500/30 flex items-center justify-center overflow-hidden shadow-sm">
                     {formData.photoUrl ? (
                       <img src={formData.photoUrl} alt="Avatar" className="w-full h-full object-cover" />
                     ) : (
-                      <User className="w-8 h-8 text-indigo-600" />
+                      <User className="w-7 sm:w-8 h-7 sm:h-8 text-indigo-600" />
                     )}
                   </div>
                   <button
@@ -524,24 +625,24 @@ export function CandidateProfilePage() {
                   />
                 </div>
 
-                <div>
+                <div className="min-w-0">
                   <div className="flex items-center gap-2">
-                    <h2 className="text-lg font-black text-foreground">{formData.fullName || "Your Full Name"}</h2>
+                    <h2 className="text-base sm:text-lg font-black text-foreground truncate">{formData.fullName || "Your Full Name"}</h2>
                     {formData.verifiedCandidate && (
-                      <span className="inline-flex items-center gap-0.5 px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 text-[10px] font-black border border-emerald-500/20">
+                      <span className="inline-flex items-center gap-0.5 px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 text-[10px] font-black border border-emerald-500/20 shrink-0">
                         <ShieldCheck className="w-3 h-3" /> Verified
                       </span>
                     )}
                   </div>
-                  <p className="text-xs font-bold text-indigo-600 dark:text-indigo-400">{formData.title || "Professional Title / Role"}</p>
-                  <p className="text-[11px] text-muted-foreground font-semibold flex items-center gap-1.5 mt-0.5">
-                    <MapPin className="w-3 h-3" /> {formData.city ? `${formData.city}${formData.area ? `, ${formData.area}` : ""}` : "Current City"} • {formData.experienceYears || "Fresher"}
+                  <p className="text-xs font-bold text-indigo-600 dark:text-indigo-400 truncate">{formData.title || "Professional Title / Role"}</p>
+                  <p className="text-[11px] text-muted-foreground font-semibold flex items-center gap-1 mt-0.5 truncate">
+                    <MapPin className="w-3 h-3 shrink-0" /> {formData.city ? `${formData.city}${formData.area ? `, ${formData.area}` : ""}` : "Current City"} • {formData.experienceYears || "Fresher"}
                   </p>
                 </div>
               </div>
 
               {/* Open to work toggle */}
-              <div className="flex flex-col items-start sm:items-end gap-1.5 w-full sm:w-auto">
+              <div className="flex items-center sm:flex-col items-start sm:items-end justify-between w-full sm:w-auto gap-1.5 pt-2 sm:pt-0 border-t sm:border-t-0 border-border/60">
                 <button
                   onClick={() => setFormData({ ...formData, openToWork: !formData.openToWork })}
                   className={`px-3 py-1.5 rounded-full text-xs font-extrabold transition-all border flex items-center gap-2 ${
@@ -575,44 +676,55 @@ export function CandidateProfilePage() {
                 />
               </div>
               <p className="text-[10px] text-muted-foreground font-semibold mt-1">
-                {completeness >= 80 ? "🎉 Outstanding profile! You are 4x more likely to be contacted by verified recruiters." : "Tip: Add your skills, education, and work experience to reach 100% visibility."}
+                {completeness >= 80 ? "🎉 Outstanding profile! You are 4x more likely to be contacted by verified recruiters." : "Tip: Fill out each section using the 'Next' buttons below to reach 100% visibility."}
               </p>
             </div>
           </div>
 
-          {/* SECTION NAVIGATION TABS */}
-          <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar pb-1">
-            {tabs.map((tab) => {
-              const Icon = tab.icon;
-              const isActive = activeTab === tab.id;
-              return (
-                <button
-                  key={tab.id}
-                  onClick={() => setActiveTab(tab.id)}
-                  className={`shrink-0 flex items-center gap-1.5 px-3 py-2 rounded-2xl text-xs font-extrabold transition-all border ${
-                    isActive
-                      ? "bg-indigo-600 text-white border-indigo-600 shadow-sm"
-                      : "bg-card text-foreground border-border hover:bg-secondary"
-                  }`}
-                >
-                  <Icon className="w-3.5 h-3.5" />
-                  <span>{tab.label}</span>
-                  {tab.count !== undefined && (
-                    <span className={`px-1.5 py-0.2 rounded-full text-[10px] ${isActive ? "bg-white/20 text-white" : "bg-secondary text-muted-foreground"}`}>
-                      {tab.count}
-                    </span>
-                  )}
-                </button>
-              );
-            })}
+          {/* SECTION NAVIGATION TABS BAR (Horizontally scrollable with smooth touch) */}
+          <div className="relative">
+            <div
+              ref={tabsContainerRef}
+              className="flex items-center gap-1.5 overflow-x-auto no-scrollbar pb-1 pt-1 -mx-1 px-1 scroll-smooth"
+            >
+              {tabs.map((tab, idx) => {
+                const Icon = tab.icon;
+                const isActive = activeTab === tab.id;
+                return (
+                  <button
+                    key={tab.id}
+                    onClick={() => {
+                      setActiveTab(tab.id);
+                      window.scrollTo({ top: 220, behavior: "smooth" });
+                    }}
+                    className={`shrink-0 flex items-center gap-1.5 px-3 py-2 rounded-2xl text-xs font-extrabold transition-all border ${
+                      isActive
+                        ? "bg-indigo-600 text-white border-indigo-600 shadow-sm"
+                        : "bg-card text-foreground border-border hover:bg-secondary"
+                    }`}
+                  >
+                    <Icon className="w-3.5 h-3.5" />
+                    <span>{tab.label}</span>
+                    {tab.count !== undefined && (
+                      <span className={`px-1.5 py-0.2 rounded-full text-[10px] ${isActive ? "bg-white/20 text-white" : "bg-secondary text-muted-foreground"}`}>
+                        {tab.count}
+                      </span>
+                    )}
+                  </button>
+                );
+              })}
+            </div>
           </div>
 
           {/* TAB 1: PERSONAL INFORMATION */}
           {activeTab === "personal" && (
-            <div className="rounded-3xl border border-border bg-card p-5 space-y-4 text-xs font-semibold">
-              <h2 className="text-sm font-black uppercase tracking-wide text-indigo-600 dark:text-indigo-400 flex items-center gap-2">
-                <User className="h-4 w-4" /> 1. Personal Information
-              </h2>
+            <div className="rounded-3xl border border-border bg-card p-4 sm:p-6 space-y-4 text-xs font-semibold shadow-sm">
+              <div className="flex items-center justify-between border-b border-border pb-3">
+                <h2 className="text-sm font-black uppercase tracking-wide text-indigo-600 dark:text-indigo-400 flex items-center gap-2">
+                  <User className="h-4 w-4" /> 1. Personal Information
+                </h2>
+                <span className="text-[11px] text-muted-foreground font-bold">Step 1 of 10</span>
+              </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
@@ -632,7 +744,7 @@ export function CandidateProfilePage() {
                     value={formData.title || ""}
                     onChange={(e) => setFormData({ ...formData, title: e.target.value })}
                     className="w-full h-11 rounded-2xl border border-border bg-background px-3 font-bold text-foreground outline-none focus:border-indigo-600"
-                    placeholder="Enter your job title (e.g. Software Engineer, Sales Exec)"
+                    placeholder="e.g. Software Engineer, Sales Exec"
                   />
                 </div>
               </div>
@@ -645,7 +757,7 @@ export function CandidateProfilePage() {
                     value={formData.phone || ""}
                     onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
                     className="w-full h-11 rounded-2xl border border-border bg-background px-3 font-bold text-foreground outline-none focus:border-indigo-600"
-                    placeholder="Enter mobile number (+91...)"
+                    placeholder="Enter mobile number"
                   />
                 </div>
                 <div>
@@ -655,7 +767,7 @@ export function CandidateProfilePage() {
                     value={formData.email || ""}
                     onChange={(e) => setFormData({ ...formData, email: e.target.value })}
                     className="w-full h-11 rounded-2xl border border-border bg-background px-3 font-bold text-foreground outline-none focus:border-indigo-600"
-                    placeholder="Enter email address (e.g. name@domain.com)"
+                    placeholder="Enter email address"
                   />
                 </div>
               </div>
@@ -668,7 +780,7 @@ export function CandidateProfilePage() {
                     value={formData.city || ""}
                     onChange={(e) => setFormData({ ...formData, city: e.target.value })}
                     className="w-full h-11 rounded-2xl border border-border bg-background px-3 font-bold text-foreground outline-none focus:border-indigo-600"
-                    placeholder="Enter current city (e.g. Hyderabad)"
+                    placeholder="e.g. Hyderabad"
                   />
                 </div>
                 <div>
@@ -678,7 +790,7 @@ export function CandidateProfilePage() {
                     value={formData.area || ""}
                     onChange={(e) => setFormData({ ...formData, area: e.target.value })}
                     className="w-full h-11 rounded-2xl border border-border bg-background px-3 font-bold text-foreground outline-none focus:border-indigo-600"
-                    placeholder="Enter locality (e.g. Madhapur, Hitec City)"
+                    placeholder="e.g. Madhapur, Hitec City"
                   />
                 </div>
               </div>
@@ -750,21 +862,26 @@ export function CandidateProfilePage() {
                         setNewLangInput("");
                       }
                     }}
-                    className="px-3 py-2 bg-secondary hover:bg-secondary/80 rounded-xl text-xs font-bold"
+                    className="px-4 py-2 bg-secondary hover:bg-secondary/80 rounded-xl text-xs font-bold shrink-0"
                   >
                     Add
                   </button>
                 </div>
               </div>
+
+              {renderTabFooter()}
             </div>
           )}
 
           {/* TAB 2: PROFESSIONAL SUMMARY */}
           {activeTab === "summary" && (
-            <div className="rounded-3xl border border-border bg-card p-5 space-y-4 text-xs font-semibold">
-              <h2 className="text-sm font-black uppercase tracking-wide text-indigo-600 dark:text-indigo-400 flex items-center gap-2">
-                <Briefcase className="h-4 w-4" /> 2. Professional Summary & Employment
-              </h2>
+            <div className="rounded-3xl border border-border bg-card p-4 sm:p-6 space-y-4 text-xs font-semibold shadow-sm">
+              <div className="flex items-center justify-between border-b border-border pb-3">
+                <h2 className="text-sm font-black uppercase tracking-wide text-indigo-600 dark:text-indigo-400 flex items-center gap-2">
+                  <Briefcase className="h-4 w-4" /> 2. Professional Summary & Employment
+                </h2>
+                <span className="text-[11px] text-muted-foreground font-bold">Step 2 of 10</span>
+              </div>
 
               <div>
                 <label className="block text-muted-foreground mb-1 font-bold">Short Career Objective / Profile Summary</label>
@@ -838,20 +955,20 @@ export function CandidateProfilePage() {
                   <label className="block text-muted-foreground mb-1 font-bold">Current Monthly Salary (₹ Private)</label>
                   <input
                     type="number"
-                    value={formData.currentSalary || ""}
+                    value={formData.currentSalary !== undefined ? formData.currentSalary : ""}
                     onChange={(e) => setFormData({ ...formData, currentSalary: e.target.value ? Number(e.target.value) : undefined })}
                     className="w-full h-11 rounded-2xl border border-border bg-background px-3 font-bold text-foreground outline-none focus:border-indigo-600"
-                    placeholder="Enter salary (e.g. 50000)"
+                    placeholder="e.g. 50000"
                   />
                 </div>
                 <div>
                   <label className="block text-muted-foreground mb-1 font-bold">Expected Monthly Salary (₹) *</label>
                   <input
                     type="number"
-                    value={formData.expectedSalary || ""}
+                    value={formData.expectedSalary !== undefined ? formData.expectedSalary : ""}
                     onChange={(e) => setFormData({ ...formData, expectedSalary: e.target.value ? Number(e.target.value) : undefined })}
                     className="w-full h-11 rounded-2xl border border-border bg-background px-3 font-bold text-foreground outline-none focus:border-indigo-600"
-                    placeholder="Enter expected salary (e.g. 75000)"
+                    placeholder="e.g. 75000"
                   />
                 </div>
                 <div>
@@ -869,21 +986,24 @@ export function CandidateProfilePage() {
                   </select>
                 </div>
               </div>
+
+              {renderTabFooter()}
             </div>
           )}
 
           {/* TAB 3: SKILLS & PROFICIENCY */}
           {activeTab === "skills" && (
-            <div className="rounded-3xl border border-border bg-card p-5 space-y-4 text-xs font-semibold">
-              <div className="flex items-center justify-between">
+            <div className="rounded-3xl border border-border bg-card p-4 sm:p-6 space-y-4 text-xs font-semibold shadow-sm">
+              <div className="flex items-center justify-between border-b border-border pb-3">
                 <div>
                   <h2 className="text-sm font-black uppercase tracking-wide text-indigo-600 dark:text-indigo-400 flex items-center gap-2">
                     <Sparkles className="h-4 w-4" /> 3. Skills & Proficiency Levels
                   </h2>
                   <p className="text-[11px] text-muted-foreground font-semibold mt-0.5">
-                    Add key skills, tools, proficiency levels, and experience per skill (e.g. Digital Marketing – 3 years – Advanced).
+                    Add key skills, tools, proficiency levels, and experience per skill.
                   </p>
                 </div>
+                <span className="text-[11px] text-muted-foreground font-bold shrink-0">Step 3 of 10</span>
               </div>
 
               {/* Add Skill Form */}
@@ -924,7 +1044,7 @@ export function CandidateProfilePage() {
                 <button
                   type="button"
                   onClick={handleAddSkill}
-                  className="px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-black text-xs shadow-sm transition-all"
+                  className="px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-black text-xs shadow-sm transition-all active:scale-95"
                 >
                   Add Skill to Profile
                 </button>
@@ -940,7 +1060,7 @@ export function CandidateProfilePage() {
                   formData.skillsList.map((skill, idx) => (
                     <div key={idx} className="p-3 rounded-2xl border border-border bg-background flex items-center justify-between gap-3 shadow-xs">
                       <div className="flex items-center gap-3">
-                        <div className="w-8 h-8 rounded-xl bg-indigo-100 dark:bg-indigo-900/40 text-indigo-600 dark:text-indigo-400 flex items-center justify-center font-black text-xs">
+                        <div className="w-8 h-8 rounded-xl bg-indigo-100 dark:bg-indigo-900/40 text-indigo-600 dark:text-indigo-400 flex items-center justify-center font-black text-xs shrink-0">
                           {skill.name.charAt(0).toUpperCase()}
                         </div>
                         <div>
@@ -969,22 +1089,25 @@ export function CandidateProfilePage() {
                   ))
                 )}
               </div>
+
+              {renderTabFooter()}
             </div>
           )}
 
           {/* TAB 4: WORK EXPERIENCE */}
           {activeTab === "experience" && (
-            <div className="rounded-3xl border border-border bg-card p-5 space-y-4 text-xs font-semibold">
-              <div className="flex items-center justify-between">
+            <div className="rounded-3xl border border-border bg-card p-4 sm:p-6 space-y-4 text-xs font-semibold shadow-sm">
+              <div className="flex items-center justify-between border-b border-border pb-3">
                 <div>
                   <h2 className="text-sm font-black uppercase tracking-wide text-indigo-600 dark:text-indigo-400 flex items-center gap-2">
                     <Building className="h-4 w-4" /> 4. Work Experience (Optional for Freshers)
                   </h2>
                   <p className="text-[11px] text-muted-foreground font-semibold">Add previous and current company roles, responsibilities, and achievements.</p>
                 </div>
+                <span className="text-[11px] text-muted-foreground font-bold shrink-0">Step 4 of 10</span>
               </div>
 
-              {/* Add Experience Drawer/Form */}
+              {/* Add Experience Form */}
               <div className="p-4 rounded-2xl border border-dashed border-border bg-secondary/20 space-y-3">
                 <span className="text-xs font-black text-foreground">+ Add Employment Position</span>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -1082,7 +1205,7 @@ export function CandidateProfilePage() {
                 <button
                   type="button"
                   onClick={handleAddExperience}
-                  className="px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-black text-xs shadow-sm transition-all"
+                  className="px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-black text-xs shadow-sm transition-all active:scale-95"
                 >
                   Save Experience Record
                 </button>
@@ -1123,15 +1246,20 @@ export function CandidateProfilePage() {
                   ))
                 )}
               </div>
+
+              {renderTabFooter()}
             </div>
           )}
 
           {/* TAB 5: EDUCATION */}
           {activeTab === "education" && (
-            <div className="rounded-3xl border border-border bg-card p-5 space-y-4 text-xs font-semibold">
-              <h2 className="text-sm font-black uppercase tracking-wide text-indigo-600 dark:text-indigo-400 flex items-center gap-2">
-                <GraduationCap className="h-4 w-4" /> 5. Education & Academic Qualifications
-              </h2>
+            <div className="rounded-3xl border border-border bg-card p-4 sm:p-6 space-y-4 text-xs font-semibold shadow-sm">
+              <div className="flex items-center justify-between border-b border-border pb-3">
+                <h2 className="text-sm font-black uppercase tracking-wide text-indigo-600 dark:text-indigo-400 flex items-center gap-2">
+                  <GraduationCap className="h-4 w-4" /> 5. Education & Academic Qualifications
+                </h2>
+                <span className="text-[11px] text-muted-foreground font-bold">Step 5 of 10</span>
+              </div>
 
               {/* Add Education Box */}
               <div className="p-4 rounded-2xl border border-dashed border-border bg-secondary/20 space-y-3">
@@ -1225,7 +1353,7 @@ export function CandidateProfilePage() {
                 <button
                   type="button"
                   onClick={handleAddEducation}
-                  className="px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-black text-xs shadow-sm transition-all"
+                  className="px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-black text-xs shadow-sm transition-all active:scale-95"
                 >
                   Save Education Record
                 </button>
@@ -1259,15 +1387,20 @@ export function CandidateProfilePage() {
                   ))
                 )}
               </div>
+
+              {renderTabFooter()}
             </div>
           )}
 
           {/* TAB 6: JOB PREFERENCES */}
           {activeTab === "preferences" && (
-            <div className="rounded-3xl border border-border bg-card p-5 space-y-4 text-xs font-semibold">
-              <h2 className="text-sm font-black uppercase tracking-wide text-indigo-600 dark:text-indigo-400 flex items-center gap-2">
-                <Settings className="h-4 w-4" /> 6. Job Preferences & Target Career
-              </h2>
+            <div className="rounded-3xl border border-border bg-card p-4 sm:p-6 space-y-4 text-xs font-semibold shadow-sm">
+              <div className="flex items-center justify-between border-b border-border pb-3">
+                <h2 className="text-sm font-black uppercase tracking-wide text-indigo-600 dark:text-indigo-400 flex items-center gap-2">
+                  <Settings className="h-4 w-4" /> 6. Job Preferences & Target Career
+                </h2>
+                <span className="text-[11px] text-muted-foreground font-bold">Step 6 of 10</span>
+              </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
@@ -1336,15 +1469,20 @@ export function CandidateProfilePage() {
                   </label>
                 </div>
               </div>
+
+              {renderTabFooter()}
             </div>
           )}
 
           {/* TAB 7: ADDITIONAL DETAILS */}
           {activeTab === "additional" && (
-            <div className="rounded-3xl border border-border bg-card p-5 space-y-4 text-xs font-semibold">
-              <h2 className="text-sm font-black uppercase tracking-wide text-indigo-600 dark:text-indigo-400 flex items-center gap-2">
-                <Award className="h-4 w-4" /> 7. Additional Details, Portfolio & Assets
-              </h2>
+            <div className="rounded-3xl border border-border bg-card p-4 sm:p-6 space-y-4 text-xs font-semibold shadow-sm">
+              <div className="flex items-center justify-between border-b border-border pb-3">
+                <h2 className="text-sm font-black uppercase tracking-wide text-indigo-600 dark:text-indigo-400 flex items-center gap-2">
+                  <Award className="h-4 w-4" /> 7. Additional Details, Portfolio & Assets
+                </h2>
+                <span className="text-[11px] text-muted-foreground font-bold">Step 7 of 10</span>
+              </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                 <div>
@@ -1381,7 +1519,7 @@ export function CandidateProfilePage() {
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-muted-foreground mb-1 font-bold">Driving Licence (Useful for field/sales)</label>
+                  <label className="block text-muted-foreground mb-1 font-bold">Driving Licence (Field/Sales)</label>
                   <select
                     value={formData.drivingLicence || "None"}
                     onChange={(e) => setFormData({ ...formData, drivingLicence: e.target.value })}
@@ -1396,7 +1534,7 @@ export function CandidateProfilePage() {
                 </div>
 
                 <div>
-                  <label className="block text-muted-foreground mb-1 font-bold">Own Vehicle (Useful for delivery/field)</label>
+                  <label className="block text-muted-foreground mb-1 font-bold">Own Vehicle (Delivery/Field)</label>
                   <select
                     value={formData.ownVehicle || "None"}
                     onChange={(e) => setFormData({ ...formData, ownVehicle: e.target.value })}
@@ -1417,12 +1555,12 @@ export function CandidateProfilePage() {
                   value={formData.awards || ""}
                   onChange={(e) => setFormData({ ...formData, awards: e.target.value })}
                   className="w-full h-11 rounded-2xl border border-border bg-background px-3 font-bold text-foreground outline-none focus:border-indigo-600"
-                  placeholder="e.g. Hackathon Winner, Employee of the Month, Dean's List"
+                  placeholder="e.g. Hackathon Winner, Employee of the Month"
                 />
               </div>
 
               <div>
-                <label className="block text-muted-foreground mb-1 font-bold">Disability Accommodation Requirements (Optional & Confidential)</label>
+                <label className="block text-muted-foreground mb-1 font-bold">Disability Accommodation (Optional & Confidential)</label>
                 <input
                   type="text"
                   value={formData.disabilityAccommodations || ""}
@@ -1431,13 +1569,15 @@ export function CandidateProfilePage() {
                   placeholder="e.g. Wheelchair access, screen reader accessibility"
                 />
               </div>
+
+              {renderTabFooter()}
             </div>
           )}
 
           {/* TAB 8: RESUME & DOCUMENTS */}
           {activeTab === "resume" && (
-            <div className="rounded-3xl border border-border bg-card p-5 space-y-4 text-xs font-semibold">
-              <div className="flex items-center justify-between">
+            <div className="rounded-3xl border border-border bg-card p-4 sm:p-6 space-y-4 text-xs font-semibold shadow-sm">
+              <div className="flex items-center justify-between border-b border-border pb-3">
                 <div>
                   <h2 className="text-sm font-black uppercase tracking-wide text-indigo-600 dark:text-indigo-400 flex items-center gap-2">
                     <FileText className="h-4 w-4" /> 8. Resume & Verification Documents
@@ -1446,6 +1586,7 @@ export function CandidateProfilePage() {
                     Upload your PDF/DOCX resume or generate an ATS-compliant resume directly inside Omeetso.
                   </p>
                 </div>
+                <span className="text-[11px] text-muted-foreground font-bold shrink-0">Step 8 of 10</span>
               </div>
 
               {/* Upload & Generate Box */}
@@ -1463,7 +1604,7 @@ export function CandidateProfilePage() {
                     type="button"
                     onClick={() => fileInputRef.current?.click()}
                     disabled={uploadingResume}
-                    className="px-4 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-black text-xs shadow-md transition-all flex items-center gap-1.5"
+                    className="px-4 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-black text-xs shadow-md transition-all flex items-center gap-1.5 active:scale-95"
                   >
                     <Upload className="w-4 h-4" />
                     <span>{uploadingResume ? "Uploading..." : "Upload PDF/DOCX"}</span>
@@ -1472,10 +1613,10 @@ export function CandidateProfilePage() {
                   <button
                     type="button"
                     onClick={() => setShowResumeModal(true)}
-                    className="px-4 py-2.5 rounded-xl border border-border bg-card hover:bg-secondary text-foreground font-black text-xs shadow-sm transition-all flex items-center gap-1.5"
+                    className="px-4 py-2.5 rounded-xl border border-border bg-card hover:bg-secondary text-foreground font-black text-xs shadow-sm transition-all flex items-center gap-1.5 active:scale-95"
                   >
                     <Sparkles className="w-4 h-4 text-amber-500" />
-                    <span>Create & Download Omeetso Resume</span>
+                    <span>Generate Omeetso Resume</span>
                   </button>
                 </div>
 
@@ -1501,14 +1642,13 @@ export function CandidateProfilePage() {
                     </div>
                   </div>
                   <div className="flex items-center gap-2 shrink-0">
-                    <a
-                      href={formData.resumeUrl}
-                      target="_blank"
-                      rel="noreferrer"
-                      className="px-3 py-1.5 rounded-xl bg-card border border-border text-xs font-bold hover:bg-secondary flex items-center gap-1"
+                    <button
+                      type="button"
+                      onClick={() => downloadDocument(formData.resumeUrl, formData.resumeFileName)}
+                      className="px-3 py-1.5 rounded-xl bg-card border border-border text-xs font-bold hover:bg-secondary flex items-center gap-1 active:scale-95 transition-all"
                     >
-                      <Download className="w-3.5 h-3.5" /> Download
-                    </a>
+                      <Download className="w-3.5 h-3.5 text-indigo-600" /> Download
+                    </button>
                     <button
                       type="button"
                       onClick={() => setFormData(prev => ({ ...prev, resumeUrl: "", resumeFileName: "" }))}
@@ -1520,15 +1660,20 @@ export function CandidateProfilePage() {
                   </div>
                 </div>
               )}
+
+              {renderTabFooter()}
             </div>
           )}
 
           {/* TAB 9: PROFILE PRIVACY */}
           {activeTab === "privacy" && (
-            <div className="rounded-3xl border border-border bg-card p-5 space-y-4 text-xs font-semibold">
-              <h2 className="text-sm font-black uppercase tracking-wide text-indigo-600 dark:text-indigo-400 flex items-center gap-2">
-                <Lock className="h-4 w-4" /> 9. Profile Privacy & Recruiter Controls
-              </h2>
+            <div className="rounded-3xl border border-border bg-card p-4 sm:p-6 space-y-4 text-xs font-semibold shadow-sm">
+              <div className="flex items-center justify-between border-b border-border pb-3">
+                <h2 className="text-sm font-black uppercase tracking-wide text-indigo-600 dark:text-indigo-400 flex items-center gap-2">
+                  <Lock className="h-4 w-4" /> 9. Profile Privacy & Recruiter Controls
+                </h2>
+                <span className="text-[11px] text-muted-foreground font-bold">Step 9 of 10</span>
+              </div>
 
               <div className="space-y-3">
                 <label className="block text-muted-foreground font-bold">Recruiter Visibility Mode</label>
@@ -1549,7 +1694,7 @@ export function CandidateProfilePage() {
                       }`}
                     >
                       <h4 className="font-black text-foreground text-xs">{mode.title}</h4>
-                      <p className="text-[11px] text-muted-foreground mt-1">{mode.desc}</p>
+                      <p className="text-[11px] text-muted-foreground mt-1 leading-relaxed">{mode.desc}</p>
                     </button>
                   ))}
                 </div>
@@ -1628,27 +1773,26 @@ export function CandidateProfilePage() {
                         setBlockedInput("");
                       }
                     }}
-                    className="px-4 py-2 bg-rose-600 hover:bg-rose-700 text-white rounded-xl text-xs font-black"
+                    className="px-4 py-2 bg-rose-600 hover:bg-rose-700 text-white rounded-xl text-xs font-black shrink-0"
                   >
                     Block
                   </button>
                 </div>
               </div>
 
-              {/* Security Banner */}
-              <div className="p-3.5 rounded-2xl bg-amber-500/10 border border-amber-500/30 text-xs text-amber-900 dark:text-amber-300 font-semibold flex items-center gap-2">
-                <ShieldCheck className="w-5 h-5 shrink-0 text-amber-600" />
-                <span>🔒 Sensitive identity documents, Aadhaar details, and salary slips are encrypted and never publicly displayed.</span>
-              </div>
+              {renderTabFooter()}
             </div>
           )}
 
           {/* TAB 10: USEFUL OMEETSO FEATURES */}
           {activeTab === "features" && (
-            <div className="rounded-3xl border border-border bg-card p-5 space-y-4 text-xs font-semibold">
-              <h2 className="text-sm font-black uppercase tracking-wide text-indigo-600 dark:text-indigo-400 flex items-center gap-2">
-                <Bell className="h-4 w-4" /> 10. Useful Omeetso Career Features
-              </h2>
+            <div className="rounded-3xl border border-border bg-card p-4 sm:p-6 space-y-4 text-xs font-semibold shadow-sm">
+              <div className="flex items-center justify-between border-b border-border pb-3">
+                <h2 className="text-sm font-black uppercase tracking-wide text-indigo-600 dark:text-indigo-400 flex items-center gap-2">
+                  <Bell className="h-4 w-4" /> 10. Useful Omeetso Career Features
+                </h2>
+                <span className="text-[11px] text-muted-foreground font-bold">Step 10 of 10</span>
+              </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div className="p-4 rounded-2xl border border-border bg-background space-y-2">
@@ -1741,32 +1885,78 @@ export function CandidateProfilePage() {
                   </div>
                 </div>
               </div>
+
+              {renderTabFooter(returnTo ? "Complete & Return to Job" : "Save All Details ✓")}
             </div>
           )}
 
-          {/* Bottom Save Bar */}
-          <div className="flex items-center justify-between p-4 rounded-3xl border border-border bg-card shadow-sm">
+          {/* Bottom Save & Registry Bar */}
+          <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between p-4 rounded-3xl border border-border bg-card shadow-sm gap-3">
             <div className="flex items-center gap-2 text-xs font-bold text-muted-foreground">
-              <ShieldCheck className="w-4 h-4 text-emerald-600" />
+              <ShieldCheck className="w-4 h-4 text-emerald-600 shrink-0" />
               <span>Auto-saved to Omeetso Verified Candidate Registry</span>
             </div>
 
+            <div className="flex items-center gap-2">
+              {returnTo && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    handleSave();
+                    setTimeout(() => window.location.assign(returnTo), 500);
+                  }}
+                  className="px-4 py-2.5 rounded-2xl border border-emerald-500/30 bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 font-extrabold text-xs shadow-sm transition-all active:scale-95 flex items-center gap-1.5"
+                >
+                  <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+                  <span>Save & Return</span>
+                </button>
+              )}
+
+              <button
+                type="button"
+                onClick={() => handleSave()}
+                disabled={saving}
+                className="flex-1 sm:flex-none px-6 py-2.5 rounded-2xl bg-indigo-600 hover:bg-indigo-700 text-white font-black text-xs shadow-md transition-all active:scale-95 disabled:opacity-50 flex items-center justify-center gap-1.5"
+              >
+                <Save className="w-4 h-4" />
+                <span>{saving ? "Saving Changes..." : "Save All Changes"}</span>
+              </button>
+            </div>
+          </div>
+        </div>
+
+        {/* MOBILE BOTTOM STEP BAR (Quick Navigation on small screens) */}
+        <div className="fixed bottom-0 inset-x-0 z-30 border-t border-border bg-card/95 backdrop-blur-md p-2.5 sm:hidden safe-b shadow-lg">
+          <div className="flex items-center justify-between gap-2 max-w-[800px] mx-auto">
             <button
               type="button"
-              onClick={() => handleSave()}
-              disabled={saving}
-              className="px-6 py-2.5 rounded-2xl bg-indigo-600 hover:bg-indigo-700 text-white font-black text-xs shadow-md transition-all active:scale-95 disabled:opacity-50 flex items-center gap-1.5"
+              disabled={currentTabIndex === 0}
+              onClick={goToPrevTab}
+              className="h-10 px-3 rounded-xl border border-border bg-background text-foreground font-bold text-xs flex items-center gap-1 disabled:opacity-30 disabled:pointer-events-none"
             >
-              <Save className="w-4 h-4" />
-              <span>{saving ? "Saving Changes..." : "Save All Changes"}</span>
+              <ChevronLeft className="w-4 h-4" />
+              <span>Back</span>
+            </button>
+
+            <span className="text-[11px] font-extrabold text-muted-foreground truncate text-center px-1">
+              {currentTabIndex + 1}/10: <span className="text-foreground font-black">{tabs[currentTabIndex]?.shortLabel}</span>
+            </span>
+
+            <button
+              type="button"
+              onClick={goToNextTab}
+              className="h-10 px-3.5 rounded-xl bg-indigo-600 text-white font-black text-xs flex items-center gap-1 shadow-sm active:scale-95"
+            >
+              <span>{currentTabIndex === TAB_KEYS.length - 1 ? (returnTo ? "Done" : "Save") : "Next"}</span>
+              <ChevronRight className="w-4 h-4" />
             </button>
           </div>
         </div>
 
         {/* ATS LIVE RESUME PREVIEW & DOWNLOAD MODAL */}
         {showResumeModal && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm safe-t">
-            <div className="w-full max-w-2xl max-h-[90vh] bg-white text-gray-900 rounded-3xl shadow-2xl overflow-y-auto p-6 space-y-6 font-sans border border-gray-200">
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-3 sm:p-4 backdrop-blur-sm safe-t">
+            <div className="w-full max-w-2xl max-h-[90vh] bg-white text-gray-900 rounded-3xl shadow-2xl overflow-y-auto p-4 sm:p-6 space-y-6 font-sans border border-gray-200">
               
               {/* Modal Header */}
               <div className="flex items-center justify-between pb-4 border-b border-gray-200">

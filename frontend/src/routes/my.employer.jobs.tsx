@@ -3,7 +3,8 @@ import { useState, useEffect } from "react";
 import {
   ArrowLeft, Plus, Users, Eye, CheckCircle2, Clock, Calendar, Search, Filter,
   FileText, MessageCircle, MoreVertical, Copy, RefreshCw, XCircle, ShieldCheck, Lock,
-  Briefcase
+  Briefcase, Phone, Mail, MapPin, GraduationCap, Award, Sparkles, ExternalLink,
+  Globe, Linkedin, Github, X, Download, User, Maximize2
 } from "lucide-react";
 import { MobileFrame } from "@/components/omeetso/MobileFrame";
 import {
@@ -13,7 +14,9 @@ import {
   JobItem,
   JobApplicationItem
 } from "@/lib/jobs";
+import { downloadDocument } from "@/lib/download";
 import { startConversationApi } from "@/api/chat.api";
+import { API_BASE } from "@/config/api";
 import { toast } from "sonner";
 import { pushNotification } from "@/lib/account";
 
@@ -21,6 +24,27 @@ export const Route = createFileRoute("/my/employer/jobs")({
   head: () => ({ meta: [{ title: "Employer Jobs & Candidate Dashboard — Omeetso" }] }),
   component: EmployerJobsDashboardPage,
 });
+
+function normalizeFileUrl(url?: string): string {
+  if (!url) return "";
+  if (url.startsWith("http://") || url.startsWith("https://") || url.startsWith("blob:") || url.startsWith("data:")) {
+    return url;
+  }
+  return `${API_BASE.replace("/api", "")}${url.startsWith("/") ? "" : "/"}${url}`;
+}
+
+function getApplicantResumeUrl(app: JobApplicationItem): string {
+  const snap = app.applicantProfileSnapshot as any;
+  if (!snap) return normalizeFileUrl((app as any).resumeUrl || "");
+  const rawUrl = snap.resumeUrl || (app as any).resumeUrl || (snap.savedResumes && snap.savedResumes[0]?.url) || "";
+  return normalizeFileUrl(rawUrl);
+}
+
+function getApplicantResumeFileName(app: JobApplicationItem): string {
+  const snap = app.applicantProfileSnapshot as any;
+  if (!snap) return (app as any).resumeFileName || "Candidate_Resume.pdf";
+  return snap.resumeFileName || (app as any).resumeFileName || (snap.savedResumes && snap.savedResumes[0]?.name) || "Candidate_Resume.pdf";
+}
 
 function EmployerJobsDashboardPage() {
   const nav = useNavigate();
@@ -32,6 +56,8 @@ function EmployerJobsDashboardPage() {
   const [applicantSearch, setApplicantSearch] = useState("");
   const [scheduleModalApp, setScheduleModalApp] = useState<JobApplicationItem | null>(null);
   const [employerNotesApp, setEmployerNotesApp] = useState<JobApplicationItem | null>(null);
+  const [selectedApplicantDetail, setSelectedApplicantDetail] = useState<JobApplicationItem | null>(null);
+  const [resumeViewerModal, setResumeViewerModal] = useState<{ url: string; title: string; fileName?: string } | null>(null);
 
   const [interviewForm, setInterviewForm] = useState({
     date: "",
@@ -58,16 +84,16 @@ function EmployerJobsDashboardPage() {
       const myJobs = await fetchEmployerJobs(currentUserId, token);
       setJobs(myJobs);
       if (myJobs.length > 0) {
+        const firstId = myJobs[0].id;
         const firstJob = myJobs[0];
-        const firstId = firstJob.id || (firstJob as any)._id;
         setSelectedJobId(firstId);
         const firstJobApplicants = await fetchEmployerJobApplicants(firstId, token, firstJob.title);
         setApplicants(firstJobApplicants);
       } else {
         setApplicants([]);
       }
-    } catch (err) {
-      console.error("Failed to load employer jobs:", err);
+    } catch {
+      // Fallback
     } finally {
       setLoading(false);
     }
@@ -83,7 +109,8 @@ function EmployerJobsDashboardPage() {
     try {
       token = localStorage.getItem("omeetso_user_token");
     } catch { }
-    const clickedJob = jobs.find(j => j.id === jobId || (j as any)._id === jobId);
+
+    const clickedJob = jobs.find((j) => j.id === jobId);
     const jobApps = await fetchEmployerJobApplicants(jobId, token, clickedJob?.title);
     setApplicants(jobApps);
   };
@@ -108,13 +135,13 @@ function EmployerJobsDashboardPage() {
     if (applicantSearch.trim()) {
       const q = applicantSearch.toLowerCase();
       const snapshot = a.applicantProfileSnapshot || ({} as any);
-      const nameMatch = (snapshot.name || "").toLowerCase().includes(q);
-      const roleMatch = (snapshot.currentRole || snapshot.headline || "").toLowerCase().includes(q);
-      const expMatch = (snapshot.experience || snapshot.experienceYears || "").toLowerCase().includes(q);
-      const phoneMatch = (snapshot.phone || "").toLowerCase().includes(q);
-      const emailMatch = (snapshot.email || "").toLowerCase().includes(q);
-      return nameMatch || roleMatch || expMatch || phoneMatch || emailMatch;
+      const matchName = snapshot.name?.toLowerCase().includes(q);
+      const matchRole = snapshot.currentRole?.toLowerCase().includes(q) || snapshot.title?.toLowerCase().includes(q);
+      const matchCity = snapshot.city?.toLowerCase().includes(q);
+      const matchSkills = snapshot.skills?.some((s: string) => s.toLowerCase().includes(q));
+      if (!matchName && !matchRole && !matchCity && !matchSkills) return false;
     }
+
     return true;
   });
 
@@ -122,17 +149,23 @@ function EmployerJobsDashboardPage() {
     const target = applicants.find((a) => a.id === appId);
     const updated = applicants.map((a) => (a.id === appId ? { ...a, status: nextStatus as any } : a));
     setApplicants(updated);
+    if (selectedApplicantDetail && selectedApplicantDetail.id === appId) {
+      setSelectedApplicantDetail({ ...selectedApplicantDetail, status: nextStatus as any });
+    }
+
     if (typeof localStorage !== "undefined") {
       localStorage.setItem("omeetso_job_applications", JSON.stringify(updated));
     }
 
+    toast.success(`Candidate status updated to "${nextStatus}"`);
+
     pushNotification({
-      id: `job-status-${appId}-${Date.now()}`,
+      id: `job-app-status-${appId}-${Date.now()}`,
       category: "system",
-      title: `Job Application Status: ${nextStatus.replace(/_/g, " ")}`,
-      body: `Status updated to ${nextStatus.replace(/_/g, " ")} for "${target?.job?.title || "Position"}".`,
+      title: `Application Status Updated: ${target?.job?.title || "Job Application"}`,
+      body: `Your application status for "${target?.job?.title || "Position"}" was updated to ${nextStatus}.`,
       destination: "/account/jobs",
-      destinationLabel: "View Application",
+      destinationLabel: "View Status",
       read: false,
       time: Date.now(),
     });
@@ -174,6 +207,7 @@ function EmployerJobsDashboardPage() {
       });
 
       setScheduleModalApp(null);
+      toast.success("Interview scheduled and notification sent to candidate!");
     }
   };
 
@@ -188,6 +222,7 @@ function EmployerJobsDashboardPage() {
         localStorage.setItem("omeetso_job_applications", JSON.stringify(updated));
       }
       setEmployerNotesApp(null);
+      toast.success("Private note saved.");
     }
   };
 
@@ -248,22 +283,18 @@ function EmployerJobsDashboardPage() {
                           <span className={`text-[10px] font-black uppercase px-2 py-0.5 rounded-full ${
                             (job.status || "").toUpperCase() === "SUBMITTED" || (job.status || "").toUpperCase() === "PENDING"
                               ? "bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-300"
-                              : (job.status || "").toUpperCase() === "APPROVED" || (job.status || "").toUpperCase() === "ACTIVE"
-                              ? "bg-emerald-100 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-300"
-                              : (job.status || "").toUpperCase() === "REJECTED"
+                              : (job.status || "").toUpperCase() === "FILLED"
                               ? "bg-rose-100 text-rose-800 dark:bg-rose-900/30 dark:text-rose-300"
-                              : "bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-300"
+                              : "bg-emerald-100 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-300"
                           }`}>
-                            {(job.status || "").toUpperCase() === "SUBMITTED" || (job.status || "").toUpperCase() === "PENDING" ? "Under Review" : job.status}
+                            {job.status}
                           </span>
                         </div>
                         <h3 className="text-sm font-extrabold text-foreground truncate mt-1">{job.title}</h3>
-                        <p className="text-xs text-muted-foreground font-semibold">{job.companyName} • {job.location?.city || "Hyderabad"}</p>
-                        
-                        {/* Counters */}
-                        <div className="mt-3 pt-2 border-t border-border/60 flex items-center justify-between text-[11px] font-bold text-muted-foreground">
+                        <p className="text-xs text-muted-foreground font-semibold truncate">{job.location?.area || job.location?.city}</p>
+                        <div className="flex items-center justify-between mt-3 pt-2 border-t border-border text-[11px] font-bold text-muted-foreground">
                           <span>👥 {job.id === selectedJobId ? applicants.length : (job.applicationsCount || 0)} Applicants</span>
-                          <span>👁️ {job.viewsCount || 0} Views</span>
+                          <span>{new Date(job.createdAt).toLocaleDateString("en-IN", { month: "short", day: "numeric" })}</span>
                         </div>
                       </div>
                     );
@@ -271,206 +302,806 @@ function EmployerJobsDashboardPage() {
                 </div>
               </section>
 
-          {/* ACTIVE JOB CANDIDATE MANAGEMENT BOARD */}
-          {activeJob && (
-            <section className="space-y-4">
-              <div className="p-5 rounded-3xl border border-border bg-card space-y-4 shadow-sm">
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-border pb-4">
-                  <div>
-                    <span className="text-[10px] font-black uppercase tracking-wider text-indigo-brand">Selected Job Pipeline</span>
-                    <h2 className="text-lg font-black text-foreground">{activeJob.title}</h2>
-                    <p className="text-xs text-muted-foreground font-semibold">{activeJob.companyName} • {activeJob.location.area}, {activeJob.location.city}</p>
-                  </div>
-
-                  {/* Actions Bar */}
-                  <div className="flex flex-wrap items-center gap-2">
-                    <button className="px-3 py-1.5 rounded-xl border border-border bg-secondary text-xs font-bold hover:bg-secondary/80 flex items-center gap-1">
-                      <Copy className="h-3.5 w-3.5" /> Duplicate
-                    </button>
-                    <button className="px-3 py-1.5 rounded-xl border border-border bg-secondary text-xs font-bold hover:bg-secondary/80 flex items-center gap-1">
-                      <RefreshCw className="h-3.5 w-3.5" /> Renew (30 Days)
-                    </button>
-                    <button className="px-3 py-1.5 rounded-xl bg-rose-500/10 text-rose-700 text-xs font-bold hover:bg-rose-500/20">
-                      Mark Position Filled
-                    </button>
-                  </div>
-                </div>
-
-                {((activeJob.status || "").toUpperCase() === "SUBMITTED" || (activeJob.status || "").toUpperCase() === "PENDING") && (
-                  <div className="p-3 rounded-2xl bg-amber-500/10 border border-amber-500/30 flex items-center gap-2.5 text-xs text-amber-800 dark:text-amber-300 font-semibold">
-                    <Clock className="h-4 w-4 shrink-0 text-amber-600" />
-                    <span>
-                      <strong>Pending Moderation Review:</strong> This job posting has been submitted and is waiting for admin verification. It will be published live to all candidates once approved by the admin.
-                    </span>
-                  </div>
-                )}
-
-                {/* Candidate Filters & Search */}
-                <div className="flex flex-col sm:flex-row items-center justify-between gap-3">
-                  <div className="flex gap-1.5 overflow-x-auto no-scrollbar w-full sm:w-auto">
-                    {["ALL", "APPLIED", "SHORTLISTED", "INTERVIEW_SCHEDULED", "HIRED", "REJECTED"].map((st) => (
-                      <button
-                        key={st}
-                        onClick={() => setApplicantStatusFilter(st)}
-                        className={`shrink-0 rounded-full px-3 py-1 text-xs font-extrabold transition-all border ${
-                          applicantStatusFilter === st
-                            ? "bg-indigo-brand text-white border-indigo-brand shadow-sm"
-                            : "bg-background text-foreground border-border hover:bg-secondary"
-                        }`}
-                      >
-                        {st.replace("_", " ")}
-                      </button>
-                    ))}
-                  </div>
-
-                  <div className="flex items-center gap-2 rounded-2xl border border-border bg-background px-3 py-1.5 text-xs w-full sm:w-64">
-                    <Search className="h-4 w-4 text-muted-foreground shrink-0" />
-                    <input
-                      type="text"
-                      placeholder="Search applicant name, skills..."
-                      value={applicantSearch}
-                      onChange={(e) => setApplicantSearch(e.target.value)}
-                      className="w-full bg-transparent font-bold outline-none placeholder:text-muted-foreground"
-                    />
-                  </div>
-                </div>
-
-                {/* Candidate List Grid */}
-                <div className="space-y-4 pt-2">
-                  {filteredApplicants.length === 0 ? (
-                    <div className="p-12 text-center text-xs text-muted-foreground font-semibold">
-                      No candidates found matching the selected status or search query.
+              {/* APPLICANT REVIEW & PIPELINE TABLE */}
+              {activeJob && (
+                <section className="rounded-3xl border border-border bg-card p-5 shadow-sm space-y-4">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-border pb-4">
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <h2 className="text-base font-black text-foreground">{activeJob.title}</h2>
+                        <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black bg-indigo-500/15 text-indigo-600">
+                          {activeJob.openingsCount} Opening{activeJob.openingsCount > 1 ? "s" : ""}
+                        </span>
+                      </div>
+                      <p className="text-xs text-muted-foreground font-semibold mt-0.5">
+                        {activeJob.location?.area}, {activeJob.location?.city} • {activeJob.jobType}
+                      </p>
                     </div>
-                  ) : (
-                    filteredApplicants.map((app) => {
-                      const snapshot = app.applicantProfileSnapshot || ({} as any);
-                      return (
-                        <div key={app.id} className="p-5 rounded-3xl border border-border bg-secondary/20 space-y-3 font-sans">
-                          <div className="flex items-start justify-between gap-3">
-                            <div>
-                              <h3 className="text-base font-black text-foreground flex items-center gap-2">
-                                {snapshot.name || "Candidate"}
-                                <span className="text-[10px] font-bold text-muted-foreground">({snapshot.city || "Hyderabad"})</span>
-                              </h3>
-                              <p className="text-xs font-bold text-indigo-brand">{snapshot.currentRole || "Applicant"} • {snapshot.experience || "1 Year"}</p>
+
+                    <div className="flex items-center gap-2">
+                      <Link
+                        to="/job/$id"
+                        params={{ id: activeJob.id }}
+                        className="px-3.5 py-1.5 rounded-xl border border-border bg-card hover:bg-secondary text-foreground font-bold text-xs flex items-center gap-1.5 shadow-xs"
+                      >
+                        <Eye className="h-3.5 w-3.5 text-indigo-brand" /> View Public Post
+                      </Link>
+                    </div>
+                  </div>
+
+                  {/* Pipeline Status Filter Buttons */}
+                  <div className="flex flex-wrap items-center justify-between gap-3">
+                    <div className="flex flex-wrap items-center gap-1.5 overflow-x-auto no-scrollbar py-1">
+                      {["ALL", "APPLIED", "SHORTLISTED", "INTERVIEW_SCHEDULED", "HIRED", "REJECTED"].map((st) => (
+                        <button
+                          key={st}
+                          onClick={() => setApplicantStatusFilter(st)}
+                          className={`px-3 py-1 rounded-xl text-xs font-bold transition-all ${
+                            applicantStatusFilter === st
+                              ? "bg-indigo-brand text-white shadow-sm"
+                              : "bg-secondary text-foreground hover:bg-secondary/80"
+                          }`}
+                        >
+                          {st.replace("_", " ")}
+                        </button>
+                      ))}
+                    </div>
+
+                    {/* Search Bar */}
+                    <div className="flex items-center gap-2 px-3 py-1.5 rounded-xl border border-border bg-background w-full sm:w-64 text-xs">
+                      <Search className="h-3.5 w-3.5 text-muted-foreground" />
+                      <input
+                        type="text"
+                        placeholder="Search candidate name, skills..."
+                        value={applicantSearch}
+                        onChange={(e) => setApplicantSearch(e.target.value)}
+                        className="w-full bg-transparent font-bold outline-none placeholder:text-muted-foreground"
+                      />
+                    </div>
+                  </div>
+
+                  {/* Candidate List Grid */}
+                  <div className="space-y-4 pt-2">
+                    {filteredApplicants.length === 0 ? (
+                      <div className="p-12 text-center text-xs text-muted-foreground font-semibold">
+                        No candidates found matching the selected status or search query.
+                      </div>
+                    ) : (
+                      filteredApplicants.map((app) => {
+                        const snapshot = app.applicantProfileSnapshot || ({} as any);
+                        const appResumeUrl = getApplicantResumeUrl(app);
+                        const appResumeFileName = getApplicantResumeFileName(app);
+
+                        return (
+                          <div key={app.id} className="p-5 rounded-3xl border border-border bg-card shadow-xs space-y-3.5 font-sans hover:border-indigo-500/40 transition-all">
+                            
+                            {/* Candidate Header */}
+                            <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-3">
+                              <div className="flex items-start gap-3">
+                                <div className="w-12 h-12 rounded-2xl bg-indigo-600 text-white flex items-center justify-center font-black text-lg shrink-0 shadow-sm">
+                                  {snapshot.name ? snapshot.name.charAt(0).toUpperCase() : "C"}
+                                </div>
+                                <div>
+                                  <div className="flex flex-wrap items-center gap-2">
+                                    <h3 className="text-base font-black text-foreground">
+                                      {snapshot.name || "Candidate"}
+                                    </h3>
+                                    <span className="px-2.5 py-0.5 rounded-full text-[11px] font-extrabold bg-indigo-50 dark:bg-indigo-950/50 text-indigo-600 dark:text-indigo-400 border border-indigo-200 dark:border-indigo-800">
+                                      {snapshot.title || "Job Seeker"}
+                                    </span>
+                                  </div>
+                                  <p className="text-xs font-semibold text-muted-foreground flex items-center gap-2 mt-0.5">
+                                    <span>📍 {snapshot.city || "Location not specified"}{snapshot.area ? `, ${snapshot.area}` : ""}</span>
+                                    <span>•</span>
+                                    <span>⏳ {snapshot.experience || snapshot.experienceYears || "Fresher"}</span>
+                                  </p>
+                                </div>
+                              </div>
+
+                              {/* Status Tag */}
+                              <span className={`inline-flex items-center gap-1 rounded-full px-3 py-1 text-xs font-black border self-start ${
+                                app.status === "SHORTLISTED"
+                                  ? "bg-emerald-500/15 text-emerald-700 border-emerald-500/30"
+                                  : app.status === "INTERVIEW_SCHEDULED"
+                                  ? "bg-purple-500/15 text-purple-700 border-purple-500/30"
+                                  : app.status === "HIRED"
+                                  ? "bg-emerald-600 text-white border-emerald-600"
+                                  : app.status === "REJECTED"
+                                  ? "bg-rose-500/15 text-rose-700 border-rose-500/30"
+                                  : "bg-secondary text-foreground border-border"
+                              }`}>
+                                {app.status}
+                              </span>
                             </div>
 
-                            {/* Status Tag */}
-                            <span className={`inline-flex items-center gap-1 rounded-full px-3 py-1 text-xs font-black border ${
-                              app.status === "SHORTLISTED"
-                                ? "bg-emerald-500/15 text-emerald-700 border-emerald-500/30"
-                                : app.status === "INTERVIEW_SCHEDULED"
-                                ? "bg-purple-500/15 text-purple-700 border-purple-500/30"
-                                : app.status === "HIRED"
-                                ? "bg-emerald-600 text-white border-emerald-600"
-                                : "bg-card text-foreground border-border"
-                            }`}>
-                              {app.status}
-                            </span>
-                          </div>
+                            {/* Candidate 8-Field Overview Grid for Interviewer */}
+                            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 text-xs font-semibold p-3.5 rounded-2xl bg-secondary/30 border border-border/80">
+                              <div>
+                                <span className="text-[10px] uppercase font-bold text-muted-foreground block">Mobile Phone</span>
+                                <a href={`tel:${snapshot.phone}`} className="font-extrabold text-foreground hover:text-indigo-600 truncate block mt-0.5">
+                                  {snapshot.phone || "Not provided"}
+                                </a>
+                              </div>
+                              <div>
+                                <span className="text-[10px] uppercase font-bold text-muted-foreground block">Email Address</span>
+                                <a href={`mailto:${snapshot.email}`} className="font-extrabold text-foreground hover:text-indigo-600 truncate block mt-0.5">
+                                  {snapshot.email || "Not provided"}
+                                </a>
+                              </div>
+                              <div>
+                                <span className="text-[10px] uppercase font-bold text-muted-foreground block">Current / Prev Company</span>
+                                <span className="font-extrabold text-foreground truncate block mt-0.5">
+                                  {snapshot.currentCompany || "Fresher / None"}
+                                </span>
+                              </div>
+                              <div>
+                                <span className="text-[10px] uppercase font-bold text-muted-foreground block">Current / Last Role</span>
+                                <span className="font-extrabold text-foreground truncate block mt-0.5">
+                                  {snapshot.currentRole || snapshot.title || "Fresher"}
+                                </span>
+                              </div>
+                              <div>
+                                <span className="text-[10px] uppercase font-bold text-muted-foreground block">Current City</span>
+                                <span className="font-extrabold text-foreground truncate block mt-0.5">
+                                  {snapshot.city || "Nalgonda"}
+                                </span>
+                              </div>
+                              <div>
+                                <span className="text-[10px] uppercase font-bold text-muted-foreground block">Total Experience</span>
+                                <span className="font-extrabold text-foreground truncate block mt-0.5">
+                                  {snapshot.experience || snapshot.experienceYears || "Fresher / No Exp"}
+                                </span>
+                              </div>
+                              <div>
+                                <span className="text-[10px] uppercase font-bold text-muted-foreground block">Expected Monthly Salary</span>
+                                <span className="font-black text-emerald-600 truncate block mt-0.5">
+                                  ₹{snapshot.expectedSalary ? Number(snapshot.expectedSalary).toLocaleString("en-IN") : "25,000"} / Mo
+                                </span>
+                              </div>
+                              <div>
+                                <span className="text-[10px] uppercase font-bold text-muted-foreground block">Notice Period</span>
+                                <span className="font-extrabold text-foreground truncate block mt-0.5">
+                                  {snapshot.noticePeriod || "Immediate"}
+                                </span>
+                              </div>
+                            </div>
 
-                          {/* Candidate Specs Grid */}
-                          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-xs font-semibold text-muted-foreground">
-                            <div>Expected: <span className="font-extrabold text-emerald-600">₹{snapshot.expectedSalary ? Number(snapshot.expectedSalary).toLocaleString("en-IN") : "45,000"} / Mo</span></div>
-                            <div>Notice: <span className="font-bold text-foreground">{snapshot.noticePeriod || "Immediate"}</span></div>
-                            {snapshot.resumeUrl ? (
-                              <div>Resume: <a href={snapshot.resumeUrl} target="_blank" rel="noreferrer" className="text-indigo-brand font-bold hover:underline">📄 View Resume</a></div>
-                            ) : (
-                              <div className="flex items-center gap-1 text-muted-foreground">
-                                <Lock className="h-3 w-3 text-amber-600" /> Phone: <span className="font-bold">Protected</span>
+                            {/* Skills Chips */}
+                            {snapshot.skills && snapshot.skills.length > 0 && (
+                              <div className="flex flex-wrap items-center gap-1.5">
+                                <span className="text-[11px] text-muted-foreground font-bold">Skills:</span>
+                                {snapshot.skills.slice(0, 6).map((skill: string, idx: number) => (
+                                  <span key={idx} className="px-2 py-0.5 rounded-lg bg-card text-foreground border border-border text-[10px] font-extrabold shadow-xs">
+                                    {skill}
+                                  </span>
+                                ))}
+                                {snapshot.skills.length > 6 && (
+                                  <span className="text-[10px] font-bold text-muted-foreground">+{snapshot.skills.length - 6} more</span>
+                                )}
                               </div>
                             )}
-                            <div>Applied: <span className="font-bold text-foreground">{new Date(app.createdAt).toLocaleDateString("en-IN")}</span></div>
-                          </div>
 
-                          {/* Employer Private Notes */}
-                          {app.employerNotes && (
-                            <div className="p-2.5 rounded-xl bg-amber-500/10 border border-amber-500/20 text-xs font-bold text-amber-900 flex items-start gap-2">
-                              <span className="text-amber-700 shrink-0">🔒 Employer Note:</span>
-                              <span className="font-medium text-amber-950">{app.employerNotes}</span>
-                            </div>
-                          )}
+                            {/* PROMINENT UPLOADED RESUME VIEWER BAR FOR INTERVIEWER */}
+                            {appResumeUrl ? (
+                              <div className="p-3.5 rounded-2xl bg-gradient-to-r from-indigo-500/10 via-purple-500/10 to-indigo-500/10 border border-indigo-500/30 flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
+                                <div className="flex items-center gap-2.5 min-w-0">
+                                  <div className="w-8 h-8 rounded-xl bg-indigo-600 text-white flex items-center justify-center shrink-0 shadow-xs">
+                                    <FileText className="h-4 w-4 text-amber-300" />
+                                  </div>
+                                  <div className="min-w-0">
+                                    <p className="text-xs font-black text-foreground truncate">
+                                      {appResumeFileName || "Candidate Resume Document (PDF)"}
+                                    </p>
+                                    <p className="text-[10px] text-emerald-700 dark:text-emerald-400 font-bold">
+                                      ✓ Uploaded CV available for review
+                                    </p>
+                                  </div>
+                                </div>
+                                <div className="flex items-center gap-2 shrink-0">
+                                  <button
+                                    onClick={() => setResumeViewerModal({
+                                      url: appResumeUrl,
+                                      title: `${snapshot.name || "Candidate"}'s Resume`,
+                                      fileName: appResumeFileName
+                                    })}
+                                    className="px-3.5 py-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-black text-xs flex items-center gap-1.5 shadow-sm transition-all active:scale-95"
+                                  >
+                                    <Eye className="w-3.5 h-3.5" />
+                                    <span>Preview Resume</span>
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => downloadDocument(appResumeUrl, appResumeFileName)}
+                                    className="px-3 py-1.5 rounded-xl bg-card border border-border hover:bg-secondary text-foreground font-bold text-xs flex items-center gap-1 transition-colors shadow-xs active:scale-95"
+                                  >
+                                    <Download className="w-3.5 h-3.5 text-indigo-600" />
+                                    <span>Download</span>
+                                  </button>
+                                  <a
+                                    href={appResumeUrl}
+                                    target="_blank"
+                                    rel="noreferrer"
+                                    className="px-2.5 py-1.5 rounded-xl bg-secondary hover:bg-secondary/80 text-foreground font-bold text-xs flex items-center gap-1 transition-colors"
+                                    title="Open in Tab"
+                                  >
+                                    <ExternalLink className="w-3.5 h-3.5" />
+                                  </a>
+                                </div>
+                              </div>
+                            ) : (
+                              <div className="p-3 rounded-2xl bg-secondary/30 border border-border text-[11px] text-muted-foreground font-semibold flex items-center justify-between gap-2">
+                                <div className="flex items-center gap-2">
+                                  <Sparkles className="w-3.5 h-3.5 text-indigo-500 shrink-0" />
+                                  <span>Candidate submitted 10-Section Manual ATS Profile.</span>
+                                </div>
+                                <button
+                                  onClick={() => setSelectedApplicantDetail(app)}
+                                  className="px-2.5 py-1 rounded-lg bg-indigo-50 dark:bg-indigo-950/50 text-indigo-600 dark:text-indigo-400 font-extrabold text-[11px] hover:underline"
+                                >
+                                  View ATS Profile
+                                </button>
+                              </div>
+                            )}
 
-                          {/* Action Buttons */}
-                          <div className="flex flex-wrap items-center justify-between gap-2 pt-2 border-t border-border/60">
-                            <div className="flex items-center gap-2">
-                              <button
-                                onClick={() => handleUpdateStatus(app.id, "SHORTLISTED")}
-                                className="px-3 py-1.5 rounded-xl bg-emerald-500/10 text-emerald-700 font-extrabold text-xs hover:bg-emerald-500/20"
-                              >
-                                Shortlist
-                              </button>
-                              <button
-                                onClick={() => setScheduleModalApp(app)}
-                                className="px-3 py-1.5 rounded-xl bg-purple-500/10 text-purple-700 font-extrabold text-xs hover:bg-purple-500/20"
-                              >
-                                Schedule Interview
-                              </button>
-                              <button
-                                onClick={() => handleUpdateStatus(app.id, "HIRED")}
-                                className="px-3 py-1.5 rounded-xl bg-emerald-600 text-white font-bold text-xs hover:bg-emerald-700"
-                              >
-                                Hire
-                              </button>
-                              <button
-                                onClick={() => handleUpdateStatus(app.id, "REJECTED")}
-                                className="px-3 py-1.5 rounded-xl bg-rose-500/10 text-rose-700 font-bold text-xs hover:bg-rose-500/20"
-                              >
-                                Reject
-                              </button>
-                            </div>
+                            {/* Employer Private Notes */}
+                            {app.employerNotes && (
+                              <div className="p-2.5 rounded-xl bg-amber-500/10 border border-amber-500/20 text-xs font-bold text-amber-900 flex items-start gap-2">
+                                <span className="text-amber-700 shrink-0">🔒 Note:</span>
+                                <span className="font-medium text-amber-950">{app.employerNotes}</span>
+                              </div>
+                            )}
 
-                            <div className="flex items-center gap-2">
-                              <button
-                                onClick={() => {
-                                  setEmployerNotesApp(app);
-                                  setPrivateNoteInput(app.employerNotes || "");
-                                }}
-                                className="text-xs font-bold text-muted-foreground hover:underline"
-                              >
-                                + Add Private Note
-                              </button>
+                            {/* Action Buttons */}
+                            <div className="flex flex-wrap items-center justify-between gap-2 pt-2 border-t border-border/60">
+                              <div className="flex flex-wrap items-center gap-2">
+                                <button
+                                  onClick={() => setSelectedApplicantDetail(app)}
+                                  className="px-3.5 py-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-black text-xs flex items-center gap-1.5 shadow-sm transition-all active:scale-95"
+                                >
+                                  <Eye className="w-3.5 h-3.5" />
+                                  <span>View Full Profile & CV</span>
+                                </button>
 
-                              <button
-                                onClick={async () => {
-                                  try {
-                                    const res = await startConversationApi("JOB", activeJob.id);
-                                    if (res.success && res.data?.id) {
-                                      nav({ to: "/chat/$id", params: { id: res.data.id } });
-                                    } else {
-                                      toast.error(res.error?.message || "Could not start chat");
+                                <button
+                                  onClick={() => handleUpdateStatus(app.id, "SHORTLISTED")}
+                                  className="px-3 py-1.5 rounded-xl bg-emerald-500/10 text-emerald-700 font-extrabold text-xs hover:bg-emerald-500/20"
+                                >
+                                  Shortlist
+                                </button>
+                                <button
+                                  onClick={() => setScheduleModalApp(app)}
+                                  className="px-3 py-1.5 rounded-xl bg-purple-500/10 text-purple-700 font-extrabold text-xs hover:bg-purple-500/20"
+                                >
+                                  Schedule Interview
+                                </button>
+                                <button
+                                  onClick={() => handleUpdateStatus(app.id, "HIRED")}
+                                  className="px-3 py-1.5 rounded-xl bg-emerald-600 text-white font-bold text-xs hover:bg-emerald-700"
+                                >
+                                  Hire
+                                </button>
+                                <button
+                                  onClick={() => handleUpdateStatus(app.id, "REJECTED")}
+                                  className="px-3 py-1.5 rounded-xl bg-rose-500/10 text-rose-700 font-bold text-xs hover:bg-rose-500/20"
+                                >
+                                  Reject
+                                </button>
+                              </div>
+
+                              <div className="flex items-center gap-2">
+                                <button
+                                  onClick={() => {
+                                    setEmployerNotesApp(app);
+                                    setPrivateNoteInput(app.employerNotes || "");
+                                  }}
+                                  className="text-xs font-bold text-muted-foreground hover:underline"
+                                >
+                                  + Note
+                                </button>
+
+                                <button
+                                  onClick={async () => {
+                                    try {
+                                      const res = await startConversationApi("JOB", activeJob.id);
+                                      if (res.success && res.data?.id) {
+                                        nav({ to: "/chat/$id", params: { id: res.data.id } });
+                                      } else {
+                                        toast.error(res.error?.message || "Could not start chat");
+                                      }
+                                    } catch {
+                                      toast.error("Failed to start chat.");
                                     }
-                                  } catch {
-                                    toast.error("Failed to start chat.");
-                                  }
-                                }}
-                                className="inline-flex items-center gap-1 px-3 py-1.5 bg-indigo-brand text-white font-bold text-xs rounded-xl"
-                              >
-                                <MessageCircle className="h-3.5 w-3.5" /> Chat
-                              </button>
+                                  }}
+                                  className="inline-flex items-center gap-1 px-3 py-1.5 bg-indigo-brand text-white font-bold text-xs rounded-xl"
+                                >
+                                  <MessageCircle className="h-3.5 w-3.5" /> Chat
+                                </button>
+                              </div>
                             </div>
-                          </div>
 
-                        </div>
-                      );
-                    })
-                  )}
-                </div>
-              </div>
-            </section>
-          )}
-          </>
+                          </div>
+                        );
+                      })
+                    )}
+                  </div>
+                </section>
+              )}
+            </>
           )}
 
         </div>
+
+        {/* FULL CANDIDATE PROFILE DOSSIER MODAL */}
+        {selectedApplicantDetail && (() => {
+          const snapshot = selectedApplicantDetail.applicantProfileSnapshot || ({} as any);
+          return (
+            <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4 backdrop-blur-sm safe-t font-sans">
+              <div className="w-full max-w-2xl rounded-3xl border border-border bg-card p-6 shadow-2xl space-y-5 max-h-[90vh] overflow-y-auto">
+                
+                {/* Dossier Header */}
+                <div className="flex items-start justify-between border-b border-border pb-4">
+                  <div className="flex items-center gap-3.5">
+                    <div className="w-14 h-14 rounded-2xl bg-indigo-600 text-white flex items-center justify-center text-xl font-black shadow-md">
+                      {snapshot.name ? snapshot.name.charAt(0).toUpperCase() : "C"}
+                    </div>
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <h2 className="text-lg font-black text-foreground">{snapshot.name}</h2>
+                        <span className="px-2 py-0.5 rounded-full text-[10px] font-black bg-indigo-500/15 text-indigo-600 border border-indigo-500/30">
+                          {selectedApplicantDetail.status}
+                        </span>
+                      </div>
+                      <p className="text-xs font-bold text-indigo-600 dark:text-indigo-400">
+                        {snapshot.title || snapshot.currentRole || "Candidate"} • {snapshot.experience || "Fresher"}
+                      </p>
+                      <p className="text-[11px] text-muted-foreground font-semibold flex items-center gap-1 mt-0.5">
+                        <MapPin className="w-3 h-3" /> {snapshot.area ? `${snapshot.area}, ` : ""}{snapshot.city || "Hyderabad"}
+                      </p>
+                    </div>
+                  </div>
+
+                  <button
+                    onClick={() => setSelectedApplicantDetail(null)}
+                    className="grid h-8 w-8 place-items-center rounded-full hover:bg-secondary transition-colors"
+                  >
+                    <X className="h-5 w-5" />
+                  </button>
+                </div>
+
+                {/* Direct Contact Bar */}
+                <div className="p-3.5 rounded-2xl bg-secondary/40 border border-border flex flex-wrap items-center justify-between gap-3 text-xs font-semibold">
+                  <div className="flex items-center gap-4">
+                    <a href={`tel:${snapshot.phone}`} className="flex items-center gap-1.5 text-foreground font-bold hover:text-indigo-600 transition-colors">
+                      <Phone className="w-4 h-4 text-emerald-600" />
+                      <span>{snapshot.phone}</span>
+                    </a>
+                    <a href={`mailto:${snapshot.email}`} className="flex items-center gap-1.5 text-foreground font-bold hover:text-indigo-600 transition-colors">
+                      <Mail className="w-4 h-4 text-indigo-600" />
+                      <span>{snapshot.email}</span>
+                    </a>
+                  </div>
+
+                  <div className="flex items-center gap-2">
+                    {snapshot.portfolioUrl && (
+                      <a href={snapshot.portfolioUrl} target="_blank" rel="noreferrer" className="px-2.5 py-1 rounded-lg bg-card border border-border text-[11px] font-bold text-foreground hover:bg-secondary flex items-center gap-1" title="Portfolio">
+                        <Globe className="w-3 h-3" /> Portfolio
+                      </a>
+                    )}
+                    {snapshot.linkedinUrl && (
+                      <a href={snapshot.linkedinUrl} target="_blank" rel="noreferrer" className="px-2.5 py-1 rounded-lg bg-card border border-border text-[11px] font-bold text-indigo-600 hover:bg-secondary flex items-center gap-1" title="LinkedIn">
+                        <Linkedin className="w-3 h-3" /> LinkedIn
+                      </a>
+                    )}
+                    {snapshot.githubUrl && (
+                      <a href={snapshot.githubUrl} target="_blank" rel="noreferrer" className="px-2.5 py-1 rounded-lg bg-card border border-border text-[11px] font-bold text-foreground hover:bg-secondary flex items-center gap-1" title="GitHub">
+                        <Github className="w-3 h-3" /> GitHub
+                      </a>
+                    )}
+                  </div>
+                </div>
+
+                {/* UPLOADED RESUME SHOWCASE BOX FOR INTERVIEWER */}
+                {(() => {
+                  const modalResumeUrl = getApplicantResumeUrl(selectedApplicantDetail);
+                  const modalResumeFileName = getApplicantResumeFileName(selectedApplicantDetail);
+
+                  return modalResumeUrl ? (
+                    <div className="p-4 rounded-3xl bg-gradient-to-br from-indigo-50/90 via-indigo-50/50 to-purple-50/60 dark:from-indigo-950/40 dark:via-indigo-950/20 dark:to-purple-950/30 border border-indigo-200/80 dark:border-indigo-800/50 shadow-sm space-y-3">
+                      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                        <div className="flex items-center gap-3 min-w-0">
+                          <div className="w-10 h-10 rounded-2xl bg-indigo-600 text-white flex items-center justify-center shrink-0 shadow-md">
+                            <FileText className="w-5 h-5 text-amber-300" />
+                          </div>
+                          <div className="min-w-0">
+                            <div className="flex items-center gap-2">
+                              <h3 className="text-sm font-black text-foreground">Candidate's Uploaded Resume</h3>
+                              <span className="px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-emerald-500/15 text-emerald-700">
+                                Verified Upload
+                              </span>
+                            </div>
+                            <p className="text-[11px] text-muted-foreground font-semibold mt-0.5 truncate">
+                              {modalResumeFileName || "Candidate_Resume_CV.pdf"}
+                            </p>
+                          </div>
+                        </div>
+
+                        <div className="flex items-center gap-2 shrink-0">
+                          <button
+                            type="button"
+                            onClick={() => setResumeViewerModal({
+                              url: modalResumeUrl,
+                              title: `${snapshot.name || "Candidate"}'s Resume`,
+                              fileName: modalResumeFileName
+                            })}
+                            className="px-3.5 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-black text-xs flex items-center gap-1.5 shadow-sm transition-all active:scale-95"
+                          >
+                            <Eye className="w-3.5 h-3.5" />
+                            <span>Open Full Preview</span>
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => downloadDocument(modalResumeUrl, modalResumeFileName)}
+                            className="px-3 py-2 rounded-xl bg-card border border-border hover:bg-secondary text-foreground font-bold text-xs flex items-center gap-1 transition-colors active:scale-95"
+                          >
+                            <Download className="w-3.5 h-3.5 text-indigo-600" />
+                            <span>Download</span>
+                          </button>
+                          <a
+                            href={modalResumeUrl}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="px-2.5 py-2 rounded-xl bg-secondary hover:bg-secondary/80 text-foreground font-bold text-xs flex items-center gap-1 transition-colors"
+                            title="Open in Tab"
+                          >
+                            <ExternalLink className="w-3.5 h-3.5" />
+                          </a>
+                        </div>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="p-3.5 rounded-2xl bg-secondary/30 border border-border text-xs text-muted-foreground font-semibold flex items-center gap-2">
+                      <Sparkles className="w-4 h-4 text-indigo-600 shrink-0" />
+                      <span>Candidate generated their profile via Omeetso 10-Section ATS Resume Builder.</span>
+                    </div>
+                  );
+                })()}
+
+                {/* Summary / Bio */}
+                {snapshot.summary && (
+                  <div className="space-y-1">
+                    <h3 className="text-xs font-black uppercase tracking-wide text-muted-foreground">Professional Summary</h3>
+                    <p className="text-xs leading-relaxed text-foreground font-medium whitespace-pre-line p-3 rounded-2xl bg-secondary/20 border border-border/60">
+                      {snapshot.summary}
+                    </p>
+                  </div>
+                )}
+
+                {/* Comprehensive 10-Field Candidate Details Grid for Interviewer */}
+                <div className="space-y-2">
+                  <h3 className="text-xs font-black uppercase tracking-wide text-muted-foreground">
+                    Candidate Profile Essentials
+                  </h3>
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs">
+                    <div className="p-3.5 rounded-2xl bg-secondary/30 border border-border/60">
+                      <p className="text-[10px] text-muted-foreground font-bold uppercase">Full Name</p>
+                      <p className="font-black text-foreground mt-0.5">{snapshot.name || "Candidate"}</p>
+                    </div>
+                    <div className="p-3.5 rounded-2xl bg-secondary/30 border border-border/60">
+                      <p className="text-[10px] text-muted-foreground font-bold uppercase">Professional Title</p>
+                      <p className="font-black text-indigo-600 dark:text-indigo-400 mt-0.5">{snapshot.title || "Job Seeker"}</p>
+                    </div>
+                    <div className="p-3.5 rounded-2xl bg-secondary/30 border border-border/60">
+                      <p className="text-[10px] text-muted-foreground font-bold uppercase">Mobile Phone</p>
+                      <a href={`tel:${snapshot.phone}`} className="font-black text-foreground hover:underline mt-0.5 block">
+                        {snapshot.phone || "Not provided"}
+                      </a>
+                    </div>
+                    <div className="p-3.5 rounded-2xl bg-secondary/30 border border-border/60">
+                      <p className="text-[10px] text-muted-foreground font-bold uppercase">Email Address</p>
+                      <a href={`mailto:${snapshot.email}`} className="font-black text-foreground hover:underline mt-0.5 truncate block">
+                        {snapshot.email || "Not provided"}
+                      </a>
+                    </div>
+                    <div className="p-3.5 rounded-2xl bg-secondary/30 border border-border/60">
+                      <p className="text-[10px] text-muted-foreground font-bold uppercase">Current City</p>
+                      <p className="font-black text-foreground mt-0.5">{snapshot.city || "Nalgonda"}{snapshot.area ? `, ${snapshot.area}` : ""}</p>
+                    </div>
+                    <div className="p-3.5 rounded-2xl bg-secondary/30 border border-border/60">
+                      <p className="text-[10px] text-muted-foreground font-bold uppercase">Total Experience</p>
+                      <p className="font-black text-foreground mt-0.5">{snapshot.experience || snapshot.experienceYears || "Fresher / No Exp"}</p>
+                    </div>
+                    <div className="p-3.5 rounded-2xl bg-secondary/30 border border-border/60">
+                      <p className="text-[10px] text-muted-foreground font-bold uppercase">Current / Prev Company</p>
+                      <p className="font-black text-foreground mt-0.5 truncate">{snapshot.currentCompany || "Fresher / None"}</p>
+                    </div>
+                    <div className="p-3.5 rounded-2xl bg-secondary/30 border border-border/60">
+                      <p className="text-[10px] text-muted-foreground font-bold uppercase">Current / Last Role</p>
+                      <p className="font-black text-foreground mt-0.5 truncate">{snapshot.currentRole || snapshot.title || "Fresher"}</p>
+                    </div>
+                    <div className="p-3.5 rounded-2xl bg-secondary/30 border border-border/60">
+                      <p className="text-[10px] text-muted-foreground font-bold uppercase">Expected Monthly Pay</p>
+                      <p className="font-black text-emerald-600 mt-0.5">
+                        ₹{snapshot.expectedSalary ? Number(snapshot.expectedSalary).toLocaleString("en-IN") : "25,000"} / month
+                      </p>
+                    </div>
+                    <div className="p-3.5 rounded-2xl bg-secondary/30 border border-border/60">
+                      <p className="text-[10px] text-muted-foreground font-bold uppercase">Notice Period</p>
+                      <p className="font-black text-foreground mt-0.5">{snapshot.noticePeriod || "Immediate"}</p>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Key Skills */}
+                {snapshot.skills && snapshot.skills.length > 0 && (
+                  <div className="space-y-2">
+                    <h3 className="text-xs font-black uppercase tracking-wide text-muted-foreground flex items-center gap-1.5">
+                      <Sparkles className="w-3.5 h-3.5 text-indigo-600" /> Key Skills & Proficiencies
+                    </h3>
+                    <div className="flex flex-wrap gap-1.5">
+                      {snapshot.skills.map((skill: string, idx: number) => (
+                        <span key={idx} className="px-3 py-1 rounded-xl bg-indigo-50 dark:bg-indigo-950/40 text-indigo-700 dark:text-indigo-300 font-extrabold text-xs border border-indigo-200 dark:border-indigo-800">
+                          {skill}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Work Experience Timeline */}
+                {snapshot.workExperiences && snapshot.workExperiences.length > 0 && (
+                  <div className="space-y-2">
+                    <h3 className="text-xs font-black uppercase tracking-wide text-muted-foreground flex items-center gap-1.5">
+                      <Briefcase className="w-3.5 h-3.5 text-indigo-600" /> Work Experience History
+                    </h3>
+                    <div className="space-y-2">
+                      {snapshot.workExperiences.map((exp: any, idx: number) => (
+                        <div key={idx} className="p-3.5 rounded-2xl border border-border bg-card space-y-1 text-xs">
+                          <div className="flex items-center justify-between">
+                            <span className="font-black text-foreground">{exp.jobTitle}</span>
+                            <span className="text-[10px] font-bold text-muted-foreground">{exp.startDate} - {exp.isCurrentlyWorking ? "Present" : exp.endDate || ""}</span>
+                          </div>
+                          <p className="text-indigo-600 dark:text-indigo-400 font-bold">{exp.companyName} {exp.location ? `• ${exp.location}` : ""}</p>
+                          {exp.responsibilities && (
+                            <p className="text-muted-foreground font-medium pt-1 text-[11px] leading-relaxed whitespace-pre-line">
+                              {exp.responsibilities}
+                            </p>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Education Credentials */}
+                {snapshot.educations && snapshot.educations.length > 0 && (
+                  <div className="space-y-2">
+                    <h3 className="text-xs font-black uppercase tracking-wide text-muted-foreground flex items-center gap-1.5">
+                      <GraduationCap className="w-3.5 h-3.5 text-indigo-600" /> Education Qualifications
+                    </h3>
+                    <div className="space-y-2">
+                      {snapshot.educations.map((edu: any, idx: number) => (
+                        <div key={idx} className="p-3.5 rounded-2xl border border-border bg-card space-y-1 text-xs">
+                          <div className="flex items-center justify-between">
+                            <span className="font-black text-foreground">{edu.qualification}</span>
+                            <span className="text-[10px] font-bold text-muted-foreground">{edu.completionYear || edu.startYear}</span>
+                          </div>
+                          <p className="text-muted-foreground font-semibold">{edu.college || edu.university} {edu.specialization ? `(${edu.specialization})` : ""}</p>
+                          {edu.percentageOrCgpa && (
+                            <p className="text-emerald-600 font-bold text-[11px]">Score: {edu.percentageOrCgpa}</p>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Answers to Screening Questions */}
+                {selectedApplicantDetail.screeningAnswers && selectedApplicantDetail.screeningAnswers.length > 0 && (
+                  <div className="space-y-2">
+                    <h3 className="text-xs font-black uppercase tracking-wide text-muted-foreground">Answers to Screening Questions</h3>
+                    <div className="p-3.5 rounded-2xl border border-border bg-card space-y-2 text-xs">
+                      {selectedApplicantDetail.screeningAnswers.map((item, idx) => (
+                        <div key={idx} className="space-y-0.5">
+                          <p className="font-bold text-foreground">Q: {item.question}</p>
+                          <p className="text-muted-foreground font-medium pl-3 border-l-2 border-indigo-600">A: {item.answer || "No response"}</p>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Status Controls Footer */}
+                <div className="pt-3 border-t border-border flex flex-wrap items-center justify-between gap-2">
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={() => {
+                        handleUpdateStatus(selectedApplicantDetail.id, "SHORTLISTED");
+                        setSelectedApplicantDetail(null);
+                      }}
+                      className="px-3.5 py-2 rounded-xl bg-emerald-500/10 text-emerald-700 font-extrabold text-xs hover:bg-emerald-500/20"
+                    >
+                      Shortlist Candidate
+                    </button>
+                    <button
+                      onClick={() => {
+                        const app = selectedApplicantDetail;
+                        setSelectedApplicantDetail(null);
+                        setScheduleModalApp(app);
+                      }}
+                      className="px-3.5 py-2 rounded-xl bg-purple-600 text-white font-extrabold text-xs hover:bg-purple-700"
+                    >
+                      Schedule Interview
+                    </button>
+                    <button
+                      onClick={() => {
+                        handleUpdateStatus(selectedApplicantDetail.id, "HIRED");
+                        setSelectedApplicantDetail(null);
+                      }}
+                      className="px-3.5 py-2 rounded-xl bg-emerald-600 text-white font-extrabold text-xs hover:bg-emerald-700"
+                    >
+                      Hire
+                    </button>
+                    <button
+                      onClick={() => {
+                        handleUpdateStatus(selectedApplicantDetail.id, "REJECTED");
+                        setSelectedApplicantDetail(null);
+                      }}
+                      className="px-3.5 py-2 rounded-xl bg-rose-500/10 text-rose-700 font-extrabold text-xs hover:bg-rose-500/20"
+                    >
+                      Reject
+                    </button>
+                  </div>
+
+                  <button
+                    onClick={() => setSelectedApplicantDetail(null)}
+                    className="px-4 py-2 rounded-xl border border-border bg-card text-foreground font-bold text-xs hover:bg-secondary"
+                  >
+                    Close
+                  </button>
+                </div>
+
+              </div>
+            </div>
+          );
+        })()}
+
+        {/* DEDICATED INTERACTIVE RESUME PREVIEW MODAL */}
+        {resumeViewerModal && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-3 sm:p-6 backdrop-blur-md safe-t font-sans">
+            <div className="w-full max-w-4xl h-[90vh] flex flex-col rounded-3xl border border-border bg-card shadow-2xl overflow-hidden">
+              
+              {/* Modal Top Bar */}
+              <div className="flex items-center justify-between border-b border-border bg-card px-5 py-3.5">
+                <div className="flex items-center gap-2.5 min-w-0">
+                  <div className="w-9 h-9 rounded-xl bg-indigo-600 text-white flex items-center justify-center shrink-0">
+                    <FileText className="w-5 h-5 text-amber-300" />
+                  </div>
+                  <div className="min-w-0">
+                    <h3 className="text-sm font-black text-foreground truncate">{resumeViewerModal.title}</h3>
+                    <p className="text-[11px] text-muted-foreground font-semibold truncate">{resumeViewerModal.fileName || "Resume Document"}</p>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-2 shrink-0">
+                  <button
+                    type="button"
+                    onClick={() => downloadDocument(resumeViewerModal.url, resumeViewerModal.fileName)}
+                    className="px-3 py-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-black text-xs flex items-center gap-1.5 shadow-sm transition-all active:scale-95"
+                  >
+                    <Download className="w-3.5 h-3.5" />
+                    <span>Download</span>
+                  </button>
+                  <a
+                    href={resumeViewerModal.url}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="px-3 py-1.5 rounded-xl bg-secondary hover:bg-secondary/80 text-foreground font-bold text-xs flex items-center gap-1 transition-colors"
+                  >
+                    <ExternalLink className="w-3.5 h-3.5" />
+                    <span>Open in Tab</span>
+                  </a>
+                  <button
+                    onClick={() => setResumeViewerModal(null)}
+                    className="grid h-8 w-8 place-items-center rounded-full hover:bg-secondary text-foreground transition-colors"
+                  >
+                    <X className="h-5 w-5" />
+                  </button>
+                </div>
+              </div>
+
+              {/* Viewer Body (iFrame, Word Document Card, or Image) */}
+              <div className="flex-1 bg-muted/40 p-2 sm:p-4 overflow-hidden relative">
+                {(() => {
+                  const isImage = resumeViewerModal.url.match(/\.(jpeg|jpg|gif|png|webp)/i) || resumeViewerModal.url.startsWith("data:image/");
+                  const isDocx = (resumeViewerModal.fileName || "").match(/\.(docx|doc|rtf|txt)$/i) || resumeViewerModal.url.includes("wordprocessingml") || resumeViewerModal.url.includes("msword");
+
+                  if (isImage) {
+                    return (
+                      <div className="w-full h-full flex items-center justify-center overflow-auto">
+                        <img
+                          src={resumeViewerModal.url}
+                          alt="Candidate Resume"
+                          className="max-h-full max-w-full object-contain rounded-xl shadow-lg border border-border"
+                        />
+                      </div>
+                    );
+                  }
+
+                  if (isDocx) {
+                    return (
+                      <div className="w-full h-full flex flex-col items-center justify-center text-center p-6 space-y-4 bg-card rounded-2xl border border-border">
+                        <div className="w-16 h-16 rounded-3xl bg-blue-600 text-white flex items-center justify-center shadow-lg">
+                          <FileText className="w-8 h-8" />
+                        </div>
+                        <div className="max-w-md space-y-1">
+                          <h4 className="text-base font-black text-foreground">{resumeViewerModal.fileName || "Candidate_Resume.docx"}</h4>
+                          <p className="text-xs text-muted-foreground font-semibold">
+                            This resume was uploaded as a Microsoft Word (.docx) document. Click below to download and view in Word or Docs.
+                          </p>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => downloadDocument(resumeViewerModal.url, resumeViewerModal.fileName)}
+                          className="px-6 py-3 rounded-2xl bg-indigo-600 hover:bg-indigo-700 text-white font-black text-xs shadow-lg transition-all flex items-center gap-2 active:scale-95"
+                        >
+                          <Download className="w-4 h-4" />
+                          <span>Download & Open Word Document</span>
+                        </button>
+                      </div>
+                    );
+                  }
+
+                  // Default: Native PDF Embed / iFrame
+                  return (
+                    <iframe
+                      src={resumeViewerModal.url}
+                      title="Resume Document Viewer"
+                      className="w-full h-full rounded-2xl border border-border bg-white shadow-inner"
+                    />
+                  );
+                })()}
+              </div>
+
+            </div>
+          </div>
+        )}
 
         {/* INTERVIEW SCHEDULER MODAL */}
         {scheduleModalApp && (
           <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm">
             <form onSubmit={handleSaveInterviewSchedule} className="w-full max-w-md rounded-3xl border border-border bg-card p-6 shadow-2xl space-y-4 font-sans text-xs font-semibold">
               <div className="flex items-center justify-between border-b border-border pb-2">
-                <h3 className="text-sm font-black text-foreground">Schedule Interview for {scheduleModalApp.applicantProfileSnapshot.name}</h3>
-                <button type="button" onClick={() => setScheduleModalApp(null)} className="grid h-8 w-8 place-items-center rounded-full hover:bg-secondary">
+                <div className="min-w-0">
+                  <h3 className="text-sm font-black text-foreground">Schedule Interview for {scheduleModalApp.applicantProfileSnapshot?.name || "Candidate"}</h3>
+                  <div className="flex flex-wrap items-center gap-2 mt-1 text-[11px] text-muted-foreground font-semibold">
+                    <span>📍 {scheduleModalApp.applicantProfileSnapshot?.city || "Nalgonda"}</span>
+                    <span>•</span>
+                    <span>⏳ {scheduleModalApp.applicantProfileSnapshot?.experience || "Fresher"}</span>
+                    <span>•</span>
+                    <span className="text-emerald-600 font-bold">₹{scheduleModalApp.applicantProfileSnapshot?.expectedSalary ? Number(scheduleModalApp.applicantProfileSnapshot.expectedSalary).toLocaleString("en-IN") : "25,000"}/Mo</span>
+                    <span>•</span>
+                    <span>⚡ {scheduleModalApp.applicantProfileSnapshot?.noticePeriod || "Immediate"}</span>
+                  </div>
+                  {(() => {
+                    const schedResumeUrl = getApplicantResumeUrl(scheduleModalApp);
+                    const schedResumeFileName = getApplicantResumeFileName(scheduleModalApp);
+                    return schedResumeUrl ? (
+                      <button
+                        type="button"
+                        onClick={() => setResumeViewerModal({
+                          url: schedResumeUrl,
+                          title: `${scheduleModalApp.applicantProfileSnapshot.name}'s Resume`,
+                          fileName: schedResumeFileName
+                        })}
+                        className="text-[11px] font-bold text-indigo-600 hover:underline flex items-center gap-1 mt-1"
+                      >
+                        <FileText className="w-3.5 h-3.5" />
+                        <span>View Attached Resume Document ({schedResumeFileName || "PDF"})</span>
+                      </button>
+                    ) : null;
+                  })()}
+                </div>
+                <button type="button" onClick={() => setScheduleModalApp(null)} className="grid h-8 w-8 place-items-center rounded-full hover:bg-secondary shrink-0">
                   <XCircle className="h-5 w-5" />
                 </button>
               </div>

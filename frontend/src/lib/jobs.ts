@@ -90,13 +90,26 @@ export type JobApplicationItem = {
     phone: string;
     email: string;
     city: string;
+    area?: string;
+    title?: string;
+    summary?: string;
     resumeUrl?: string;
+    resumeFileName?: string;
     experience: string;
     currentRole?: string;
     currentCompany?: string;
     currentSalary?: number;
     expectedSalary?: number;
     noticePeriod?: string;
+    education?: string;
+    educations?: EducationItem[];
+    skills?: string[];
+    skillsList?: SkillItem[];
+    workExperiences?: WorkExperienceItem[];
+    certifications?: string[] | CertificationItem[];
+    portfolioUrl?: string;
+    linkedinUrl?: string;
+    githubUrl?: string;
   };
   screeningAnswers: { question: string; answer: string }[];
   status: ApplicationStatus;
@@ -466,7 +479,6 @@ export async function fetchEmployerJobs(userId?: string, token?: string | null):
 
 export async function fetchEmployerJobApplicants(jobId: string, token?: string | null, jobTitle?: string): Promise<JobApplicationItem[]> {
   let serverApps: JobApplicationItem[] = [];
-  let serverSuccess = false;
   try {
     const authToken = token || (typeof window !== "undefined" ? localStorage.getItem("omeetso_user_token") : null);
     const authHeaders: Record<string, string> = authToken ? { Authorization: `Bearer ${authToken}` } : {};
@@ -480,21 +492,9 @@ export async function fetchEmployerJobApplicants(jobId: string, token?: string |
           ...item,
           id: item.id || item._id?.toString() || item._id
         }));
-        serverSuccess = true;
       }
     }
   } catch { /* offline fallback */ }
-
-  if (serverSuccess) {
-    const seenMap = new Map<string, JobApplicationItem>();
-    for (const app of serverApps) {
-      const dedupeKey = app.id || `${app.jobId}_${app.applicantId || app.applicantProfileSnapshot?.phone || app.applicantProfileSnapshot?.name}`;
-      if (!seenMap.has(dedupeKey)) {
-        seenMap.set(dedupeKey, app);
-      }
-    }
-    return Array.from(seenMap.values());
-  }
 
   const localApps = getLocal<JobApplicationItem[]>(LS_APPLICATIONS, []);
   const matchingLocal = localApps.filter(a => {
@@ -505,11 +505,52 @@ export async function fetchEmployerJobApplicants(jobId: string, token?: string |
     return false;
   });
 
+  const candidateProfile = getLocal<CandidateProfileItem | null>(LS_CANDIDATE, null);
+
   const seenMap = new Map<string, JobApplicationItem>();
-  for (const item of matchingLocal) {
-    const dedupeKey = item.id || `${item.jobId}_${item.applicantId || item.applicantProfileSnapshot?.phone || item.applicantProfileSnapshot?.name}`;
+
+  // 1. Process server apps first
+  for (const app of serverApps) {
+    const dedupeKey = app.id || `${app.jobId}_${app.applicantId || app.applicantProfileSnapshot?.phone || app.applicantProfileSnapshot?.name}`;
+    
+    // Look for matching local app to enrich missing resumeUrl or snapshot details
+    const localMatch = matchingLocal.find(l => {
+      if (l.id && app.id && l.id === app.id) return true;
+      if (l.applicantProfileSnapshot?.phone && app.applicantProfileSnapshot?.phone && l.applicantProfileSnapshot.phone === app.applicantProfileSnapshot.phone) return true;
+      if (l.applicantProfileSnapshot?.email && app.applicantProfileSnapshot?.email && l.applicantProfileSnapshot.email === app.applicantProfileSnapshot.email) return true;
+      if (l.applicantProfileSnapshot?.name && app.applicantProfileSnapshot?.name && l.applicantProfileSnapshot.name.toLowerCase() === app.applicantProfileSnapshot.name.toLowerCase()) return true;
+      return false;
+    });
+
+    const mergedSnapshot = {
+      ...(localMatch?.applicantProfileSnapshot || {}),
+      ...(app.applicantProfileSnapshot || {}),
+      resumeUrl: app.applicantProfileSnapshot?.resumeUrl || localMatch?.applicantProfileSnapshot?.resumeUrl || (candidateProfile?.resumeUrl ? candidateProfile.resumeUrl : undefined),
+      resumeFileName: app.applicantProfileSnapshot?.resumeFileName || localMatch?.applicantProfileSnapshot?.resumeFileName || (candidateProfile?.resumeFileName ? candidateProfile.resumeFileName : undefined),
+      skills: (app.applicantProfileSnapshot?.skills?.length ? app.applicantProfileSnapshot.skills : localMatch?.applicantProfileSnapshot?.skills) || [],
+      skillsList: (app.applicantProfileSnapshot?.skillsList?.length ? app.applicantProfileSnapshot.skillsList : localMatch?.applicantProfileSnapshot?.skillsList) || [],
+      workExperiences: (app.applicantProfileSnapshot?.workExperiences?.length ? app.applicantProfileSnapshot.workExperiences : localMatch?.applicantProfileSnapshot?.workExperiences) || [],
+      educations: (app.applicantProfileSnapshot?.educations?.length ? app.applicantProfileSnapshot.educations : localMatch?.applicantProfileSnapshot?.educations) || [],
+    };
+
+    const enrichedApp: JobApplicationItem = {
+      ...app,
+      applicantProfileSnapshot: mergedSnapshot as any
+    };
+
+    seenMap.set(dedupeKey, enrichedApp);
+  }
+
+  // 2. Merge local apps that are not yet on server
+  for (const localApp of matchingLocal) {
+    const dedupeKey = localApp.id || `${localApp.jobId}_${localApp.applicantId || localApp.applicantProfileSnapshot?.phone || localApp.applicantProfileSnapshot?.name}`;
     if (!seenMap.has(dedupeKey)) {
-      seenMap.set(dedupeKey, item);
+      const mergedSnapshot = {
+        ...(localApp.applicantProfileSnapshot || {}),
+        resumeUrl: localApp.applicantProfileSnapshot?.resumeUrl || (candidateProfile?.resumeUrl ? candidateProfile.resumeUrl : undefined),
+        resumeFileName: localApp.applicantProfileSnapshot?.resumeFileName || (candidateProfile?.resumeFileName ? candidateProfile.resumeFileName : undefined),
+      };
+      seenMap.set(dedupeKey, { ...localApp, applicantProfileSnapshot: mergedSnapshot as any });
     }
   }
 

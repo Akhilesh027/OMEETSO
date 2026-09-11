@@ -1,15 +1,18 @@
 import { createFileRoute, Link, notFound, useNavigate } from "@tanstack/react-router";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import {
   ArrowLeft, Building2, MapPin, ShieldCheck, Share2, Heart, MessageCircle, Phone,
-  Clock, Calendar, CheckCircle2, AlertTriangle, ShieldAlert, Sparkles, Footprints, Flag, ArrowRight
+  Clock, Calendar, CheckCircle2, AlertTriangle, ShieldAlert, Sparkles, Footprints, Flag, ArrowRight,
+  FileText, Trash2, ExternalLink, Upload, RefreshCw
 } from "lucide-react";
 import { MobileFrame } from "@/components/omeetso/MobileFrame";
 import { JobCard } from "@/components/omeetso/jobs/JobCard";
 import { ApplyJobModal } from "@/components/omeetso/jobs/ApplyJobModal";
-import { fetchJobById, JobItem, toggleSaveJobLocal, getSavedJobIds, listCandidateApplicationsLocal } from "@/lib/jobs";
+import { fetchJobById, JobItem, toggleSaveJobLocal, getSavedJobIds, listCandidateApplicationsLocal, CandidateProfileItem } from "@/lib/jobs";
+import { uploadFile } from "@/lib/upload";
 import { ReportSheet } from "@/components/omeetso/ReportSheet";
 import { startConversationApi } from "@/api/chat.api";
+import { API_BASE } from "@/config/api";
 import { toast } from "sonner";
 
 export const Route = createFileRoute("/job/$id")({
@@ -42,11 +45,81 @@ function JobDetailPage() {
   const [applied, setApplied] = useState(() => {
     return listCandidateApplicationsLocal().some((a) => a.jobId === id);
   });
+  const [candidateProfile, setCandidateProfile] = useState<CandidateProfileItem | null>(null);
+  const [uploadingResume, setUploadingResume] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const loadCandidateProfile = async () => {
+    if (typeof window === "undefined") return;
+    try {
+      const local = localStorage.getItem("omeetso_candidate_profile");
+      if (local) {
+        setCandidateProfile(JSON.parse(local));
+      }
+      const token = localStorage.getItem("omeetso_user_token");
+      const res = await fetch(`${API_BASE}/jobs/candidate/profile`, {
+        headers: { ...(token ? { Authorization: `Bearer ${token}` } : {}) }
+      });
+      if (res.ok) {
+        const json = await res.json();
+        if (json.success && json.data) {
+          setCandidateProfile(json.data);
+        }
+      }
+    } catch { }
+  };
+
+  const handleDirectResumeUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (file.size > 10 * 1024 * 1024) {
+      toast.error("File size must be under 10MB");
+      return;
+    }
+
+    setUploadingResume(true);
+    try {
+      const url = await uploadFile(file, "resumes");
+      const finalUrl = url || await new Promise<string>((resolve) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(String(reader.result || ""));
+        reader.onerror = () => resolve(URL.createObjectURL(file));
+        reader.readAsDataURL(file);
+      });
+
+      const updated = {
+        ...(candidateProfile || {}),
+        resumeUrl: finalUrl,
+        resumeFileName: file.name
+      };
+      setCandidateProfile(updated as any);
+      try {
+        localStorage.setItem("omeetso_candidate_profile", JSON.stringify(updated));
+      } catch { }
+      toast.success(`Resume "${file.name}" uploaded & attached!`);
+    } catch {
+      const localUrl = URL.createObjectURL(file);
+      const updated = {
+        ...(candidateProfile || {}),
+        resumeUrl: localUrl,
+        resumeFileName: file.name
+      };
+      setCandidateProfile(updated as any);
+      try {
+        localStorage.setItem("omeetso_candidate_profile", JSON.stringify(updated));
+      } catch { }
+      toast.success(`Resume "${file.name}" attached.`);
+    } finally {
+      setUploadingResume(false);
+      if (fileInputRef.current) fileInputRef.current.value = "";
+    }
+  };
 
   useEffect(() => {
     fetchJobById(id).then((data) => {
       if (data) setJob(data);
     });
+    loadCandidateProfile();
   }, [id]);
 
   const handleSaveToggle = () => {
@@ -159,39 +232,175 @@ function JobDetailPage() {
               )}
             </div>
 
-            {/* Manual Resume Builder & ATS Profile Card */}
-            <div className="p-4 rounded-3xl bg-gradient-to-br from-indigo-50/90 via-indigo-50/50 to-purple-50/60 dark:from-indigo-950/40 dark:via-indigo-950/20 dark:to-purple-950/30 border border-indigo-200/80 dark:border-indigo-800/50 shadow-sm space-y-3">
-              <div className="flex items-start justify-between gap-3">
-                <div className="flex items-start gap-3">
-                  <div className="w-10 h-10 rounded-2xl bg-indigo-600 text-white flex items-center justify-center shrink-0 shadow-md">
-                    <Sparkles className="w-5 h-5 text-amber-300" />
-                  </div>
-                  <div>
-                    <h3 className="text-sm font-black text-foreground">Create Manual Resume (10 Sections)</h3>
-                    <p className="text-xs text-muted-foreground font-semibold mt-0.5 leading-relaxed">
-                      Don't have a PDF resume? Build your verified 10-section ATS Resume profile here, then return to this job to 1-Tap apply!
-                    </p>
-                  </div>
-                </div>
+
+
+
+            {/* Application Resume Status: Uploaded Resume OR Manual Resume */}
+            <div className="rounded-2xl border border-border bg-secondary/15 p-3.5 space-y-2.5">
+              <div className="flex items-center justify-between">
+                <span className="text-[11px] font-black uppercase tracking-wider text-muted-foreground">
+                  Your Application Resume Methods
+                </span>
+                <span className="text-[10px] text-muted-foreground font-semibold">
+                  Upload PDF file <span className="font-bold text-foreground">OR</span> build 10-section profile
+                </span>
               </div>
 
-              <div className="flex flex-wrap items-center gap-2 pt-1">
-                <Link
-                  to="/my/profile/jobs"
-                  search={{ returnTo: `/job/${job.id}` }}
-                  className="px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-black text-xs shadow-md transition-all flex items-center gap-1.5 active:scale-95"
-                >
-                  <span>Create Manual Resume Now</span>
-                  <ArrowRight className="w-3.5 h-3.5" />
-                </Link>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                {/* Hidden File Input for Direct Upload */}
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept=".pdf,.doc,.docx"
+                  className="hidden"
+                  onChange={handleDirectResumeUpload}
+                />
 
-                <Link
-                  to="/my/profile/jobs"
-                  search={{ returnTo: `/job/${job.id}` }}
-                  className="px-3.5 py-2 rounded-xl bg-card border border-border hover:bg-secondary text-foreground font-extrabold text-xs transition-colors flex items-center gap-1.5"
-                >
-                  <span>Edit / View Existing CV</span>
-                </Link>
+                {/* Method 1: Uploaded Resume Status */}
+                <div className={`p-3 rounded-xl border transition-all ${
+                  candidateProfile?.resumeFileName || candidateProfile?.resumeUrl
+                    ? "border-emerald-500/30 bg-emerald-50/40 dark:bg-emerald-950/20"
+                    : "border-border bg-card"
+                }`}>
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="flex items-center gap-2 min-w-0">
+                      <div className={`w-7 h-7 rounded-lg flex items-center justify-center shrink-0 ${
+                        candidateProfile?.resumeFileName || candidateProfile?.resumeUrl
+                          ? "bg-emerald-600 text-white"
+                          : "bg-secondary text-muted-foreground"
+                      }`}>
+                        <FileText className="w-3.5 h-3.5" />
+                      </div>
+                      <div className="min-w-0">
+                        <p className="text-xs font-black text-foreground truncate">
+                          {candidateProfile?.resumeFileName || (candidateProfile?.resumeUrl ? "Uploaded Resume.pdf" : "Upload Resume (PDF/DOCX)")}
+                        </p>
+                        <p className="text-[10px] text-muted-foreground font-semibold truncate">
+                          {candidateProfile?.resumeUrl ? "✓ Attached document" : "Attach PDF file for employer"}
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center gap-1.5 shrink-0">
+                      {candidateProfile?.resumeUrl ? (
+                        <>
+                          <a
+                            href={candidateProfile.resumeUrl}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="p-1.5 rounded-lg bg-card border border-border text-foreground hover:bg-secondary text-[10px] font-bold flex items-center gap-1"
+                            title="View Resume"
+                          >
+                            <ExternalLink className="w-3 h-3 text-indigo-600" />
+                          </a>
+
+                          <button
+                            type="button"
+                            onClick={() => fileInputRef.current?.click()}
+                            disabled={uploadingResume}
+                            className="px-2 py-1 rounded-lg border border-indigo-500/30 bg-indigo-50 dark:bg-indigo-950/50 text-indigo-600 dark:text-indigo-400 hover:bg-indigo-100 text-[10px] font-bold flex items-center gap-1"
+                            title="Replace Resume"
+                          >
+                            <RefreshCw className={`w-3 h-3 ${uploadingResume ? "animate-spin" : ""}`} />
+                            <span>Replace</span>
+                          </button>
+
+                          <button
+                            type="button"
+                            onClick={() => {
+                              const updated = { ...(candidateProfile || {}), resumeUrl: "", resumeFileName: "" };
+                              setCandidateProfile(updated as any);
+                              try {
+                                localStorage.setItem("omeetso_candidate_profile", JSON.stringify(updated));
+                              } catch { }
+                              toast.success("Uploaded resume removed.");
+                            }}
+                            className="p-1.5 text-muted-foreground hover:text-rose-500 rounded-lg hover:bg-rose-50 transition-colors"
+                            title="Remove Uploaded Resume"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        </>
+                      ) : (
+                        <button
+                          type="button"
+                          onClick={() => fileInputRef.current?.click()}
+                          disabled={uploadingResume}
+                          className="px-2.5 py-1 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white font-black text-[10px] flex items-center gap-1 shadow-xs transition-all active:scale-95"
+                        >
+                          <Upload className="w-3 h-3" />
+                          <span>{uploadingResume ? "Uploading..." : "Upload PDF"}</span>
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                </div>
+
+                {/* Method 2: Manual ATS Profile Status */}
+                <div className={`p-3 rounded-xl border transition-all ${
+                  (candidateProfile?.skills?.length || 0) > 0 || (candidateProfile?.workExperiences?.length || 0) > 0
+                    ? "border-indigo-500/30 bg-indigo-50/40 dark:bg-indigo-950/20"
+                    : "border-border bg-card"
+                }`}>
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="flex items-center gap-2 min-w-0">
+                      <div className={`w-7 h-7 rounded-lg flex items-center justify-center shrink-0 ${
+                        (candidateProfile?.skills?.length || 0) > 0
+                          ? "bg-indigo-600 text-white"
+                          : "bg-secondary text-muted-foreground"
+                      }`}>
+                        <Sparkles className="w-3.5 h-3.5 text-amber-300" />
+                      </div>
+                      <div className="min-w-0">
+                        <p className="text-xs font-black text-foreground truncate">
+                          {candidateProfile?.title ? candidateProfile.title : "Manual ATS Resume"}
+                        </p>
+                        <p className="text-[10px] text-muted-foreground font-semibold truncate">
+                          {(candidateProfile?.skills?.length || 0) > 0
+                            ? `✓ ${candidateProfile?.skills?.length} skills • ${candidateProfile?.experienceYears || "Fresher"}`
+                            : "Click Manual Resume to build"}
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center gap-1 shrink-0">
+                      <Link
+                        to="/my/profile/jobs"
+                        search={{ returnTo: `/job/${job.id}` }}
+                        className="px-2 py-1 rounded-lg bg-card border border-border text-indigo-600 dark:text-indigo-400 hover:bg-secondary text-[10px] font-extrabold"
+                      >
+                        Edit
+                      </Link>
+
+                      {((candidateProfile?.skills?.length || 0) > 0 || (candidateProfile?.workExperiences?.length || 0) > 0) && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const updated = {
+                              ...(candidateProfile || {}),
+                              skills: [],
+                              skillsList: [],
+                              workExperiences: [],
+                              educations: [],
+                              education: "",
+                              summary: "",
+                              certifications: []
+                            };
+                            setCandidateProfile(updated as any);
+                            try {
+                              localStorage.setItem("omeetso_candidate_profile", JSON.stringify(updated));
+                            } catch { }
+                            toast.success("Manual profile details cleared.");
+                          }}
+                          className="p-1.5 text-muted-foreground hover:text-rose-500 rounded-lg hover:bg-rose-50 transition-colors"
+                          title="Remove Manual Profile Data"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                </div>
               </div>
             </div>
 
@@ -222,6 +431,16 @@ function JobDetailPage() {
                   "Apply Now"
                 )}
               </button>
+
+              <Link
+                to="/my/profile/jobs"
+                search={{ returnTo: `/job/${job.id}` }}
+                className="h-12 px-4 rounded-2xl border border-indigo-500/30 bg-indigo-50 dark:bg-indigo-950/40 text-indigo-600 dark:text-indigo-300 hover:bg-indigo-100 font-bold text-xs flex items-center gap-2 transition-colors shadow-xs"
+                title="Build or update your Manual ATS Resume before applying"
+              >
+                <Sparkles className="h-4 w-4 text-indigo-600 dark:text-indigo-400" />
+                <span>Manual Resume</span>
+              </Link>
 
               <button
                 onClick={async () => {

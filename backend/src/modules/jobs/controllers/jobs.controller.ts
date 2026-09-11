@@ -384,6 +384,20 @@ export async function applyToJob(req: AuthenticatedUserRequest, res: Response, n
       return;
     }
 
+    const applicantName = (customSnapshot?.name || req.user.profile?.name || "").trim();
+    const applicantPhone = (customSnapshot?.phone || req.user.phone || "").trim();
+    const applicantEmail = (customSnapshot?.email || req.user.email || "").trim();
+
+    if (!applicantName) {
+      res.status(400).json({ success: false, error: { message: "Candidate full name is required to apply." } });
+      return;
+    }
+
+    if (!applicantPhone) {
+      res.status(400).json({ success: false, error: { message: "Candidate contact phone number is required to apply." } });
+      return;
+    }
+
     // Get candidate profile
     const profile = await CandidateProfile.findOne({ userId: req.user._id });
 
@@ -392,17 +406,30 @@ export async function applyToJob(req: AuthenticatedUserRequest, res: Response, n
       applicantId: req.user._id,
       employerId: job.employerId,
       applicantProfileSnapshot: {
-        name: customSnapshot?.name || req.user.profile?.name || "Applicant",
-        phone: customSnapshot?.phone || req.user.phone,
-        email: customSnapshot?.email || req.user.email || "",
+        name: applicantName,
+        phone: applicantPhone,
+        email: applicantEmail,
         city: customSnapshot?.city || profile?.city || "Hyderabad",
-        resumeUrl: customSnapshot?.resumeUrl || profile?.resumeUrl,
-        experience: customSnapshot?.experience || profile?.experienceYears || "Freshers Allowed",
-        currentRole: customSnapshot?.currentRole || profile?.currentRole,
-        currentCompany: customSnapshot?.currentCompany || profile?.currentCompany,
-        currentSalary: customSnapshot?.currentSalary || profile?.expectedSalary,
+        area: customSnapshot?.area || profile?.area || "",
+        title: customSnapshot?.title || profile?.title || "",
+        summary: customSnapshot?.summary || profile?.summary || "",
+        resumeUrl: customSnapshot?.resumeUrl || profile?.resumeUrl || "",
+        resumeFileName: customSnapshot?.resumeFileName || profile?.resumeFileName || "",
+        experience: customSnapshot?.experience || profile?.experienceYears || "Fresher",
+        currentRole: customSnapshot?.currentRole || profile?.currentRole || "",
+        currentCompany: customSnapshot?.currentCompany || profile?.currentCompany || "",
+        currentSalary: customSnapshot?.currentSalary || profile?.currentSalary,
         expectedSalary: customSnapshot?.expectedSalary || profile?.expectedSalary,
-        noticePeriod: customSnapshot?.noticePeriod || profile?.noticePeriod || "Immediate"
+        noticePeriod: customSnapshot?.noticePeriod || profile?.noticePeriod || "Immediate",
+        education: customSnapshot?.education || profile?.education || (profile?.educations?.[0]?.qualification) || "",
+        educations: (customSnapshot?.educations && customSnapshot.educations.length > 0) ? customSnapshot.educations : (profile?.educations || []),
+        skills: (customSnapshot?.skills && customSnapshot.skills.length > 0) ? customSnapshot.skills : (profile?.skills || []),
+        skillsList: (customSnapshot?.skillsList && customSnapshot.skillsList.length > 0) ? customSnapshot.skillsList : (profile?.skillsList || []),
+        workExperiences: (customSnapshot?.workExperiences && customSnapshot.workExperiences.length > 0) ? customSnapshot.workExperiences : (profile?.workExperiences || []),
+        certifications: (customSnapshot?.certifications && customSnapshot.certifications.length > 0) ? customSnapshot.certifications : (profile?.certifications || []),
+        portfolioUrl: customSnapshot?.portfolioUrl || profile?.portfolioUrl || "",
+        linkedinUrl: customSnapshot?.linkedinUrl || profile?.linkedinUrl || "",
+        githubUrl: customSnapshot?.githubUrl || profile?.githubUrl || ""
       },
       screeningAnswers: screeningAnswers || [],
       status: "APPLIED"

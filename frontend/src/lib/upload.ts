@@ -135,6 +135,36 @@ export async function uploadVideoToCloudinary(fileOrBase64: File | string, purpo
   return base64String;
 }
 
+/**
+ * Uploads a document (PDF, DOCX, DOC) directly as a pristine Data URI
+ * without routing through Cloudinary, ensuring 100% binary integrity and exact file formatting.
+ */
+export async function uploadDocumentFile(fileOrBase64: File | string, _purpose = "resumes"): Promise<string> {
+  if (!fileOrBase64) return "";
+  
+  if (typeof fileOrBase64 === "string") {
+    return fileOrBase64;
+  }
+
+  // Convert File to full Data URI with explicit MIME type
+  return new Promise<string>((resolve) => {
+    const reader = new FileReader();
+    reader.onload = () => {
+      let result = String(reader.result || "");
+      // Ensure proper MIME prefix if file has type
+      if (fileOrBase64.type && !result.startsWith(`data:${fileOrBase64.type}`)) {
+        const parts = result.split(";base64,");
+        if (parts.length === 2) {
+          result = `data:${fileOrBase64.type};base64,${parts[1]}`;
+        }
+      }
+      resolve(result);
+    };
+    reader.onerror = () => resolve("");
+    reader.readAsDataURL(fileOrBase64);
+  });
+}
+
 export const uploadMedia = async (mediaOrUrl: string | File, purpose = "listings"): Promise<string> => {
   if (!mediaOrUrl) return "";
   const isVideo = typeof mediaOrUrl === "string" 
@@ -144,8 +174,28 @@ export const uploadMedia = async (mediaOrUrl: string | File, purpose = "listings
   if (isVideo) {
     return uploadVideoToCloudinary(mediaOrUrl, `${purpose}_videos`);
   }
+
+  const isDoc = typeof mediaOrUrl === "string"
+    ? (mediaOrUrl.startsWith("data:application/") || mediaOrUrl.endsWith(".pdf") || mediaOrUrl.endsWith(".docx") || mediaOrUrl.endsWith(".doc"))
+    : (mediaOrUrl.type?.includes("pdf") || mediaOrUrl.type?.includes("word") || mediaOrUrl.name?.match(/\.(pdf|doc|docx)$/i));
+
+  if (isDoc || purpose?.includes("resume") || purpose?.includes("doc")) {
+    return uploadDocumentFile(mediaOrUrl, purpose);
+  }
+
   return uploadImageToCloudinary(mediaOrUrl, purpose);
 };
 
-export const uploadFile = uploadImageToCloudinary;
-export default uploadImageToCloudinary;
+export const uploadFile = async (fileOrUrl: string | File, purpose = "listings"): Promise<string> => {
+  const isDoc = typeof fileOrUrl === "string"
+    ? (fileOrUrl.startsWith("data:application/") || fileOrUrl.endsWith(".pdf") || fileOrUrl.endsWith(".docx") || fileOrUrl.endsWith(".doc"))
+    : (fileOrUrl.type?.includes("pdf") || fileOrUrl.type?.includes("word") || fileOrUrl.name?.match(/\.(pdf|doc|docx)$/i));
+
+  if (isDoc || purpose?.includes("resume") || purpose?.includes("doc")) {
+    return uploadDocumentFile(fileOrUrl, purpose);
+  }
+
+  return uploadImageToCloudinary(fileOrUrl, purpose);
+};
+
+export default uploadFile;

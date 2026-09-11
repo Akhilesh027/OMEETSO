@@ -20,13 +20,47 @@ export interface IJobApplication extends Document {
     phone: string;
     email: string;
     city: string;
+    area?: string;
+    title?: string;
+    summary?: string;
     resumeUrl?: string;
+    resumeFileName?: string;
     experience: string;
     currentRole?: string;
     currentCompany?: string;
     currentSalary?: number;
     expectedSalary?: number;
     noticePeriod?: string;
+    education?: string;
+    educations?: Array<{
+      qualification?: string;
+      specialization?: string;
+      college?: string;
+      university?: string;
+      startYear?: string;
+      completionYear?: string;
+      percentageOrCgpa?: string;
+    }>;
+    skills?: string[];
+    skillsList?: Array<{
+      name: string;
+      proficiency?: string;
+      yearsOfExperience?: string;
+    }>;
+    workExperiences?: Array<{
+      companyName: string;
+      jobTitle: string;
+      employmentType?: string;
+      startDate?: string;
+      endDate?: string;
+      isCurrentlyWorking?: boolean;
+      responsibilities?: string;
+      achievements?: string;
+    }>;
+    certifications?: Array<any> | string[];
+    portfolioUrl?: string;
+    linkedinUrl?: string;
+    githubUrl?: string;
   };
   screeningAnswers: { question: string; answer: string }[];
   status: ApplicationStatus;
@@ -55,13 +89,26 @@ const JobApplicationSchema = new Schema<IJobApplication>(
       phone: { type: String, required: true },
       email: { type: String },
       city: { type: String },
+      area: { type: String },
+      title: { type: String },
+      summary: { type: String },
       resumeUrl: { type: String },
+      resumeFileName: { type: String },
       experience: { type: String },
       currentRole: { type: String },
       currentCompany: { type: String },
       currentSalary: { type: Number },
       expectedSalary: { type: Number },
       noticePeriod: { type: String },
+      education: { type: String },
+      educations: { type: Schema.Types.Mixed, default: [] },
+      skills: { type: [String], default: [] },
+      skillsList: { type: Schema.Types.Mixed, default: [] },
+      workExperiences: { type: Schema.Types.Mixed, default: [] },
+      certifications: { type: Schema.Types.Mixed, default: [] },
+      portfolioUrl: { type: String },
+      linkedinUrl: { type: String },
+      githubUrl: { type: String },
     },
     screeningAnswers: [
       {

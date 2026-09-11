@@ -21,7 +21,7 @@ export async function directUpload(req: AuthenticatedUserRequest, res: Response,
     }
 
     const folder = `omeetso/${purpose || "listings"}`;
-    const resourceType = video ? "video" : (image ? "image" : "auto");
+    const resourceType = video ? "video" : (purpose?.includes("resume") || purpose?.includes("doc") ? "auto" : (image ? "image" : "auto"));
     const url = await uploadToCloudinary(mediaContent, folder, resourceType);
 
     res.status(200).json({
