@@ -38,7 +38,7 @@ function FiltersPage() {
   useEffect(() => {
     fetchLiveCategories().then((cats) => {
       if (cats && cats.length > 0) setCategories(cats);
-    }).catch(() => {});
+    }).catch(() => { });
   }, []);
 
   const set = <K extends keyof S>(k: K, v: S[K]) => setState((prev) => ({ ...prev, [k]: v }));

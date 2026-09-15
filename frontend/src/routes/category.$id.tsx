@@ -515,8 +515,8 @@ function CategoryPage() {
               <button
                 onClick={() => nav({ search: (p: S) => ({ ...p, quickSale: p.quickSale === "1" ? undefined : "1" }) })}
                 className={`inline-flex items-center gap-1 rounded-full px-3 py-1.5 text-xs font-extrabold transition-all border shrink-0 ${search.quickSale === "1"
-                    ? "bg-amber-500 text-slate-950 border-amber-500 shadow-sm"
-                    : "bg-card text-foreground border-border"
+                  ? "bg-amber-500 text-slate-950 border-amber-500 shadow-sm"
+                  : "bg-card text-foreground border-border"
                   }`}
               >
                 ⚡ Quick Sale
@@ -524,8 +524,8 @@ function CategoryPage() {
               <button
                 onClick={() => nav({ search: (p: S) => ({ ...p, hasVideo: p.hasVideo === "1" ? undefined : "1" }) })}
                 className={`inline-flex items-center gap-1 rounded-full px-3 py-1.5 text-xs font-extrabold transition-all border shrink-0 ${search.hasVideo === "1"
-                    ? "bg-purple-600 text-white border-purple-600 shadow-sm"
-                    : "bg-card text-foreground border-border"
+                  ? "bg-purple-600 text-white border-purple-600 shadow-sm"
+                  : "bg-card text-foreground border-border"
                   }`}
               >
                 🎬 With Video
