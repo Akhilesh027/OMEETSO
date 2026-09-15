@@ -3,10 +3,15 @@ import { Request, Response, NextFunction } from "express";
 import { Listing } from "../models/Listing";
 import { ListingRevision } from "../models/ListingRevision";
 import { ListingModeration } from "../models/ListingModeration";
+import { Store } from "../../stores/models/Store";
 import { AuthenticatedUserRequest } from "../../../middleware/authenticateUser";
 import { ListingStatus } from "../../../contracts";
 import { Notification } from "../../notifications/models/Notification";
 import { convertImagesToCloudinary, convertVideoToCloudinary } from "../../../utils/cloudinaryUpload";
+
+function escapeRegex(str: string): string {
+  return str.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
 
 export async function createListing(req: AuthenticatedUserRequest, res: Response, next: NextFunction): Promise<void> {
   try {
@@ -233,11 +238,18 @@ export async function getPublicListings(req: Request, res: Response, next: NextF
 
     const storeParam = req.query.storeId as string;
     if (storeParam) {
-      if (mongoose.Types.ObjectId.isValid(storeParam)) {
-        query.storeId = new mongoose.Types.ObjectId(storeParam);
-      } else {
-        query.storeId = storeParam;
+      const isOid = mongoose.Types.ObjectId.isValid(storeParam);
+      const targetStore = isOid
+        ? await Store.findById(storeParam).lean()
+        : await Store.findOne({ $or: [{ slug: storeParam }, { name: new RegExp(`^${escapeRegex(storeParam)}$`, "i") }] }).lean();
+
+      const possibleIds: any[] = [storeParam];
+      if (isOid) possibleIds.push(new mongoose.Types.ObjectId(storeParam));
+      if (targetStore) {
+        possibleIds.push(targetStore._id, targetStore._id.toString());
+        if (targetStore.slug) possibleIds.push(targetStore.slug);
       }
+      query.storeId = { $in: possibleIds };
     }
 
     if (req.query.minPrice || req.query.maxPrice) {
@@ -323,16 +335,45 @@ export async function getPublicListings(req: Request, res: Response, next: NextF
 export async function getListingById(req: Request, res: Response, next: NextFunction): Promise<void> {
   try {
     const listingId = (req.params.listingId || req.params.id) as string;
+    if (!listingId) {
+      res.status(404).json({ success: false, error: { code: "NOT_FOUND", message: "Listing ID required" } });
+      return;
+    }
+
     const isObjectId = /^[0-9a-fA-F]{24}$/.test(listingId);
-    const listing = isObjectId
-      ? await Listing.findById(listingId)
-        .populate("sellerId", "profile.name profile.businessName profile.avatar profile.city profile.area profile.phone phone mobile accountType verificationSummary createdAt")
-        .populate("storeId", "name slug logo cover rating reviewCount phone")
-        .lean()
-      : await Listing.findOne({ slug: listingId } as any)
+    let listing: any = null;
+
+    if (isObjectId) {
+      listing = await Listing.findById(listingId)
         .populate("sellerId", "profile.name profile.businessName profile.avatar profile.city profile.area profile.phone phone mobile accountType verificationSummary createdAt")
         .populate("storeId", "name slug logo cover rating reviewCount phone")
         .lean();
+    }
+
+    if (!listing) {
+      listing = await Listing.findOne({
+        $or: [
+          { slug: listingId },
+          { id: listingId },
+          { customId: listingId },
+          { slug: listingId.toLowerCase() },
+          { id: listingId.toLowerCase() }
+        ]
+      } as any)
+      .populate("sellerId", "profile.name profile.businessName profile.avatar profile.city profile.area profile.phone phone mobile accountType verificationSummary createdAt")
+      .populate("storeId", "name slug logo cover rating reviewCount phone")
+      .lean();
+    }
+
+    if (!listing && listingId) {
+      const cleanSearch = listingId.replace(/[-_]/g, " ").trim();
+      if (cleanSearch.length > 2) {
+        listing = await Listing.findOne({ title: new RegExp(cleanSearch, "i") })
+          .populate("sellerId", "profile.name profile.businessName profile.avatar profile.city profile.area profile.phone phone mobile accountType verificationSummary createdAt")
+          .populate("storeId", "name slug logo cover rating reviewCount phone")
+          .lean();
+      }
+    }
 
     if (!listing) {
       res.status(404).json({ success: false, error: { code: "NOT_FOUND", message: "Listing not found" } });

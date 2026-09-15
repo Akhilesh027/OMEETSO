@@ -4,7 +4,7 @@ import { API_BASE as ROOT_API } from "@/config/api";
 const API_BASE = `${ROOT_API}/chat`;
 
 function getAuthHeaders(): Record<string, string> {
-  const token = getUserAccessToken() || "";
+  const token = getUserAccessToken() || (typeof localStorage !== "undefined" ? localStorage.getItem("omeetso_user_token") || localStorage.getItem("omeetso_auth_token") : "") || "";
   return {
     "Content-Type": "application/json",
     Authorization: `Bearer ${token}`,
@@ -15,7 +15,7 @@ function getAuthHeaders(): Record<string, string> {
 
 export interface ConversationItem {
   id: string;
-  contextType: "LISTING" | "STORE";
+  contextType: "LISTING" | "STORE" | "JOB";
   contextId: string;
   listingId?: string;
   listingTitle: string;
@@ -30,12 +30,13 @@ export interface ConversationItem {
 
 export async function startConversationApi(
   contextType: "LISTING" | "STORE" | "JOB",
-  contextId: string
+  contextId: string,
+  recipientId?: string
 ): Promise<{ success: boolean; data?: any; error?: any }> {
   const res = await fetch(`${API_BASE}/conversations`, {
     method: "POST",
     headers: getAuthHeaders(),
-    body: JSON.stringify({ contextType, contextId }),
+    body: JSON.stringify({ contextType, contextId, recipientId }),
   });
   return res.json();
 }
@@ -43,8 +44,20 @@ export async function startConversationApi(
 export async function getConversationsApi(): Promise<{
   success: boolean;
   data?: ConversationItem[];
+  error?: any;
 }> {
   const res = await fetch(`${API_BASE}/conversations`, {
+    headers: getAuthHeaders(),
+  });
+  return res.json();
+}
+
+export async function getConversationByIdApi(conversationId: string): Promise<{
+  success: boolean;
+  data?: ConversationItem;
+  error?: any;
+}> {
+  const res = await fetch(`${API_BASE}/conversations/${conversationId}`, {
     headers: getAuthHeaders(),
   });
   return res.json();

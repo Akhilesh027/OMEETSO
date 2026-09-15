@@ -5,7 +5,8 @@ import {
   getStoreById,
   getMyStores,
   getStoreListings,
-  updateStore
+  updateStore,
+  toggleFollowStore
 } from "../controllers/stores.controller";
 import { authenticateUser } from "../../../middleware/authenticateUser";
 
@@ -15,6 +16,7 @@ storesRouter.get("/", getPublicStores);
 storesRouter.get("/public", getPublicStores);
 storesRouter.get("/:storeId", getStoreById);
 storesRouter.get("/:storeId/listings", getStoreListings);
+storesRouter.post("/:storeId/follow", toggleFollowStore);
 
 storesRouter.post("/", authenticateUser, createStore);
 storesRouter.get("/user/me", authenticateUser, getMyStores);

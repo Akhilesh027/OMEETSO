@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { Search, X, Loader2, ArrowRight, CornerDownLeft, Shield } from "lucide-react";
 import { MOCK_SEARCH_INDEX, SearchResultItem } from "@/data/globalSearch";
+import { MockDataService } from "@/services/mockDataService";
 
 interface GlobalSearchModalProps {
   isOpen: boolean;
@@ -51,17 +52,86 @@ export const GlobalSearchModal: React.FC<GlobalSearchModalProps> = ({ isOpen, on
     setIsLoading(true);
     const handler = setTimeout(() => {
       const q = query.trim().toLowerCase();
-      const filtered = MOCK_SEARCH_INDEX.filter(
+
+      // Dynamically compile index from users, listings, stores, and mock index
+      const dynamicItems: SearchResultItem[] = [];
+
+      try {
+        const users = MockDataService.getUsers() || [];
+        users.forEach((u) => {
+          if (
+            u.id.toLowerCase().includes(q) ||
+            u.name.toLowerCase().includes(q) ||
+            u.mobile.includes(q) ||
+            (u.email && u.email.toLowerCase().includes(q)) ||
+            u.city.toLowerCase().includes(q)
+          ) {
+            dynamicItems.push({
+              id: u.id,
+              category: "Users",
+              title: u.name,
+              subtitle: `ID: ${u.id} • ${u.mobile} • ${u.city}`,
+              badge: u.status,
+              route: `/admin/users/${u.id}`,
+              matches: [u.id, u.name, u.mobile, u.email || "", u.city]
+            });
+          }
+        });
+
+        const listings = MockDataService.getListings() || [];
+        listings.forEach((l) => {
+          if (
+            l.id.toLowerCase().includes(q) ||
+            l.title.toLowerCase().includes(q) ||
+            (l.category && l.category.toLowerCase().includes(q)) ||
+            (l.sellerName && l.sellerName.toLowerCase().includes(q))
+          ) {
+            dynamicItems.push({
+              id: l.id,
+              category: "Listings",
+              title: l.title,
+              subtitle: `ID: ${l.id} • ₹${l.price} • Seller: ${l.sellerName}`,
+              badge: l.status,
+              route: `/admin/listings/${l.id}`,
+              matches: [l.id, l.title, l.category || "", l.sellerName || ""]
+            });
+          }
+        });
+
+        const stores = MockDataService.getStores() || [];
+        stores.forEach((s) => {
+          if (
+            s.id.toLowerCase().includes(q) ||
+            s.name.toLowerCase().includes(q) ||
+            (s.ownerName && s.ownerName.toLowerCase().includes(q))
+          ) {
+            dynamicItems.push({
+              id: s.id,
+              category: "Stores",
+              title: s.name,
+              subtitle: `ID: ${s.id} • Owner: ${s.ownerName}`,
+              badge: s.status,
+              route: `/admin/stores/${s.id}`,
+              matches: [s.id, s.name, s.ownerName || ""]
+            });
+          }
+        });
+      } catch (err) {
+        console.warn("Global search error:", err);
+      }
+
+      const staticMatches = MOCK_SEARCH_INDEX.filter(
         (item) =>
           item.title.toLowerCase().includes(q) ||
           item.subtitle.toLowerCase().includes(q) ||
           item.id.toLowerCase().includes(q) ||
           item.matches.some((m) => m.toLowerCase().includes(q))
       );
-      setResults(filtered);
+
+      setResults([...dynamicItems, ...staticMatches]);
       setSelectedIndex(0);
       setIsLoading(false);
-    }, 200);
+    }, 150);
 
     return () => clearTimeout(handler);
   }, [query]);

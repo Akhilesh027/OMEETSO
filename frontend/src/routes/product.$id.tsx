@@ -22,6 +22,8 @@ import { SafetyCard } from "@/components/omeetso/SafetyCard";
 import { MakeOfferSheet } from "@/components/omeetso/chat/MakeOfferSheet";
 import { isGuest } from "@/lib/chat";
 import { startConversationApi } from "@/api/chat.api";
+import { getUserAccessToken } from "@/api/auth.api";
+import { useChatContext } from "@/contexts/ChatProvider";
 import { BottomSheet } from "@/components/omeetso/BottomSheet";
 import { toast } from "sonner";
 import { ReportSheet } from "@/components/omeetso/ReportSheet";
@@ -37,10 +39,11 @@ import { ProductWatermark } from "@/components/omeetso/Watermark";
 
 export const Route = createFileRoute("/product/$id")({
   loader: async ({ params }) => {
-    let p = getProduct(params.id);
-    if (!p) {
+    const cleanId = (params.id || "").trim();
+    let p = getProduct(cleanId);
+    if (!p && cleanId) {
       try {
-        const live = await fetchLiveListingById(params.id);
+        const live = await fetchLiveListingById(cleanId);
         if (live) p = live as any;
       } catch (err) {
         console.warn("Live listing fetch error:", err);
@@ -145,26 +148,34 @@ function FormattedDescription({ text }: { text?: string }) {
 
 function ProductPage() {
   const { id } = Route.useParams();
+  const cleanId = (id || "").trim();
   const loaderData = Route.useLoaderData();
-  const [product, setProduct] = useState<any>(() => getProduct(id) || loaderData?.product || null);
+  const [product, setProduct] = useState<any>(() => getProduct(cleanId) || loaderData?.product || null);
+  const [loading, setLoading] = useState(!product);
 
   useEffect(() => {
-    if (id) recordListingView(id);
-    const local = getProduct(id);
+    if (!cleanId) return;
+    recordListingView(cleanId);
+    const local = getProduct(cleanId);
     if (local) {
       setProduct(local);
+      setLoading(false);
+      return;
     }
 
-    fetchLiveListingById(id).then((live) => {
+    setLoading(true);
+    fetchLiveListingById(cleanId).then((live) => {
       if (live) {
         setProduct(live);
       }
     }).catch((err) => {
       console.warn("Live fetch error on client nav:", err);
+    }).finally(() => {
+      setLoading(false);
     });
-  }, [id]);
+  }, [cleanId]);
 
-  if (!product) {
+  if (loading && !product) {
     return (
       <MobileFrame>
         <div className="min-h-dvh bg-background p-12 text-center flex flex-col items-center justify-center gap-3">
@@ -173,6 +184,10 @@ function ProductPage() {
         </div>
       </MobileFrame>
     );
+  }
+
+  if (!product) {
+    return <NotFound />;
   }
 
   const liveSeller = (product as any).seller;
@@ -237,6 +252,72 @@ function ProductPage() {
   const [reportOpen, setReportOpen] = useState(false);
   const [guestOpen, setGuestOpen] = useState(false);
   const nav = useNavigate();
+  const { addConversation } = useChatContext();
+
+  const currentUserId = useMemo(() => {
+    try {
+      const raw = typeof localStorage !== "undefined" ? localStorage.getItem("omeetso_user") : null;
+      if (raw) {
+        const u = JSON.parse(raw);
+        return String(u.id || u._id || "");
+      }
+    } catch {}
+    return "";
+  }, []);
+
+  const isOwner = Boolean(
+    currentUserId &&
+    (
+      currentUserId === String(realSellerId) ||
+      currentUserId === String(product.sellerId) ||
+      currentUserId === String((product.sellerId as any)?._id) ||
+      currentUserId === String(product.seller?._id) ||
+      currentUserId === String(product.seller?.id)
+    )
+  );
+
+  const handleStartChat = async () => {
+    const token = getUserAccessToken() || (typeof localStorage !== "undefined" ? localStorage.getItem("omeetso_user_token") || localStorage.getItem("omeetso_auth_token") : null);
+    if (!token) {
+      setGuestOpen(true);
+      return;
+    }
+    if (isOwner) {
+      toast.info("This is your listing. Opening listing manager...", {
+        action: {
+          label: "Manage",
+          onClick: () => nav({ to: "/listing/$id/manage", params: { id: product.id } })
+        }
+      });
+      nav({ to: "/listing/$id/manage", params: { id: product.id } });
+      return;
+    }
+
+    try {
+      const targetListingId = product.id || product._id;
+      const targetSellerId = (typeof realSellerId === "string" && !realSellerId.startsWith("u_")) ? realSellerId : undefined;
+      const res = await startConversationApi("LISTING", targetListingId, targetSellerId);
+      if (res.success && res.data?.id) {
+        if (addConversation) {
+          addConversation(res.data);
+        }
+        nav({ to: "/chat/$id", params: { id: res.data.id } });
+      } else {
+        toast.error(res.error?.message || "Could not start chat");
+      }
+    } catch {
+      toast.error("Connection error. Please try again.");
+    }
+  };
+
+  const handleMakeOfferClick = () => {
+    const token = getUserAccessToken() || (typeof localStorage !== "undefined" ? localStorage.getItem("omeetso_user_token") || localStorage.getItem("omeetso_auth_token") : null);
+    if (!token) {
+      setGuestOpen(true);
+      return;
+    }
+    setOfferOpen(true);
+  };
 
   const isNegotiable = Boolean(
     !product?.free &&
@@ -378,15 +459,7 @@ function ProductPage() {
       toast.info("Seller has not provided a direct calling number. Please use Chat or WhatsApp.", {
         action: {
           label: "Chat Now",
-          onClick: async () => {
-            if (isGuest()) { setGuestOpen(true); return; }
-            try {
-              const res = await startConversationApi("LISTING", product.id);
-              if (res.success && res.data?.id) {
-                nav({ to: "/chat/$id", params: { id: res.data.id } });
-              }
-            } catch {}
-          }
+          onClick: handleStartChat
         }
       });
       return;
@@ -737,33 +810,32 @@ function ProductPage() {
               <p className="text-sm font-bold text-foreground line-clamp-1">{product.title}</p>
 
               <div className="pt-2 grid grid-cols-1 gap-2.5">
-                <button
-                  onClick={async () => {
-                    if (isGuest()) { setGuestOpen(true); return; }
-                    try {
-                      const res = await startConversationApi("LISTING", product.id);
-                      if (res.success && res.data?.id) {
-                        nav({ to: "/chat/$id", params: { id: res.data.id } });
-                      } else {
-                        toast.error(res.error?.message || "Could not start chat");
-                      }
-                    } catch { toast.error("Connection error. Please try again."); }
-                  }}
-                  className="flex items-center justify-center gap-2 rounded-2xl bg-blue-600 hover:bg-blue-700 text-white py-3.5 text-sm font-extrabold shadow-md active:scale-98 transition-all"
-                >
-                  <MessageCircle className="h-4 w-4" /> Chat with Seller
-                </button>
-
-                {isNegotiable && (
+                {isOwner ? (
                   <button
-                    onClick={() => setOfferOpen(true)}
+                    onClick={() => nav({ to: "/listing/$id/manage", params: { id: product.id } })}
+                    className="flex items-center justify-center gap-2 rounded-2xl bg-blue-600 hover:bg-blue-700 text-white py-3.5 text-sm font-extrabold shadow-md active:scale-98 transition-all"
+                  >
+                    Manage Listing
+                  </button>
+                ) : (
+                  <button
+                    onClick={handleStartChat}
+                    className="flex items-center justify-center gap-2 rounded-2xl bg-blue-600 hover:bg-blue-700 text-white py-3.5 text-sm font-extrabold shadow-md active:scale-98 transition-all"
+                  >
+                    <MessageCircle className="h-4 w-4" /> Chat with Seller
+                  </button>
+                )}
+
+                {isNegotiable && !isOwner && (
+                  <button
+                    onClick={handleMakeOfferClick}
                     className="flex items-center justify-center gap-2 rounded-2xl bg-blue-500/15 hover:bg-blue-500/25 border border-blue-500/30 text-blue-700 dark:text-blue-300 py-3.5 text-sm font-extrabold shadow-xs active:scale-98 transition-all"
                   >
                     <HandCoins className="h-4 w-4 text-blue-600" /> Make an Offer
                   </button>
                 )}
 
-                {waLink && (
+                {waLink && !isOwner && (
                   <a
                     href={waLink}
                     target="_blank"
@@ -774,14 +846,16 @@ function ProductPage() {
                   </a>
                 )}
 
-                <a
-                  href={callablePhone ? `tel:${callablePhone}` : "#"}
-                  onClick={handleCallClick}
-                  className="flex items-center justify-center gap-2 rounded-2xl border border-border bg-secondary/50 hover:bg-secondary py-3 text-sm font-bold text-foreground transition-colors cursor-pointer"
-                  title={callablePhone ? `Call Seller at ${callablePhone}` : "Call Seller"}
-                >
-                  <Phone className="h-4 w-4 text-blue-600" /> Call Seller
-                </a>
+                {!isOwner && (
+                  <a
+                    href={callablePhone ? `tel:${callablePhone}` : "#"}
+                    onClick={handleCallClick}
+                    className="flex items-center justify-center gap-2 rounded-2xl border border-border bg-secondary/50 hover:bg-secondary py-3 text-sm font-bold text-foreground transition-colors cursor-pointer"
+                    title={callablePhone ? `Call Seller at ${callablePhone}` : "Call Seller"}
+                  >
+                    <Phone className="h-4 w-4 text-blue-600" /> Call Seller
+                  </a>
+                )}
 
                 <div className="flex items-center justify-between pt-2 text-xs text-muted-foreground font-semibold">
                   <button onClick={toggle} className="inline-flex items-center gap-1.5 hover:text-foreground cursor-pointer">
@@ -812,51 +886,54 @@ function ProductPage() {
 
         {/* Mobile sticky actions */}
         <div className={`fixed bottom-0 left-1/2 z-40 grid w-full max-w-[430px] -translate-x-1/2 ${
-          waLink
-            ? (isNegotiable ? "grid-cols-4" : "grid-cols-3")
-            : (isNegotiable ? "grid-cols-3" : "grid-cols-2")
+          isOwner
+            ? "grid-cols-1"
+            : waLink
+              ? (isNegotiable ? "grid-cols-4" : "grid-cols-3")
+              : (isNegotiable ? "grid-cols-3" : "grid-cols-2")
         } gap-1.5 border-t border-border bg-card/95 backdrop-blur-md p-2.5 safe-b md:hidden shadow-lg`}>
-          <a
-            href={callablePhone ? `tel:${callablePhone}` : "#"}
-            onClick={handleCallClick}
-            className="flex flex-col items-center justify-center gap-0.5 rounded-2xl border border-border bg-secondary py-2 text-xs font-bold text-foreground cursor-pointer"
-          >
-            <Phone className="h-4 w-4 text-blue-600" /> Call
-          </a>
-          {waLink && (
-            <a
-              href={waLink}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="flex flex-col items-center justify-center gap-0.5 rounded-2xl bg-blue-600 text-white py-2 text-xs font-bold shadow-xs"
-            >
-              WhatsApp
-            </a>
-          )}
-          {isNegotiable && (
+          {isOwner ? (
             <button
-              onClick={() => setOfferOpen(true)}
-              className="flex flex-col items-center justify-center gap-0.5 rounded-2xl border border-blue-500/30 bg-blue-500/15 text-blue-700 dark:text-blue-300 py-2 text-xs font-extrabold"
+              onClick={() => nav({ to: "/listing/$id/manage", params: { id: product.id } })}
+              className="flex items-center justify-center gap-2 rounded-2xl bg-blue-600 text-white py-3 text-sm font-extrabold shadow-sm"
             >
-              <HandCoins className="h-4 w-4 text-blue-600" /> Offer
+              Manage Listing
             </button>
+          ) : (
+            <>
+              <a
+                href={callablePhone ? `tel:${callablePhone}` : "#"}
+                onClick={handleCallClick}
+                className="flex flex-col items-center justify-center gap-0.5 rounded-2xl border border-border bg-secondary py-2 text-xs font-bold text-foreground cursor-pointer"
+              >
+                <Phone className="h-4 w-4 text-blue-600" /> Call
+              </a>
+              {waLink && (
+                <a
+                  href={waLink}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex flex-col items-center justify-center gap-0.5 rounded-2xl bg-blue-600 text-white py-2 text-xs font-bold shadow-xs"
+                >
+                  WhatsApp
+                </a>
+              )}
+              {isNegotiable && (
+                <button
+                  onClick={handleMakeOfferClick}
+                  className="flex flex-col items-center justify-center gap-0.5 rounded-2xl border border-blue-500/30 bg-blue-500/15 text-blue-700 dark:text-blue-300 py-2 text-xs font-extrabold"
+                >
+                  <HandCoins className="h-4 w-4 text-blue-600" /> Offer
+                </button>
+              )}
+              <button
+                onClick={handleStartChat}
+                className="flex flex-col items-center justify-center gap-0.5 rounded-2xl bg-blue-600 text-white py-2 text-xs font-bold shadow-xs"
+              >
+                <MessageCircle className="h-4 w-4" /> Chat
+              </button>
+            </>
           )}
-          <button
-            onClick={async () => {
-              if (isGuest()) { setGuestOpen(true); return; }
-              try {
-                const res = await startConversationApi("LISTING", product.id);
-                if (res.success && res.data?.id) {
-                  nav({ to: "/chat/$id", params: { id: res.data.id } });
-                } else {
-                  toast.error(res.error?.message || "Could not start chat");
-                }
-              } catch { toast.error("Connection error. Please try again."); }
-            }}
-            className="flex flex-col items-center justify-center gap-0.5 rounded-2xl bg-blue-600 text-white py-2 text-xs font-bold shadow-xs"
-          >
-            <MessageCircle className="h-4 w-4" /> Chat
-          </button>
         </div>
 
         <MakeOfferSheet open={offerOpen} onClose={() => setOfferOpen(false)} product={product} initialAmount={offerAmount} />
@@ -917,20 +994,6 @@ function toastCopy() {
   el.className = "fixed bottom-24 left-1/2 -translate-x-1/2 z-[999] rounded-full bg-slate-950 text-white px-4 py-2 text-xs font-bold shadow-lg border border-white/20";
   document.body.appendChild(el);
   setTimeout(() => el.remove(), 1500);
-}
-
-function NotFound() {
-  const nav = useNavigate();
-  return (
-    <MobileFrame>
-      <EmptyState
-        title="Listing removed"
-        body="This listing is no longer available on Omeetso."
-        ctaLabel="Browse similar products"
-        onCta={() => nav({ to: "/home" })}
-      />
-    </MobileFrame>
-  );
 }
 
 function SellerTrustBadgeMatrix({ seller, product }: { seller: any; product?: any }) {
@@ -994,5 +1057,38 @@ function SellerTrustBadgeMatrix({ seller, product }: { seller: any; product?: an
         <div className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider mt-1">{distanceSubtitle}</div>
       </div>
     </div>
+  );
+}
+
+function NotFound() {
+  const nav = useNavigate();
+  return (
+    <MobileFrame>
+      <div className="min-h-[70vh] flex flex-col items-center justify-center p-6 text-center space-y-4">
+        <div className="w-16 h-16 rounded-3xl bg-indigo-50 dark:bg-indigo-950/40 text-indigo-600 flex items-center justify-center text-3xl font-black shadow-inner">
+          🛍️
+        </div>
+        <div className="space-y-1">
+          <h2 className="text-xl font-black text-foreground">Product Not Found</h2>
+          <p className="text-xs text-muted-foreground max-w-xs leading-relaxed">
+            This listing may have been sold, removed by the seller, or the link is incorrect.
+          </p>
+        </div>
+        <div className="flex flex-col sm:flex-row items-center gap-2 pt-2">
+          <button
+            onClick={() => nav({ to: "/results" })}
+            className="w-full sm:w-auto px-5 py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-extrabold text-xs rounded-xl shadow-md transition-all"
+          >
+            Explore Marketplace
+          </button>
+          <button
+            onClick={() => nav({ to: "/" })}
+            className="w-full sm:w-auto px-4 py-2.5 bg-secondary text-foreground font-bold text-xs rounded-xl hover:bg-secondary/80 transition-all"
+          >
+            Go to Home
+          </button>
+        </div>
+      </div>
+    </MobileFrame>
   );
 }

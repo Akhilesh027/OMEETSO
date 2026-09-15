@@ -7,11 +7,11 @@ import { useChatContext } from "@/contexts/ChatProvider";
 import { conversationToThread } from "@/lib/chat-adapter";
 import type { ConversationItem } from "@/api/chat.api";
 
-type Tab = "Buying" | "Selling" | "Stores" | "Archived";
-const TABS: Tab[] = ["Buying", "Selling", "Stores", "Archived"];
+type Tab = "All" | "Buying" | "Selling" | "Stores" | "Archived";
+const TABS: Tab[] = ["All", "Buying", "Selling", "Stores", "Archived"];
 
 export function ThreadListPane({ activeId }: { activeId?: string }) {
-  const [tab, setTab] = useState<Tab>("Buying");
+  const [tab, setTab] = useState<Tab>("All");
   const [q, setQ] = useState("");
 
   const {
@@ -38,9 +38,6 @@ export function ThreadListPane({ activeId }: { activeId?: string }) {
     const t = threads.find((x) => x.id === activeId);
     if (!t) return;
     if (isArchived(t.id)) setTab("Archived");
-    else if (t.role === "buying") setTab("Buying");
-    else if (t.role === "selling") setTab("Selling");
-    else if (t.role === "store") setTab("Stores");
   }, [activeId, threads]);
 
   const filtered = useMemo(() => {
@@ -63,6 +60,7 @@ export function ThreadListPane({ activeId }: { activeId?: string }) {
   }, [threads, tab, q]);
 
   const counts = {
+    All: threads.filter((t) => !isArchived(t.id)).length,
     Buying: threads.filter((t) => t.role === "buying" && !isArchived(t.id)).length,
     Selling: threads.filter((t) => t.role === "selling" && !isArchived(t.id)).length,
     Stores: threads.filter((t) => t.role === "store" && !isArchived(t.id)).length,

@@ -311,3 +311,25 @@ export async function logoutUserApi(): Promise<void> {
   }
 }
 
+export async function deleteUserAccountApi(): Promise<{ success: boolean; error?: string }> {
+  try {
+    const token = getUserAccessToken();
+    const res = await fetch(`${ROOT_API}/users/me`, {
+      method: "DELETE",
+      headers: {
+        "Content-Type": "application/json",
+        ...(token ? { Authorization: `Bearer ${token}` } : {})
+      },
+      credentials: "include"
+    });
+    const json = await res.json();
+    if (!res.ok || !json.success) {
+      return { success: false, error: json.error?.message || "Failed to delete account" };
+    }
+    return { success: true };
+  } catch (error) {
+    return { success: false, error: "Network error: Unable to connect to server" };
+  }
+}
+
+

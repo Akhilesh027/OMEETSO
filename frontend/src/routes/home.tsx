@@ -140,13 +140,9 @@ function HeroProductShowcase({ items }: { items?: any[] }) {
           const rel = (index - activeIdx + displayItems.length) % displayItems.length;
 
           if (rel === 0) {
-            return (
-              <Link
-                key={item.id}
-                to="/product/$id"
-                params={{ id: item.id }}
-                className="absolute inset-x-0 top-5 z-30 rounded-3xl bg-slate-900/90 dark:bg-slate-950/95 backdrop-blur-2xl border border-amber-400/30 p-4 sm:p-5 shadow-2xl transition-all duration-700 ease-out animate-in fade-in zoom-in-95 text-white hover:border-amber-400/60 group cursor-pointer block"
-              >
+            const isRealProduct = Boolean(item.id && !item.id.startsWith("hp-live-") && !item.id.startsWith("ad-"));
+            const content = (
+              <div className="absolute inset-x-0 top-5 z-30 rounded-3xl bg-slate-900/90 dark:bg-slate-950/95 backdrop-blur-2xl border border-amber-400/30 p-4 sm:p-5 shadow-2xl transition-all duration-700 ease-out animate-in fade-in zoom-in-95 text-white hover:border-amber-400/60 group cursor-pointer block">
                 <div className="flex items-center gap-3.5">
                   <img
                     src={item.image}
@@ -192,6 +188,16 @@ function HeroProductShowcase({ items }: { items?: any[] }) {
                     <MessageSquare className="h-3.5 w-3.5" /> Make Direct Offer
                   </span>
                 </div>
+              </div>
+            );
+
+            return isRealProduct ? (
+              <Link key={item.id} to="/product/$id" params={{ id: item.id }}>
+                {content}
+              </Link>
+            ) : (
+              <Link key={item.id} to="/results">
+                {content}
               </Link>
             );
           }

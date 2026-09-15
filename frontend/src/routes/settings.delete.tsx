@@ -4,8 +4,9 @@ import { MobileFrame } from "@/components/omeetso/MobileFrame";
 import { BackBar } from "@/components/omeetso/TopBar";
 import { ConfirmModal } from "@/components/omeetso/account";
 import { setAccountStatus } from "@/lib/account";
+import { deleteUserAccountApi } from "@/api/auth.api";
 import { toast } from "sonner";
-import { AlertTriangle } from "lucide-react";
+import { AlertTriangle, Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/settings/delete")({
@@ -25,6 +26,28 @@ function DeleteAccount() {
   const [ack, setAck] = useState(false);
   const [typed, setTyped] = useState("");
   const [confirm, setConfirm] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
+
+  const handleDeleteConfirm = async () => {
+    setIsDeleting(true);
+    try {
+      const res = await deleteUserAccountApi();
+      if (!res.success) {
+        toast.error(res.error || "Failed to delete account. Please try again.");
+        setIsDeleting(false);
+        setConfirm(false);
+        return;
+      }
+
+      setAccountStatus("deleted" as any);
+      toast.success("Your account has been deleted permanently.");
+      nav({ to: "/logout" });
+    } catch {
+      toast.error("An unexpected error occurred while deleting your account.");
+      setIsDeleting(false);
+      setConfirm(false);
+    }
+  };
 
   return (
     <MobileFrame>
@@ -41,12 +64,11 @@ function DeleteAccount() {
                 <p className="text-sm font-bold">What happens when you delete</p>
                 <ul className="mt-2 list-disc pl-5 text-xs text-muted-foreground space-y-1">
                   <li>Profile removed from Omeetso</li>
-                  <li>Listings removed</li>
-                  <li>Stores removed</li>
-                  <li>Promotions cancelled</li>
-                  <li>Wallet refunds require support (placeholder)</li>
+                  <li>Listings removed and de-listed</li>
+                  <li>Stores deactivated</li>
+                  <li>All active desktop and mobile sessions revoked</li>
                   <li>Reviews may remain anonymised</li>
-                  <li>Some records may be retained for safety and legal requirements</li>
+                  <li>Some records may be retained for safety and legal compliance</li>
                 </ul>
               </div>
               <button onClick={() => setStep(2)} className="mt-4 w-full rounded-full bg-rose-600 py-3 text-sm font-bold text-white">Continue</button>
@@ -87,16 +109,16 @@ function DeleteAccount() {
                 <button onClick={() => { if (typed !== "DELETE") { toast.error("Please type DELETE exactly"); return; } setConfirm(true); }}
                   className="flex-1 rounded-full bg-rose-600 py-3 text-sm font-bold text-white">Delete Account</button>
               </div>
-              <p className="mt-2 text-[11px] text-muted-foreground">This is a frontend simulation. No data leaves your device.</p>
             </>
           )}
         </div>
 
-        <ConfirmModal open={confirm} title="Delete account permanently?" body="This action cannot be undone."
-          confirmLabel="Yes, delete" cancelLabel="Cancel" danger
-          onCancel={() => setConfirm(false)}
-          onConfirm={() => { setAccountStatus("pending_deletion"); toast.success("Account deletion scheduled"); nav({ to: "/logout" }); }} />
+        <ConfirmModal open={confirm} title="Delete account permanently?" body="This action cannot be undone. All your listings, profile data, and sessions will be permanently deactivated."
+          confirmLabel={isDeleting ? "Deleting..." : "Yes, delete"} cancelLabel="Cancel" danger
+          onCancel={() => { if (!isDeleting) setConfirm(false); }}
+          onConfirm={handleDeleteConfirm} />
       </div>
     </MobileFrame>
   );
 }
+

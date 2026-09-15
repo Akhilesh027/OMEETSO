@@ -1538,16 +1538,24 @@ export async function serveAds(req: Request, res: Response, next: NextFunction):
     const now = new Date();
 
     const query: Record<string, any> = {
-      status: "ACTIVE",
-      startAt: { $lte: now },
-      endAt: { $gte: now }
+      status: { $in: ["ACTIVE", "APPROVED", "active", "approved"] },
+      $or: [
+        { endAt: { $exists: false } },
+        { endAt: null },
+        { endAt: { $gte: new Date(now.getTime() - 48 * 60 * 60 * 1000) } }
+      ]
     };
 
     if (placement) {
-      if (placement === "SEARCH_TOP" || placement === "CATEGORY_FEATURED") {
-        query.placementIds = { $in: ["SEARCH_TOP", "CATEGORY_FEATURED", "CATEGORY_HEADER"] };
+      const pStr = String(placement).toUpperCase().trim();
+      if (pStr === "SEARCH_TOP" || pStr === "CATEGORY_FEATURED" || pStr === "CATEGORY_HEADER") {
+        query.placementIds = { $in: ["SEARCH_TOP", "CATEGORY_FEATURED", "CATEGORY_HEADER", "search_top", "category_featured", "category_header", pStr] };
+      } else if (pStr === "HOMEPAGE_HERO" || pStr === "HOME_HERO") {
+        query.placementIds = { $in: ["HOMEPAGE_HERO", "HOME_HERO", "homepage_hero", "home_hero", pStr] };
+      } else if (pStr === "STORE_BANNER" || pStr === "STORE_PROMOTION") {
+        query.placementIds = { $in: ["STORE_BANNER", "STORE_PROMOTION", "store_banner", "store_promotion", pStr] };
       } else {
-        query.placementIds = placement;
+        query.placementIds = { $in: [pStr, String(placement), new RegExp(`^${pStr}$`, "i")] };
       }
     }
 
@@ -1555,6 +1563,7 @@ export async function serveAds(req: Request, res: Response, next: NextFunction):
       .populate("listingId", "title priceInPaise images city area pincode categoryId condition storeId")
       .populate("storeId", "name cover logo area city pincode primaryCategory")
       .populate("advertiserUserId", "profile.city profile.area profile.pincode")
+      .sort({ updatedAt: -1, createdAt: -1 })
       .limit(50)
       .lean();
 
@@ -1562,15 +1571,15 @@ export async function serveAds(req: Request, res: Response, next: NextFunction):
     const userCategory = (categoryId || "").toString().toLowerCase().trim();
     const userCity = (city || "").toString().toLowerCase().trim();
     const userArea = (area || "").toString().toLowerCase().trim();
-    const userPin = (pincode || "").toString().trim();
+    const userPin = (pincode || "").toString().replace(/\D/g, "").trim();
 
     const isBangalore = (s: string) => s.includes("bangalore") || s.includes("bengaluru") || s.includes("benglure") || s.includes("blr") || s.includes("560034") || s.includes("560001");
     const isHyderabad = (s: string) => s.includes("hyderabad") || s.includes("secunderabad") || s.includes("hyd") || s.includes("cyberabad") || s.includes("500081") || s.includes("500032") || s.includes("500039") || s.includes("500072") || s.includes("500034");
     const isMumbai = (s: string) => s.includes("mumbai") || s.includes("bombay") || s.includes("thane") || s.includes("400050") || s.includes("400001");
 
-    // 1. Strict Category Match: If userCategory is provided, ad MUST strictly belong to this category
+    // 1. Strict Category Match: If userCategory is provided, ad MUST belong to this category
     const categoryMatchedCampaigns = activeCampaigns.filter((c: any) => {
-      if (userCategory) {
+      if (userCategory && userCategory !== "all") {
         const campaignCatIds = (c.targeting?.categoryIds || []).map((cat: any) => String(cat).toLowerCase().trim());
         const listingCat = (c.listingId?.categoryId || "").toString().toLowerCase().trim();
         const storeCat = (c.storeId?.primaryCategory || "").toString().toLowerCase().trim();
@@ -1587,9 +1596,9 @@ export async function serveAds(req: Request, res: Response, next: NextFunction):
       return true;
     });
 
-    // 2. Score campaigns by hyperlocal relevance
+    // 2. Score campaigns by hyperlocal relevance and pincode precision
     const scoredCampaigns = categoryMatchedCampaigns.map((c: any) => {
-      let score = 1; // Base category match score
+      let score = 1; // Base score
 
       const allAdCities = [
         c.targeting?.city,
@@ -1598,10 +1607,28 @@ export async function serveAds(req: Request, res: Response, next: NextFunction):
         c.advertiserUserId?.profile?.city
       ].filter(Boolean).map((s: string) => s.toLowerCase().trim());
 
-      const adPin = (c.targeting?.pincodes?.length ? c.targeting.pincodes : (c.listingId?.pincode ? [c.listingId.pincode] : [])).map(String).map((s: string) => s.trim());
-      const adAreas = (c.targeting?.targetAreas?.length ? c.targeting.targetAreas : (c.listingId?.area ? [c.listingId.area] : [])).map((a: any) => String(a).toLowerCase().trim());
+      const rawPins = [
+        ...(Array.isArray(c.targeting?.pincodes) ? c.targeting.pincodes : []),
+        ...(Array.isArray(c.audience?.pincodes) ? c.audience.pincodes : []),
+        c.listingId?.pincode,
+        c.storeId?.pincode,
+        c.advertiserUserId?.profile?.pincode
+      ].filter(Boolean);
+
+      const adPin = Array.from(new Set(rawPins.map((p: any) => String(p).replace(/\D/g, "").trim()).filter(Boolean)));
+      
+      const rawAreas = [
+        ...(Array.isArray(c.targeting?.targetAreas) ? c.targeting.targetAreas : []),
+        ...(Array.isArray(c.audience?.areas) ? c.audience.areas : []),
+        c.listingId?.area,
+        c.storeId?.area,
+        c.advertiserUserId?.profile?.area
+      ].filter(Boolean);
+
+      const adAreas = Array.from(new Set(rawAreas.map((a: any) => String(a).toLowerCase().trim()).filter(Boolean)));
 
       const hasExactPinMatch = Boolean(userPin && adPin.length > 0 && adPin.includes(userPin));
+      const hasPrefixPinMatch = Boolean(userPin && adPin.length > 0 && adPin.some((p: string) => p.slice(0, 3) === userPin.slice(0, 3)));
       const hasAreaMatch = Boolean(userArea && adAreas.length > 0 && adAreas.some((a: string) => a.includes(userArea) || userArea.includes(a)));
       const isSameCity = Boolean(userCity && allAdCities.some((adC: string) => {
         if (isBangalore(userCity) && isBangalore(adC)) return true;
@@ -1615,12 +1642,13 @@ export async function serveAds(req: Request, res: Response, next: NextFunction):
         (userCity && isHyderabad(userCity) && allAdCities.some(isHyderabad))
       );
 
-      if (hasExactPinMatch) score += 100;
+      if (hasExactPinMatch) score += 120;
+      else if (hasPrefixPinMatch) score += 70;
       if (hasAreaMatch) score += 50;
       if (isSameCity) score += 30;
       if (isSameMetro) score += 20;
 
-      return { c, score, hasExactPinMatch, hasAreaMatch, isSameCity, isSameMetro };
+      return { c, score, hasExactPinMatch, hasPrefixPinMatch, hasAreaMatch, isSameCity, isSameMetro };
     });
 
     // 3. Selection & Fallback
@@ -1633,7 +1661,7 @@ export async function serveAds(req: Request, res: Response, next: NextFunction):
         geoMatched.sort((a, b) => b.score - a.score);
         matchedCampaigns = geoMatched.map(item => item.c);
       } else {
-        // Fallback: If no exact geo match, still serve the active category ad on its category page!
+        // Fallback: If no exact geo match, still serve active campaign for this placement/category
         matchedCampaigns = scoredCampaigns.map(item => item.c);
       }
     }

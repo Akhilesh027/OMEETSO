@@ -12,6 +12,7 @@ import {
 import { formatINR } from "@/lib/mock";
 import { toast } from "sonner";
 import { useChatContext, type ConnectionStatus } from "@/contexts/ChatProvider";
+import { getUserAccessToken } from "@/api/auth.api";
 import { conversationToThread } from "@/lib/chat-adapter";
 import { formatChatTime, isMuted, isBlocked, isArchived } from "@/lib/chat";
 import type { ConversationItem } from "@/api/chat.api";
@@ -26,12 +27,12 @@ export const Route = createFileRoute("/chats")({
   component: Chats,
 });
 
-type Tab = "Buying" | "Selling" | "Stores" | "Archived";
-const TABS: Tab[] = ["Buying", "Selling", "Stores", "Archived"];
+type Tab = "All" | "Buying" | "Selling" | "Stores" | "Archived";
+const TABS: Tab[] = ["All", "Buying", "Selling", "Stores", "Archived"];
 
 function Chats() {
   const nav = useNavigate();
-  const [tab, setTab] = useState<Tab>("Buying");
+  const [tab, setTab] = useState<Tab>("All");
   const [q, setQ] = useState("");
   const [searchOpen, setSearchOpen] = useState(false);
   const [unreadOnly, setUnreadOnly] = useState(false);
@@ -77,6 +78,7 @@ function Chats() {
   }, [threads, tab, q, unreadOnly]);
 
   const counts = {
+    All: threads.filter((t) => !isArchived(t.id)).length,
     Buying: threads.filter((t) => t.role === "buying" && !isArchived(t.id)).length,
     Selling: threads.filter((t) => t.role === "selling" && !isArchived(t.id)).length,
     Stores: threads.filter((t) => t.role === "store" && !isArchived(t.id)).length,
@@ -95,10 +97,20 @@ function Chats() {
     <MobileFrame>
       <div className="min-h-dvh bg-background pb-28">
         {/* Connection status banner */}
-        {connectionStatus === "error" && (
-          <div className="flex items-center gap-2 bg-destructive/10 px-4 py-2 text-xs font-semibold text-destructive">
-            <WifiOff className="h-3.5 w-3.5" />
-            Connection lost. Retrying…
+        {connectionStatus === "error" && !!getUserAccessToken() && (
+          <div className="flex items-center justify-between gap-2 bg-destructive/10 px-4 py-2 text-xs font-semibold text-destructive">
+            <div className="flex items-center gap-2">
+              <WifiOff className="h-3.5 w-3.5" />
+              <span>Connection lost. Retrying…</span>
+            </div>
+            <button
+              onClick={() => {
+                loadConversations();
+              }}
+              className="px-2 py-0.5 rounded-md bg-destructive/15 hover:bg-destructive/20 text-[11px] font-bold"
+            >
+              Retry Now
+            </button>
           </div>
         )}
 

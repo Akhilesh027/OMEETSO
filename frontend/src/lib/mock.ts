@@ -425,7 +425,10 @@ export const formatINR = (n: number) => {
 };
 
 export const getProduct = (id: string) => {
-  const live = listListings().find((l) => l.id === id);
+  if (!id) return undefined;
+  const cleanId = id.trim();
+  const allListings = listListings();
+  const live = allListings.find((l) => l.id === cleanId || (l as any)._id === cleanId || l.id === id);
   if (live) {
     const mainImg = Array.isArray(live.images) && live.images.length > 0 && !live.images[0].startsWith("blob:")
       ? live.images[0]
@@ -464,7 +467,7 @@ export const getProduct = (id: string) => {
       method: live.method,
     };
   }
-  return PRODUCTS.find((p) => p.id === id);
+  return PRODUCTS.find((p) => p.id === cleanId || p.id === id);
 };
 
 export const getSeller = (id: string): Seller => {

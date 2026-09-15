@@ -822,16 +822,20 @@ function DetailedSellPage() {
                       <div>
                         <label className="block text-xs font-bold text-muted-foreground mb-1">Nearby Delivery Fee (₹)</label>
                         <input
-                          type="number"
-                          min={0}
-                          value={data.nearbyChanges?.deliveryFee ?? 0}
-                          onChange={(e) => patch({
-                            nearbyChanges: {
-                              ...data.nearbyChanges!,
-                              deliveryFee: Math.max(0, Number(e.target.value))
-                            }
-                          })}
-                          placeholder="0 for Free Delivery"
+                          type="text"
+                          inputMode="numeric"
+                          value={(data.nearbyChanges?.deliveryFee ?? 0) === 0 ? "" : data.nearbyChanges?.deliveryFee}
+                          onChange={(e) => {
+                            const val = e.target.value.replace(/\D/g, "");
+                            const num = val === "" ? 0 : Math.max(0, parseInt(val, 10));
+                            patch({
+                              nearbyChanges: {
+                                ...data.nearbyChanges!,
+                                deliveryFee: num
+                              }
+                            });
+                          }}
+                          placeholder="0 (Free Delivery)"
                           className="w-full h-11 rounded-2xl border border-border bg-background px-3 text-xs font-bold text-foreground outline-none focus:border-indigo-brand"
                         />
                       </div>

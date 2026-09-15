@@ -18,7 +18,7 @@ import {
 } from "@/realtime/socket";
 import { getUserAccessToken } from "@/api/auth.api";
 import {
-  getConversationsApi, getMessagesApi, sendMessageApi,
+  getConversationsApi, getConversationByIdApi, getMessagesApi, sendMessageApi,
   createOfferApi, updateOfferStatusApi,
   type ConversationItem, type MessageItem,
 } from "@/api/chat.api";
@@ -47,6 +47,8 @@ interface ChatState {
 
   // actions
   loadConversations: () => Promise<void>;
+  fetchConversationById: (conversationId: string) => Promise<ConversationItem | null>;
+  addConversation: (item: ConversationItem) => void;
   loadMessages: (conversationId: string) => Promise<void>;
   loadMoreMessages: (conversationId: string) => Promise<void>;
   sendTextMessage: (conversationId: string, text: string) => Promise<void>;
@@ -106,9 +108,26 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
 
     const socket = connectSocket(token);
 
-    socket.on("connect", () => setStatus("connected"));
-    socket.on("disconnect", () => setStatus("disconnected"));
-    socket.on("connect_error", () => setStatus("error"));
+    socket.on("connect", () => {
+      setStatus("connected");
+    });
+
+    socket.on("disconnect", (reason) => {
+      if (reason === "io server disconnect") {
+        setStatus("disconnected");
+      } else {
+        setStatus("disconnected");
+      }
+    });
+
+    socket.on("connect_error", (err) => {
+      // If auth token is missing or rejected, set disconnected instead of showing noisy error banners
+      if (err?.message?.toLowerCase().includes("token") || err?.message?.toLowerCase().includes("auth") || err?.message?.toLowerCase().includes("user not found")) {
+        setStatus("disconnected");
+      } else {
+        setStatus("error");
+      }
+    });
 
     // Real-time Push & In-App Notifications
     socket.on("notification:new", (notif: { title: string; body: string; type: string; link?: string }) => {
@@ -220,24 +239,73 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
 
   // ── Load conversations from MongoDB ──
   const loadConversations = useCallback(async () => {
+    const token = getUserAccessToken();
+    if (!token) {
+      setConversations([]);
+      setConversationsLoading(false);
+      setConversationsError(null);
+      setStatus("disconnected");
+      return;
+    }
+
     setConversationsLoading(true);
     setConversationsError(null);
     try {
       const res = await getConversationsApi();
-      if (res.success && res.data) {
+      if (res.success && Array.isArray(res.data)) {
         setConversations(res.data);
+        setConversationsError(null);
+      } else if ((res as any)?.error?.code === "UNAUTHORIZED" || (res as any)?.error?.code === "SESSION_REVOKED") {
+        setConversations([]);
+        setConversationsError(null);
+        setStatus("disconnected");
       } else {
-        setConversationsError("Failed to load conversations");
+        setConversationsError((res as any)?.error?.message || "Unable to load conversations");
       }
     } catch {
-      setConversationsError("Connection error. Please check your internet.");
+      setConversationsError("Unable to connect to chat server. Tap to retry.");
     } finally {
       setConversationsLoading(false);
     }
   }, []);
 
+  // ── Fetch single conversation by ID ──
+  const fetchConversationById = useCallback(async (conversationId: string): Promise<ConversationItem | null> => {
+    const token = getUserAccessToken();
+    if (!token) return null;
+
+    try {
+      const res = await getConversationByIdApi(conversationId);
+      if (res.success && res.data) {
+        const item = res.data;
+        setConversations((prev) => {
+          if (prev.some((c) => c.id === item.id)) {
+            return prev.map((c) => (c.id === item.id ? item : c));
+          }
+          return [item, ...prev];
+        });
+        return item;
+      }
+    } catch {}
+    return null;
+  }, []);
+
+  // ── Add or update conversation in state ──
+  const addConversation = useCallback((item: ConversationItem) => {
+    if (!item || !item.id) return;
+    setConversations((prev) => {
+      if (prev.some((c) => c.id === item.id)) {
+        return prev.map((c) => (c.id === item.id ? { ...c, ...item } : c));
+      }
+      return [item, ...prev];
+    });
+  }, []);
+
   // ── Load messages for a conversation ──
   const loadMessages = useCallback(async (conversationId: string) => {
+    const token = getUserAccessToken();
+    if (!token) return;
+
     setMessagesLoading((prev) => {
       const next = new Map(prev);
       next.set(conversationId, true);
@@ -497,6 +565,8 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
         hasMore,
         typingUsers,
         loadConversations,
+        fetchConversationById,
+        addConversation,
         loadMessages,
         loadMoreMessages,
         sendTextMessage,

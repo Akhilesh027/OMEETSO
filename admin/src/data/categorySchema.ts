@@ -501,7 +501,7 @@ export const CATEGORY_SCHEMAS: CategoryDefinition[] = [
     filters: [
       "Furniture Type",
       "Material (Teak Wood, Engineered Wood, Metal, Fabric, Leatherette, Plastic)",
-      "Seating Capacity (1, 2, 3, 5, 6+ Seater)",
+      "Seating Capacity (1 Seater, 2 Seater, 3 Seater, 3+1, 3+2, 3+1+1, 3+2+1, 3+2+2, 3+2+1+1, 3+3, 2+2+2, L-Shape, U-Shape, Sectional / Modular)",
       "Size or Dimensions",
       "Colour",
       "Brand",

@@ -6,13 +6,16 @@ import { StatusBadge } from "@/components/sell/StatusBadge";
 import { ConfirmModal } from "@/components/sell";
 import { BottomSheet } from "@/components/omeetso/BottomSheet";
 import {
-  getListing, fetchLiveListingById, deleteListing, setStatus, markSold, renewListing,
+  getListing, fetchLiveListingById, deleteListing, setStatus, markSold, renewListing, upsertListing,
   getAnalytics, formatINR, formatDate, timeAgo, type Listing,
   CONDITION_LABEL, FULFILMENT_LABEL, CONTACT_LABEL, TIME_LABEL, subscribe,
 } from "@/lib/listings";
+import { fetchLiveUserStores, listStores, getStore, type Store } from "@/lib/stores";
+import { DEFAULT_SAMPLE_STORES } from "@/lib/sampleStores";
+import { API_BASE } from "@/config/api";
 import {
   Edit3, PauseCircle, PlayCircle, RefreshCw, Trash2, Share2, BadgeCheck,
-  BarChart3, Sparkles, Store as StoreIcon, ChevronRight, AlertCircle, Eye, MessageSquare, Heart, ShieldCheck, CheckCircle2, XCircle, ArrowRight
+  BarChart3, Sparkles, Store as StoreIcon, ChevronRight, AlertCircle, Eye, MessageSquare, Heart, ShieldCheck, CheckCircle2, XCircle, ArrowRight, Check, Plus
 } from "lucide-react";
 import { toast } from "sonner";
 import { BoostAdWizard } from "@/components/omeetso/promotions/BoostAdWizard";
@@ -25,11 +28,27 @@ export const Route = createFileRoute("/listing/$id/manage")({
 function Manage() {
   const { id } = Route.useParams();
   const [showBoostWizard, setShowBoostWizard] = useState(false);
+  const [showStoreSheet, setShowStoreSheet] = useState(false);
   const nav = useNavigate();
   const [l, setL] = useState<Listing | undefined>(undefined);
   const [showDelete, setShowDelete] = useState(false);
   const [showPause, setShowPause] = useState(false);
   const [showSold, setShowSold] = useState(false);
+  const [userStores, setUserStores] = useState<Store[]>([]);
+  const [loadingStores, setLoadingStores] = useState(false);
+
+  useEffect(() => {
+    fetchLiveUserStores().then((stores) => {
+      if (stores && stores.length > 0) {
+        setUserStores(stores);
+      } else {
+        const local = listStores();
+        setUserStores(local);
+      }
+    }).catch(() => {
+      setUserStores(listStores());
+    });
+  }, []);
 
   useEffect(() => {
     fetchLiveListingById(id).then((live) => {
@@ -247,8 +266,12 @@ function Manage() {
                   <ActionRow icon={PauseCircle} label="Pause Listing" onClick={() => setShowPause(true)} disabled={isSold || isReview || isRejected} />
                 )}
 
-                <ActionRow icon={BadgeCheck} label="Mark as Sold" onClick={() => setShowSold(true)} disabled={isSold || isReview} />
-                <ActionRow icon={StoreIcon} label="Add to Business Store" onClick={() => toast.info("Listing added to store inventory")} />
+                <ActionRow
+                  icon={StoreIcon}
+                  label={l.storeId ? "Manage Business Store" : "Add to Business Store"}
+                  onClick={() => setShowStoreSheet(true)}
+                  disabled={isSold}
+                />
                 <ActionRow icon={BarChart3} label="View Detailed Analytics" to={`/listing/${id}/analytics`} />
                 <ActionRow icon={Sparkles} label="Promote Listing" onClick={() => setShowBoostWizard(true)} disabled={isReview} />
                 <ActionRow icon={Trash2} label="Delete Listing Permanently" destructive onClick={() => setShowDelete(true)} />
@@ -268,6 +291,45 @@ function Manage() {
         </div>
 
         {/* MODALS */}
+        <AddToStoreSheet
+          open={showStoreSheet}
+          onClose={() => setShowStoreSheet(false)}
+          listing={l}
+          stores={userStores.length > 0 ? userStores : (DEFAULT_SAMPLE_STORES as any)}
+          onStoreAssigned={(storeId, storeName) => {
+            const updated = {
+              ...l,
+              storeId: storeId || undefined,
+              storeMeta: storeId ? { ...(l.storeMeta ?? {}), stockStatus: "in_stock" as const } : undefined
+            };
+            upsertListing(updated);
+            setL(updated);
+
+            // Sync with backend API
+            const token = localStorage.getItem("omeetso_user_token");
+            fetch(`${API_BASE}/listings/${l.id}`, {
+              method: "PATCH",
+              headers: {
+                "Content-Type": "application/json",
+                ...(token ? { Authorization: `Bearer ${token}` } : {})
+              },
+              body: JSON.stringify({ storeId: storeId || null })
+            }).catch(() => {});
+
+            setShowStoreSheet(false);
+            if (storeId) {
+              toast.success(`Listing added to "${storeName}" catalog!`, {
+                action: {
+                  label: "View Catalog",
+                  onClick: () => nav({ to: "/store/$id", params: { id: storeId } })
+                }
+              });
+            } else {
+              toast.info("Listing removed from business store");
+            }
+          }}
+        />
+
         <ConfirmModal
           open={showDelete}
           title="Delete this listing permanently?"
@@ -433,3 +495,153 @@ function MarkSoldSheet({
     </BottomSheet>
   );
 }
+
+function AddToStoreSheet({
+  open,
+  onClose,
+  listing,
+  stores,
+  onStoreAssigned,
+}: {
+  open: boolean;
+  onClose: () => void;
+  listing: Listing;
+  stores: Store[];
+  onStoreAssigned: (storeId: string | null, storeName: string) => void;
+}) {
+  const [selectedId, setSelectedId] = useState<string>(listing.storeId || (stores[0]?.id ?? ""));
+  const nav = useNavigate();
+
+  useEffect(() => {
+    setSelectedId(listing.storeId || (stores[0]?.id ?? ""));
+  }, [listing.storeId, stores]);
+
+  const selectedStore = stores.find((s) => s.id === selectedId || (s as any).slug === selectedId);
+
+  return (
+    <BottomSheet
+      open={open}
+      onClose={onClose}
+      title="Add to Business Store"
+      subtitle="Select a verified merchant store to feature this product in its catalog."
+      footer={
+        <div className="flex gap-2">
+          {listing.storeId && (
+            <button
+              type="button"
+              onClick={() => onStoreAssigned(null, "")}
+              className="flex-1 py-3 text-xs font-black rounded-2xl border border-rose-500/30 text-rose-600 dark:text-rose-400 bg-rose-500/10 hover:bg-rose-500/20 transition-all"
+            >
+              Remove from Store
+            </button>
+          )}
+          <button
+            type="button"
+            disabled={!selectedId}
+            onClick={() => {
+              if (selectedId) {
+                onStoreAssigned(selectedId, selectedStore?.name || "Business Store");
+              }
+            }}
+            className="flex-1 py-3 text-xs font-black rounded-2xl bg-primary text-primary-foreground hover:bg-electric transition-all shadow-md flex items-center justify-center gap-1.5 disabled:opacity-50"
+          >
+            <CheckCircle2 className="h-4 w-4" />
+            {listing.storeId ? "Update Store Assignment" : "Assign to Store"}
+          </button>
+        </div>
+      }
+    >
+      <div className="space-y-4 font-sans pt-1">
+        {stores.length === 0 ? (
+          <div className="rounded-3xl border border-dashed border-border p-6 text-center space-y-3">
+            <StoreIcon className="mx-auto h-10 w-10 text-muted-foreground" />
+            <div>
+              <p className="text-sm font-bold text-foreground">No Business Store Found</p>
+              <p className="text-xs text-muted-foreground mt-1">
+                You haven't created a business store yet. Setup a storefront to organize catalogs and receive direct buyer inquiries.
+              </p>
+            </div>
+            <button
+              onClick={() => {
+                onClose();
+                nav({ to: "/store/create" });
+              }}
+              className="inline-flex items-center gap-1.5 px-4 py-2.5 rounded-2xl bg-primary text-primary-foreground text-xs font-black shadow-md hover:bg-electric transition-all"
+            >
+              <Plus className="h-4 w-4" /> Create Storefront
+            </button>
+          </div>
+        ) : (
+          <>
+            <p className="text-xs font-extrabold text-foreground uppercase tracking-wide">
+              Select Storefront
+            </p>
+            <div className="space-y-2 max-h-[320px] overflow-y-auto pr-1">
+              {stores.map((s) => {
+                const isSelected = selectedId === s.id || selectedId === (s as any).slug;
+                const isCurrent = listing.storeId === s.id || listing.storeId === (s as any).slug;
+                return (
+                  <button
+                    key={s.id}
+                    type="button"
+                    onClick={() => setSelectedId(s.id)}
+                    className={`w-full flex items-center gap-3 rounded-2xl border p-3.5 text-left transition-all ${
+                      isSelected
+                        ? "border-primary bg-primary/10 shadow-sm"
+                        : "border-border bg-card hover:bg-secondary/40"
+                    }`}
+                  >
+                    <div className="h-11 w-11 rounded-xl bg-secondary border border-border flex items-center justify-center shrink-0 overflow-hidden font-black text-xs">
+                      {s.logo ? (
+                        <img src={s.logo} alt={s.name} className="h-full w-full object-cover" />
+                      ) : (
+                        <StoreIcon className="h-5 w-5 text-primary" />
+                      )}
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center gap-1.5">
+                        <p className="text-sm font-extrabold text-foreground truncate">{s.name}</p>
+                        {isCurrent && (
+                          <span className="text-[10px] font-black uppercase px-2 py-0.5 rounded-full bg-emerald-500/15 text-emerald-600 border border-emerald-500/30">
+                            Current
+                          </span>
+                        )}
+                      </div>
+                      <p className="text-xs text-muted-foreground truncate">
+                        {s.primaryCategory || "Retail"} • {s.area || s.city || "Hyderabad"}
+                      </p>
+                    </div>
+                    <div
+                      className={`h-6 w-6 rounded-full border flex items-center justify-center transition-all ${
+                        isSelected
+                          ? "border-primary bg-primary text-primary-foreground"
+                          : "border-border bg-transparent"
+                      }`}
+                    >
+                      {isSelected && <Check className="h-3.5 w-3.5" />}
+                    </div>
+                  </button>
+                );
+              })}
+            </div>
+
+            <div className="pt-2 flex items-center justify-between border-t border-border/60">
+              <span className="text-xs text-muted-foreground font-semibold">Need another store?</span>
+              <button
+                type="button"
+                onClick={() => {
+                  onClose();
+                  nav({ to: "/store/create" });
+                }}
+                className="text-xs font-black text-primary hover:underline flex items-center gap-1"
+              >
+                <Plus className="h-3.5 w-3.5" /> Create New Store
+              </button>
+            </div>
+          </>
+        )}
+      </div>
+    </BottomSheet>
+  );
+}
+

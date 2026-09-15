@@ -6,7 +6,8 @@ import {
   addSavedLocation,
   deleteSavedLocation,
   getPublicProfile,
-  getAdminUsersList
+  getAdminUsersList,
+  deleteMyAccount
 } from "../controllers/users.controller";
 import { authenticateUser } from "../../../middleware/authenticateUser";
 
@@ -16,7 +17,9 @@ usersRouter.get("/admin/all", getAdminUsersList);
 
 usersRouter.get("/me", authenticateUser, getMyProfile);
 usersRouter.patch("/me", authenticateUser, updateMyProfile);
+usersRouter.delete("/me", authenticateUser, deleteMyAccount);
 usersRouter.get("/me/locations", authenticateUser, getSavedLocations);
 usersRouter.post("/me/locations", authenticateUser, addSavedLocation);
 usersRouter.delete("/me/locations/:locationId", authenticateUser, deleteSavedLocation);
 usersRouter.get("/:userId/public", getPublicProfile);
+

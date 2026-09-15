@@ -3,6 +3,7 @@ import crypto from "crypto";
 import { User } from "../../users/models/User";
 import { OtpChallenge } from "../models/OtpChallenge";
 import { UserSession } from "../models/UserSession";
+import { UserStatus } from "../../../contracts";
 import {
   generateUserAccessToken,
   generateOpaqueToken,
@@ -35,6 +36,19 @@ export async function requestOtp(req: Request, res: Response, next: NextFunction
       res.status(400).json({
         success: false,
         error: { code: "INVALID_PHONE", message: "Please enter a valid 10-digit mobile number" }
+      });
+      return;
+    }
+
+    // Check if account was deleted or permanently suspended
+    const existingUser = await User.findOne({ phone: normalizedPhone });
+    if (existingUser && (existingUser.status === UserStatus.DELETED || existingUser.status === UserStatus.PERMANENTLY_SUSPENDED)) {
+      res.status(403).json({
+        success: false,
+        error: {
+          code: "ACCOUNT_DELETED",
+          message: "This account has been deleted or permanently suspended. Please contact support for assistance."
+        }
       });
       return;
     }
@@ -118,11 +132,23 @@ export async function verifyOtp(req: Request, res: Response, next: NextFunction)
     let user = await User.findOne({ phone: normalizedPhone });
     let isNewUser = false;
 
+    if (user && (user.status === UserStatus.DELETED || user.status === UserStatus.PERMANENTLY_SUSPENDED)) {
+      res.status(403).json({
+        success: false,
+        error: {
+          code: "ACCOUNT_DELETED",
+          message: "This account has been deleted or permanently suspended and cannot be accessed."
+        }
+      });
+      return;
+    }
+
     if (!user) {
       isNewUser = true;
       user = await User.create({
         phone: normalizedPhone,
         accountType: "individual",
+        status: UserStatus.ACTIVE,
         profile: {
           name: `User ${normalizedPhone.slice(-4)}`,
           city: "Hyderabad",
@@ -140,20 +166,27 @@ export async function verifyOtp(req: Request, res: Response, next: NextFunction)
       });
     }
 
-    // Issue JWT Access Token & Refresh Session Cookie
-    const accessToken = generateUserAccessToken(user._id.toString());
+    // Revoke prior active sessions so other desktops/devices are invalidated
+    await UserSession.updateMany(
+      { userId: user._id, isRevoked: false },
+      { $set: { isRevoked: true } }
+    );
+
     const rawRefreshToken = generateOpaqueToken();
     const refreshTokenHash = hashToken(rawRefreshToken);
-
     const refreshExpiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000); // 7 days
 
-    await UserSession.create({
+    const session = await UserSession.create({
       userId: user._id,
       refreshTokenHash,
       ipAddress: req.ip,
       userAgent: req.get("user-agent"),
-      expiresAt: refreshExpiresAt
+      expiresAt: refreshExpiresAt,
+      isRevoked: false
     });
+
+    // Issue JWT Access Token bound to sessionId
+    const accessToken = generateUserAccessToken(user._id.toString(), session._id.toString());
 
     res.cookie(USER_REFRESH_COOKIE, rawRefreshToken, {
       httpOnly: true,
@@ -212,7 +245,7 @@ export async function refreshUserSession(req: Request, res: Response, next: Next
     }
 
     const user = await User.findById(session.userId);
-    if (!user || user.status === "DELETED" || user.status === "PERMANENTLY_SUSPENDED") {
+    if (!user || user.status === UserStatus.DELETED || user.status === UserStatus.PERMANENTLY_SUSPENDED) {
       res.clearCookie(USER_REFRESH_COOKIE, { path: "/api/v1/auth" });
       res.status(403).json({
         success: false,
@@ -229,15 +262,16 @@ export async function refreshUserSession(req: Request, res: Response, next: Next
     const newRefreshTokenHash = hashToken(newRawRefreshToken);
     const newExpiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
 
-    await UserSession.create({
+    const newSession = await UserSession.create({
       userId: user._id,
       refreshTokenHash: newRefreshTokenHash,
       ipAddress: req.ip,
       userAgent: req.get("user-agent"),
-      expiresAt: newExpiresAt
+      expiresAt: newExpiresAt,
+      isRevoked: false
     });
 
-    const newAccessToken = generateUserAccessToken(user._id.toString());
+    const newAccessToken = generateUserAccessToken(user._id.toString(), newSession._id.toString());
 
     res.cookie(USER_REFRESH_COOKIE, newRawRefreshToken, {
       httpOnly: true,
@@ -273,6 +307,17 @@ export async function logoutUser(req: Request, res: Response, next: NextFunction
     if (rawRefreshToken) {
       const tokenHash = hashToken(rawRefreshToken);
       await UserSession.updateOne({ refreshTokenHash: tokenHash }, { $set: { isRevoked: true } });
+    }
+
+    const authHeader = req.headers.authorization;
+    if (authHeader?.startsWith("Bearer ")) {
+      try {
+        const token = authHeader.split(" ")[1];
+        const payload = verifyAccessToken<UserTokenPayload>(token);
+        if (payload?.sessionId) {
+          await UserSession.findByIdAndUpdate(payload.sessionId, { $set: { isRevoked: true } });
+        }
+      } catch { /* ignore */ }
     }
 
     res.clearCookie(USER_REFRESH_COOKIE, { path: "/api/v1/auth" });
@@ -380,6 +425,17 @@ export async function registerUser(req: Request, res: Response, next: NextFuncti
 
     let user = await User.findOne({ phone: normalizedPhone });
 
+    if (user && (user.status === UserStatus.DELETED || user.status === UserStatus.PERMANENTLY_SUSPENDED)) {
+      res.status(403).json({
+        success: false,
+        error: {
+          code: "ACCOUNT_DELETED",
+          message: "This account has been deleted or permanently suspended. Please contact support."
+        }
+      });
+      return;
+    }
+
     const userPin = pin || password;
     let passwordHash = undefined;
     if (userPin && userPin.trim()) {
@@ -403,6 +459,7 @@ export async function registerUser(req: Request, res: Response, next: NextFuncti
         email: email ? email.trim() : undefined,
         emailVerified: false,
         accountType: accountType === "business" ? "business" : "individual",
+        status: UserStatus.ACTIVE,
         passwordHash,
         profile: {
           name: name.trim(),
@@ -422,18 +479,26 @@ export async function registerUser(req: Request, res: Response, next: NextFuncti
       });
     }
 
-    const accessToken = generateUserAccessToken(user._id.toString());
+    // Revoke prior active sessions
+    await UserSession.updateMany(
+      { userId: user._id, isRevoked: false },
+      { $set: { isRevoked: true } }
+    );
+
     const rawRefreshToken = generateOpaqueToken();
     const refreshTokenHash = hashToken(rawRefreshToken);
     const refreshExpiresAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
 
-    await UserSession.create({
+    const session = await UserSession.create({
       userId: user._id,
       refreshTokenHash,
       ipAddress: req.ip,
       userAgent: req.get("user-agent"),
-      expiresAt: refreshExpiresAt
+      expiresAt: refreshExpiresAt,
+      isRevoked: false
     });
+
+    const accessToken = generateUserAccessToken(user._id.toString(), session._id.toString());
 
     res.cookie(USER_REFRESH_COOKIE, rawRefreshToken, {
       httpOnly: true,
@@ -492,6 +557,17 @@ export async function loginUserDirect(req: Request, res: Response, next: NextFun
       return;
     }
 
+    if (user.status === UserStatus.DELETED || user.status === UserStatus.PERMANENTLY_SUSPENDED) {
+      res.status(403).json({
+        success: false,
+        error: {
+          code: "ACCOUNT_DELETED",
+          message: "This account has been deleted or permanently suspended and cannot be accessed."
+        }
+      });
+      return;
+    }
+
     const userPin = pin || password;
     if ((user as any).passwordHash) {
       if (!userPin) {
@@ -505,18 +581,26 @@ export async function loginUserDirect(req: Request, res: Response, next: NextFun
       }
     }
 
-    const accessToken = generateUserAccessToken(user._id.toString());
+    // Revoke prior active sessions
+    await UserSession.updateMany(
+      { userId: user._id, isRevoked: false },
+      { $set: { isRevoked: true } }
+    );
+
     const rawRefreshToken = generateOpaqueToken();
     const refreshTokenHash = hashToken(rawRefreshToken);
     const refreshExpiresAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
 
-    await UserSession.create({
+    const session = await UserSession.create({
       userId: user._id,
       refreshTokenHash,
       ipAddress: req.ip,
       userAgent: req.get("user-agent"),
-      expiresAt: refreshExpiresAt
+      expiresAt: refreshExpiresAt,
+      isRevoked: false
     });
+
+    const accessToken = generateUserAccessToken(user._id.toString(), session._id.toString());
 
     res.cookie(USER_REFRESH_COOKIE, rawRefreshToken, {
       httpOnly: true,
@@ -625,6 +709,17 @@ export async function resetUserPin(req: Request, res: Response, next: NextFuncti
       return;
     }
 
+    if (user.status === UserStatus.DELETED || user.status === UserStatus.PERMANENTLY_SUSPENDED) {
+      res.status(403).json({
+        success: false,
+        error: {
+          code: "ACCOUNT_DELETED",
+          message: "This account has been deleted or permanently suspended and cannot be accessed."
+        }
+      });
+      return;
+    }
+
     // Update PIN (passwordHash)
     const passwordHash = crypto.createHash("sha256").update(cleanPin).digest("hex");
     (user as any).passwordHash = passwordHash;
@@ -632,19 +727,26 @@ export async function resetUserPin(req: Request, res: Response, next: NextFuncti
 
     console.log(`[Auth] PIN successfully reset and updated for ${normalizedPhone}`);
 
-    // Create session and issue tokens
-    const accessToken = generateUserAccessToken(user._id.toString());
+    // Revoke prior active sessions
+    await UserSession.updateMany(
+      { userId: user._id, isRevoked: false },
+      { $set: { isRevoked: true } }
+    );
+
     const rawRefreshToken = generateOpaqueToken();
     const refreshTokenHash = hashToken(rawRefreshToken);
     const refreshExpiresAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
 
-    await UserSession.create({
+    const session = await UserSession.create({
       userId: user._id,
       refreshTokenHash,
       ipAddress: req.ip,
       userAgent: req.get("user-agent"),
-      expiresAt: refreshExpiresAt
+      expiresAt: refreshExpiresAt,
+      isRevoked: false
     });
+
+    const accessToken = generateUserAccessToken(user._id.toString(), session._id.toString());
 
     res.cookie(USER_REFRESH_COOKIE, rawRefreshToken, {
       httpOnly: true,

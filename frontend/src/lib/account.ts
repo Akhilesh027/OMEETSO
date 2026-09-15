@@ -402,10 +402,24 @@ export function listNotifications(): Notification[] {
       !n.advertiser?.includes("Sample Advertiser")
   );
 
-  if (clean.length !== stored.length) {
-    write(key, clean);
+  // Deduplicate items by ID and by title+body fingerprint
+  const seenIds = new Set<string>();
+  const seenFingerprints = new Set<string>();
+  const deduped: Notification[] = [];
+
+  for (const item of clean) {
+    if (!item.id || seenIds.has(item.id)) continue;
+    const fp = `${(item.title || "").trim().toLowerCase()}__${(item.body || "").trim().toLowerCase()}`;
+    if (seenFingerprints.has(fp)) continue;
+    seenIds.add(item.id);
+    seenFingerprints.add(fp);
+    deduped.push(item);
   }
-  return clean;
+
+  if (deduped.length !== stored.length) {
+    write(key, deduped);
+  }
+  return deduped;
 }
 export function getNotification(id: string) { return listNotifications().find((n) => n.id === id); }
 function emitNotifEvent() {
@@ -455,7 +469,21 @@ export function pushNotification(n: Omit<Notification, "time"> & { time?: number
     userId: uid || undefined,
     time: n.time || Date.now(),
   };
-  write(key, [full, ...cur.filter((item) => item.id !== full.id)]);
+
+  const normTitle = (full.title || "").trim().toLowerCase();
+  const normBody = (full.body || "").trim().toLowerCase();
+
+  const filtered = cur.filter((item) => {
+    if (item.id === full.id) return false;
+    const itemTitle = (item.title || "").trim().toLowerCase();
+    const itemBody = (item.body || "").trim().toLowerCase();
+    if (itemTitle && itemTitle === normTitle && itemBody && itemBody === normBody) {
+      return false;
+    }
+    return true;
+  });
+
+  write(key, [full, ...filtered]);
   emitNotifEvent();
   return full;
 }

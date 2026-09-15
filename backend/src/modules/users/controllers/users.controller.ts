@@ -1,6 +1,8 @@
 import { Request, Response, NextFunction } from "express";
 import mongoose from "mongoose";
 import { User } from "../models/User";
+import { UserSession } from "../../auth/models/UserSession";
+import { UserStatus } from "../../../contracts";
 import { AuthenticatedUserRequest } from "../../../middleware/authenticateUser";
 
 export async function getMyProfile(req: AuthenticatedUserRequest, res: Response, next: NextFunction): Promise<void> {
@@ -204,7 +206,7 @@ export async function getAdminUsersList(req: Request, res: Response, next: NextF
       mobile: u.phone,
       email: u.email || "",
       accountType: u.accountType || "individual",
-      status: u.status?.toLowerCase() === "active" ? "active" : u.status?.toLowerCase() === "suspended" ? "suspended" : "active",
+      status: u.status?.toLowerCase() === "active" ? "active" : u.status?.toLowerCase() === "suspended" ? "suspended" : u.status?.toLowerCase() === "deleted" ? "banned" : "active",
       role: u.accountType === "business" ? "business" : "seller",
       city: u.profile?.city || "Hyderabad",
       area: u.profile?.area || "Madhapur",
@@ -217,3 +219,35 @@ export async function getAdminUsersList(req: Request, res: Response, next: NextF
     next(error);
   }
 }
+
+export async function deleteMyAccount(req: AuthenticatedUserRequest, res: Response, next: NextFunction): Promise<void> {
+  try {
+    if (!req.user) {
+      res.status(401).json({ success: false, error: { code: "UNAUTHORIZED", message: "User required" } });
+      return;
+    }
+
+    const userId = req.user._id;
+
+    // Mark user status as DELETED
+    req.user.status = UserStatus.DELETED;
+    await req.user.save();
+
+    // Revoke all active sessions for this user
+    await UserSession.updateMany(
+      { userId, isRevoked: false },
+      { $set: { isRevoked: true } }
+    );
+
+    // Clear refresh cookie
+    res.clearCookie("omeetso_user_refresh", { path: "/api/v1/auth" });
+
+    res.status(200).json({
+      success: true,
+      data: { message: "Your account has been deleted successfully and all sessions have been revoked." }
+    });
+  } catch (error) {
+    next(error);
+  }
+}
+

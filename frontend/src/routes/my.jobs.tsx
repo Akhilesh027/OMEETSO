@@ -1,10 +1,12 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useState, useEffect } from "react";
-import { ArrowLeft, Briefcase, Calendar, Clock, MapPin, CheckCircle2, AlertCircle, Trash2, Heart, User } from "lucide-react";
+import { ArrowLeft, Briefcase, Calendar, Clock, MapPin, CheckCircle2, AlertCircle, Trash2, Heart, User, Ban, MessageCircle } from "lucide-react";
 import { MobileFrame } from "@/components/omeetso/MobileFrame";
 import { listCandidateApplicationsLocal, withdrawJobApplicationLocal, getSavedJobIds, fetchPublicJobs, JobItem, JobApplicationItem } from "@/lib/jobs";
+import { startConversationApi } from "@/api/chat.api";
 import { JobCard } from "@/components/omeetso/jobs/JobCard";
 import { API_BASE } from "@/config/api";
+import { toast } from "sonner";
 
 export const Route = createFileRoute("/my/jobs")({
   head: () => ({ meta: [{ title: "My Jobs & Applications — Omeetso" }] }),
@@ -12,6 +14,7 @@ export const Route = createFileRoute("/my/jobs")({
 });
 
 function MyJobsDashboardPage() {
+  const nav = useNavigate();
   const [activeTab, setActiveTab] = useState<"applied" | "saved" | "interviews">("applied");
   const [applications, setApplications] = useState<JobApplicationItem[]>([]);
   const [savedJobs, setSavedJobs] = useState<JobItem[]>([]);
@@ -78,9 +81,9 @@ function MyJobsDashboardPage() {
   const handleConfirmWithdraw = async () => {
     if (!withdrawAppId) return;
 
-    const token = typeof window !== "undefined" ? localStorage.getItem("omeetso_user_token") : null;
-    if (token) {
-      try {
+    try {
+      const token = typeof window !== "undefined" ? localStorage.getItem("omeetso_user_token") : null;
+      if (token) {
         await fetch(`${API_BASE}/jobs/candidate/applications/${withdrawAppId}/withdraw`, {
           method: "POST",
           headers: {
@@ -88,13 +91,17 @@ function MyJobsDashboardPage() {
             Authorization: `Bearer ${token}`
           },
           body: JSON.stringify({ reason: "Candidate withdrew application" })
-        });
-      } catch { }
-    }
+        }).catch(() => {});
+      }
 
-    withdrawJobApplicationLocal(withdrawAppId, "Candidate withdrew application");
-    setWithdrawAppId(null);
-    loadData();
+      withdrawJobApplicationLocal(withdrawAppId, "Candidate withdrew application");
+      toast.success("Application withdrawn successfully");
+    } catch {
+      toast.error("Failed to withdraw application");
+    } finally {
+      setWithdrawAppId(null);
+      loadData();
+    }
   };
 
   const interviewApps = applications.filter((a) => a.status === "INTERVIEW_SCHEDULED" || a.interviewDetails?.date);
@@ -179,14 +186,34 @@ function MyJobsDashboardPage() {
 
                     <div className="flex items-center justify-between text-xs text-muted-foreground font-semibold pt-2 border-t border-border/60">
                       <span>Applied on {new Date(app.createdAt).toLocaleDateString("en-IN")}</span>
-                      {app.status !== "WITHDRAWN" && (
+                      <div className="flex items-center gap-3">
                         <button
-                          onClick={() => setWithdrawAppId(app.id)}
-                          className="text-rose-600 hover:underline font-bold"
+                          onClick={async () => {
+                            try {
+                              const jId = app.jobId || app.job?.id || (app.job as any)?._id || app.id;
+                              const res = await startConversationApi("JOB", jId, app.employerId);
+                              if (res.success && res.data?.id) {
+                                nav({ to: "/chat/$id", params: { id: res.data.id } });
+                              } else {
+                                toast.error(res.error?.message || "Could not start chat with employer");
+                              }
+                            } catch {
+                              toast.error("Failed to start chat.");
+                            }
+                          }}
+                          className="inline-flex items-center gap-1 px-2.5 py-1 bg-indigo-50 dark:bg-indigo-950/50 hover:bg-indigo-100 text-indigo-600 dark:text-indigo-400 border border-indigo-200 dark:border-indigo-800 rounded-lg text-xs font-bold transition-colors shadow-xs"
                         >
-                          Withdraw Application
+                          <MessageCircle className="w-3.5 h-3.5" /> Chat Employer
                         </button>
-                      )}
+                        {app.status !== "WITHDRAWN" && (
+                          <button
+                            onClick={() => setWithdrawAppId(app.id)}
+                            className="text-rose-600 hover:underline font-bold"
+                          >
+                            Withdraw
+                          </button>
+                        )}
+                      </div>
                     </div>
                   </div>
                 ))

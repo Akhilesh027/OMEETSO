@@ -1,3 +1,4 @@
+import mongoose from "mongoose";
 import { Request, Response, NextFunction } from "express";
 import { Store } from "../models/Store";
 import { StoreMember } from "../models/StoreMember";
@@ -5,6 +6,10 @@ import { Listing } from "../../listings/models/Listing";
 import { AuthenticatedUserRequest } from "../../../middleware/authenticateUser";
 import { StoreStatus, ListingStatus } from "../../../contracts";
 import { uploadToCloudinary } from "../../../utils/cloudinaryUpload";
+
+function escapeRegex(str: string): string {
+  return str.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
 
 export async function createStore(req: AuthenticatedUserRequest, res: Response, next: NextFunction): Promise<void> {
   try {
@@ -248,17 +253,29 @@ export async function getStoreListings(req: Request, res: Response, next: NextFu
     const limit = Math.min(50, Math.max(1, parseInt(req.query.limit as string) || 20));
     const skip = (page - 1) * limit;
 
-    const isObjectId = /^[0-9a-fA-F]{24}$/.test(storeId);
-    const targetStore = isObjectId ? await Store.findById(storeId).lean() : await Store.findOne({ slug: storeId }).lean();
+    const isObjectId = mongoose.Types.ObjectId.isValid(storeId);
+    const targetStore = isObjectId
+      ? await Store.findById(storeId).lean()
+      : await Store.findOne({ $or: [{ slug: storeId }, { name: new RegExp(`^${escapeRegex(storeId)}$`, "i") }] }).lean();
 
     const query: Record<string, any> = {
-      status: { $in: [ListingStatus.APPROVED, ListingStatus.ACTIVE, "APPROVED", "ACTIVE", "approved", "active"] }
+      status: { $in: [ListingStatus.APPROVED, ListingStatus.ACTIVE, "APPROVED", "ACTIVE", "approved", "active", "SUBMITTED", "submitted"] }
     };
 
+    const storeIds: any[] = [storeId];
+    if (isObjectId) storeIds.push(new mongoose.Types.ObjectId(storeId));
     if (targetStore) {
-      query.$or = [{ storeId: targetStore._id.toString() }, { sellerId: targetStore.ownerId }];
+      storeIds.push(targetStore._id, targetStore._id.toString());
+      if (targetStore.slug) storeIds.push(targetStore.slug);
+    }
+
+    if (targetStore) {
+      query.$or = [
+        { storeId: { $in: storeIds } },
+        { sellerId: targetStore.ownerId }
+      ];
     } else {
-      query.storeId = storeId;
+      query.storeId = { $in: storeIds };
     }
 
     const [listings, total] = await Promise.all([
@@ -337,6 +354,48 @@ export async function updateStore(req: AuthenticatedUserRequest, res: Response, 
     res.status(200).json({
       success: true,
       data: updatedStore
+    });
+  } catch (error) {
+    next(error);
+  }
+}
+
+export async function toggleFollowStore(req: Request, res: Response, next: NextFunction): Promise<void> {
+  try {
+    const storeId = (Array.isArray(req.params.storeId) ? req.params.storeId[0] : req.params.storeId || req.params.id) as string;
+    const { action } = req.body || {}; // "follow" | "unfollow"
+    const isObjectId = /^[0-9a-fA-F]{24}$/.test(storeId);
+    
+    const increment = action === "unfollow" ? -1 : 1;
+    const store = isObjectId
+      ? await Store.findByIdAndUpdate(
+          storeId,
+          { $inc: { followersCount: increment } },
+          { new: true }
+        )
+      : await Store.findOneAndUpdate(
+          { slug: storeId },
+          { $inc: { followersCount: increment } },
+          { new: true }
+        );
+
+    if (!store) {
+      res.status(404).json({ success: false, error: { code: "NOT_FOUND", message: "Store not found" } });
+      return;
+    }
+
+    if (store.followersCount < 0) {
+      store.followersCount = 0;
+      await store.save();
+    }
+
+    res.status(200).json({
+      success: true,
+      data: {
+        storeId: store._id.toString(),
+        followersCount: store.followersCount,
+        isFollowing: action !== "unfollow"
+      }
     });
   } catch (error) {
     next(error);

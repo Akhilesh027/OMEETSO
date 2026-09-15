@@ -602,7 +602,9 @@ function EmployerJobsDashboardPage() {
                                 <button
                                   onClick={async () => {
                                     try {
-                                      const res = await startConversationApi("JOB", activeJob.id);
+                                      const candidateId = app.applicantId || (app as any).userId;
+                                      const targetJobId = activeJob?.id || app.jobId;
+                                      const res = await startConversationApi("JOB", targetJobId, candidateId);
                                       if (res.success && res.data?.id) {
                                         nav({ to: "/chat/$id", params: { id: res.data.id } });
                                       } else {
@@ -612,7 +614,7 @@ function EmployerJobsDashboardPage() {
                                       toast.error("Failed to start chat.");
                                     }
                                   }}
-                                  className="inline-flex items-center gap-1 px-3 py-1.5 bg-indigo-brand text-white font-bold text-xs rounded-xl"
+                                  className="inline-flex items-center gap-1 px-3 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs rounded-xl shadow-xs transition-colors"
                                 >
                                   <MessageCircle className="h-3.5 w-3.5" /> Chat
                                 </button>
@@ -949,6 +951,26 @@ function EmployerJobsDashboardPage() {
                       className="px-3.5 py-2 rounded-xl bg-rose-500/10 text-rose-700 font-extrabold text-xs hover:bg-rose-500/20"
                     >
                       Reject
+                    </button>
+                    <button
+                      onClick={async () => {
+                        try {
+                          const candidateId = selectedApplicantDetail.applicantId || (selectedApplicantDetail as any).userId;
+                          const targetJobId = activeJob?.id || selectedApplicantDetail.jobId;
+                          const res = await startConversationApi("JOB", targetJobId, candidateId);
+                          if (res.success && res.data?.id) {
+                            setSelectedApplicantDetail(null);
+                            nav({ to: "/chat/$id", params: { id: res.data.id } });
+                          } else {
+                            toast.error(res.error?.message || "Could not start chat");
+                          }
+                        } catch {
+                          toast.error("Failed to start chat.");
+                        }
+                      }}
+                      className="px-3.5 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-extrabold text-xs flex items-center gap-1.5 shadow-xs transition-colors"
+                    >
+                      <MessageCircle className="w-3.5 h-3.5" /> Chat Candidate
                     </button>
                   </div>
 

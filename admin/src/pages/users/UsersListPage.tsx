@@ -1,4 +1,6 @@
 import React, { useState, useEffect } from "react";
+// Admin Users List Page
+import { useParams, useNavigate } from "react-router-dom";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { PageContainer } from "@/components/layout/PageContainer";
 import { MockDataService } from "@/services/mockDataService";
@@ -13,10 +15,14 @@ import {
   AlertTriangle,
   Building2,
   ShoppingBag,
+  ArrowLeft,
 } from "lucide-react";
 import { useToast } from "@/contexts/ToastContext";
 
 export default function UsersListPage() {
+  const { userId } = useParams<{ userId?: string }>();
+  const navigate = useNavigate();
+
   const [users, setUsers] = useState<PlatformUser[]>(() => {
     try {
       const cached = MockDataService.getUsers();
@@ -64,12 +70,26 @@ export default function UsersListPage() {
     loadUsers();
   }, []);
 
+  // Handle direct navigation to /admin/users/:userId
+  useEffect(() => {
+    if (userId && users.length > 0) {
+      const found = users.find((u) => u.id === userId || (u as any)._id === userId);
+      if (found) {
+        setSelectedUser(found);
+        setIsDetailOpen(true);
+      }
+    }
+  }, [userId, users]);
+
   const filteredUsers = users.filter((u) => {
+    const s = searchTerm.toLowerCase().trim();
     const matchesSearch =
-      u.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      u.mobile.includes(searchTerm) ||
-      (u.email && u.email.toLowerCase().includes(searchTerm.toLowerCase())) ||
-      u.city.toLowerCase().includes(searchTerm.toLowerCase());
+      !s ||
+      u.name.toLowerCase().includes(s) ||
+      (u.id && u.id.toLowerCase().includes(s)) ||
+      u.mobile.includes(s) ||
+      (u.email && u.email.toLowerCase().includes(s)) ||
+      u.city.toLowerCase().includes(s);
 
     if (!matchesSearch) return false;
 
@@ -82,8 +102,15 @@ export default function UsersListPage() {
     return true;
   });
 
-  const handleToggleVerification = (userId: string, field: "verifiedIdentity" | "verifiedMobile" | "verifiedEmail") => {
-    const updated = MockDataService.toggleUserVerification(userId, field);
+  const handleCloseDetail = () => {
+    setIsDetailOpen(false);
+    if (userId) {
+      navigate("/admin/users");
+    }
+  };
+
+  const handleToggleVerification = (targetUserId: string, field: "verifiedIdentity" | "verifiedMobile" | "verifiedEmail") => {
+    const updated = MockDataService.toggleUserVerification(targetUserId, field);
     setUsers(updated);
     showSuccess("Verification Status Updated", `Updated ${field} status for user.`);
   };
@@ -113,9 +140,9 @@ export default function UsersListPage() {
     setFormData({});
   };
 
-  const handleDeleteUser = (userId: string) => {
+  const handleDeleteUser = (targetUserId: string) => {
     if (window.confirm("Are you sure you want to delete this user record permanently?")) {
-      const updated = MockDataService.deleteUser(userId);
+      const updated = MockDataService.deleteUser(targetUserId);
       setUsers(updated);
       showSuccess("User Deleted", "User record permanently removed.");
     }
@@ -128,6 +155,17 @@ export default function UsersListPage() {
         description="Full CRUD directory of buyers, verified seller stores, account status, and identity checks."
         badge={`${users.length} Registered Accounts`}
         badgeColor="indigo"
+        secondaryActions={
+          userId ? (
+            <button
+              onClick={() => navigate("/admin/users")}
+              className="inline-flex items-center space-x-1.5 px-3.5 py-2 rounded-xl text-xs font-semibold bg-white border border-[#E2E8F0] text-[#111827] hover:bg-slate-50 transition-colors shadow-sm"
+            >
+              <ArrowLeft className="w-4 h-4" />
+              <span>Back to Users List</span>
+            </button>
+          ) : undefined
+        }
         primaryAction={
           <button
             onClick={() => {
@@ -329,7 +367,7 @@ export default function UsersListPage() {
           <div className="bg-white rounded-2xl max-w-lg w-full p-6 space-y-4 shadow-2xl animate-in fade-in-50">
             <div className="flex items-center justify-between border-b border-[#E2E8F0] pb-3">
               <h3 className="text-sm font-bold text-[#111827]">User Account Inspection ({selectedUser.id})</h3>
-              <button onClick={() => setIsDetailOpen(false)} className="text-slate-400 hover:text-slate-600">✕</button>
+              <button onClick={handleCloseDetail} className="text-slate-400 hover:text-slate-600">✕</button>
             </div>
             <div className="space-y-3 text-xs">
               <div className="p-3 bg-[#F5F7FC] rounded-xl flex items-center space-x-3">
@@ -359,7 +397,7 @@ export default function UsersListPage() {
               </div>
             </div>
             <div className="pt-2 flex justify-end">
-              <button onClick={() => setIsDetailOpen(false)} className="px-4 py-2 text-xs font-semibold bg-[#F5F7FC] rounded-xl text-[#111827] hover:bg-slate-200">
+              <button onClick={handleCloseDetail} className="px-4 py-2 text-xs font-semibold bg-[#F5F7FC] rounded-xl text-[#111827] hover:bg-slate-200">
                 Close Inspector
               </button>
             </div>

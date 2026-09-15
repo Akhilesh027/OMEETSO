@@ -83,11 +83,22 @@ function NotifList() {
       createdAt: new Date(n.time).toISOString(),
     }));
 
-    // Merge server & local, deduping by id
+    // Merge server & local, deduping by id and title+body fingerprint
     const map = new Map<string, NotificationItem>();
-    serverItems.forEach((n) => map.set(n.id, n));
+    const seenContent = new Set<string>();
+
+    serverItems.forEach((n) => {
+      const fp = `${(n.title || "").trim().toLowerCase()}__${(n.body || "").trim().toLowerCase()}`;
+      if (!seenContent.has(fp)) {
+        seenContent.add(fp);
+        map.set(n.id, n);
+      }
+    });
+
     localMapped.forEach((n) => {
-      if (!map.has(n.id)) {
+      const fp = `${(n.title || "").trim().toLowerCase()}__${(n.body || "").trim().toLowerCase()}`;
+      if (!map.has(n.id) && !seenContent.has(fp)) {
+        seenContent.add(fp);
         map.set(n.id, n);
       }
     });

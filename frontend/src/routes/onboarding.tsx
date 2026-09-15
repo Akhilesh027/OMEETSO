@@ -255,7 +255,8 @@ function Onboarding() {
 
   const finish = () => {
     if (typeof window !== "undefined") localStorage.setItem("omeetso_onboarded", "1");
-    nav({ to: "/login" });
+    const hasToken = typeof window !== "undefined" ? Boolean(localStorage.getItem("omeetso_user_token")) : false;
+    nav({ to: hasToken ? "/home" : "/home" });
   };
   const next = () => (i < slides.length - 1 ? setI(i + 1) : finish());
 
@@ -299,8 +300,17 @@ function Onboarding() {
               />
             </div>
           ))}
-          <button onClick={finish} className="ml-2 text-xs font-semibold text-muted-foreground">
-            Skip
+          <button
+            onClick={() => {
+              if (i < slides.length - 1) {
+                setI(i + 1);
+              } else {
+                finish();
+              }
+            }}
+            className="ml-2 text-xs font-bold text-muted-foreground hover:text-foreground transition-colors cursor-pointer"
+          >
+            {i < slides.length - 1 ? "Next Step" : "Skip"}
           </button>
         </div>
 

@@ -403,6 +403,12 @@ export function CandidateProfilePage() {
       toast.error("Company Name and Job Title are required.");
       return;
     }
+    if (!newExp.isCurrentlyWorking && newExp.startDate && newExp.endDate) {
+      if (newExp.endDate < newExp.startDate) {
+        toast.error("End Date/Year cannot be earlier than Start Date/Year.");
+        return;
+      }
+    }
     const item: WorkExperienceItem = {
       ...newExp,
       id: `exp-${Date.now()}`
@@ -428,6 +434,12 @@ export function CandidateProfilePage() {
     if (!newEdu.qualification.trim() || !newEdu.college?.trim()) {
       toast.error("Qualification and College/Institute are required.");
       return;
+    }
+    if (newEdu.startYear && newEdu.completionYear) {
+      if (Number(newEdu.completionYear) < Number(newEdu.startYear)) {
+        toast.error("Completion year cannot be earlier than start year.");
+        return;
+      }
     }
     const item: EducationItem = {
       ...newEdu,
@@ -754,10 +766,26 @@ export function CandidateProfilePage() {
                   <label className="block text-muted-foreground mb-1 font-bold">Mobile Number *</label>
                   <input
                     type="tel"
+                    inputMode="numeric"
+                    pattern="[0-9]*"
+                    maxLength={10}
                     value={formData.phone || ""}
-                    onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
+                    onChange={(e) => {
+                      const val = e.target.value.replace(/\D/g, "").slice(0, 10);
+                      setFormData({ ...formData, phone: val });
+                    }}
+                    onKeyDown={(e) => {
+                      if (
+                        !/[0-9]/.test(e.key) &&
+                        !["Backspace", "Delete", "ArrowLeft", "ArrowRight", "Tab"].includes(e.key) &&
+                        !e.ctrlKey &&
+                        !e.metaKey
+                      ) {
+                        e.preventDefault();
+                      }
+                    }}
                     className="w-full h-11 rounded-2xl border border-border bg-background px-3 font-bold text-foreground outline-none focus:border-indigo-600"
-                    placeholder="Enter mobile number"
+                    placeholder="Enter 10-digit mobile number"
                   />
                 </div>
                 <div>
@@ -1153,7 +1181,15 @@ export function CandidateProfilePage() {
                     <input
                       type="month"
                       value={newExp.startDate}
-                      onChange={(e) => setNewExp({ ...newExp, startDate: e.target.value })}
+                      onChange={(e) => {
+                        const val = e.target.value;
+                        if (newExp.endDate && val && newExp.endDate < val) {
+                          setNewExp({ ...newExp, startDate: val, endDate: "" });
+                          toast.info("End date cleared as start date changed to a later date.");
+                        } else {
+                          setNewExp({ ...newExp, startDate: val });
+                        }
+                      }}
                       className="w-full h-10 rounded-xl border border-border bg-background px-3 font-bold text-foreground outline-none focus:border-indigo-600"
                     />
                   </div>
@@ -1162,8 +1198,16 @@ export function CandidateProfilePage() {
                     <input
                       type="month"
                       disabled={newExp.isCurrentlyWorking}
+                      min={newExp.startDate || undefined}
                       value={newExp.endDate || ""}
-                      onChange={(e) => setNewExp({ ...newExp, endDate: e.target.value })}
+                      onChange={(e) => {
+                        const val = e.target.value;
+                        if (newExp.startDate && val && val < newExp.startDate) {
+                          toast.error("End date/year cannot be earlier than start date/year.");
+                          return;
+                        }
+                        setNewExp({ ...newExp, endDate: val });
+                      }}
                       className="w-full h-10 rounded-xl border border-border bg-background px-3 font-bold text-foreground outline-none focus:border-indigo-600 disabled:opacity-40"
                     />
                   </div>
@@ -1955,11 +1999,45 @@ export function CandidateProfilePage() {
 
         {/* ATS LIVE RESUME PREVIEW & DOWNLOAD MODAL */}
         {showResumeModal && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-3 sm:p-4 backdrop-blur-sm safe-t">
-            <div className="w-full max-w-2xl max-h-[90vh] bg-white text-gray-900 rounded-3xl shadow-2xl overflow-y-auto p-4 sm:p-6 space-y-6 font-sans border border-gray-200">
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-3 sm:p-4 backdrop-blur-sm safe-t print:p-0 print:m-0 print:bg-white print:fixed print:inset-0 print:z-[9999]">
+            <style>{`
+              @media print {
+                body * {
+                  visibility: hidden !important;
+                }
+                #printable-resume-container, #printable-resume-container * {
+                  visibility: visible !important;
+                }
+                #printable-resume-container {
+                  position: absolute !important;
+                  left: 0 !important;
+                  top: 0 !important;
+                  width: 100% !important;
+                  max-width: 100% !important;
+                  height: auto !important;
+                  margin: 0 !important;
+                  padding: 12px 16px !important;
+                  background: #ffffff !important;
+                  color: #111827 !important;
+                  box-shadow: none !important;
+                  border: none !important;
+                  overflow: visible !important;
+                  page-break-after: avoid !important;
+                  page-break-inside: avoid !important;
+                }
+                .no-print {
+                  display: none !important;
+                }
+                @page {
+                  margin: 10mm;
+                  size: auto;
+                }
+              }
+            `}</style>
+            <div id="printable-resume-container" className="w-full max-w-2xl max-h-[90vh] bg-white text-gray-900 rounded-3xl shadow-2xl overflow-y-auto p-4 sm:p-6 space-y-6 font-sans border border-gray-200 print:shadow-none print:border-none print:p-0 print:max-h-none print:rounded-none">
               
               {/* Modal Header */}
-              <div className="flex items-center justify-between pb-4 border-b border-gray-200">
+              <div className="no-print flex items-center justify-between pb-4 border-b border-gray-200">
                 <div className="flex items-center gap-2">
                   <Sparkles className="w-5 h-5 text-indigo-600" />
                   <h3 className="text-base font-black text-gray-900">Omeetso Generated ATS Resume</h3>
@@ -1967,13 +2045,13 @@ export function CandidateProfilePage() {
                 <div className="flex items-center gap-2">
                   <button
                     onClick={() => window.print()}
-                    className="px-3 py-1.5 rounded-xl border border-gray-300 bg-gray-100 hover:bg-gray-200 text-xs font-bold flex items-center gap-1.5"
+                    className="px-3 py-1.5 rounded-xl border border-gray-300 bg-gray-100 hover:bg-gray-200 text-xs font-bold flex items-center gap-1.5 transition-colors"
                   >
                     <Printer className="w-3.5 h-3.5" /> Print / PDF
                   </button>
                   <button
                     onClick={() => setShowResumeModal(false)}
-                    className="p-1.5 rounded-full hover:bg-gray-100 text-gray-500"
+                    className="p-1.5 rounded-full hover:bg-gray-100 text-gray-500 transition-colors"
                   >
                     <X className="w-5 h-5" />
                   </button>
@@ -1981,7 +2059,7 @@ export function CandidateProfilePage() {
               </div>
 
               {/* Printable CV Document Layout */}
-              <div className="space-y-6 text-xs text-gray-800 leading-relaxed print:p-0">
+              <div className="space-y-6 text-xs text-gray-800 leading-relaxed print:p-0 print:space-y-4">
                 {/* Header */}
                 <div className="text-center space-y-1 pb-4 border-b border-gray-300">
                   <h1 className="text-2xl font-black text-gray-900 uppercase tracking-tight">{formData.fullName || "Candidate"}</h1>

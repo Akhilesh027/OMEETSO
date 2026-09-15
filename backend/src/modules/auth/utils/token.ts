@@ -4,6 +4,7 @@ import { env } from "../../../config/env";
 
 export interface UserTokenPayload {
   userId: string;
+  sessionId?: string;
   aud: "omeetso-user";
 }
 
@@ -14,9 +15,10 @@ export interface AdminTokenPayload {
   aud: "omeetso-admin";
 }
 
-export function generateUserAccessToken(userId: string): string {
+export function generateUserAccessToken(userId: string, sessionId?: string): string {
   const payload: UserTokenPayload = {
     userId,
+    ...(sessionId ? { sessionId } : {}),
     aud: "omeetso-user"
   };
   return jwt.sign(payload, env.JWT_ACCESS_SECRET, {

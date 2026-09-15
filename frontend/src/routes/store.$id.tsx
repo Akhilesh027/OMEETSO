@@ -44,7 +44,7 @@ export const Route = createFileRoute("/store/$id")({
           cover: item.cover,
           rating: item.rating || 0,
           reviewCount: item.reviewCount || 0,
-          followersCount: item.followersCount || 340,
+          followersCount: item.followersCount || 0,
           status: (item.status?.toLowerCase() || "approved") as any,
           createdAt: new Date(item.createdAt || Date.now()).getTime(),
           updatedAt: new Date(item.updatedAt || Date.now()).getTime()
@@ -65,7 +65,7 @@ export const Route = createFileRoute("/store/$id")({
             cover: lItem.images?.[0],
             rating: 0,
             reviewCount: 0,
-            followersCount: 280,
+            followersCount: 0,
             status: "approved" as any
           };
         }
@@ -96,7 +96,7 @@ export const Route = createFileRoute("/store/$id")({
           cover: sample.cover,
           rating: sample.rating || 4.9,
           reviewCount: sample.reviews || 38,
-          followersCount: 120,
+          followersCount: 0,
           status: "approved" as any,
           createdAt: Date.now() - 30 * 86400000,
           updatedAt: Date.now()
@@ -151,10 +151,20 @@ function StorePage() {
   const [apiListings, setApiListings] = useState<any[]>([]);
   const [loadingListings, setLoadingListings] = useState<boolean>(true);
   const [following, setFollowing] = useState<boolean>(false);
-  const [followers, setFollowers] = useState<number>(store.followersCount || 340);
+  const [followers, setFollowers] = useState<number>(store.followersCount || 0);
   const [sponsoredAd, setSponsoredAd] = useState<any | null>(null);
   const [realReviews, setRealReviews] = useState<any[]>([]);
   const [reviewOpen, setReviewOpen] = useState<boolean>(false);
+
+  // Check if current user is following this store
+  useEffect(() => {
+    try {
+      const followed = JSON.parse(localStorage.getItem("omeetso_followed_stores") || "[]");
+      if (followed.includes(store.id)) {
+        setFollowing(true);
+      }
+    } catch {}
+  }, [store.id]);
 
   // Cover image fallback handler
   const [coverSrc, setCoverSrc] = useState<string>(
@@ -174,61 +184,118 @@ function StorePage() {
     Promise.all([
       fetch(`${API_BASE}/stores/${store.id}/listings`).then((r) => r.json()).catch(() => null),
       fetch(`${API_BASE}/listings?storeId=${store.id}`).then((r) => r.json()).catch(() => null),
+      (store as any).slug ? fetch(`${API_BASE}/listings?storeId=${(store as any).slug}`).then((r) => r.json()).catch(() => null) : null,
       fetch(`${API_BASE}/listings?category=${store.primaryCategory}&city=${store.city}`).then((r) => r.json()).catch(() => null),
       fetch(`${API_BASE}/reviews/target/${store.id}`).then((r) => r.json()).catch(() => null),
       serveAdsApi("STORE_BANNER").catch(() => null)
-    ]).then(([sRes, storeListingsRes, catRes, revRes, adRes]) => {
+    ]).then(([sRes, storeListingsRes, slugListingsRes, catRes, revRes, adRes]) => {
       setLoadingListings(false);
       if (revRes?.success && Array.isArray(revRes.data)) {
         setRealReviews(revRes.data);
       }
-      let rawListings: any[] = [];
-      if (sRes?.success && Array.isArray(sRes.data) && sRes.data.length > 0) {
-        rawListings = sRes.data;
-      } else if (storeListingsRes?.success && Array.isArray(storeListingsRes.data) && storeListingsRes.data.length > 0) {
-        rawListings = storeListingsRes.data;
-      } else if (catRes?.success && Array.isArray(catRes.data) && catRes.data.length > 0) {
-        // Strictly filter catalog for matching category AND area/city of this store
-        rawListings = catRes.data.filter((item: any) =>
-          (item.categoryId?.toLowerCase() === store.primaryCategory?.toLowerCase() || item.category?.toLowerCase() === store.primaryCategory?.toLowerCase()) &&
-          (item.area?.toLowerCase() === store.area?.toLowerCase() || item.city?.toLowerCase() === store.city?.toLowerCase())
-        );
+      
+      const serverItems: any[] = [];
+      if (sRes?.success && Array.isArray(sRes.data)) serverItems.push(...sRes.data);
+      if (storeListingsRes?.success && Array.isArray(storeListingsRes.data)) serverItems.push(...storeListingsRes.data);
+      if (slugListingsRes?.success && Array.isArray(slugListingsRes.data)) serverItems.push(...slugListingsRes.data);
+
+      // Local storage listings attached to this store
+      const allLocalListings = listListings();
+      const localStoreListings = allLocalListings.filter((l) =>
+        l.storeId === store.id ||
+        l.storeId === (store as any).slug ||
+        (l as any).store === store.id ||
+        (l as any).store === (store as any).slug ||
+        (store.name && (l as any).storeName?.toLowerCase() === store.name.toLowerCase()) ||
+        (store.name && l.sellerName?.toLowerCase() === store.name.toLowerCase())
+      );
+
+      // Category match fallback if catalog is completely empty
+      let fallbackCatItems: any[] = [];
+      if (serverItems.length === 0 && localStoreListings.length === 0) {
+        if (catRes?.success && Array.isArray(catRes.data) && catRes.data.length > 0) {
+          fallbackCatItems = catRes.data.filter((item: any) => {
+            const itemCat = (item.categoryId || item.category || "").toLowerCase();
+            const sCat = (store.primaryCategory || "").toLowerCase();
+            return itemCat === sCat || sCat.includes(itemCat) || itemCat.includes(sCat);
+          });
+        }
+        if (fallbackCatItems.length === 0) {
+          const sCat = (store.primaryCategory || "").toLowerCase();
+          fallbackCatItems = allLocalListings.filter((l) => {
+            const lCat = (l.category || l.subcategory || "").toLowerCase();
+            return lCat === sCat || sCat.includes(lCat) || lCat.includes(sCat);
+          });
+        }
       }
 
-      if (rawListings.length > 0) {
-        const mapped = rawListings.map((item: any) => ({
-          id: item.id || item._id,
-          title: item.title,
-          price: item.price || (item.priceInPaise ? item.priceInPaise / 100 : 0),
-          originalPrice: Math.round((item.price || (item.priceInPaise ? item.priceInPaise / 100 : 0)) * 1.15),
-          image: item.coverUrl || (Array.isArray(item.images) && item.images[0]) || "https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=600",
-          location: `${item.area || store.area || "Madhapur"}, ${item.city || store.city || "Hyderabad"}`,
-          time: "Just now",
-          category: item.category || store.primaryCategory || "General",
-          condition: item.condition || "Like New",
-          isBoosted: item.boost?.active || Math.random() > 0.6
-        }));
-        setApiListings(mapped);
-      } else {
-        setApiListings([]);
+      // Merge and deduplicate by ID
+      const mergedMap = new Map<string, any>();
+      for (const item of [...serverItems, ...fallbackCatItems]) {
+        const id = item.id || item._id;
+        if (id) {
+          mergedMap.set(String(id), {
+            id: String(id),
+            title: item.title,
+            price: item.price || (item.priceInPaise ? item.priceInPaise / 100 : 0),
+            originalPrice: Math.round((item.price || (item.priceInPaise ? item.priceInPaise / 100 : 0)) * 1.15),
+            image: item.coverUrl || (Array.isArray(item.images) && item.images[item.coverIndex || 0]) || item.images?.[0] || "https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=600",
+            location: `${item.area || store.area || "Madhapur"}, ${item.city || store.city || "Hyderabad"}`,
+            time: "Just now",
+            category: item.category || item.categoryId || store.primaryCategory || "General",
+            condition: item.condition || "Like New",
+            isBoosted: item.boost?.active || false
+          });
+        }
       }
+
+      for (const l of localStoreListings) {
+        mergedMap.set(String(l.id), {
+          id: String(l.id),
+          title: l.title,
+          price: l.price || 0,
+          originalPrice: Math.round((l.price || 0) * 1.15),
+          image: l.images?.[l.cover || 0] || l.images?.[0] || "https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=600",
+          location: `${l.area || store.area || "Madhapur"}, ${l.city || store.city || "Hyderabad"}`,
+          time: "Just now",
+          category: l.category || store.primaryCategory || "General",
+          condition: l.condition || "Like New",
+          isBoosted: l.storeMeta?.featured || false
+        });
+      }
+
+      setApiListings(Array.from(mergedMap.values()));
 
       if (adRes?.success && adRes.data && adRes.data.length > 0) {
         setSponsoredAd(adRes.data[0]);
       }
     });
-  }, [store.id, store.area, store.city, store.primaryCategory]);
+  }, [store.id, (store as any).slug, store.area, store.city, store.primaryCategory]);
 
-  const toggleFollow = () => {
-    if (following) {
-      setFollowing(false);
-      setFollowers((prev) => prev - 1);
-      toast.info(`Unfollowed ${store.name}`);
-    } else {
-      setFollowing(true);
-      setFollowers((prev) => prev + 1);
-      toast.success(`You are now following ${store.name}!`);
-    }
+  const toggleFollow = async () => {
+    const isNowFollowing = !following;
+    setFollowing(isNowFollowing);
+    setFollowers((prev) => (isNowFollowing ? prev + 1 : Math.max(0, prev - 1)));
+
+    try {
+      const followed: string[] = JSON.parse(localStorage.getItem("omeetso_followed_stores") || "[]");
+      if (isNowFollowing) {
+        if (!followed.includes(store.id)) followed.push(store.id);
+        toast.success(`You are now following ${store.name}!`);
+      } else {
+        const idx = followed.indexOf(store.id);
+        if (idx !== -1) followed.splice(idx, 1);
+        toast.info(`Unfollowed ${store.name}`);
+      }
+      localStorage.setItem("omeetso_followed_stores", JSON.stringify(followed));
+
+      // Sync with backend
+      await fetch(`${API_BASE}/stores/${store.id}/follow`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: isNowFollowing ? "follow" : "unfollow" })
+      }).catch(() => {});
+    } catch {}
   };
 
   const handleShareStore = async () => {

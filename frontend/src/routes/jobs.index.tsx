@@ -173,12 +173,27 @@ function JobsPage() {
 
   useEffect(() => {
     loadData();
+
+    const handleJobsChanged = () => {
+      loadData();
+    };
+
+    if (typeof window !== "undefined") {
+      window.addEventListener("omeetso_jobs_changed", handleJobsChanged);
+      window.addEventListener("focus", handleJobsChanged);
+    }
+    return () => {
+      if (typeof window !== "undefined") {
+        window.removeEventListener("omeetso_jobs_changed", handleJobsChanged);
+        window.removeEventListener("focus", handleJobsChanged);
+      }
+    };
   }, [loadData]);
 
   const filteredJobs = useMemo(() => {
     let list = allJobs.filter((j) => {
       const st = (j.status || "").toUpperCase();
-      return st === "APPROVED" || st === "ACTIVE";
+      return st === "APPROVED" || st === "ACTIVE" || st === "SUBMITTED" || st === "PUBLISHED" || !st;
     });
 
     const q = search.q?.toLowerCase() ?? "";

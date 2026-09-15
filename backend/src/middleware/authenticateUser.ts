@@ -1,10 +1,12 @@
 import { Request, Response, NextFunction } from "express";
 import { verifyAccessToken, UserTokenPayload } from "../modules/auth/utils/token";
 import { User, IUser } from "../modules/users/models/User";
+import { UserSession } from "../modules/auth/models/UserSession";
 import { UserStatus } from "../contracts";
 
 export interface AuthenticatedUserRequest extends Request {
   user?: IUser;
+  sessionId?: string;
 }
 
 export async function authenticateUser(
@@ -33,6 +35,22 @@ export async function authenticateUser(
       return;
     }
 
+    // Verify session validity in database if sessionId is present in token
+    if (payload.sessionId) {
+      const session = await UserSession.findById(payload.sessionId);
+      if (!session || session.isRevoked || session.expiresAt < new Date()) {
+        res.status(401).json({
+          success: false,
+          error: {
+            code: "SESSION_REVOKED",
+            message: "Your session has expired or was terminated because you signed in from another device."
+          }
+        });
+        return;
+      }
+      req.sessionId = payload.sessionId;
+    }
+
     const user = await User.findById(payload.userId);
     if (!user) {
       res.status(401).json({
@@ -45,7 +63,7 @@ export async function authenticateUser(
     if (user.status === UserStatus.PERMANENTLY_SUSPENDED || user.status === UserStatus.DELETED) {
       res.status(403).json({
         success: false,
-        error: { code: "ACCOUNT_SUSPENDED", message: "Account has been suspended or deleted" }
+        error: { code: "ACCOUNT_SUSPENDED", message: "This account has been deleted or suspended." }
       });
       return;
     }

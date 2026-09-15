@@ -2,6 +2,7 @@ import { Router } from "express";
 import {
   startConversation,
   getConversations,
+  getConversationById,
   getMessages,
   sendMessage,
   createOffer,
@@ -14,8 +15,10 @@ export const chatRouter = Router();
 
 chatRouter.post("/conversations", authenticateUser, startConversation);
 chatRouter.get("/conversations", authenticateUser, getConversations);
+chatRouter.get("/conversations/:conversationId", authenticateUser, getConversationById);
 chatRouter.get("/conversations/:conversationId/messages", authenticateUser, getMessages);
 chatRouter.post("/conversations/:conversationId/messages", authenticateUser, sendMessage);
 chatRouter.post("/conversations/:conversationId/offers", authenticateUser, createOffer);
 chatRouter.get("/offers/:offerId", authenticateUser, getOfferById);
 chatRouter.patch("/offers/:offerId/status", authenticateUser, updateOfferStatus);
+

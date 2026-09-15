@@ -445,7 +445,7 @@ function JobDetailPage() {
               <button
                 onClick={async () => {
                   try {
-                    const res = await startConversationApi("JOB", job.id);
+                    const res = await startConversationApi("JOB", job.id, job.employerId);
                     if (res.success && res.data?.id) {
                       nav({ to: "/chat/$id", params: { id: res.data.id } });
                     } else {

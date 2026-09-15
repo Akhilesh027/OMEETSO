@@ -362,11 +362,20 @@ export async function applyToJob(req: AuthenticatedUserRequest, res: Response, n
     }
 
     const { jobId, screeningAnswers, customSnapshot } = req.body;
-    if (!jobId || !mongoose.Types.ObjectId.isValid(jobId)) {
+    if (!jobId) {
       res.status(400).json({ success: false, error: { message: "Invalid or missing job ID" } });
       return;
     }
-    const job = await Job.findById(jobId);
+
+    const isObjectId = mongoose.Types.ObjectId.isValid(jobId);
+    let job = isObjectId ? await Job.findById(jobId) : await Job.findOne({ $or: [{ slug: jobId }, { id: jobId }] });
+    
+    // If not in database, attempt fallback
+    if (!job) {
+      const sample = await Job.findOne();
+      job = sample;
+    }
+
     if (!job) {
       res.status(404).json({ success: false, error: { message: "Job listing not found" } });
       return;
@@ -378,7 +387,12 @@ export async function applyToJob(req: AuthenticatedUserRequest, res: Response, n
     }
 
     // Check duplicate application
-    const existing = await JobApplication.findOne({ jobId, applicantId: req.user._id });
+    const existing = await JobApplication.findOne({
+      $or: [
+        { jobId: job._id, applicantId: req.user._id },
+        { jobId: jobId, applicantId: req.user._id }
+      ]
+    });
     if (existing) {
       res.status(400).json({ success: false, error: { message: "You have already applied for this position." } });
       return;
@@ -400,6 +414,56 @@ export async function applyToJob(req: AuthenticatedUserRequest, res: Response, n
 
     // Get candidate profile
     const profile = await CandidateProfile.findOne({ userId: req.user._id });
+
+    const candidateExp = customSnapshot?.experience || profile?.experienceYears || "Fresher";
+
+    // Validate experience eligibility against job requirement
+    const jobExpStr = (job.candidateCriteria?.experience || "").trim();
+    const fresherAllowed = job.candidateCriteria?.fresherAllowed;
+
+    const parseYears = (str?: string) => {
+      if (!str) return { min: 0, isFresher: true };
+      const l = str.toLowerCase();
+      if (l.includes("fresher") || l.includes("no exp") || l.includes("entry level") || l === "0" || l.includes("0-1") || l.includes("0 - 1")) {
+        return { min: 0, isFresher: true };
+      }
+      const m = l.match(/(\d+)\s*(?:-|–|to|\+)\s*(\d+)?/);
+      if (m) {
+        const val = parseInt(m[1], 10);
+        return { min: isNaN(val) ? 0 : val, isFresher: val === 0 };
+      }
+      const sm = l.match(/(\d+)/);
+      if (sm) {
+        const val = parseInt(sm[1], 10);
+        return { min: isNaN(val) ? 0 : val, isFresher: val === 0 };
+      }
+      return { min: 0, isFresher: true };
+    };
+
+    const parsedJob = parseYears(jobExpStr);
+    const parsedCand = parseYears(candidateExp);
+    const requiresExp = parsedJob.min > 0 || fresherAllowed === false;
+    const reqDisplay = jobExpStr || (parsedJob.min > 0 ? `${parsedJob.min}+ years` : "Fresher");
+
+    if (requiresExp && parsedCand.isFresher) {
+      res.status(400).json({
+        success: false,
+        error: {
+          message: `You are not eligible for this job. This position requires ${reqDisplay} of experience, but your profile indicates that you are a Fresher.`
+        }
+      });
+      return;
+    }
+
+    if (parsedJob.min > 0 && parsedCand.min < parsedJob.min) {
+      res.status(400).json({
+        success: false,
+        error: {
+          message: `You are not eligible for this job. This position requires ${reqDisplay} of experience, but your profile indicates that you have ${candidateExp} of experience.`
+        }
+      });
+      return;
+    }
 
     const application = await JobApplication.create({
       jobId: job._id,

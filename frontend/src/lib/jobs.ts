@@ -283,28 +283,46 @@ function setLocal(key: string, val: unknown) {
 export const SEED_JOBS: JobItem[] = [];
 
 export async function fetchPublicJobs(params?: Record<string, string>): Promise<JobItem[]> {
+  let serverJobs: JobItem[] = [];
   try {
     const qStr = params ? new URLSearchParams(params).toString() : "";
     const res = await fetch(`${API_BASE}/jobs?${qStr}`);
     if (res.ok) {
       const json = await res.json();
       if (json.success && Array.isArray(json.data)) {
-        const approvedOnly = json.data.filter((j: any) => {
-          const st = (j.status || "").toUpperCase();
-          return st === "APPROVED" || st === "ACTIVE";
-        });
-        return approvedOnly;
+        serverJobs = json.data;
       }
     }
   } catch { /* ignore offline */ }
 
   const cached = getLocal<JobItem[]>(LS_JOBS, []);
-  let list = Array.isArray(cached)
-    ? cached.filter(j => {
-      const st = (j.status || "").toUpperCase();
-      return st === "APPROVED" || st === "ACTIVE";
-    })
-    : [];
+  
+  // Merge server and local jobs, prioritizing latest postings
+  const mergedMap = new Map<string, JobItem>();
+  
+  // Add server jobs first
+  for (const j of serverJobs) {
+    const id = j.id || (j as any)._id;
+    if (id) mergedMap.set(String(id), { ...j, id: String(id) });
+  }
+
+  // Add/overwrite with local jobs (user's own newly posted jobs will take precedence and be up to date)
+  for (const j of cached) {
+    const id = j.id || (j as any)._id;
+    if (id) mergedMap.set(String(id), { ...j, id: String(id) });
+  }
+
+  let list = Array.from(mergedMap.values()).filter(j => {
+    const st = (j.status || "").toUpperCase();
+    return st === "APPROVED" || st === "ACTIVE" || st === "SUBMITTED" || st === "PUBLISHED" || !st;
+  });
+
+  // Sort newest first
+  list.sort((a, b) => {
+    const timeA = new Date(a.createdAt || 0).getTime();
+    const timeB = new Date(b.createdAt || 0).getTime();
+    return timeB - timeA;
+  });
 
   if (params?.q) {
     const q = params.q.toLowerCase();
@@ -430,7 +448,7 @@ export function submitJobApplicationLocal(app: Partial<JobApplicationItem>): Job
 
 export function withdrawJobApplicationLocal(appId: string, reason?: string) {
   const all = listCandidateApplicationsLocal();
-  const idx = all.findIndex(a => a.id === appId);
+  const idx = all.findIndex(a => a.id === appId || a.jobId === appId || (a as any)._id === appId);
   if (idx !== -1) {
     all[idx].status = "WITHDRAWN";
     all[idx].withdrawnAt = new Date().toISOString();
@@ -555,5 +573,91 @@ export async function fetchEmployerJobApplicants(jobId: string, token?: string |
   }
 
   return Array.from(seenMap.values());
+}
+
+export interface EligibilityResult {
+  isEligible: boolean;
+  requiredExpDisplay: string;
+  candidateExpDisplay: string;
+  message: string;
+}
+
+export function parseExperienceYears(expStr?: string | null): { minYears: number; maxYears?: number; isFresher: boolean } {
+  if (!expStr) return { minYears: 0, isFresher: true };
+  const lower = expStr.trim().toLowerCase();
+
+  if (
+    lower.includes("fresher") ||
+    lower.includes("no exp") ||
+    lower.includes("entry level") ||
+    lower === "0" ||
+    lower === "0-1 years" ||
+    lower === "0 - 1 years" ||
+    lower === "0-1" ||
+    lower === "none"
+  ) {
+    return { minYears: 0, maxYears: 1, isFresher: true };
+  }
+
+  // Check ranges e.g. "1-2 Years", "1 - 2 Years", "1–2 Years", "1 to 2 Years"
+  const rangeMatch = lower.match(/(\d+)\s*(?:-|–|to|\+)\s*(\d+)?/);
+  if (rangeMatch) {
+    const min = parseInt(rangeMatch[1], 10);
+    const max = rangeMatch[2] ? parseInt(rangeMatch[2], 10) : undefined;
+    return { minYears: isNaN(min) ? 0 : min, maxYears: max, isFresher: min === 0 };
+  }
+
+  const singleMatch = lower.match(/(\d+)/);
+  if (singleMatch) {
+    const val = parseInt(singleMatch[1], 10);
+    return { minYears: isNaN(val) ? 0 : val, isFresher: val === 0 };
+  }
+
+  return { minYears: 0, isFresher: true };
+}
+
+export function checkJobExperienceEligibility(
+  jobCriteria?: { experience?: string; fresherAllowed?: boolean },
+  candidateExpStr?: string
+): EligibilityResult {
+  const jobExpStr = (jobCriteria?.experience || "").trim();
+  const fresherAllowed = jobCriteria?.fresherAllowed;
+
+  const parsedJob = parseExperienceYears(jobExpStr);
+  const parsedCandidate = parseExperienceYears(candidateExpStr);
+
+  const rawJobExp = jobExpStr || (parsedJob.minYears > 0 ? `${parsedJob.minYears}+ years` : "Fresher");
+  // Normalize display string e.g. "1-2 Years" -> "1–2 years" or "1–2 Years"
+  const requiredExpDisplay = rawJobExp;
+  const isCandFresher = parsedCandidate.isFresher;
+  const candidateExpDisplay = isCandFresher ? "Fresher" : (candidateExpStr?.trim() || "Fresher");
+
+  // Job requires experience if minYears > 0 OR fresherAllowed is explicitly false
+  const requiresExperience = parsedJob.minYears > 0 || fresherAllowed === false;
+
+  if (requiresExperience && isCandFresher) {
+    return {
+      isEligible: false,
+      requiredExpDisplay,
+      candidateExpDisplay: "Fresher",
+      message: `You are not eligible for this job. This position requires ${requiredExpDisplay} of experience, but your profile indicates that you are a Fresher.`
+    };
+  }
+
+  if (parsedJob.minYears > 0 && parsedCandidate.minYears < parsedJob.minYears) {
+    return {
+      isEligible: false,
+      requiredExpDisplay,
+      candidateExpDisplay,
+      message: `You are not eligible for this job. This position requires ${requiredExpDisplay} of experience, but your profile indicates that you have ${candidateExpDisplay} of experience.`
+    };
+  }
+
+  return {
+    isEligible: true,
+    requiredExpDisplay,
+    candidateExpDisplay,
+    message: ""
+  };
 }
 

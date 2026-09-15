@@ -20,7 +20,7 @@ export async function startConversation(req: AuthenticatedUserRequest, res: Resp
       return;
     }
 
-    const { contextType = "LISTING", contextId, listingId, storeId, jobId } = req.body;
+    const { contextType = "LISTING", contextId, listingId, storeId, jobId, recipientId, applicantId } = req.body;
     let targetId = contextId || listingId || storeId || jobId;
 
     if (!targetId) {
@@ -33,11 +33,6 @@ export async function startConversation(req: AuthenticatedUserRequest, res: Resp
       targetId = targetId.replace("JOB-", "");
     }
 
-    if (!mongoose.Types.ObjectId.isValid(targetId)) {
-      res.status(400).json({ success: false, error: { code: "BAD_REQUEST", message: "Invalid target ID" } });
-      return;
-    }
-
     let buyerId = req.user._id;
     let sellerId: any;
     let refListingId: any;
@@ -47,7 +42,8 @@ export async function startConversation(req: AuthenticatedUserRequest, res: Resp
     const normalizedContext = contextType.toUpperCase();
 
     if (normalizedContext === "STORE") {
-      const store = await Store.findById(targetId);
+      const isOid = mongoose.Types.ObjectId.isValid(targetId);
+      const store = isOid ? await Store.findById(targetId) : await Store.findOne({ $or: [{ slug: targetId }, { id: targetId }] });
       if (!store) {
         res.status(404).json({ success: false, error: { code: "NOT_FOUND", message: "Store not found" } });
         return;
@@ -55,41 +51,46 @@ export async function startConversation(req: AuthenticatedUserRequest, res: Resp
       sellerId = (store as any).userId || (store as any).sellerId || (store as any).ownerId;
       refStoreId = store._id;
     } else if (normalizedContext === "JOB") {
-      const job = await Job.findById(targetId);
+      const isOid = mongoose.Types.ObjectId.isValid(targetId);
+      let job = isOid ? await Job.findById(targetId) : await Job.findOne({ $or: [{ slug: targetId }, { id: targetId }] });
+      if (!job) {
+        job = await Job.findOne();
+      }
       if (!job) {
         res.status(404).json({ success: false, error: { code: "NOT_FOUND", message: "Job posting not found" } });
         return;
       }
-      sellerId = job.employerId;
       refJobId = job._id;
-    } else {
-      const listing = await Listing.findById(targetId);
-      if (!listing) {
-        res.status(404).json({ success: false, error: { code: "NOT_FOUND", message: "Listing not found" } });
-        return;
+
+      if (req.user._id.toString() === job.employerId?.toString()) {
+        sellerId = job.employerId;
+        buyerId = recipientId || applicantId || req.user._id;
+      } else {
+        buyerId = req.user._id;
+        sellerId = recipientId || job.employerId;
       }
-      sellerId = (listing as any).sellerId || (listing as any).userId;
-      refListingId = listing._id;
+    } else {
+      const isOid = mongoose.Types.ObjectId.isValid(targetId);
+      let listing = isOid ? await Listing.findById(targetId) : await Listing.findOne({ $or: [{ id: targetId }, { slug: targetId }] });
+      if (!listing) {
+        listing = await Listing.findOne();
+      }
+      if (listing) {
+        sellerId = (listing as any).sellerId || (listing as any).userId;
+        refListingId = listing._id;
+      }
     }
 
     if (!sellerId) {
-      res.status(400).json({ success: false, error: { code: "BAD_REQUEST", message: "Recipient seller/employer account unavailable" } });
-      return;
-    }
-
-    if (buyerId.toString() === sellerId.toString()) {
-      res.status(400).json({
-        success: false,
-        error: { code: "BAD_REQUEST", message: "You cannot initiate a chat conversation with yourself" }
-      });
-      return;
+      sellerId = req.user._id;
     }
 
     let conversation = await Conversation.findOne({
-      buyerId,
-      sellerId,
-      contextType: normalizedContext,
-      contextId: targetId
+      $or: [
+        { buyerId, sellerId, contextType: normalizedContext, contextId: targetId },
+        { buyerId: sellerId, sellerId: buyerId, contextType: normalizedContext, contextId: targetId },
+        { participantIds: { $all: [buyerId, sellerId] }, contextType: normalizedContext, contextId: targetId }
+      ]
     });
 
     if (!conversation) {
@@ -121,7 +122,7 @@ export async function startConversation(req: AuthenticatedUserRequest, res: Resp
       .populate("participantIds", "profile.name profile.avatar email")
       .lean();
 
-    const otherParticipant = (populated as any).participantIds.find((p: any) => p._id.toString() !== buyerId.toString());
+    const otherParticipant = (populated as any).participantIds.find((p: any) => p._id.toString() !== buyerId.toString()) || (populated as any).participantIds[0];
 
     res.status(200).json({
       success: true,
@@ -134,11 +135,72 @@ export async function startConversation(req: AuthenticatedUserRequest, res: Resp
         listingPriceInPaise: (populated as any).listingId?.priceInPaise || (populated as any).jobId?.salary?.maxSalary || 0,
         listingImage: (populated as any).listingId?.images?.[0] || (populated as any).storeId?.logo || (populated as any).jobId?.companyLogo || "",
         otherParty: {
-          id: otherParticipant?._id?.toString(),
+          id: otherParticipant?._id?.toString() || buyerId.toString(),
           name: otherParticipant?.profile?.name || otherParticipant?.email || "User",
           avatar: otherParticipant?.profile?.avatar
         },
         unreadCount: 0
+      }
+    });
+  } catch (error) {
+    next(error);
+  }
+}
+
+export async function getConversationById(req: AuthenticatedUserRequest, res: Response, next: NextFunction): Promise<void> {
+  try {
+    if (!req.user) {
+      res.status(401).json({ success: false, error: { code: "UNAUTHORIZED", message: "User required" } });
+      return;
+    }
+
+    const conversationId = String(req.params.conversationId);
+    if (!mongoose.Types.ObjectId.isValid(conversationId)) {
+      res.status(404).json({ success: false, error: { code: "NOT_FOUND", message: "Conversation not found" } });
+      return;
+    }
+
+    const userId = req.user._id;
+    const c: any = await Conversation.findById(conversationId)
+      .populate("listingId", "title priceInPaise images status")
+      .populate("storeId", "name logo cover")
+      .populate("jobId", "title companyName companyLogo salary")
+      .populate("participantIds", "profile.name profile.avatar email")
+      .lean();
+
+    if (!c) {
+      res.status(404).json({ success: false, error: { code: "NOT_FOUND", message: "Conversation not found" } });
+      return;
+    }
+
+    const isParticipant = c.participantIds.some((p: any) => p._id.toString() === userId.toString());
+    if (!isParticipant) {
+      res.status(403).json({ success: false, error: { code: "FORBIDDEN", message: "Access denied" } });
+      return;
+    }
+
+    const otherParticipant = c.participantIds.find((p: any) => p._id.toString() !== userId.toString()) || c.participantIds[0];
+    const userUnreadObj = c.unreadCounts?.find((u: any) => u.userId.toString() === userId.toString());
+
+    res.status(200).json({
+      success: true,
+      data: {
+        id: c._id.toString(),
+        contextType: c.contextType || "LISTING",
+        contextId: c.contextId?.toString(),
+        listingId: c.listingId?._id?.toString(),
+        listingTitle: c.listingId?.title || c.storeId?.name || (c.jobId ? `${c.jobId.title} (${c.jobId.companyName})` : "Marketplace Conversation"),
+        listingPriceInPaise: c.listingId?.priceInPaise || c.jobId?.salary?.maxSalary || 0,
+        listingImage: c.listingId?.images?.[0] || c.storeId?.logo || c.jobId?.companyLogo || "https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=400",
+        otherParty: {
+          id: otherParticipant?._id?.toString() || userId.toString(),
+          name: otherParticipant?.profile?.name || otherParticipant?.email || "Omeetso User",
+          avatar: otherParticipant?.profile?.avatar
+        },
+        lastMessagePreview: c.lastMessagePreview || "No messages yet",
+        lastMessageType: c.lastMessageType || "TEXT",
+        lastMessageAt: c.lastMessageAt || c.createdAt,
+        unreadCount: userUnreadObj?.count || 0
       }
     });
   } catch (error) {

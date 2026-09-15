@@ -1,6 +1,7 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { ArrowLeft, ShieldCheck, X, MapPin, Zap, Video } from "lucide-react";
+import { MobileFrame } from "@/components/omeetso/MobileFrame";
 import { CATEGORIES as STATIC_CATEGORIES, SUBCATEGORIES, AREAS, PRODUCTS } from "@/lib/mock";
 import { fetchLiveCategories, getCachedCategories, type LiveCategory } from "@/lib/categories";
 

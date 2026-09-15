@@ -74,6 +74,8 @@ function NewCampaign() {
   const [busy, setBusy] = useState(false);
   const [agree, setAgree] = useState(false);
   const [payMethod, setPayMethod] = useState<"wallet" | "upi" | "card">("wallet");
+  const [customLocInput, setCustomLocInput] = useState("");
+  const [isUploadingImage, setIsUploadingImage] = useState(false);
 
   useEffect(() => {
     clearMockSeedData();
@@ -87,6 +89,62 @@ function NewCampaign() {
   const setCreative = (v: Partial<CampaignCreative>) => setC((cur) => ({ ...cur, creative: { ...cur.creative, ...v } }));
   const setAudience = (v: Partial<CampaignAudience>) => setC((cur) => ({ ...cur, audience: { ...cur.audience, ...v } }));
   const setSchedule = (v: Partial<CampaignSchedule>) => setC((cur) => ({ ...cur, schedule: { ...cur.schedule, ...v } }));
+
+  const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (!file.type.startsWith("image/")) {
+      toast.error("Please upload an image file");
+      return;
+    }
+    setIsUploadingImage(true);
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      const dataUrl = event.target?.result as string;
+      if (dataUrl) {
+        setCreative({ imageUrl: dataUrl });
+        toast.success("Image uploaded successfully!");
+      }
+      setIsUploadingImage(false);
+    };
+    reader.onerror = () => {
+      toast.error("Failed to read image file");
+      setIsUploadingImage(false);
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const handleAddCustomLocation = () => {
+    const trimmed = customLocInput.trim();
+    if (!trimmed) return;
+
+    const isPin = /^\d{6}$/.test(trimmed);
+    const newAreas = isPin ? c.audience.areas : (c.audience.areas.includes(trimmed) ? c.audience.areas : [...c.audience.areas, trimmed]);
+    const newPincodes = isPin ? (c.audience.pincodes.includes(trimmed) ? c.audience.pincodes : [...c.audience.pincodes, trimmed]) : c.audience.pincodes;
+
+    if (!isPin && c.audience.areas.includes(trimmed)) {
+      toast.info(`"${trimmed}" is already in target locations`);
+      setCustomLocInput("");
+      return;
+    }
+
+    if (isPin && c.audience.pincodes.includes(trimmed)) {
+      toast.info(`Pincode "${trimmed}" is already added`);
+      setCustomLocInput("");
+      return;
+    }
+
+    setAudience({ areas: newAreas, pincodes: newPincodes });
+    toast.success(`Added "${trimmed}" to target audience`);
+    setCustomLocInput("");
+  };
+
+  const handleRemoveLocation = (areaName?: string, pinCode?: string) => {
+    setAudience({
+      areas: areaName ? c.audience.areas.filter((a) => a !== areaName) : c.audience.areas,
+      pincodes: pinCode ? c.audience.pincodes.filter((p) => p !== pinCode) : c.audience.pincodes
+    });
+  };
 
   useEffect(() => {
     if (step > 1) saveCampaignDraft({ ...c, step });
@@ -150,8 +208,14 @@ function NewCampaign() {
       const createRes = await createAdCampaignApi({
         listingId,
         adProductId: "6a6b0c6aabad5897fe847fad", // Popular Growth Boost Plan
-        placementIds: c.placements && c.placements.length > 0 ? c.placements : ["SEARCH_TOP", "CATEGORY_FEATURED"],
-        bannerUrl: c.creative.imageUrl
+        placementIds: c.placements && c.placements.length > 0 ? c.placements : ["SEARCH_TOP", "CATEGORY_FEATURED", "HOMEPAGE_HERO", "CATEGORY_HEADER"],
+        bannerUrl: c.creative.imageUrl,
+        targeting: {
+          city: "Hyderabad",
+          targetAreas: c.audience.areas,
+          pincodes: c.audience.pincodes,
+          categoryIds: c.audience.categories
+        }
       });
 
       if (createRes.success && createRes.data?.id) {
@@ -181,7 +245,7 @@ function NewCampaign() {
 
   return (
     <MobileFrame>
-      <div className="min-h-dvh bg-background pb-32 md:mx-auto md:max-w-[720px] md:px-6">
+      <div className="min-h-dvh bg-background pb-44 md:pb-48 md:mx-auto md:max-w-[720px] md:px-6">
         <div className="flex items-center justify-between px-4 pt-3">
           <button onClick={() => setConfirmExit(true)} className="grid h-9 w-9 place-items-center rounded-full text-muted-foreground hover:bg-secondary" aria-label="Exit">
             <X className="h-5 w-5" />
@@ -291,22 +355,55 @@ function NewCampaign() {
                   onChange={(v) => setCreative({ externalUrl: v })} />
               )}
 
-              <div className="mt-2 rounded-2xl border-2 border-dashed border-border bg-card p-3 text-center">
+              <div className="mt-2 rounded-2xl border-2 border-dashed border-border bg-card p-4 text-center">
                 {c.creative.imageUrl ? (
-                  <img src={c.creative.imageUrl} alt={c.creative.headline || "Ad creative"} className="mx-auto aspect-square w-40 rounded-xl object-cover" />
+                  <div className="space-y-2">
+                    <img
+                      src={c.creative.imageUrl}
+                      alt={c.creative.headline || "Ad creative"}
+                      className="mx-auto aspect-square w-44 rounded-2xl object-cover border border-border shadow-sm"
+                    />
+                    <div className="flex items-center justify-center gap-2 pt-1">
+                      <label className="cursor-pointer inline-flex items-center gap-1.5 rounded-full bg-secondary hover:bg-secondary/80 px-3.5 py-1.5 text-xs font-bold text-foreground border border-border transition-colors">
+                        <Upload className="h-3.5 w-3.5" />
+                        Change Image
+                        <input type="file" accept="image/*" onChange={handleImageUpload} className="hidden" />
+                      </label>
+                      <button
+                        type="button"
+                        onClick={() => setCreative({ imageUrl: undefined })}
+                        className="rounded-full border border-border px-3.5 py-1.5 text-xs font-semibold hover:bg-red-500/10 hover:text-red-600 transition-colors"
+                      >
+                        Remove
+                      </button>
+                    </div>
+                  </div>
                 ) : (
-                  <ImageIcon className="mx-auto h-8 w-8 text-muted-foreground" />
+                  <div className="space-y-3 py-2">
+                    <div className="mx-auto h-12 w-12 rounded-2xl bg-primary/10 flex items-center justify-center text-primary">
+                      <ImageIcon className="h-6 w-6" />
+                    </div>
+                    <div>
+                      <p className="text-xs font-bold text-foreground">Upload Custom Advertisement Creative</p>
+                      <p className="text-[11px] text-muted-foreground mt-0.5">Recommended: 1:1 square, 16:9 landscape, 4:5 portrait</p>
+                    </div>
+                    <div className="flex flex-wrap items-center justify-center gap-2 pt-1">
+                      <label className="cursor-pointer inline-flex items-center gap-1.5 rounded-full bg-primary hover:bg-electric px-4 py-2 text-xs font-extrabold text-primary-foreground shadow-sm transition-all">
+                        <Upload className="h-3.5 w-3.5" />
+                        {isUploadingImage ? "Uploading..." : "Upload Image"}
+                        <input type="file" accept="image/*" onChange={handleImageUpload} className="hidden" disabled={isUploadingImage} />
+                      </label>
+                      <button
+                        type="button"
+                        onClick={() => setCreative({ imageUrl: `https://images.unsplash.com/photo-1555041469-a586c61ea9bc?auto=format&fit=crop&w=800&h=800&q=80` })}
+                        className="rounded-full border border-border bg-card hover:bg-secondary px-3.5 py-2 text-xs font-bold text-foreground transition-colors"
+                      >
+                        Use sample
+                      </button>
+                    </div>
+                  </div>
                 )}
-                <p className="mt-1 text-[11px] text-muted-foreground">Recommended: 1:1 square, 16:9 landscape, 4:5 portrait</p>
-                <div className="mt-2 flex justify-center gap-2">
-                  <button onClick={() => setCreative({ imageUrl: `https://images.unsplash.com/photo-1555041469-a586c61ea9bc?auto=format&fit=crop&w=800&h=800&q=80` })}
-                    className="rounded-full bg-primary px-3 py-1.5 text-xs font-bold text-primary-foreground">Use sample</button>
-                  {c.creative.imageUrl && (
-                    <button onClick={() => setCreative({ imageUrl: undefined })}
-                      className="rounded-full border border-border px-3 py-1.5 text-xs font-semibold">Remove</button>
-                  )}
-                </div>
-                <p className="mt-2 text-[10px] text-muted-foreground">Large binaries are not stored locally. Real uploads will use hosted URLs.</p>
+                <p className="mt-2 text-[10px] text-muted-foreground">Supports JPG, PNG, WEBP formats.</p>
               </div>
             </>
           )}
@@ -315,42 +412,130 @@ function NewCampaign() {
             <>
               <SectionTitle>Audience</SectionTitle>
 
-              <div className="rounded-2xl border border-border bg-card p-3">
-                <p className="flex items-center gap-1 text-[11px] font-bold uppercase text-muted-foreground"><MapPin className="h-3 w-3" /> Location</p>
-                <div className="mt-2 grid grid-cols-2 gap-2">
-                  {AREAS_HYD.map((a) => {
-                    const on = c.audience.areas.includes(a.area);
-                    return (
-                      <button key={a.pin} onClick={() =>
-                        setAudience({
-                          areas: on ? c.audience.areas.filter((x) => x !== a.area) : [...c.audience.areas, a.area],
-                          pincodes: on ? c.audience.pincodes.filter((x) => x !== a.pin) : [...c.audience.pincodes, a.pin],
-                        })}
-                        className={cn("rounded-xl border p-2 text-left text-xs",
-                          on ? "border-primary bg-primary/5" : "border-border")}>
-                        <p className="font-bold">{a.area}</p>
-                        <p className="text-[10px] text-muted-foreground">{a.pin}</p>
-                      </button>
-                    );
-                  })}
-                </div>
-                <p className="mt-2 text-[11px] font-semibold">Radius</p>
-                <div className="mt-1 flex gap-2">
-                  {[2, 5, 10, 20].map((r) => (
-                    <button key={r} onClick={() => setAudience({ radiusKm: r })}
-                      className={cn("rounded-full border px-3 py-1 text-xs font-semibold",
-                        c.audience.radiusKm === r ? "border-primary bg-primary/10 text-primary" : "border-border")}>
-                      {r} km
+              <div className="rounded-2xl border border-border bg-card p-3.5 space-y-3">
+                <div className="flex items-center justify-between">
+                  <p className="flex items-center gap-1 text-[11px] font-bold uppercase text-muted-foreground">
+                    <MapPin className="h-3 w-3 text-primary" /> Target Locations
+                  </p>
+                  {c.audience.areas.length > 0 && (
+                    <button
+                      type="button"
+                      onClick={() => setAudience({ areas: [], pincodes: [] })}
+                      className="text-[10px] font-bold text-muted-foreground hover:text-red-500"
+                    >
+                      Clear All
                     </button>
-                  ))}
-                  <button onClick={() => setAudience({ radiusKm: 999 })}
-                    className={cn("rounded-full border px-3 py-1 text-xs font-semibold",
-                      c.audience.radiusKm === 999 ? "border-primary bg-primary/10 text-primary" : "border-border")}>
-                    City-wide
-                  </button>
+                  )}
                 </div>
-                <div className="mt-2 rounded-xl bg-secondary/40 p-2 text-[11px] text-muted-foreground">
-                  Estimated local audience: <b className="text-foreground">{Math.max(1, c.audience.areas.length) * 5000}–{Math.max(1, c.audience.areas.length) * 8000}</b> users (sample data)
+
+                {/* Manual location entry */}
+                <div className="space-y-1.5">
+                  <p className="text-[11px] font-semibold text-foreground">Select or Type Manual Location / Pincode</p>
+                  <div className="flex gap-2">
+                    <input
+                      type="text"
+                      value={customLocInput}
+                      onChange={(e) => setCustomLocInput(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter") {
+                          e.preventDefault();
+                          handleAddCustomLocation();
+                        }
+                      }}
+                      placeholder="e.g. Uppal, Banjara Hills, 500039"
+                      className="flex-1 rounded-xl border border-border bg-background px-3 py-2 text-xs outline-none focus:border-primary"
+                    />
+                    <button
+                      type="button"
+                      onClick={handleAddCustomLocation}
+                      className="px-4 py-2 rounded-xl bg-primary text-primary-foreground text-xs font-black hover:bg-electric shadow-xs transition-colors shrink-0"
+                    >
+                      + Add
+                    </button>
+                  </div>
+                </div>
+
+                {/* Selected location tags */}
+                {c.audience.areas.length > 0 && (
+                  <div className="flex flex-wrap gap-1.5 pt-1">
+                    {c.audience.areas.map((a, idx) => (
+                      <span
+                        key={a}
+                        className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-primary/10 text-primary text-xs font-bold border border-primary/20"
+                      >
+                        {a} {c.audience.pincodes[idx] ? `(${c.audience.pincodes[idx]})` : ""}
+                        <button
+                          type="button"
+                          onClick={() => handleRemoveLocation(a, c.audience.pincodes[idx])}
+                          className="hover:text-red-600 transition-colors ml-0.5"
+                        >
+                          <X className="h-3 w-3" />
+                        </button>
+                      </span>
+                    ))}
+                  </div>
+                )}
+
+                {/* Quick select popular areas */}
+                <div className="pt-2 border-t border-border/60">
+                  <p className="text-[10px] font-bold uppercase text-muted-foreground mb-2">Quick Select Popular Areas</p>
+                  <div className="grid grid-cols-2 gap-2">
+                    {AREAS_HYD.map((a) => {
+                      const on = c.audience.areas.includes(a.area);
+                      return (
+                        <button
+                          key={a.pin}
+                          type="button"
+                          onClick={() =>
+                            setAudience({
+                              areas: on ? c.audience.areas.filter((x) => x !== a.area) : [...c.audience.areas, a.area],
+                              pincodes: on ? c.audience.pincodes.filter((x) => x !== a.pin) : [...c.audience.pincodes, a.pin],
+                            })
+                          }
+                          className={cn(
+                            "rounded-xl border p-2 text-left text-xs transition-all",
+                            on ? "border-primary bg-primary/10 font-bold" : "border-border bg-card hover:bg-secondary/40"
+                          )}
+                        >
+                          <p className="font-bold text-foreground">{a.area}</p>
+                          <p className="text-[10px] text-muted-foreground">{a.pin}</p>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                <div className="pt-1">
+                  <p className="text-[11px] font-semibold text-foreground">Targeting Radius</p>
+                  <div className="mt-1 flex flex-wrap gap-2">
+                    {[2, 5, 10, 20].map((r) => (
+                      <button
+                        key={r}
+                        type="button"
+                        onClick={() => setAudience({ radiusKm: r })}
+                        className={cn(
+                          "rounded-full border px-3 py-1 text-xs font-semibold",
+                          c.audience.radiusKm === r ? "border-primary bg-primary/10 text-primary font-bold" : "border-border"
+                        )}
+                      >
+                        {r} km
+                      </button>
+                    ))}
+                    <button
+                      type="button"
+                      onClick={() => setAudience({ radiusKm: 999 })}
+                      className={cn(
+                        "rounded-full border px-3 py-1 text-xs font-semibold",
+                        c.audience.radiusKm === 999 ? "border-primary bg-primary/10 text-primary font-bold" : "border-border"
+                      )}
+                    >
+                      City-wide
+                    </button>
+                  </div>
+                </div>
+
+                <div className="rounded-xl bg-secondary/40 p-2.5 text-[11px] text-muted-foreground">
+                  Estimated local audience: <b className="text-foreground">{Math.max(1, c.audience.areas.length) * 5000}–{Math.max(1, c.audience.areas.length) * 8000}</b> users in targeted zones.
                 </div>
               </div>
 
@@ -512,20 +697,25 @@ function NewCampaign() {
               </label>
             </>
           )}
+
+          {/* Spacer so fields and image upload are never covered by sticky continue bar */}
+          <div className="h-24 md:h-28" />
         </div>
 
-        <div className="fixed inset-x-0 bottom-0 z-10 mx-auto max-w-[430px] md:max-w-[720px] border-t border-border bg-card p-3 safe-b">
+        <div className="fixed inset-x-0 bottom-0 z-30 mx-auto max-w-[430px] md:max-w-[720px] border-t border-border bg-background/95 backdrop-blur-md p-3.5 shadow-lg safe-b">
           <div className="flex items-center gap-2">
             {step > 1 && (
-              <button onClick={() => setStep(step - 1)} className="rounded-full border border-border px-4 py-3 text-sm font-semibold">Back</button>
+              <button onClick={() => setStep(step - 1)} className="rounded-full border border-border bg-card hover:bg-secondary px-5 py-3 text-sm font-bold text-foreground transition-colors">
+                Back
+              </button>
             )}
             {step < STEPS.length ? (
-              <button onClick={next} className="flex-1 rounded-full bg-primary py-3 text-sm font-bold text-primary-foreground">
+              <button onClick={next} className="flex-1 rounded-full bg-primary hover:bg-electric py-3 text-sm font-black text-primary-foreground shadow-sm transition-all">
                 Continue <ChevronRight className="ml-1 inline h-4 w-4" />
               </button>
             ) : (
               <button onClick={submit} disabled={busy}
-                className="flex-1 rounded-full bg-primary py-3 text-sm font-bold text-primary-foreground disabled:opacity-70">
+                className="flex-1 rounded-full bg-primary hover:bg-electric py-3 text-sm font-black text-primary-foreground disabled:opacity-70 shadow-sm transition-all">
                 {busy ? "Processing…" : `Pay & Submit ${formatINR(totals.total)}`}
               </button>
             )}

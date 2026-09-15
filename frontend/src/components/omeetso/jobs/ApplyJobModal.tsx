@@ -3,9 +3,9 @@ import {
   X, CheckCircle2, ArrowRight, ArrowLeft, Upload, FileText,
   Loader2, Trash2, Sparkles, User, Briefcase,
   GraduationCap, Check, MapPin, Award, ShieldCheck,
-  Zap, AlertCircle, ExternalLink, Globe, Linkedin, Github
+  Zap, AlertCircle, ExternalLink, Globe, Linkedin, Github, Ban
 } from "lucide-react";
-import { JobItem, submitJobApplicationLocal, CandidateProfileItem } from "@/lib/jobs";
+import { JobItem, submitJobApplicationLocal, CandidateProfileItem, checkJobExperienceEligibility, EligibilityResult } from "@/lib/jobs";
 import { uploadFile } from "@/lib/upload";
 import { toast } from "sonner";
 import { pushNotification } from "@/lib/account";
@@ -26,6 +26,7 @@ export function ApplyJobModal({ job, isOpen, onClose, onSuccess }: ApplyJobModal
 
   const [profile, setProfile] = useState<CandidateProfileItem | null>(null);
   const [errors, setErrors] = useState<Record<string, string>>({});
+  const [ineligibleNotice, setIneligibleNotice] = useState<EligibilityResult | null>(null);
 
   const [formData, setFormData] = useState({
     name: "",
@@ -35,7 +36,7 @@ export function ApplyJobModal({ job, isOpen, onClose, onSuccess }: ApplyJobModal
     area: "",
     title: "",
     summary: "",
-    experience: job.candidateCriteria?.experience || "Fresher",
+    experience: "Fresher",
     currentRole: "",
     currentCompany: "",
     currentSalary: undefined as number | undefined,
@@ -62,6 +63,7 @@ export function ApplyJobModal({ job, isOpen, onClose, onSuccess }: ApplyJobModal
 
     setStep("form");
     setErrors({});
+    setIneligibleNotice(null);
 
     // Load saved candidate profile
     const token = localStorage.getItem("omeetso_user_token");
@@ -248,6 +250,11 @@ export function ApplyJobModal({ job, isOpen, onClose, onSuccess }: ApplyJobModal
   const handleNextStep = () => {
     if (step === "form") {
       if (!validateDetails()) return;
+      const eligibility = checkJobExperienceEligibility(job.candidateCriteria, formData.experience);
+      if (!eligibility.isEligible) {
+        setIneligibleNotice(eligibility);
+        return;
+      }
       if (job.screeningQuestions && job.screeningQuestions.length > 0) {
         setStep("screening");
       } else {
@@ -264,43 +271,60 @@ export function ApplyJobModal({ job, isOpen, onClose, onSuccess }: ApplyJobModal
       return;
     }
 
+    const eligibility = checkJobExperienceEligibility(job.candidateCriteria, formData.experience);
+    if (!eligibility.isEligible) {
+      setIneligibleNotice(eligibility);
+      return;
+    }
+
     setLoading(true);
     try {
       const token = typeof window !== "undefined" ? localStorage.getItem("omeetso_user_token") : null;
       const formattedAnswers = Object.entries(screeningAnswers).map(([question, answer]) => ({ question, answer }));
 
       let serverApp: any = null;
-      try {
-        const res = await fetch(`${API_BASE}/jobs/apply`, {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            ...(token ? { Authorization: `Bearer ${token}` } : {})
-          },
-          body: JSON.stringify({
-            jobId: job.id,
-            customSnapshot: formData,
-            screeningAnswers: formattedAnswers
-          })
-        });
-        const json = await res.json();
-        if (!res.ok || !json.success) {
-          throw new Error(json.error?.message || "Failed to submit application");
-        }
-        serverApp = json.data;
-      } catch (err: any) {
-        // If error occurred on server
-        if (err.message && !err.message.includes("Failed to fetch")) {
-          toast.error(err.message || "Failed to submit application");
-          setLoading(false);
-          return;
+      if (token) {
+        try {
+          const res = await fetch(`${API_BASE}/jobs/apply`, {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${token}`
+            },
+            body: JSON.stringify({
+              jobId: job.id,
+              customSnapshot: formData,
+              screeningAnswers: formattedAnswers
+            })
+          });
+          const json = await res.json();
+          if (res.ok && json.success) {
+            serverApp = json.data;
+          } else if (json.error?.message && json.error.message.toLowerCase().includes("already applied")) {
+            toast.info("You have already applied for this position.");
+            setLoading(false);
+            setStep("success");
+            onSuccess();
+            return;
+          } else if (json.error?.message && (json.error.message.toLowerCase().includes("not eligible") || json.error.message.toLowerCase().includes("fresher"))) {
+            setLoading(false);
+            setIneligibleNotice({
+              isEligible: false,
+              requiredExpDisplay: job.candidateCriteria?.experience || "Required Experience",
+              candidateExpDisplay: formData.experience || "Fresher",
+              message: json.error.message
+            });
+            return;
+          }
+        } catch (serverErr) {
+          console.warn("[Job Apply] Server fetch skipped:", serverErr);
         }
       }
 
       submitJobApplicationLocal({
-        id: serverApp?.id || serverApp?._id || undefined,
+        id: serverApp?.id || serverApp?._id || `APP-${Date.now()}`,
         jobId: job.id,
-        employerId: job.employerId,
+        employerId: job.employerId || "emp-default",
         job: { title: job.title, companyName: job.companyName, location: job.location, salary: job.salary },
         applicantProfileSnapshot: formData,
         screeningAnswers: formattedAnswers,
@@ -312,12 +336,13 @@ export function ApplyJobModal({ job, isOpen, onClose, onSuccess }: ApplyJobModal
         category: "system",
         title: `Job Application Submitted: ${job.title}`,
         body: `Your application for "${job.title}" at ${job.companyName} was submitted successfully.`,
-        destination: "/account/jobs",
+        destination: "/my/jobs",
         destinationLabel: "View Applications",
         read: false,
         time: Date.now(),
       });
 
+      toast.success("Application submitted successfully!");
       setLoading(false);
       setStep("success");
       onSuccess();
@@ -471,6 +496,12 @@ export function ApplyJobModal({ job, isOpen, onClose, onSuccess }: ApplyJobModal
                   <option value="5-8 Years">5-8 Years</option>
                   <option value="8+ Years">8+ Years</option>
                 </select>
+                {!checkJobExperienceEligibility(job.candidateCriteria, formData.experience).isEligible && (
+                  <p className="text-[11px] text-rose-500 font-bold mt-1.5 flex items-center gap-1">
+                    <AlertCircle className="w-3.5 h-3.5 shrink-0" />
+                    <span>Requires {job.candidateCriteria?.experience || "Experience"} (Freshers ineligible)</span>
+                  </p>
+                )}
               </div>
             </div>
 
@@ -1029,28 +1060,115 @@ export function ApplyJobModal({ job, isOpen, onClose, onSuccess }: ApplyJobModal
           </div>
         )}
 
-        {/* STEP 4: SUCCESS CONFIRMATION */}
+        {/* STEP 4: SUCCESS CONFIRMATION MODAL VIEW */}
         {step === "success" && (
-          <div className="py-6 text-center space-y-4">
-            <div className="mx-auto grid h-16 w-16 place-items-center rounded-full bg-emerald-500/10 text-emerald-600">
-              <CheckCircle2 className="h-10 w-10" />
+          <div className="py-4 text-center space-y-5">
+            <div className="mx-auto grid h-20 w-20 place-items-center rounded-full bg-emerald-500/15 text-emerald-600 ring-8 ring-emerald-500/10 animate-in zoom-in-95 duration-300">
+              <CheckCircle2 className="h-12 w-12 stroke-[2.5]" />
             </div>
-            <div>
-              <h3 className="text-lg font-black text-foreground">Application Submitted Successfully! ✓</h3>
-              <p className="text-xs text-muted-foreground mt-1 font-semibold">
-                Your full Resume Profile has been delivered to <span className="font-extrabold text-foreground">{job.companyName}</span>.
+            
+            <div className="space-y-1.5">
+              <h3 className="text-xl font-black text-foreground">Application Submitted Successfully!</h3>
+              <p className="text-xs text-muted-foreground font-semibold max-w-sm mx-auto">
+                Your full resume profile and screening responses have been delivered to <span className="font-extrabold text-foreground">{job.companyName}</span>.
               </p>
             </div>
-            <button
-              onClick={onClose}
-              className="w-full h-11 rounded-2xl bg-indigo-600 hover:bg-indigo-700 text-white font-black text-xs shadow-md"
-            >
-              Done
-            </button>
+
+            {/* Application Summary Card */}
+            <div className="rounded-2xl border border-border bg-card p-4 text-left space-y-2 text-xs">
+              <div className="flex items-center justify-between border-b border-border/50 pb-2">
+                <span className="text-muted-foreground font-bold">Applied Position</span>
+                <span className="font-black text-foreground">{job.title}</span>
+              </div>
+              <div className="flex items-center justify-between border-b border-border/50 pb-2">
+                <span className="text-muted-foreground font-bold">Company</span>
+                <span className="font-extrabold text-foreground">{job.companyName}</span>
+              </div>
+              <div className="flex items-center justify-between border-b border-border/50 pb-2">
+                <span className="text-muted-foreground font-bold">Location</span>
+                <span className="font-semibold text-foreground">{job.location?.city || "Hyderabad"}</span>
+              </div>
+              <div className="flex items-center justify-between pt-0.5">
+                <span className="text-muted-foreground font-bold">Status</span>
+                <span className="inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-[11px] font-black bg-emerald-500/15 text-emerald-700 border border-emerald-500/30">
+                  <Check className="w-3 h-3 stroke-[3]" /> Applied
+                </span>
+              </div>
+            </div>
+
+            <div className="flex flex-col sm:flex-row items-center gap-2 pt-1">
+              <a
+                href="/my/jobs"
+                className="w-full sm:w-1/2 h-11 rounded-2xl border border-indigo-600/30 bg-indigo-50 dark:bg-indigo-950/40 text-indigo-600 dark:text-indigo-400 hover:bg-indigo-100 font-extrabold text-xs flex items-center justify-center gap-1.5 transition-colors"
+              >
+                <span>View My Applications</span>
+                <ArrowRight className="w-4 h-4" />
+              </a>
+              <button
+                onClick={onClose}
+                className="w-full sm:w-1/2 h-11 rounded-2xl bg-indigo-600 hover:bg-indigo-700 text-white font-black text-xs shadow-md transition-colors"
+              >
+                Done
+              </button>
+            </div>
           </div>
         )}
 
       </div>
+
+      {/* INELIGIBILITY POP-UP MODAL */}
+      {ineligibleNotice && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/75 p-4 backdrop-blur-sm animate-in fade-in duration-200">
+          <div className="w-full max-w-md rounded-3xl border border-rose-500/30 bg-card p-6 shadow-2xl space-y-4 text-center">
+            <div className="mx-auto grid h-16 w-16 place-items-center rounded-2xl bg-rose-500/15 text-rose-600 dark:text-rose-400 ring-8 ring-rose-500/10">
+              <Ban className="h-8 w-8 stroke-[2.5]" />
+            </div>
+
+            <div className="space-y-2">
+              <h3 className="text-base font-black text-foreground">
+                You Are Not Eligible For This Job
+              </h3>
+              <p className="text-xs text-muted-foreground font-semibold leading-relaxed">
+                {ineligibleNotice.message}
+              </p>
+            </div>
+
+            {/* Criteria Breakdown */}
+            <div className="rounded-2xl border border-border bg-secondary/30 p-3.5 text-left text-xs space-y-2">
+              <div className="flex items-center justify-between">
+                <span className="text-muted-foreground font-bold">Required Experience:</span>
+                <span className="font-black text-indigo-600 dark:text-indigo-400">
+                  {ineligibleNotice.requiredExpDisplay}
+                </span>
+              </div>
+              <div className="flex items-center justify-between border-t border-border/50 pt-2">
+                <span className="text-muted-foreground font-bold">Your Profile Experience:</span>
+                <span className="font-extrabold text-rose-500">
+                  {ineligibleNotice.candidateExpDisplay}
+                </span>
+              </div>
+            </div>
+
+            <div className="space-y-2 pt-1">
+              <a
+                href={`/my/profile/jobs?returnTo=/job/${job.id}`}
+                className="w-full h-11 rounded-2xl bg-indigo-600 hover:bg-indigo-700 text-white font-black text-xs flex items-center justify-center gap-2 shadow-md transition-colors"
+              >
+                <Sparkles className="w-4 h-4 text-amber-300" />
+                <span>Update Resume Profile</span>
+              </a>
+              <button
+                type="button"
+                onClick={() => setIneligibleNotice(null)}
+                className="w-full h-10 rounded-2xl border border-border text-xs font-bold text-muted-foreground hover:bg-secondary hover:text-foreground transition-colors"
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
     </div>
   );
 }

@@ -190,7 +190,7 @@ export async function seedMultiLocationMarket(): Promise<{
       status: StoreStatus.APPROVED,
       rating: 4.9,
       reviewCount: 42,
-      followersCount: 156
+      followersCount: 0
     },
     {
       ownerId: sellerDocs[2]._id, // Rohan (Bangalore)
@@ -212,7 +212,7 @@ export async function seedMultiLocationMarket(): Promise<{
       status: StoreStatus.APPROVED,
       rating: 4.8,
       reviewCount: 38,
-      followersCount: 124
+      followersCount: 0
     },
     {
       ownerId: sellerDocs[1]._id, // Sneha (Mumbai)
@@ -234,7 +234,7 @@ export async function seedMultiLocationMarket(): Promise<{
       status: StoreStatus.APPROVED,
       rating: 4.9,
       reviewCount: 65,
-      followersCount: 289
+      followersCount: 0
     },
     {
       ownerId: sellerDocs[0]._id,
@@ -256,7 +256,7 @@ export async function seedMultiLocationMarket(): Promise<{
       status: StoreStatus.APPROVED,
       rating: 4.9,
       reviewCount: 38,
-      followersCount: 112
+      followersCount: 0
     }
   ];
 

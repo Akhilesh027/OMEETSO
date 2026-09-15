@@ -24,6 +24,7 @@ import { ChatSafetyNotice } from "@/components/omeetso/chat/ChatSafetyNotice";
 import { BottomSheet } from "@/components/omeetso/BottomSheet";
 import { toast } from "sonner";
 import { useChatContext } from "@/contexts/ChatProvider";
+import { getUserAccessToken } from "@/api/auth.api";
 import { groupMessagesByDay } from "@/lib/chat-adapter";
 
 export const Route = createFileRoute("/chat/$id")({
@@ -70,6 +71,8 @@ function Conversation() {
   const {
     status: connectionStatus,
     conversations,
+    conversationsLoading,
+    fetchConversationById,
     messages: messagesMap,
     messagesLoading,
     hasMore,
@@ -87,6 +90,9 @@ function Conversation() {
     leaveRoom,
   } = useChatContext();
 
+  const [fetchingConversation, setFetchingConversation] = useState(false);
+  const [fetchAttempted, setFetchAttempted] = useState(false);
+
   // Find current conversation
   const conversation = conversations.find((c) => c.id === id);
   const messages = messagesMap.get(id) || [];
@@ -103,6 +109,21 @@ function Conversation() {
       loadConversations();
     }
   }, [conversations.length, loadConversations]);
+
+  // Fetch single conversation if not present in list
+  useEffect(() => {
+    if (!conversation && id && fetchConversationById) {
+      setFetchingConversation(true);
+      fetchConversationById(id)
+        .catch(() => {})
+        .finally(() => {
+          setFetchingConversation(false);
+          setFetchAttempted(true);
+        });
+    } else if (conversation) {
+      setFetchAttempted(true);
+    }
+  }, [id, conversation, fetchConversationById]);
 
   // Join room + load messages on mount
   useEffect(() => {
@@ -127,15 +148,15 @@ function Conversation() {
         productId: conversation.contextId,
         role: conversation.contextType === "STORE" ? "store" as const : "buying" as const,
         peerType: conversation.contextType === "STORE" ? "store" as const : "user" as const,
-        peerId: conversation.otherParty.id,
-        peerName: conversation.otherParty.name,
-        peerAvatar: conversation.otherParty.avatar,
+        peerId: conversation.otherParty?.id || id,
+        peerName: conversation.otherParty?.name || "Omeetso User",
+        peerAvatar: conversation.otherParty?.avatar,
         peerVerified: false,
         online: false,
         lastActive: undefined,
-        createdAt: new Date(conversation.lastMessageAt).getTime(),
-        updatedAt: new Date(conversation.lastMessageAt).getTime(),
-        unread: conversation.unreadCount,
+        createdAt: new Date(conversation.lastMessageAt || Date.now()).getTime(),
+        updatedAt: new Date(conversation.lastMessageAt || Date.now()).getTime(),
+        unread: conversation.unreadCount || 0,
         lastMessagePreview: conversation.lastMessagePreview,
         status: "active" as const,
       }
@@ -212,25 +233,25 @@ function Conversation() {
   }, [isLoading, canLoadMore, loadMoreMessages, id]);
 
   // Loading state
-  if (!thread && conversations.length === 0) {
+  if (!thread && (!fetchAttempted || fetchingConversation || conversationsLoading)) {
     return (
       <MobileFrame>
-        <div className="flex min-h-dvh items-center justify-center">
-          <Loader2 className="h-6 w-6 animate-spin text-primary" />
-          <span className="ml-2 text-sm text-muted-foreground">Loading conversation...</span>
+        <div className="flex min-h-dvh flex-col items-center justify-center gap-3">
+          <Loader2 className="h-7 w-7 animate-spin text-primary" />
+          <span className="text-xs font-bold text-muted-foreground">Loading conversation...</span>
         </div>
       </MobileFrame>
     );
   }
 
   // Conversation not found after loading
-  if (!thread) {
+  if (!thread && fetchAttempted) {
     return (
       <MobileFrame>
-        <div className="min-h-dvh p-8 text-center">
-          <p className="text-sm font-bold">Conversation unavailable</p>
-          <p className="mt-1 text-xs text-muted-foreground">This chat may have been deleted or you don't have access.</p>
-          <Link to="/chats" className="mt-4 inline-block rounded-full bg-primary px-4 py-2 text-xs font-bold text-primary-foreground">Back to chats</Link>
+        <div className="min-h-dvh p-8 text-center flex flex-col items-center justify-center gap-2">
+          <p className="text-base font-bold text-foreground">Conversation unavailable</p>
+          <p className="text-xs text-muted-foreground max-w-xs">This chat may have been deleted or you don't have access.</p>
+          <Link to="/chats" className="mt-4 inline-block rounded-2xl bg-primary px-5 py-2.5 text-xs font-bold text-primary-foreground shadow-sm">Back to all chats</Link>
         </div>
       </MobileFrame>
     );
@@ -245,7 +266,7 @@ function Conversation() {
         <div className="flex min-h-dvh flex-col bg-background md:min-h-0 md:flex-1 md:h-[calc(100dvh-6rem)] md:overflow-hidden md:rounded-r-2xl md:border md:border-border">
 
         {/* Connection status */}
-        {connectionStatus === "error" && (
+        {connectionStatus === "error" && !!getUserAccessToken() && (
           <div className="flex items-center gap-2 bg-destructive/10 px-3 py-1.5 text-xs font-semibold text-destructive">
             <WifiOff className="h-3.5 w-3.5" />
             Connection lost. Messages may be delayed.
@@ -369,7 +390,7 @@ function Conversation() {
             </div>
           )}
 
-          {showSafety && (
+          {showSafety && thread && (
             <ChatSafetyNotice onDismiss={() => { dismissSafety(thread.id); }} />
           )}
 

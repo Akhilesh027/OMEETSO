@@ -1089,17 +1089,19 @@ function NearbyChangesModal({
                       <div>
                         <label className="block text-[10px] font-bold text-muted-foreground mb-1">Delivery Fee (₹)</label>
                         <input
-                          type="number"
-                          min={0}
-                          value={deliveryFee}
+                          type="text"
+                          inputMode="numeric"
+                          value={deliveryFee === 0 ? "" : deliveryFee}
                           onChange={(e) => {
+                            const val = e.target.value.replace(/\D/g, "");
+                            const num = val === "" ? 0 : Math.max(0, parseInt(val, 10));
                             toggleListingNearbyChanges(item.id, true, {
                               radiusKm: radius,
-                              deliveryFee: Math.max(0, Number(e.target.value)),
+                              deliveryFee: num,
                             });
                             onUpdated();
                           }}
-                          placeholder="0 (Free)"
+                          placeholder="0 (Free Delivery)"
                           className="w-full h-8 rounded-xl border border-border bg-background px-2 text-[11px] font-bold outline-none focus:border-indigo-brand"
                         />
                       </div>

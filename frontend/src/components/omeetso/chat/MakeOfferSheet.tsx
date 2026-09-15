@@ -3,6 +3,7 @@ import { BottomSheet } from "@/components/omeetso/BottomSheet";
 import { formatINR, type Product } from "@/lib/mock";
 import { canMakeOffer, suggestedOffers } from "@/lib/chat";
 import { createOfferApi, startConversationApi } from "@/api/chat.api";
+import { getUserAccessToken } from "@/api/auth.api";
 import { useChatContext } from "@/contexts/ChatProvider";
 import { AlertCircle, CheckCircle2, HandCoins, ShieldAlert, Sparkles } from "lucide-react";
 import { toast } from "sonner";
@@ -24,11 +25,19 @@ export function MakeOfferSheet({
   const [confirmLow, setConfirmLow] = useState(false);
   const [sending, setSending] = useState(false);
   const [done, setDone] = useState(false);
-  const { loadMessages } = useChatContext();
+  const { loadMessages, addConversation } = useChatContext();
   const suggestions = suggestedOffers(product.price);
 
   const send = async () => {
     setError(null); setWarning(null);
+    const token = getUserAccessToken() || (typeof localStorage !== "undefined" ? localStorage.getItem("omeetso_user_token") || localStorage.getItem("omeetso_auth_token") : null);
+    if (!token) {
+      onClose();
+      toast.info("Please sign in to make an offer");
+      nav({ to: "/login" });
+      return;
+    }
+
     const guard = canMakeOffer(product);
     if (!guard.ok) return setError(guard.reason ?? "Cannot make offer right now.");
     const n = Number(amount);
@@ -44,9 +53,18 @@ export function MakeOfferSheet({
     try {
       let convId = threadId;
       if (!convId) {
-        const startRes = await startConversationApi("LISTING", product.id);
+        const targetListingId = product.id || (product as any)._id;
+        const targetSellerId = (product as any)?.sellerId || (product as any)?.seller?._id || (product as any)?.seller?.id;
+        const startRes = await startConversationApi(
+          "LISTING",
+          targetListingId,
+          typeof targetSellerId === "string" && !targetSellerId.startsWith("u_") ? targetSellerId : undefined
+        );
         if (startRes.success && startRes.data?.id) {
           convId = startRes.data.id;
+          if (addConversation) {
+            addConversation(startRes.data);
+          }
         } else {
           setSending(false);
           return setError(startRes.error?.message || "Could not start chat conversation.");

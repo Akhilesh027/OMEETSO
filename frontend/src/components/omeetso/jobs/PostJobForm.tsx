@@ -447,7 +447,7 @@ export function PostJobForm() {
         createJobLocal({
           ...previewJobItem,
           id: createdId,
-          status: "SUBMITTED",
+          status: "APPROVED",
           candidateCriteria: {
             ...previewJobItem.candidateCriteria,
             experience: formData.experience || "Fresher / Entry Level"
@@ -462,8 +462,8 @@ export function PostJobForm() {
           } catch {}
         }
 
-        toast.success("Job submitted for approval! It will go live once reviewed by admin.");
-        nav({ to: "/my/employer/jobs" });
+        toast.success("Job listed successfully! Redirecting to Jobs section...");
+        nav({ to: "/jobs" });
       } else {
         const errorMsg = json.error?.message || "Failed to create job on server";
         toast.error(errorMsg);
@@ -471,15 +471,15 @@ export function PostJobForm() {
     } catch (err: any) {
       setIsSubmitting(false);
       console.error("Job publishing error:", err);
-      const fallbackCreated = createJobLocal({ ...previewJobItem, status: "SUBMITTED" });
+      const fallbackCreated = createJobLocal({ ...previewJobItem, status: "APPROVED" });
       if (typeof window !== "undefined") {
         try {
           window.dispatchEvent(new CustomEvent("omeetso_jobs_changed"));
           localStorage.setItem("omeetso_jobs_last_update", String(Date.now()));
         } catch {}
       }
-      toast.info("Job submitted for approval (saved locally).");
-      nav({ to: "/my/employer/jobs" });
+      toast.success("Job listed successfully! Redirecting to Jobs section...");
+      nav({ to: "/jobs" });
     }
   };
 
