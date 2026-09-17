@@ -292,8 +292,8 @@ export function PostServiceForm() {
           workingHours,
           emergencyServiceAvailable: isEmergency,
         },
-        status: "ACTIVE",
-        isFeatured: true,
+        status: "PENDING_APPROVAL",
+        isFeatured: false,
         isEmergency,
         stats: {
           viewsCount: 1,
@@ -305,29 +305,39 @@ export function PostServiceForm() {
         createdAt: Date.now(),
       };
 
-      // Try API, fallback to local storage
+      let finalServiceId = `srv-${Date.now()}`;
+
+      // Try API with auth header, fallback to local storage
       try {
-        await createServiceApi(newService as any);
-      } catch {
-        // fallback
+        const apiRes = await createServiceApi(newService as any);
+        if (apiRes && apiRes.success && apiRes.data) {
+          finalServiceId = (apiRes.data as any).id || (apiRes.data as any)._id || finalServiceId;
+        }
+      } catch (apiErr) {
+        console.warn("Service create API warning:", apiErr);
       }
 
+      const finalItem: ServiceItem = {
+        ...newService,
+        id: finalServiceId,
+      };
+
       const current = getLocalServices();
-      saveLocalServices([newService, ...current]);
+      saveLocalServices([finalItem, ...current]);
 
       // Push notification for user activity
       pushNotification({
-        title: "Service Listed Successfully",
-        body: `"${newService.title}" is now live on Omeetso Marketplace under ${activeCategory.name}.`,
+        title: "Service Submitted for Approval",
+        body: `"${finalItem.title}" has been submitted and is pending admin approval.`,
         category: "moderation",
-        destination: `/service/${newService.id}`,
+        destination: `/service/${finalServiceId}`,
         destinationLabel: "View Service",
         thumbnail: coverImg
       });
 
       setShowReviewModal(false);
-      toast.success("Service listed successfully on Omeetso Marketplace!");
-      navigate({ to: "/service/$id", params: { id: newService.id } });
+      toast.success("Service submitted successfully for admin review & approval!");
+      navigate({ to: "/service/$id", params: { id: finalServiceId } });
     } catch (err: any) {
       toast.error(err.message || "Failed to publish service");
     } finally {

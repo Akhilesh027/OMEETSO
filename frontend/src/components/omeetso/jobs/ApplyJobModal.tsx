@@ -331,16 +331,18 @@ export function ApplyJobModal({ job, isOpen, onClose, onSuccess }: ApplyJobModal
         status: "APPLIED"
       });
 
-      pushNotification({
-        id: `job-app-${job.id}-${Date.now()}`,
-        category: "system",
-        title: `Job Application Submitted: ${job.title}`,
-        body: `Your application for "${job.title}" at ${job.companyName} was submitted successfully.`,
-        destination: "/my/jobs",
-        destinationLabel: "View Applications",
-        read: false,
-        time: Date.now(),
-      });
+      if (!token) {
+        pushNotification({
+          id: `job-app-${job.id}-${Date.now()}`,
+          category: "system",
+          title: `Job Application Submitted: ${job.title}`,
+          body: `Your application for "${job.title}" at ${job.companyName} was submitted successfully.`,
+          destination: "/my/jobs",
+          destinationLabel: "View Applications",
+          read: false,
+          time: Date.now(),
+        });
+      }
 
       toast.success("Application submitted successfully!");
       setLoading(false);

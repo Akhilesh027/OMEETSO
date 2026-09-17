@@ -145,7 +145,7 @@ function EmployerJobsDashboardPage() {
     return true;
   });
 
-  const handleUpdateStatus = (appId: string, nextStatus: string) => {
+  const handleUpdateStatus = async (appId: string, nextStatus: string) => {
     const target = applicants.find((a) => a.id === appId);
     const updated = applicants.map((a) => (a.id === appId ? { ...a, status: nextStatus as any } : a));
     setApplicants(updated);
@@ -153,74 +153,179 @@ function EmployerJobsDashboardPage() {
       setSelectedApplicantDetail({ ...selectedApplicantDetail, status: nextStatus as any });
     }
 
-    if (typeof localStorage !== "undefined") {
-      localStorage.setItem("omeetso_job_applications", JSON.stringify(updated));
+    if (typeof localStorage !== "undefined" && selectedJobId) {
+      localStorage.setItem(`omeetso_employer_applicants_${selectedJobId}`, JSON.stringify(updated));
+
+      // Also sync candidate local storage if present on same device
+      try {
+        const u = JSON.parse(localStorage.getItem("omeetso_user") || "null");
+        const uid = u?._id || u?.id;
+        const keys = ["omeetso_candidate_applied_jobs", uid ? `omeetso_candidate_applications_${uid}` : ""].filter(Boolean);
+        for (const k of keys) {
+          const raw = localStorage.getItem(k);
+          if (raw) {
+            const arr = JSON.parse(raw);
+            if (Array.isArray(arr)) {
+              const updatedCand = arr.map((item: any) => {
+                if (item.id === appId || item._id === appId || item.jobId === selectedJobId) {
+                  return { ...item, status: nextStatus };
+                }
+                return item;
+              });
+              localStorage.setItem(k, JSON.stringify(updatedCand));
+            }
+          }
+        }
+      } catch {}
+    }
+
+    const token = typeof window !== "undefined" ? localStorage.getItem("omeetso_user_token") : null;
+    try {
+      if (token) {
+        await fetch(`${API_BASE}/jobs/applicants/${appId}/status`, {
+          method: "PATCH",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`
+          },
+          body: JSON.stringify({ status: nextStatus })
+        });
+      }
+    } catch { }
+
+    if (typeof window !== "undefined") {
+      window.dispatchEvent(new Event("omeetso_job_applications_changed"));
+      window.dispatchEvent(new Event("storage"));
     }
 
     toast.success(`Candidate status updated to "${nextStatus}"`);
 
-    pushNotification({
-      id: `job-app-status-${appId}-${Date.now()}`,
-      category: "system",
-      title: `Application Status Updated: ${target?.job?.title || "Job Application"}`,
-      body: `Your application status for "${target?.job?.title || "Position"}" was updated to ${nextStatus}.`,
-      destination: "/account/jobs",
-      destinationLabel: "View Status",
-      read: false,
-      time: Date.now(),
-    });
+    if (!token) {
+      pushNotification({
+        id: `job-app-status-${appId}-${Date.now()}`,
+        category: "system",
+        title: `Application Status Updated: ${target?.job?.title || "Job Application"}`,
+        body: `Your application status for "${target?.job?.title || "Position"}" was updated to ${nextStatus}.`,
+        destination: "/my/jobs",
+        destinationLabel: "View Status",
+        read: false,
+        time: Date.now(),
+      });
+    }
   };
 
-  const handleSaveInterviewSchedule = (e: React.FormEvent) => {
+  const handleSaveInterviewSchedule = async (e: React.FormEvent) => {
     e.preventDefault();
     if (scheduleModalApp) {
+      const interviewDetails = {
+        date: interviewForm.date || new Date().toISOString(),
+        time: interviewForm.time,
+        type: interviewForm.type,
+        venueOrLink: interviewForm.venueOrLink,
+        contactPerson: interviewForm.contactPerson,
+        notes: interviewForm.notes
+      };
+
       const updated = applicants.map((a) =>
         a.id === scheduleModalApp.id
           ? {
               ...a,
               status: "INTERVIEW_SCHEDULED" as any,
-              interviewDetails: {
-                date: interviewForm.date || new Date().toISOString(),
-                time: interviewForm.time,
-                type: interviewForm.type,
-                venueOrLink: interviewForm.venueOrLink,
-                contactPerson: interviewForm.contactPerson,
-                notes: interviewForm.notes
-              }
+              interviewDetails
             }
           : a
       );
       setApplicants(updated);
-      if (typeof localStorage !== "undefined") {
-        localStorage.setItem("omeetso_job_applications", JSON.stringify(updated));
+      if (typeof localStorage !== "undefined" && selectedJobId) {
+        localStorage.setItem(`omeetso_employer_applicants_${selectedJobId}`, JSON.stringify(updated));
+
+        try {
+          const u = JSON.parse(localStorage.getItem("omeetso_user") || "null");
+          const uid = u?._id || u?.id;
+          const keys = ["omeetso_candidate_applied_jobs", uid ? `omeetso_candidate_applications_${uid}` : ""].filter(Boolean);
+          for (const k of keys) {
+            const raw = localStorage.getItem(k);
+            if (raw) {
+              const arr = JSON.parse(raw);
+              if (Array.isArray(arr)) {
+                const updatedCand = arr.map((item: any) => {
+                  if (item.id === scheduleModalApp.id || item._id === scheduleModalApp.id || item.jobId === selectedJobId) {
+                    return { ...item, status: "INTERVIEW_SCHEDULED", interviewDetails };
+                  }
+                  return item;
+                });
+                localStorage.setItem(k, JSON.stringify(updatedCand));
+              }
+            }
+          }
+        } catch {}
       }
 
-      pushNotification({
-        id: `job-interview-${scheduleModalApp.id}-${Date.now()}`,
-        category: "system",
-        title: `Interview Scheduled: ${scheduleModalApp.job?.title || "Job Application"}`,
-        body: `Interview scheduled on ${interviewForm.date || "scheduled date"} at ${interviewForm.time || "scheduled time"}.`,
-        destination: "/account/jobs",
-        destinationLabel: "View Details",
-        read: false,
-        time: Date.now(),
-      });
+      const token = typeof window !== "undefined" ? localStorage.getItem("omeetso_user_token") : null;
+      try {
+        if (token) {
+          await fetch(`${API_BASE}/jobs/applicants/${scheduleModalApp.id}/status`, {
+            method: "PATCH",
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${token}`
+            },
+            body: JSON.stringify({
+              status: "INTERVIEW_SCHEDULED",
+              interviewDetails
+            })
+          });
+        }
+      } catch { }
+
+      if (typeof window !== "undefined") {
+        window.dispatchEvent(new Event("omeetso_job_applications_changed"));
+        window.dispatchEvent(new Event("storage"));
+      }
+
+      if (!token) {
+        pushNotification({
+          id: `job-interview-${scheduleModalApp.id}-${Date.now()}`,
+          category: "system",
+          title: `Interview Scheduled: ${scheduleModalApp.job?.title || "Job Application"}`,
+          body: `Interview scheduled on ${interviewForm.date || "scheduled date"} at ${interviewForm.time || "scheduled time"}.`,
+          destination: "/my/jobs",
+          destinationLabel: "View Details",
+          read: false,
+          time: Date.now(),
+        });
+      }
 
       setScheduleModalApp(null);
       toast.success("Interview scheduled and notification sent to candidate!");
     }
   };
 
-  const handleSavePrivateNotes = (e: React.FormEvent) => {
+  const handleSavePrivateNotes = async (e: React.FormEvent) => {
     e.preventDefault();
     if (employerNotesApp) {
       const updated = applicants.map((a) =>
         a.id === employerNotesApp.id ? { ...a, employerNotes: privateNoteInput } : a
       );
       setApplicants(updated);
-      if (typeof localStorage !== "undefined") {
-        localStorage.setItem("omeetso_job_applications", JSON.stringify(updated));
+      if (typeof localStorage !== "undefined" && selectedJobId) {
+        localStorage.setItem(`omeetso_employer_applicants_${selectedJobId}`, JSON.stringify(updated));
       }
+
+      try {
+        const token = typeof window !== "undefined" ? localStorage.getItem("omeetso_user_token") : null;
+        if (token) {
+          await fetch(`${API_BASE}/jobs/applicants/${employerNotesApp.id}/status`, {
+            method: "PATCH",
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${token}`
+            },
+            body: JSON.stringify({ employerNotes: privateNoteInput })
+          });
+        }
+      } catch { }
+
       setEmployerNotesApp(null);
       toast.success("Private note saved.");
     }

@@ -1,8 +1,8 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
-import { useState, useEffect } from "react";
-import { ArrowLeft, Briefcase, Calendar, Clock, MapPin, CheckCircle2, AlertCircle, Trash2, Heart, User, Ban, MessageCircle } from "lucide-react";
+import { useState, useEffect, useCallback } from "react";
+import { ArrowLeft, Briefcase, Calendar, Clock, MapPin, CheckCircle2, AlertCircle, Trash2, Heart, User, Ban, MessageCircle, ExternalLink, Video, Building2 } from "lucide-react";
 import { MobileFrame } from "@/components/omeetso/MobileFrame";
-import { listCandidateApplicationsLocal, withdrawJobApplicationLocal, getSavedJobIds, fetchPublicJobs, JobItem, JobApplicationItem } from "@/lib/jobs";
+import { listCandidateApplicationsLocal, withdrawJobApplicationLocal, getSavedJobIds, fetchPublicJobs, JobItem, JobApplicationItem, getCandidateApplicationsStorageKey, setLocal } from "@/lib/jobs";
 import { startConversationApi } from "@/api/chat.api";
 import { JobCard } from "@/components/omeetso/jobs/JobCard";
 import { API_BASE } from "@/config/api";
@@ -13,6 +13,28 @@ export const Route = createFileRoute("/my/jobs")({
   component: MyJobsDashboardPage,
 });
 
+function getStatusBadge(status?: string) {
+  const s = String(status || "APPLIED").toUpperCase();
+  switch (s) {
+    case "SHORTLISTED":
+      return { label: "Shortlisted", className: "bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 border-emerald-500/30" };
+    case "INTERVIEW_SCHEDULED":
+      return { label: "Interview Scheduled", className: "bg-purple-500/15 text-purple-700 dark:text-purple-400 border-purple-500/30" };
+    case "HIRED":
+    case "SELECTED":
+      return { label: s === "HIRED" ? "Hired 🎉" : "Selected", className: "bg-emerald-600/15 text-emerald-800 dark:text-emerald-300 border-emerald-500/40" };
+    case "REJECTED":
+      return { label: "Not Selected", className: "bg-rose-500/15 text-rose-700 dark:text-rose-400 border-rose-500/30" };
+    case "WITHDRAWN":
+      return { label: "Withdrawn", className: "bg-muted text-muted-foreground border-border" };
+    case "VIEWED":
+      return { label: "Application Viewed", className: "bg-sky-500/15 text-sky-700 dark:text-sky-400 border-sky-500/30" };
+    case "APPLIED":
+    default:
+      return { label: "Applied", className: "bg-indigo-500/15 text-indigo-700 dark:text-indigo-400 border-indigo-500/30" };
+  }
+}
+
 function MyJobsDashboardPage() {
   const nav = useNavigate();
   const [activeTab, setActiveTab] = useState<"applied" | "saved" | "interviews">("applied");
@@ -21,8 +43,7 @@ function MyJobsDashboardPage() {
   const [withdrawAppId, setWithdrawAppId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
-  const loadData = async () => {
-    setLoading(true);
+  const loadData = useCallback(async () => {
     const token = typeof window !== "undefined" ? localStorage.getItem("omeetso_user_token") : null;
     let serverApps: JobApplicationItem[] = [];
 
@@ -45,17 +66,26 @@ function MyJobsDashboardPage() {
     // Deduplicate by job ID / application ID to get only jobs applied by this candidate
     const appMap = new Map<string, JobApplicationItem>();
     
-    // Server apps take priority
+    // Server apps take primary precedence
     for (const app of serverApps) {
-      const jId = app.jobId || app.job?.id || (app.job as any)?._id || app.id;
-      appMap.set(jId, app);
+      const rawJobId = (typeof app.jobId === "object" && app.jobId !== null ? (app.jobId as any)._id || (app.jobId as any).id : app.jobId) || app.job?.id || (app.job as any)?._id || app.id;
+      const jId = String(rawJobId);
+      appMap.set(jId, {
+        ...app,
+        jobId: jId,
+        id: app.id || (app as any)._id
+      });
     }
     
-    // Add local apps if not already present
+    // Add local apps if not already present on server
     for (const app of localApps) {
-      const jId = app.jobId || app.job?.id || (app.job as any)?._id || app.id;
+      const rawJobId = (typeof app.jobId === "object" && app.jobId !== null ? (app.jobId as any)._id || (app.jobId as any).id : app.jobId) || app.job?.id || (app.job as any)?._id || app.id;
+      const jId = String(rawJobId);
       if (!appMap.has(jId)) {
-        appMap.set(jId, app);
+        appMap.set(jId, {
+          ...app,
+          jobId: jId
+        });
       }
     }
 
@@ -65,6 +95,12 @@ function MyJobsDashboardPage() {
       return timeB - timeA;
     });
 
+    // Update local cache so offline state mirrors latest server statuses
+    if (serverApps.length > 0) {
+      const storageKey = getCandidateApplicationsStorageKey();
+      setLocal(storageKey, merged);
+    }
+
     setApplications(merged);
     setLoading(false);
 
@@ -72,11 +108,25 @@ function MyJobsDashboardPage() {
     fetchPublicJobs().then((all) => {
       setSavedJobs(all.filter((j) => savedIds.includes(j.id)));
     });
-  };
+  }, []);
 
   useEffect(() => {
     loadData();
-  }, []);
+
+    const handleSync = () => {
+      loadData();
+    };
+
+    window.addEventListener("omeetso_job_applications_changed", handleSync);
+    window.addEventListener("focus", handleSync);
+    window.addEventListener("storage", handleSync);
+
+    return () => {
+      window.removeEventListener("omeetso_job_applications_changed", handleSync);
+      window.removeEventListener("focus", handleSync);
+      window.removeEventListener("storage", handleSync);
+    };
+  }, [loadData]);
 
   const handleConfirmWithdraw = async () => {
     if (!withdrawAppId) return;
@@ -104,7 +154,7 @@ function MyJobsDashboardPage() {
     }
   };
 
-  const interviewApps = applications.filter((a) => a.status === "INTERVIEW_SCHEDULED" || a.interviewDetails?.date);
+  const interviewApps = applications.filter((a) => a.status === "INTERVIEW_SCHEDULED" || Boolean(a.interviewDetails?.date));
 
   return (
     <MobileFrame>
@@ -154,7 +204,11 @@ function MyJobsDashboardPage() {
           {/* APPLIED JOBS TAB */}
           {activeTab === "applied" && (
             <div className="space-y-3">
-              {applications.length === 0 ? (
+              {loading && applications.length === 0 ? (
+                <div className="p-12 text-center text-xs text-muted-foreground">
+                  Loading your applications...
+                </div>
+              ) : applications.length === 0 ? (
                 <div className="p-12 text-center text-xs text-muted-foreground space-y-3">
                   <p className="font-bold">No applications submitted yet.</p>
                   <Link to="/jobs" className="inline-block px-4 py-2 bg-primary text-primary-foreground font-bold rounded-xl">
@@ -162,61 +216,73 @@ function MyJobsDashboardPage() {
                   </Link>
                 </div>
               ) : (
-                applications.map((app) => (
-                  <div key={app.id} className="rounded-3xl border border-border bg-card p-5 shadow-sm space-y-3">
-                    <div className="flex items-start justify-between gap-3">
-                      <div>
-                        <h3 className="text-base font-extrabold text-foreground">{app.job?.title || "Job Application"}</h3>
-                        <p className="text-xs text-muted-foreground font-bold">{app.job?.companyName} • {app.job?.location?.city}</p>
+                applications.map((app) => {
+                  const badge = getStatusBadge(app.status);
+                  const isInterview = app.status === "INTERVIEW_SCHEDULED" && app.interviewDetails?.date;
+
+                  return (
+                    <div key={app.id || app.jobId} className="rounded-3xl border border-border bg-card p-5 shadow-sm space-y-3">
+                      <div className="flex items-start justify-between gap-3">
+                        <div>
+                          <h3 className="text-base font-extrabold text-foreground">{app.job?.title || "Job Application"}</h3>
+                          <p className="text-xs text-muted-foreground font-bold">
+                            {app.job?.companyName || "Company"} {app.job?.location?.city ? `• ${app.job.location.city}` : ""}
+                          </p>
+                        </div>
+
+                        {/* Status Badge */}
+                        <span className={`inline-flex items-center gap-1 rounded-full px-3 py-1 text-xs font-black border ${badge.className}`}>
+                          {badge.label}
+                        </span>
                       </div>
 
-                      {/* Status Badge */}
-                      <span className={`inline-flex items-center gap-1 rounded-full px-3 py-1 text-xs font-black border ${
-                        app.status === "SHORTLISTED"
-                          ? "bg-emerald-500/15 text-emerald-700 border-emerald-500/30"
-                          : app.status === "INTERVIEW_SCHEDULED"
-                          ? "bg-purple-500/15 text-purple-700 border-purple-500/30"
-                          : app.status === "WITHDRAWN"
-                          ? "bg-muted text-muted-foreground border-border"
-                          : "bg-indigo-500/15 text-indigo-700 border-indigo-500/30"
-                      }`}>
-                        {app.status}
-                      </span>
-                    </div>
+                      {/* Inline Interview Notice if scheduled */}
+                      {isInterview && (
+                        <div className="rounded-2xl border border-purple-500/30 bg-purple-500/10 p-3.5 space-y-2">
+                          <div className="flex items-center gap-2 text-xs font-extrabold text-purple-900 dark:text-purple-300">
+                            <Calendar className="h-4 w-4 text-purple-600" />
+                            <span>Interview on {new Date(app.interviewDetails!.date!).toLocaleDateString("en-IN", { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' })} at {app.interviewDetails!.time || "Scheduled Time"}</span>
+                          </div>
+                          <div className="text-xs text-purple-800 dark:text-purple-300 font-medium">
+                            <span className="font-bold">Mode & Venue:</span> {app.interviewDetails!.type || "In-Person"} • {app.interviewDetails!.venueOrLink || "Office"}
+                          </div>
+                        </div>
+                      )}
 
-                    <div className="flex items-center justify-between text-xs text-muted-foreground font-semibold pt-2 border-t border-border/60">
-                      <span>Applied on {new Date(app.createdAt).toLocaleDateString("en-IN")}</span>
-                      <div className="flex items-center gap-3">
-                        <button
-                          onClick={async () => {
-                            try {
-                              const jId = app.jobId || app.job?.id || (app.job as any)?._id || app.id;
-                              const res = await startConversationApi("JOB", jId, app.employerId);
-                              if (res.success && res.data?.id) {
-                                nav({ to: "/chat/$id", params: { id: res.data.id } });
-                              } else {
-                                toast.error(res.error?.message || "Could not start chat with employer");
-                              }
-                            } catch {
-                              toast.error("Failed to start chat.");
-                            }
-                          }}
-                          className="inline-flex items-center gap-1 px-2.5 py-1 bg-indigo-50 dark:bg-indigo-950/50 hover:bg-indigo-100 text-indigo-600 dark:text-indigo-400 border border-indigo-200 dark:border-indigo-800 rounded-lg text-xs font-bold transition-colors shadow-xs"
-                        >
-                          <MessageCircle className="w-3.5 h-3.5" /> Chat Employer
-                        </button>
-                        {app.status !== "WITHDRAWN" && (
+                      <div className="flex items-center justify-between text-xs text-muted-foreground font-semibold pt-2 border-t border-border/60">
+                        <span>Applied on {new Date(app.createdAt || Date.now()).toLocaleDateString("en-IN")}</span>
+                        <div className="flex items-center gap-3">
                           <button
-                            onClick={() => setWithdrawAppId(app.id)}
-                            className="text-rose-600 hover:underline font-bold"
+                            onClick={async () => {
+                              try {
+                                const jId = (typeof app.jobId === "object" && app.jobId !== null ? (app.jobId as any)._id : app.jobId) || app.job?.id || (app.job as any)?._id || app.id;
+                                const res = await startConversationApi("JOB", String(jId), app.employerId);
+                                if (res.success && res.data?.id) {
+                                  nav({ to: "/chat/$id", params: { id: res.data.id } });
+                                } else {
+                                  toast.error(res.error?.message || "Could not start chat with employer");
+                                }
+                              } catch {
+                                toast.error("Failed to start chat.");
+                              }
+                            }}
+                            className="inline-flex items-center gap-1 px-2.5 py-1 bg-indigo-50 dark:bg-indigo-950/50 hover:bg-indigo-100 text-indigo-600 dark:text-indigo-400 border border-indigo-200 dark:border-indigo-800 rounded-lg text-xs font-bold transition-colors shadow-xs"
                           >
-                            Withdraw
+                            <MessageCircle className="w-3.5 h-3.5" /> Chat Employer
                           </button>
-                        )}
+                          {app.status !== "WITHDRAWN" && (
+                            <button
+                              onClick={() => setWithdrawAppId(app.id)}
+                              className="text-rose-600 hover:underline font-bold"
+                            >
+                              Withdraw
+                            </button>
+                          )}
+                        </div>
                       </div>
                     </div>
-                  </div>
-                ))
+                  );
+                })
               )}
             </div>
           )}
@@ -243,22 +309,46 @@ function MyJobsDashboardPage() {
                 </div>
               ) : (
                 interviewApps.map((app) => (
-                  <div key={app.id} className="rounded-3xl border border-purple-500/30 bg-purple-500/10 p-5 space-y-3 font-sans">
+                  <div key={app.id || app.jobId} className="rounded-3xl border border-purple-500/30 bg-purple-500/10 p-5 space-y-3 font-sans">
                     <div className="flex items-center justify-between">
-                      <h3 className="text-base font-black text-purple-950 flex items-center gap-2">
-                        <Calendar className="h-5 w-5 text-purple-700" /> Interview Scheduled
+                      <h3 className="text-base font-black text-purple-950 dark:text-purple-200 flex items-center gap-2">
+                        <Calendar className="h-5 w-5 text-purple-700 dark:text-purple-400" /> Interview Scheduled
                       </h3>
-                      <span className="text-xs font-bold text-purple-800">{app.job?.companyName}</span>
+                      <span className="text-xs font-bold text-purple-800 dark:text-purple-300">{app.job?.companyName}</span>
                     </div>
 
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs font-semibold text-purple-900">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs font-semibold text-purple-900 dark:text-purple-200">
                       <div><span className="font-bold">Role:</span> {app.job?.title}</div>
-                      <div><span className="font-bold">Date & Time:</span> {app.interviewDetails?.date ? new Date(app.interviewDetails.date).toLocaleDateString("en-IN") : "This Week"} {app.interviewDetails?.time}</div>
+                      <div>
+                        <span className="font-bold">Date & Time:</span> {app.interviewDetails?.date ? new Date(app.interviewDetails.date).toLocaleDateString("en-IN", { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' }) : "This Week"} {app.interviewDetails?.time ? `at ${app.interviewDetails.time}` : ""}
+                      </div>
                       <div><span className="font-bold">Interview Mode:</span> {app.interviewDetails?.type || "In-Person"}</div>
                       <div><span className="font-bold">Venue / Link:</span> {app.interviewDetails?.venueOrLink || "Office Venue"}</div>
                       {app.interviewDetails?.contactPerson && (
                         <div className="sm:col-span-2"><span className="font-bold">Contact Person:</span> {app.interviewDetails.contactPerson}</div>
                       )}
+                      {app.interviewDetails?.notes && (
+                        <div className="sm:col-span-2 text-muted-foreground bg-card/60 p-2.5 rounded-xl border border-purple-200 dark:border-purple-900">
+                          <span className="font-bold text-foreground">Instructions:</span> {app.interviewDetails.notes}
+                        </div>
+                      )}
+                    </div>
+
+                    <div className="flex items-center justify-end pt-2">
+                      <button
+                        onClick={async () => {
+                          try {
+                            const jId = (typeof app.jobId === "object" && app.jobId !== null ? (app.jobId as any)._id : app.jobId) || app.job?.id || (app.job as any)?._id || app.id;
+                            const res = await startConversationApi("JOB", String(jId), app.employerId);
+                            if (res.success && res.data?.id) {
+                              nav({ to: "/chat/$id", params: { id: res.data.id } });
+                            }
+                          } catch {}
+                        }}
+                        className="inline-flex items-center gap-1 px-3 py-1.5 bg-purple-600 hover:bg-purple-700 text-white rounded-xl text-xs font-bold transition-colors shadow-xs"
+                      >
+                        <MessageCircle className="w-3.5 h-3.5" /> Message Employer
+                      </button>
                     </div>
                   </div>
                 ))

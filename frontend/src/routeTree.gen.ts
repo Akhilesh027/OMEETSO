@@ -61,6 +61,7 @@ import { Route as CategoryIdRouteImport } from './routes/category.$id'
 import { Route as ChatIdRouteImport } from './routes/chat.$id'
 import { Route as ChatSafetyRouteImport } from './routes/chat.safety'
 import { Route as CreditsWalletRouteImport } from './routes/credits.wallet'
+import { Route as DealIdRouteImport } from './routes/deal.$id'
 import { Route as GalleryIdRouteImport } from './routes/gallery.$id'
 import { Route as HelpIndexRouteImport } from './routes/help.index'
 import { Route as HelpSearchRouteImport } from './routes/help.search'
@@ -130,6 +131,7 @@ import { Route as AccountVerificationIndexRouteImport } from './routes/account.v
 import { Route as AccountVerificationTypeRouteImport } from './routes/account.verification.$type'
 import { Route as AdsIdAnalyticsRouteImport } from './routes/ads.$id.analytics'
 import { Route as HelpFaqIdRouteImport } from './routes/help.faq.$id'
+import { Route as ListingIdIndexRouteImport } from './routes/listing.$id.index'
 import { Route as ListingIdAnalyticsRouteImport } from './routes/listing.$id.analytics'
 import { Route as ListingIdEditRouteImport } from './routes/listing.$id.edit'
 import { Route as ListingIdManageRouteImport } from './routes/listing.$id.manage'
@@ -406,6 +408,11 @@ const ChatSafetyRoute = ChatSafetyRouteImport.update({
 const CreditsWalletRoute = CreditsWalletRouteImport.update({
   id: '/credits/wallet',
   path: '/credits/wallet',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const DealIdRoute = DealIdRouteImport.update({
+  id: '/deal/$id',
+  path: '/deal/$id',
   getParentRoute: () => rootRouteImport,
 } as any)
 const GalleryIdRoute = GalleryIdRouteImport.update({
@@ -755,6 +762,11 @@ const HelpFaqIdRoute = HelpFaqIdRouteImport.update({
   path: '/help/faq/$id',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ListingIdIndexRoute = ListingIdIndexRouteImport.update({
+  id: '/listing/$id/',
+  path: '/listing/$id/',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ListingIdAnalyticsRoute = ListingIdAnalyticsRouteImport.update({
   id: '/listing/$id/analytics',
   path: '/listing/$id/analytics',
@@ -893,6 +905,7 @@ export interface FileRoutesByFullPath {
   '/chat/$id': typeof ChatIdRoute
   '/chat/safety': typeof ChatSafetyRoute
   '/credits/wallet': typeof CreditsWalletRoute
+  '/deal/$id': typeof DealIdRoute
   '/gallery/$id': typeof GalleryIdRoute
   '/help/search': typeof HelpSearchRoute
   '/invoice/$id': typeof InvoiceIdRoute
@@ -978,6 +991,7 @@ export interface FileRoutesByFullPath {
   '/store/manage/$id': typeof StoreManageIdRouteWithChildren
   '/wallet/transaction/$id': typeof WalletTransactionIdRoute
   '/account/verification/': typeof AccountVerificationIndexRoute
+  '/listing/$id/': typeof ListingIdIndexRoute
   '/store/manage/$id/add-existing': typeof StoreManageIdAddExistingRoute
   '/store/manage/$id/preview': typeof StoreManageIdPreviewRoute
   '/store/manage/$id/products': typeof StoreManageIdProductsRoute
@@ -1031,6 +1045,7 @@ export interface FileRoutesByTo {
   '/chat/$id': typeof ChatIdRoute
   '/chat/safety': typeof ChatSafetyRoute
   '/credits/wallet': typeof CreditsWalletRoute
+  '/deal/$id': typeof DealIdRoute
   '/gallery/$id': typeof GalleryIdRoute
   '/help/search': typeof HelpSearchRoute
   '/invoice/$id': typeof InvoiceIdRoute
@@ -1116,6 +1131,7 @@ export interface FileRoutesByTo {
   '/store/manage/$id': typeof StoreManageIdRouteWithChildren
   '/wallet/transaction/$id': typeof WalletTransactionIdRoute
   '/account/verification': typeof AccountVerificationIndexRoute
+  '/listing/$id': typeof ListingIdIndexRoute
   '/store/manage/$id/add-existing': typeof StoreManageIdAddExistingRoute
   '/store/manage/$id/preview': typeof StoreManageIdPreviewRoute
   '/store/manage/$id/products': typeof StoreManageIdProductsRoute
@@ -1172,6 +1188,7 @@ export interface FileRoutesById {
   '/chat/$id': typeof ChatIdRoute
   '/chat/safety': typeof ChatSafetyRoute
   '/credits/wallet': typeof CreditsWalletRoute
+  '/deal/$id': typeof DealIdRoute
   '/gallery/$id': typeof GalleryIdRoute
   '/help/search': typeof HelpSearchRoute
   '/invoice/$id': typeof InvoiceIdRoute
@@ -1257,6 +1274,7 @@ export interface FileRoutesById {
   '/store/manage/$id': typeof StoreManageIdRouteWithChildren
   '/wallet/transaction/$id': typeof WalletTransactionIdRoute
   '/account/verification/': typeof AccountVerificationIndexRoute
+  '/listing/$id/': typeof ListingIdIndexRoute
   '/store/manage/$id/add-existing': typeof StoreManageIdAddExistingRoute
   '/store/manage/$id/preview': typeof StoreManageIdPreviewRoute
   '/store/manage/$id/products': typeof StoreManageIdProductsRoute
@@ -1314,6 +1332,7 @@ export interface FileRouteTypes {
     | '/chat/$id'
     | '/chat/safety'
     | '/credits/wallet'
+    | '/deal/$id'
     | '/gallery/$id'
     | '/help/search'
     | '/invoice/$id'
@@ -1399,6 +1418,7 @@ export interface FileRouteTypes {
     | '/store/manage/$id'
     | '/wallet/transaction/$id'
     | '/account/verification/'
+    | '/listing/$id/'
     | '/store/manage/$id/add-existing'
     | '/store/manage/$id/preview'
     | '/store/manage/$id/products'
@@ -1452,6 +1472,7 @@ export interface FileRouteTypes {
     | '/chat/$id'
     | '/chat/safety'
     | '/credits/wallet'
+    | '/deal/$id'
     | '/gallery/$id'
     | '/help/search'
     | '/invoice/$id'
@@ -1537,6 +1558,7 @@ export interface FileRouteTypes {
     | '/store/manage/$id'
     | '/wallet/transaction/$id'
     | '/account/verification'
+    | '/listing/$id'
     | '/store/manage/$id/add-existing'
     | '/store/manage/$id/preview'
     | '/store/manage/$id/products'
@@ -1592,6 +1614,7 @@ export interface FileRouteTypes {
     | '/chat/$id'
     | '/chat/safety'
     | '/credits/wallet'
+    | '/deal/$id'
     | '/gallery/$id'
     | '/help/search'
     | '/invoice/$id'
@@ -1677,6 +1700,7 @@ export interface FileRouteTypes {
     | '/store/manage/$id'
     | '/wallet/transaction/$id'
     | '/account/verification/'
+    | '/listing/$id/'
     | '/store/manage/$id/add-existing'
     | '/store/manage/$id/preview'
     | '/store/manage/$id/products'
@@ -1728,6 +1752,7 @@ export interface RootRouteChildren {
   ChatIdRoute: typeof ChatIdRoute
   ChatSafetyRoute: typeof ChatSafetyRoute
   CreditsWalletRoute: typeof CreditsWalletRoute
+  DealIdRoute: typeof DealIdRoute
   GalleryIdRoute: typeof GalleryIdRoute
   HelpSearchRoute: typeof HelpSearchRoute
   InvoiceIdRoute: typeof InvoiceIdRoute
@@ -1793,6 +1818,7 @@ export interface RootRouteChildren {
   MyProfileJobsRoute: typeof MyProfileJobsRoute
   ReviewsReportIdRoute: typeof ReviewsReportIdRoute
   StoreManageIdRoute: typeof StoreManageIdRouteWithChildren
+  ListingIdIndexRoute: typeof ListingIdIndexRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -2159,6 +2185,13 @@ declare module '@tanstack/react-router' {
       path: '/credits/wallet'
       fullPath: '/credits/wallet'
       preLoaderRoute: typeof CreditsWalletRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/deal/$id': {
+      id: '/deal/$id'
+      path: '/deal/$id'
+      fullPath: '/deal/$id'
+      preLoaderRoute: typeof DealIdRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/gallery/$id': {
@@ -2644,6 +2677,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof HelpFaqIdRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/listing/$id/': {
+      id: '/listing/$id/'
+      path: '/listing/$id'
+      fullPath: '/listing/$id/'
+      preLoaderRoute: typeof ListingIdIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/listing/$id/analytics': {
       id: '/listing/$id/analytics'
       path: '/listing/$id/analytics'
@@ -2982,6 +3022,7 @@ const rootRouteChildren: RootRouteChildren = {
   ChatIdRoute: ChatIdRoute,
   ChatSafetyRoute: ChatSafetyRoute,
   CreditsWalletRoute: CreditsWalletRoute,
+  DealIdRoute: DealIdRoute,
   GalleryIdRoute: GalleryIdRoute,
   HelpSearchRoute: HelpSearchRoute,
   InvoiceIdRoute: InvoiceIdRoute,
@@ -3047,6 +3088,7 @@ const rootRouteChildren: RootRouteChildren = {
   MyProfileJobsRoute: MyProfileJobsRoute,
   ReviewsReportIdRoute: ReviewsReportIdRoute,
   StoreManageIdRoute: StoreManageIdRouteWithChildren,
+  ListingIdIndexRoute: ListingIdIndexRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

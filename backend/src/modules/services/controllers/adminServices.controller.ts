@@ -7,13 +7,27 @@ import { seedInitialServices } from "../../../database/seeders/serviceSeeder";
 // Admin: Get all services with filtering & moderation
 export const getAdminServices = async (req: Request, res: Response) => {
   try {
-    const { status, category, search, page = "1", limit = "20" } = req.query;
+    const { status, category, search, q, page = "1", limit = "50" } = req.query;
+    const querySearch = (search || q) as string | undefined;
 
     const filter: any = {};
-    if (status && status !== "ALL") filter.status = status;
+    if (status && status !== "ALL") {
+      const s = String(status).toUpperCase();
+      if (s === "PENDING_APPROVAL") {
+        filter.status = { $in: ["PENDING_APPROVAL", "pending_approval", "submitted", "PENDING"] };
+      } else if (s === "ACTIVE") {
+        filter.status = { $in: ["ACTIVE", "active", "APPROVED", "approved"] };
+      } else if (s === "REJECTED") {
+        filter.status = { $in: ["REJECTED", "rejected"] };
+      } else if (s === "PAUSED") {
+        filter.status = { $in: ["PAUSED", "paused"] };
+      } else {
+        filter.status = new RegExp(`^${status}$`, "i");
+      }
+    }
     if (category) filter.serviceCategoryId = category;
-    if (search && typeof search === "string" && search.trim()) {
-      const regex = new RegExp(search.trim(), "i");
+    if (querySearch && typeof querySearch === "string" && querySearch.trim()) {
+      const regex = new RegExp(querySearch.trim(), "i");
       filter.$or = [{ title: regex }, { businessName: regex }, { "location.city": regex }];
     }
 
@@ -26,13 +40,19 @@ export const getAdminServices = async (req: Request, res: Response) => {
         .populate("providerId", "name phone email isVerified")
         .sort({ createdAt: -1 })
         .skip(skip)
-        .limit(limitNum),
+        .limit(limitNum)
+        .lean(),
       Service.countDocuments(filter),
     ]);
 
+    const formattedServices = services.map((s: any) => ({
+      ...s,
+      id: s._id.toString(),
+    }));
+
     res.json({
       success: true,
-      data: services,
+      data: formattedServices,
       pagination: {
         total,
         page: pageNum,

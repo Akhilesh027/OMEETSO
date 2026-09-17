@@ -262,7 +262,7 @@ const LS_CANDIDATE = "omeetso_candidate_profile";
 
 const isB = typeof window !== "undefined";
 
-function getLocal<T>(key: string, fb: T): T {
+export function getLocal<T>(key: string, fb: T): T {
   if (!isB) return fb;
   try {
     const raw = localStorage.getItem(key);
@@ -272,7 +272,7 @@ function getLocal<T>(key: string, fb: T): T {
   }
 }
 
-function setLocal(key: string, val: unknown) {
+export function setLocal(key: string, val: unknown) {
   if (!isB) return;
   try {
     localStorage.setItem(key, JSON.stringify(val));
@@ -314,7 +314,7 @@ export async function fetchPublicJobs(params?: Record<string, string>): Promise<
 
   let list = Array.from(mergedMap.values()).filter(j => {
     const st = (j.status || "").toUpperCase();
-    return st === "APPROVED" || st === "ACTIVE" || st === "SUBMITTED" || st === "PUBLISHED" || !st;
+    return st === "APPROVED" || st === "ACTIVE" || st === "PUBLISHED";
   });
 
   // Sort newest first
@@ -406,17 +406,93 @@ export function toggleSaveJobLocal(jobId: string): boolean {
   return isSaved;
 }
 
+export function getCandidateApplicationsStorageKey(): string {
+  if (typeof window === "undefined") return "omeetso_candidate_applied_jobs";
+  try {
+    const u = JSON.parse(localStorage.getItem("omeetso_user") || "null");
+    const uid = u?._id || u?.id;
+    if (uid) return `omeetso_candidate_applications_${uid}`;
+  } catch {}
+  return "omeetso_candidate_applied_jobs";
+}
+
 export function listCandidateApplicationsLocal(): JobApplicationItem[] {
-  return getLocal<JobApplicationItem[]>(LS_APPLICATIONS, []);
+  const key = getCandidateApplicationsStorageKey();
+  const apps = getLocal<JobApplicationItem[]>(key, []);
+  return apps.filter((a) => {
+    const jId = a.jobId || a.job?.id || (a.job as any)?._id;
+    return Boolean(jId);
+  });
+}
+
+export async function checkIsCandidateApplied(jobId: string, token?: string | null): Promise<boolean> {
+  if (!jobId) return false;
+  if (typeof window === "undefined") return false;
+
+  let currentUserId: string | null = null;
+  try {
+    const u = JSON.parse(localStorage.getItem("omeetso_user") || "null");
+    if (u) {
+      currentUserId = u._id || u.id || null;
+    }
+  } catch {}
+
+  const authToken = token || localStorage.getItem("omeetso_user_token");
+
+  // If user is not logged in, they cannot have applied
+  if (!authToken && !currentUserId) {
+    return false;
+  }
+
+  // 1. Check server applications if token is present (Primary source of truth)
+  if (authToken) {
+    try {
+      const res = await fetch(`${API_BASE}/jobs/candidate/applications`, {
+        headers: { Authorization: `Bearer ${authToken}` }
+      });
+      if (res.ok) {
+        const json = await res.json();
+        if (json.success && Array.isArray(json.data)) {
+          const serverMatch = json.data.some((a: any) => {
+            const aJobId = String(a.jobId || a.job?.id || a.job?._id || "");
+            const isMatch = aJobId === String(jobId);
+            const isActive = a.status && String(a.status).toUpperCase() !== "WITHDRAWN";
+            return isMatch && isActive;
+          });
+          return serverMatch;
+        }
+      }
+    } catch {
+      // Offline fallback
+    }
+  }
+
+  // 2. Offline fallback: check user-scoped local candidate applications
+  const localApps = listCandidateApplicationsLocal();
+  return localApps.some((a) => {
+    const aJobId = String(a.jobId || a.job?.id || (a.job as any)?._id || "");
+    const isMatch = aJobId === String(jobId);
+    const isActive = a.status && String(a.status).toUpperCase() !== "WITHDRAWN";
+    return isMatch && isActive;
+  });
 }
 
 export function submitJobApplicationLocal(app: Partial<JobApplicationItem>): JobApplicationItem {
-  const all = listCandidateApplicationsLocal();
+  const key = getCandidateApplicationsStorageKey();
+  const all = getLocal<JobApplicationItem[]>(key, []);
   const targetJobId = app.jobId || app.job?.id || (app.job as any)?._id || "";
+  let currentUserId = "me";
+  if (typeof window !== "undefined") {
+    try {
+      const u = JSON.parse(localStorage.getItem("omeetso_user") || "null");
+      if (u?._id || u?.id) currentUserId = u._id || u.id;
+    } catch {}
+  }
+
   const newApp: JobApplicationItem = {
     id: app.id || `APP-${Date.now()}`,
     jobId: targetJobId,
-    applicantId: app.applicantId || "me",
+    applicantId: app.applicantId || currentUserId,
     employerId: app.employerId || "emp",
     job: app.job,
     applicantProfileSnapshot: app.applicantProfileSnapshot || {
@@ -442,18 +518,19 @@ export function submitJobApplicationLocal(app: Partial<JobApplicationItem>): Job
   } else {
     all.unshift(newApp);
   }
-  setLocal(LS_APPLICATIONS, all);
+  setLocal(key, all);
   return newApp;
 }
 
 export function withdrawJobApplicationLocal(appId: string, reason?: string) {
-  const all = listCandidateApplicationsLocal();
+  const key = getCandidateApplicationsStorageKey();
+  const all = getLocal<JobApplicationItem[]>(key, []);
   const idx = all.findIndex(a => a.id === appId || a.jobId === appId || (a as any)._id === appId);
   if (idx !== -1) {
     all[idx].status = "WITHDRAWN";
     all[idx].withdrawnAt = new Date().toISOString();
     all[idx].withdrawalReason = reason || "Withdrawn by candidate";
-    setLocal(LS_APPLICATIONS, all);
+    setLocal(key, all);
   }
 }
 

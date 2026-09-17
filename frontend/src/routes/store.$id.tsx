@@ -523,8 +523,20 @@ function StorePage() {
                       <p className="text-xs font-black text-slate-900 dark:text-white mt-0.5">{formatINR(sponsoredAd.creative?.priceInPaise ? sponsoredAd.creative?.priceInPaise / 100 : 4999)}</p>
                     </div>
                     <button
-                      onClick={() => nav({ to: `/listing/${sponsoredAd.listingId || store.id}` as any })}
-                      className="group shrink-0 inline-flex items-center gap-1 rounded-2xl bg-amber-500 text-slate-950 font-black text-xs px-4 py-2 shadow-xs hover:bg-amber-400 transition-colors"
+                      onClick={() => {
+                        const targetId = sponsoredAd.listingId || sponsoredAd.id;
+                        if (targetId) {
+                          nav({ to: "/product/$id", params: { id: targetId } });
+                        } else {
+                          const catalogEl = document.getElementById("store-catalog");
+                          if (catalogEl) {
+                            catalogEl.scrollIntoView({ behavior: "smooth" });
+                          } else {
+                            nav({ to: "/results" });
+                          }
+                        }
+                      }}
+                      className="group shrink-0 inline-flex items-center gap-1 rounded-2xl bg-amber-500 text-slate-950 font-black text-xs px-4 py-2 shadow-xs hover:bg-amber-400 transition-colors cursor-pointer"
                     >
                       <span>View Deal</span>
                       <ArrowRight className="h-3.5 w-3.5 transition-transform group-hover:translate-x-0.5" />

@@ -336,6 +336,27 @@ function ChatCard({ t, conv }: { t: ReturnType<typeof conversationToThread>; con
 }
 
 function EmptyStateFor({ tab, hasQuery }: { tab: Tab; hasQuery: boolean }) {
+  if (!getUserAccessToken()) {
+    return (
+      <div className="p-6 text-center space-y-4">
+        <EmptyState
+          icon={<MessageCircle className="h-8 w-8 text-primary" />}
+          title="Sign in to view your chats"
+          body="Sign in to chat with buyers, sellers, employers, and local stores in real time."
+        />
+        <div className="flex justify-center">
+          <Link
+            to="/login"
+            search={{ redirect: "/chats" }}
+            className="inline-flex items-center gap-2 rounded-full bg-primary px-6 py-2.5 text-xs font-extrabold text-primary-foreground shadow-md hover:opacity-95 transition-all"
+          >
+            Sign In to Continue
+          </Link>
+        </div>
+      </div>
+    );
+  }
+
   if (hasQuery) {
     return (
       <EmptyState
@@ -345,13 +366,16 @@ function EmptyStateFor({ tab, hasQuery }: { tab: Tab; hasQuery: boolean }) {
       />
     );
   }
+
   const config: Record<Tab, { title: string; body: string; cta?: { to: "/home" | "/listings"; label: string } }> = {
+    All: { title: "No conversations yet", body: "Connect with nearby buyers, sellers, jobs, and stores.", cta: { to: "/home", label: "Explore marketplace" } },
     Buying: { title: "No buying conversations yet", body: "Chat with sellers when you find something you like.", cta: { to: "/home", label: "Explore products" } },
     Selling: { title: "No selling conversations yet", body: "Buyers will appear here when they message about your listings.", cta: { to: "/listings", label: "View my listings" } },
     Stores: { title: "No store conversations yet", body: "Message a nearby store to ask about products, delivery or pickup.", cta: { to: "/home", label: "Browse stores" } },
     Archived: { title: "No archived chats", body: "Archived conversations will appear here." },
   };
-  const c = config[tab];
+
+  const c = config[tab] || config.All;
   return (
     <div className="p-6">
       <EmptyState

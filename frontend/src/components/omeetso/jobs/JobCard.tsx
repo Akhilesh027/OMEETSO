@@ -16,8 +16,8 @@ export function JobCard({ job, variant = "grid" }: { job: JobItem; variant?: "gr
 
   const isClosed = job.status === "FILLED" || job.status === "EXPIRED";
 
-  const salaryText = job.salary.salaryDisclosed
-    ? `₹${job.salary.minSalary.toLocaleString("en-IN")} - ₹${job.salary.maxSalary.toLocaleString("en-IN")} / ${job.salary.salaryPeriod}`
+  const salaryText = job.salary?.salaryDisclosed
+    ? `₹${(job.salary?.minSalary ?? 0).toLocaleString("en-IN")} - ₹${(job.salary?.maxSalary ?? 0).toLocaleString("en-IN")} / ${job.salary?.salaryPeriod || "monthly"}`
     : "Salary Not Disclosed";
 
   const walkInDateLabel = (() => {
@@ -84,15 +84,19 @@ export function JobCard({ job, variant = "grid" }: { job: JobItem; variant?: "gr
               )}
               <span className="flex items-center gap-1 text-muted-foreground">
                 <MapPin className="h-3 w-3 text-indigo-brand shrink-0" />
-                {job.location.area}, {job.location.city}
+                {job.location?.area || "Location"}, {job.location?.city || "Hyderabad"}
               </span>
               <span className="text-emerald-700 font-extrabold">💰 {salaryText}</span>
             </div>
 
             <div className="flex flex-wrap gap-1 text-[11px] font-semibold text-muted-foreground pt-0.5">
-              <span className="rounded-md bg-muted px-2 py-0.5 text-[10px]">🎓 {job.candidateCriteria.minEducation}</span>
-              <span className="rounded-md bg-muted px-2 py-0.5 text-[10px]">⏳ {job.candidateCriteria.experience}</span>
-              {job.candidateCriteria.skills.slice(0, 3).map((skill) => (
+              {job.candidateCriteria?.minEducation && (
+                <span className="rounded-md bg-muted px-2 py-0.5 text-[10px]">🎓 {job.candidateCriteria.minEducation}</span>
+              )}
+              {job.candidateCriteria?.experience && (
+                <span className="rounded-md bg-muted px-2 py-0.5 text-[10px]">⏳ {job.candidateCriteria.experience}</span>
+              )}
+              {(job.candidateCriteria?.skills || []).slice(0, 3).map((skill) => (
                 <span key={skill} className="rounded-md bg-indigo-brand/10 text-indigo-brand font-bold px-2 py-0.5 text-[10px]">
                   {skill}
                 </span>
@@ -201,15 +205,19 @@ export function JobCard({ job, variant = "grid" }: { job: JobItem; variant?: "gr
         </div>
         <div className="flex items-center gap-1.5 text-muted-foreground font-bold bg-secondary/50 p-2 rounded-xl">
           <MapPin className="h-3.5 w-3.5 text-indigo-brand shrink-0" />
-          <span className="truncate">{job.location.area}, {job.location.city}</span>
+          <span className="truncate">{job.location?.area || "Location"}, {job.location?.city || "Hyderabad"}</span>
         </div>
       </div>
 
       {/* Criteria & Skills Tags */}
       <div className="mt-3 flex flex-wrap gap-1.5 text-[11px] font-semibold text-muted-foreground">
-        <span className="rounded-lg bg-muted px-2 py-0.5">🎓 {job.candidateCriteria.minEducation}</span>
-        <span className="rounded-lg bg-muted px-2 py-0.5">⏳ {job.candidateCriteria.experience}</span>
-        {job.candidateCriteria.skills.slice(0, 2).map((skill) => (
+        {job.candidateCriteria?.minEducation && (
+          <span className="rounded-lg bg-muted px-2 py-0.5">🎓 {job.candidateCriteria.minEducation}</span>
+        )}
+        {job.candidateCriteria?.experience && (
+          <span className="rounded-lg bg-muted px-2 py-0.5">⏳ {job.candidateCriteria.experience}</span>
+        )}
+        {(job.candidateCriteria?.skills || []).slice(0, 2).map((skill) => (
           <span key={skill} className="rounded-lg bg-indigo-brand/10 text-indigo-brand font-bold px-2 py-0.5">
             {skill}
           </span>
@@ -220,7 +228,7 @@ export function JobCard({ job, variant = "grid" }: { job: JobItem; variant?: "gr
       <div className="mt-4 pt-3 border-t border-border/60 flex items-center justify-between gap-2">
         <div className="text-[10px] text-muted-foreground flex items-center gap-1 font-semibold">
           <Clock className="h-3 w-3" />
-          <span>Posted {new Date(job.createdAt).toLocaleDateString("en-IN")}</span>
+          <span>Posted {new Date(job.createdAt || Date.now()).toLocaleDateString("en-IN")}</span>
         </div>
 
         <Link

@@ -3,6 +3,14 @@ import { API_BASE as ROOT_API } from "@/config/api";
 
 const API_BASE = `${ROOT_API}/services`;
 
+function getAuthHeaders(): Record<string, string> {
+  const token = typeof window !== "undefined" ? localStorage.getItem("omeetso_user_token") : null;
+  return {
+    "Content-Type": "application/json",
+    ...(token ? { Authorization: `Bearer ${token}` } : {}),
+  };
+}
+
 export async function getPublicServicesApi(params?: Record<string, any>): Promise<{ success: boolean; data?: ServiceItem[]; error?: string }> {
   try {
     const query = new URLSearchParams();
@@ -45,7 +53,7 @@ export async function createServiceApi(serviceData: Partial<ServiceItem>): Promi
   try {
     const res = await fetch(API_BASE, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: getAuthHeaders(),
       credentials: "include",
       body: JSON.stringify(serviceData),
     });
@@ -60,7 +68,7 @@ export async function createServiceInquiryApi(inquiryData: Partial<ServiceInquir
   try {
     const res = await fetch(`${API_BASE}/inquiries`, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: getAuthHeaders(),
       credentials: "include",
       body: JSON.stringify(inquiryData),
     });
@@ -73,7 +81,10 @@ export async function createServiceInquiryApi(inquiryData: Partial<ServiceInquir
 
 export async function getMyServicesApi(): Promise<{ success: boolean; data?: ServiceItem[]; error?: string }> {
   try {
-    const res = await fetch(`${API_BASE}/provider/my-services`, { credentials: "include" });
+    const res = await fetch(`${API_BASE}/provider/my-services`, {
+      headers: getAuthHeaders(),
+      credentials: "include"
+    });
     const data = await res.json();
     return data;
   } catch (err: any) {
@@ -83,7 +94,10 @@ export async function getMyServicesApi(): Promise<{ success: boolean; data?: Ser
 
 export async function getProviderInquiriesApi(): Promise<{ success: boolean; data?: ServiceInquiryItem[]; error?: string }> {
   try {
-    const res = await fetch(`${API_BASE}/provider/inquiries`, { credentials: "include" });
+    const res = await fetch(`${API_BASE}/provider/inquiries`, {
+      headers: getAuthHeaders(),
+      credentials: "include"
+    });
     const data = await res.json();
     return data;
   } catch (err: any) {
@@ -93,7 +107,10 @@ export async function getProviderInquiriesApi(): Promise<{ success: boolean; dat
 
 export async function getMyServiceInquiriesApi(): Promise<{ success: boolean; data?: ServiceInquiryItem[]; error?: string }> {
   try {
-    const res = await fetch(`${API_BASE}/customer/inquiries`, { credentials: "include" });
+    const res = await fetch(`${API_BASE}/customer/inquiries`, {
+      headers: getAuthHeaders(),
+      credentials: "include"
+    });
     const data = await res.json();
     return data;
   } catch (err: any) {
@@ -108,7 +125,7 @@ export async function updateInquiryStatusApi(
   try {
     const res = await fetch(`${API_BASE}/inquiries/${inquiryId}/status`, {
       method: "PATCH",
-      headers: { "Content-Type": "application/json" },
+      headers: getAuthHeaders(),
       credentials: "include",
       body: JSON.stringify(payload),
     });

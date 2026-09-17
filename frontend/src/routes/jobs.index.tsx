@@ -193,7 +193,7 @@ function JobsPage() {
   const filteredJobs = useMemo(() => {
     let list = allJobs.filter((j) => {
       const st = (j.status || "").toUpperCase();
-      return st === "APPROVED" || st === "ACTIVE" || st === "SUBMITTED" || st === "PUBLISHED" || !st;
+      return st === "APPROVED" || st === "ACTIVE" || st === "PUBLISHED";
     });
 
     const q = search.q?.toLowerCase() ?? "";

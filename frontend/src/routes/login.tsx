@@ -238,25 +238,61 @@ function LoginPage() {
     nav({ to: "/home" });
   };
 
-  const handleGoogle = () => {
+  const handleGoogle = async () => {
     if (googleLoading) return;
     setGoogleLoading(true);
-    setTimeout(() => {
-      if (typeof window !== "undefined") {
-        localStorage.setItem("omeetso_user", JSON.stringify({
-          id: "usr_google_demo",
-          phone: "+919876543210",
-          accountType: "individual",
-          status: "ACTIVE",
-          profile: { name: "Google User", city: "Hyderabad", pincode: "500081", area: "Madhapur" }
-        }));
-        localStorage.setItem("omeetso_profile", "1");
-        localStorage.removeItem("omeetso_guest");
-        localStorage.removeItem("omeetso_guest_session");
+    try {
+      const res = await fetch(`${API_BASE}/auth/user/google`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({
+          email: "user@gmail.com",
+          name: "Google User",
+          googleId: `goog_${Date.now()}`
+        })
+      });
+
+      if (res.ok) {
+        const json = await res.json();
+        if (json.success && json.data) {
+          const { accessToken, user } = json.data;
+          if (typeof window !== "undefined") {
+            if (accessToken) {
+              localStorage.setItem("omeetso_user_token", accessToken);
+            }
+            localStorage.setItem("omeetso_user", JSON.stringify(user));
+            localStorage.setItem("omeetso_profile", "1");
+            localStorage.removeItem("omeetso_guest");
+            localStorage.removeItem("omeetso_guest_session");
+          }
+          toast.success("Signed in with Google successfully!");
+          nav({ to: "/home" });
+          return;
+        }
       }
-      toast.success("Signed in with Google");
-      nav({ to: "/home" });
-    }, 600);
+    } catch (e) {
+      console.warn("Google auth API fallback:", e);
+    }
+
+    if (typeof window !== "undefined") {
+      const fallbackUser = {
+        id: "usr_google_demo",
+        _id: "usr_google_demo",
+        phone: "+919876543210",
+        accountType: "individual",
+        status: "ACTIVE",
+        profile: { name: "Google User", city: "Hyderabad", pincode: "500081", area: "Madhapur" }
+      };
+      localStorage.setItem("omeetso_user", JSON.stringify(fallbackUser));
+      localStorage.setItem("omeetso_user_token", "mock_google_jwt_token");
+      localStorage.setItem("omeetso_profile", "1");
+      localStorage.removeItem("omeetso_guest");
+      localStorage.removeItem("omeetso_guest_session");
+    }
+    toast.success("Signed in with Google");
+    nav({ to: "/home" });
+    setGoogleLoading(false);
   };
 
   return (
@@ -791,6 +827,7 @@ function LoginPage() {
 
           {/* Social Sign-In & Guest Browsing */}
           <div className="pt-2 space-y-3 border-t border-border">
+            {/* Google sign-in commented out
             <button
               type="button"
               onClick={handleGoogle}
@@ -809,6 +846,7 @@ function LoginPage() {
               )}
               <span>Continue with Google</span>
             </button>
+            */}
 
             <button
               type="button"

@@ -255,12 +255,20 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
       if (res.success && Array.isArray(res.data)) {
         setConversations(res.data);
         setConversationsError(null);
-      } else if ((res as any)?.error?.code === "UNAUTHORIZED" || (res as any)?.error?.code === "SESSION_REVOKED") {
-        setConversations([]);
-        setConversationsError(null);
-        setStatus("disconnected");
       } else {
-        setConversationsError((res as any)?.error?.message || "Unable to load conversations");
+        const errCode = (res as any)?.error?.code;
+        if (
+          errCode === "UNAUTHORIZED" ||
+          errCode === "SESSION_REVOKED" ||
+          errCode === "TOKEN_EXPIRED" ||
+          errCode === "USER_NOT_FOUND"
+        ) {
+          setConversations([]);
+          setConversationsError(null);
+          setStatus("disconnected");
+        } else {
+          setConversationsError((res as any)?.error?.message || "Unable to load conversations");
+        }
       }
     } catch {
       setConversationsError("Unable to connect to chat server. Tap to retry.");

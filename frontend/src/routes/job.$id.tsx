@@ -8,7 +8,7 @@ import {
 import { MobileFrame } from "@/components/omeetso/MobileFrame";
 import { JobCard } from "@/components/omeetso/jobs/JobCard";
 import { ApplyJobModal } from "@/components/omeetso/jobs/ApplyJobModal";
-import { fetchJobById, JobItem, toggleSaveJobLocal, getSavedJobIds, listCandidateApplicationsLocal, CandidateProfileItem } from "@/lib/jobs";
+import { fetchJobById, JobItem, toggleSaveJobLocal, getSavedJobIds, listCandidateApplicationsLocal, checkIsCandidateApplied, CandidateProfileItem } from "@/lib/jobs";
 import { uploadFile } from "@/lib/upload";
 import { ReportSheet } from "@/components/omeetso/ReportSheet";
 import { startConversationApi } from "@/api/chat.api";
@@ -42,12 +42,39 @@ function JobDetailPage() {
   const [saved, setSaved] = useState(() => getSavedJobIds().includes(id));
   const [applyModalOpen, setApplyModalOpen] = useState(false);
   const [reportOpen, setReportOpen] = useState(false);
-  const [applied, setApplied] = useState(() => {
-    return listCandidateApplicationsLocal().some((a) => a.jobId === id);
-  });
+  const [applied, setApplied] = useState(false);
   const [candidateProfile, setCandidateProfile] = useState<CandidateProfileItem | null>(null);
   const [uploadingResume, setUploadingResume] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const currentUser = (() => {
+    if (typeof window === "undefined") return null;
+    try {
+      return JSON.parse(localStorage.getItem("omeetso_user") || "null");
+    } catch {
+      return null;
+    }
+  })();
+
+  const currentUserId = currentUser?._id || currentUser?.id;
+  const isOwner = Boolean(
+    currentUserId && (
+      job.employerId === currentUserId ||
+      (job.employerId === "me" && currentUser) ||
+      (job as any).isOwner
+    )
+  );
+
+  const verifyApplication = async (jobId: string, currentJob: JobItem) => {
+    if (typeof window === "undefined") return;
+    const uId = currentUserId;
+    if (uId && (currentJob.employerId === uId || currentJob.employerId === "me")) {
+      setApplied(false);
+      return;
+    }
+    const isApp = await checkIsCandidateApplied(jobId);
+    setApplied(isApp);
+  };
 
   const loadCandidateProfile = async () => {
     if (typeof window === "undefined") return;
@@ -117,7 +144,12 @@ function JobDetailPage() {
 
   useEffect(() => {
     fetchJobById(id).then((data) => {
-      if (data) setJob(data);
+      if (data) {
+        setJob(data);
+        verifyApplication(id, data);
+      } else {
+        verifyApplication(id, job);
+      }
     });
     loadCandidateProfile();
   }, [id]);
@@ -132,6 +164,11 @@ function JobDetailPage() {
   const salaryText = job.salary.salaryDisclosed
     ? `₹${job.salary.minSalary.toLocaleString("en-IN")} - ₹${job.salary.maxSalary.toLocaleString("en-IN")} / ${job.salary.salaryPeriod}`
     : "Salary Not Disclosed";
+
+  const isUnapproved = job.status === "SUBMITTED" || job.status === "pending" || job.status === "PENDING" || job.status === "REJECTED";
+  if (isUnapproved && !isOwner) {
+    return <NotFound />;
+  }
 
   return (
     <MobileFrame>
@@ -406,31 +443,40 @@ function JobDetailPage() {
 
             {/* Quick Action Buttons */}
             <div className="flex flex-wrap items-center gap-3 pt-2">
-              <button
-                onClick={() => {
-                  if (isClosed) return;
-                  if (applied) return;
-                  setApplyModalOpen(true);
-                }}
-                disabled={isClosed || applied}
-                className={`flex-1 min-w-[160px] h-12 rounded-2xl font-extrabold text-sm flex items-center justify-center gap-2 shadow-md transition-all ${
-                  applied
-                    ? "bg-emerald-600 text-white cursor-default"
-                    : isClosed
-                    ? "bg-muted text-muted-foreground cursor-not-allowed"
-                    : "bg-indigo-brand text-white hover:bg-indigo-brand/90"
-                }`}
-              >
-                {applied ? (
-                  <>
-                    <CheckCircle2 className="h-5 w-5" /> Applied ✓
-                  </>
-                ) : isClosed ? (
-                  "Position Closed"
-                ) : (
-                  "Apply Now"
-                )}
-              </button>
+              {isOwner ? (
+                <Link
+                  to="/my/employer/jobs"
+                  className="flex-1 min-w-[160px] h-12 rounded-2xl font-extrabold text-sm flex items-center justify-center gap-2 shadow-md transition-all bg-indigo-brand text-white hover:bg-indigo-brand/90"
+                >
+                  <Building2 className="h-5 w-5" /> Manage Job & Applicants
+                </Link>
+              ) : (
+                <button
+                  onClick={() => {
+                    if (isClosed) return;
+                    if (applied) return;
+                    setApplyModalOpen(true);
+                  }}
+                  disabled={isClosed || applied}
+                  className={`flex-1 min-w-[160px] h-12 rounded-2xl font-extrabold text-sm flex items-center justify-center gap-2 shadow-md transition-all ${
+                    applied
+                      ? "bg-emerald-600 text-white cursor-default"
+                      : isClosed
+                      ? "bg-muted text-muted-foreground cursor-not-allowed"
+                      : "bg-indigo-brand text-white hover:bg-indigo-brand/90"
+                  }`}
+                >
+                  {applied ? (
+                    <>
+                      <CheckCircle2 className="h-5 w-5" /> Applied ✓
+                    </>
+                  ) : isClosed ? (
+                    "Position Closed"
+                  ) : (
+                    "Apply Now"
+                  )}
+                </button>
+              )}
 
               <Link
                 to="/my/profile/jobs"
@@ -639,22 +685,31 @@ function JobDetailPage() {
               <p className="text-xs font-bold text-foreground truncate">{job.title}</p>
               <p className="text-[11px] font-extrabold text-emerald-600">{salaryText}</p>
             </div>
-            <button
-              onClick={() => {
-                if (isClosed || applied) return;
-                setApplyModalOpen(true);
-              }}
-              disabled={isClosed || applied}
-              className={`px-8 h-11 rounded-2xl font-extrabold text-xs flex items-center justify-center gap-2 shadow-lg transition-all ${
-                applied
-                  ? "bg-emerald-600 text-white"
-                  : isClosed
-                  ? "bg-muted text-muted-foreground"
-                  : "bg-indigo-brand text-white hover:bg-indigo-brand/90"
-              }`}
-            >
-              {applied ? "Applied ✓" : isClosed ? "Closed" : "Apply Now"}
-            </button>
+            {isOwner ? (
+              <Link
+                to="/my/employer/jobs"
+                className="px-6 h-11 rounded-2xl font-extrabold text-xs flex items-center justify-center gap-2 shadow-lg bg-indigo-brand text-white hover:bg-indigo-brand/90 transition-all"
+              >
+                <Building2 className="h-4 w-4" /> Manage Job
+              </Link>
+            ) : (
+              <button
+                onClick={() => {
+                  if (isClosed || applied) return;
+                  setApplyModalOpen(true);
+                }}
+                disabled={isClosed || applied}
+                className={`px-8 h-11 rounded-2xl font-extrabold text-xs flex items-center justify-center gap-2 shadow-lg transition-all ${
+                  applied
+                    ? "bg-emerald-600 text-white cursor-default"
+                    : isClosed
+                    ? "bg-muted text-muted-foreground cursor-not-allowed"
+                    : "bg-indigo-brand text-white hover:bg-indigo-brand/90"
+                }`}
+              >
+                {applied ? "Applied ✓" : isClosed ? "Closed" : "Apply Now"}
+              </button>
+            )}
           </div>
         </div>
 

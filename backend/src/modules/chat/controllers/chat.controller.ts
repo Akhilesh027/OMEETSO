@@ -122,7 +122,11 @@ export async function startConversation(req: AuthenticatedUserRequest, res: Resp
       .populate("participantIds", "profile.name profile.avatar email")
       .lean();
 
-    const otherParticipant = (populated as any).participantIds.find((p: any) => p._id.toString() !== buyerId.toString()) || (populated as any).participantIds[0];
+    const participants = Array.isArray((populated as any)?.participantIds) ? (populated as any).participantIds : [];
+    const otherParticipant = participants.find((p: any) => {
+      const pid = p?._id ? p._id.toString() : (p ? p.toString() : "");
+      return pid && pid !== buyerId.toString();
+    }) || participants[0];
 
     res.status(200).json({
       success: true,
@@ -135,7 +139,7 @@ export async function startConversation(req: AuthenticatedUserRequest, res: Resp
         listingPriceInPaise: (populated as any).listingId?.priceInPaise || (populated as any).jobId?.salary?.maxSalary || 0,
         listingImage: (populated as any).listingId?.images?.[0] || (populated as any).storeId?.logo || (populated as any).jobId?.companyLogo || "",
         otherParty: {
-          id: otherParticipant?._id?.toString() || buyerId.toString(),
+          id: otherParticipant?._id ? otherParticipant._id.toString() : (otherParticipant ? otherParticipant.toString() : buyerId.toString()),
           name: otherParticipant?.profile?.name || otherParticipant?.email || "User",
           avatar: otherParticipant?.profile?.avatar
         },
@@ -173,14 +177,25 @@ export async function getConversationById(req: AuthenticatedUserRequest, res: Re
       return;
     }
 
-    const isParticipant = c.participantIds.some((p: any) => p._id.toString() === userId.toString());
+    const participants = Array.isArray(c.participantIds) ? c.participantIds : [];
+    const isParticipant = participants.some((p: any) => {
+      const pid = p?._id ? p._id.toString() : (p ? p.toString() : "");
+      return pid === userId.toString();
+    });
     if (!isParticipant) {
       res.status(403).json({ success: false, error: { code: "FORBIDDEN", message: "Access denied" } });
       return;
     }
 
-    const otherParticipant = c.participantIds.find((p: any) => p._id.toString() !== userId.toString()) || c.participantIds[0];
-    const userUnreadObj = c.unreadCounts?.find((u: any) => u.userId.toString() === userId.toString());
+    const otherParticipant = participants.find((p: any) => {
+      const pid = p?._id ? p._id.toString() : (p ? p.toString() : "");
+      return pid && pid !== userId.toString();
+    }) || participants[0];
+
+    const userUnreadObj = c.unreadCounts?.find((u: any) => {
+      const uid = u?.userId?._id ? u.userId._id.toString() : (u?.userId ? u.userId.toString() : "");
+      return uid === userId.toString();
+    });
 
     res.status(200).json({
       success: true,
@@ -193,7 +208,7 @@ export async function getConversationById(req: AuthenticatedUserRequest, res: Re
         listingPriceInPaise: c.listingId?.priceInPaise || c.jobId?.salary?.maxSalary || 0,
         listingImage: c.listingId?.images?.[0] || c.storeId?.logo || c.jobId?.companyLogo || "https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=400",
         otherParty: {
-          id: otherParticipant?._id?.toString() || userId.toString(),
+          id: otherParticipant?._id ? otherParticipant._id.toString() : (otherParticipant ? otherParticipant.toString() : userId.toString()),
           name: otherParticipant?.profile?.name || otherParticipant?.email || "Omeetso User",
           avatar: otherParticipant?.profile?.avatar
         },
@@ -228,8 +243,16 @@ export async function getConversations(req: AuthenticatedUserRequest, res: Respo
       .lean();
 
     const items = conversations.map((c: any) => {
-      const otherParticipant = c.participantIds.find((p: any) => p._id.toString() !== userId.toString());
-      const userUnreadObj = c.unreadCounts?.find((u: any) => u.userId.toString() === userId.toString());
+      const participants = Array.isArray(c.participantIds) ? c.participantIds : [];
+      const otherParticipant = participants.find((p: any) => {
+        const pid = p?._id ? p._id.toString() : (p ? p.toString() : "");
+        return pid && pid !== userId.toString();
+      }) || participants[0];
+
+      const userUnreadObj = c.unreadCounts?.find((u: any) => {
+        const uid = u?.userId?._id ? u.userId._id.toString() : (u?.userId ? u.userId.toString() : "");
+        return uid === userId.toString();
+      });
 
       return {
         id: c._id.toString(),
@@ -240,7 +263,7 @@ export async function getConversations(req: AuthenticatedUserRequest, res: Respo
         listingPriceInPaise: c.listingId?.priceInPaise || c.jobId?.salary?.maxSalary || 0,
         listingImage: c.listingId?.images?.[0] || c.storeId?.logo || c.jobId?.companyLogo || "https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=400",
         otherParty: {
-          id: otherParticipant?._id?.toString(),
+          id: otherParticipant?._id ? otherParticipant._id.toString() : (otherParticipant ? otherParticipant.toString() : "user"),
           name: otherParticipant?.profile?.name || otherParticipant?.email || "Omeetso User",
           avatar: otherParticipant?.profile?.avatar
         },

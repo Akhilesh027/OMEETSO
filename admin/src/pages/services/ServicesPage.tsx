@@ -71,10 +71,11 @@ export function ServicesPage() {
   const { showSuccess, showError } = useToast();
 
   const loadAdminServices = async () => {
+    setLoading(true);
     try {
       const res = await getAdminServicesQueueApi({
         status: statusFilter === "all" ? "ALL" : statusFilter.toUpperCase(),
-        q: searchQuery,
+        search: searchQuery,
       });
       if (res.success && Array.isArray(res.data)) {
         setServices(res.data);
@@ -84,6 +85,8 @@ export function ServicesPage() {
       }
     } catch {
       setIsLiveDb(false);
+    } finally {
+      setLoading(false);
     }
   };
 

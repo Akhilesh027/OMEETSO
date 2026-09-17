@@ -59,7 +59,7 @@ export async function getPublicJobs(req: Request, res: Response, next: NextFunct
     const skip = (page - 1) * limit;
 
     const query: Record<string, any> = {
-      status: { $in: ["ACTIVE", "APPROVED", "active", "approved"] }
+      status: { $in: ["ACTIVE", "APPROVED", "PUBLISHED", "active", "approved", "published"] }
     };
 
     if (req.query.q) {
@@ -507,7 +507,7 @@ export async function applyToJob(req: AuthenticatedUserRequest, res: Response, n
       type: "job_application",
       title: `Application Sent: ${job.title}`,
       body: `Your application has been submitted to ${job.companyName}.`,
-      link: "/account/jobs"
+      link: "/my/jobs"
     }).catch(() => {});
 
     // Employer notification
@@ -574,7 +574,8 @@ export async function getCandidateApplications(req: AuthenticatedUserRequest, re
       data: applications.map((a: any) => ({
         ...a,
         id: a._id.toString(),
-        job: a.jobId ? { ...a.jobId, id: a.jobId._id.toString() } : null
+        jobId: a.jobId?._id ? a.jobId._id.toString() : (typeof a.jobId === 'string' ? a.jobId : String(a.jobId || '')),
+        job: a.jobId ? { ...a.jobId, id: a.jobId._id ? a.jobId._id.toString() : a.jobId.id } : null
       }))
     });
   } catch (err) {
@@ -664,28 +665,49 @@ export async function updateApplicantStatus(req: AuthenticatedUserRequest, res: 
     const applicationId = String(req.params.applicationId);
     const { status, interviewDetails, employerNotes } = req.body;
 
-    const app = await JobApplication.findOneAndUpdate(
-      { _id: applicationId, employerId: req.user._id },
-      {
-        status: status.toUpperCase(),
-        ...(interviewDetails ? { interviewDetails } : {}),
-        ...(employerNotes !== undefined ? { employerNotes } : {})
-      },
-      { new: true }
-    );
+    let app = await JobApplication.findById(applicationId);
+    if (!app && mongoose.Types.ObjectId.isValid(applicationId)) {
+      app = await JobApplication.findOne({ _id: new mongoose.Types.ObjectId(applicationId) });
+    }
 
     if (!app) {
-      res.status(404).json({ success: false, error: { message: "Application not found or access denied" } });
+      res.status(404).json({ success: false, error: { message: "Application not found" } });
       return;
     }
 
+    // Verify ownership: user must be the employer or the job creator
+    const job = await Job.findById(app.jobId);
+    const isEmployer =
+      (app.employerId && String(app.employerId) === String(req.user._id)) ||
+      (job?.employerId && String(job.employerId) === String(req.user._id));
+
+    if (!isEmployer && (req.user as any)?.role !== "admin") {
+      res.status(403).json({ success: false, error: { message: "Access denied: not authorized to update this application" } });
+      return;
+    }
+
+    if (status) {
+      app.status = status.toUpperCase() as any;
+    }
+    if (interviewDetails) {
+      app.interviewDetails = interviewDetails;
+    }
+    if (employerNotes !== undefined) {
+      app.employerNotes = employerNotes;
+    }
+
+    await app.save();
+
     // Update job counts
-    if (status.toUpperCase() === "SHORTLISTED") {
-      await Job.findByIdAndUpdate(app.jobId, { $inc: { shortlistedCount: 1 } });
-    } else if (status.toUpperCase() === "INTERVIEW_SCHEDULED") {
-      await Job.findByIdAndUpdate(app.jobId, { $inc: { interviewsCount: 1 } });
-    } else if (status.toUpperCase() === "HIRED") {
-      await Job.findByIdAndUpdate(app.jobId, { $inc: { hiredCount: 1 } });
+    if (status) {
+      const s = status.toUpperCase();
+      if (s === "SHORTLISTED") {
+        await Job.findByIdAndUpdate(app.jobId, { $inc: { shortlistedCount: 1 } });
+      } else if (s === "INTERVIEW_SCHEDULED") {
+        await Job.findByIdAndUpdate(app.jobId, { $inc: { interviewsCount: 1 } });
+      } else if (s === "HIRED") {
+        await Job.findByIdAndUpdate(app.jobId, { $inc: { hiredCount: 1 } });
+      }
     }
 
     // Notify candidate of status update
@@ -693,9 +715,9 @@ export async function updateApplicantStatus(req: AuthenticatedUserRequest, res: 
       await Notification.create({
         userId: app.applicantId,
         type: "job_application",
-        title: `Job Application Update: ${status}`,
-        body: `Your job application status is now "${status}".`,
-        link: "/account/jobs"
+        title: `Job Application Update: ${status || "Updated"}`,
+        body: `Your job application status for "${job?.title || "job"}" is now "${status}".`,
+        link: "/my/jobs"
       }).catch(() => {});
     }
 

@@ -8,7 +8,8 @@ import {
   refreshUserSession,
   logoutUser,
   getUserSession,
-  resetUserPin
+  resetUserPin,
+  loginWithGoogle
 } from "../controllers/userAuth.controller";
 import {
   requestEmailOtp,
@@ -23,6 +24,7 @@ export const userAuthRouter = Router();
 userAuthRouter.post("/check-phone", checkPhoneStatus);
 userAuthRouter.post("/register", registerUser);
 userAuthRouter.post("/login", loginUserDirect);
+userAuthRouter.post("/google", loginWithGoogle);
 userAuthRouter.post("/otp/request", validateBody(RequestOtpSchema), requestOtp);
 userAuthRouter.post("/otp/verify", validateBody(VerifyOtpSchema), verifyOtp);
 userAuthRouter.post("/email-otp/request", requestEmailOtp);

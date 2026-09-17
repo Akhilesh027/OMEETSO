@@ -776,3 +776,96 @@ export async function resetUserPin(req: Request, res: Response, next: NextFuncti
     next(error);
   }
 }
+
+export async function loginWithGoogle(req: Request, res: Response, next: NextFunction): Promise<void> {
+  try {
+    const { email, name, avatar, googleId } = req.body;
+    const safeEmail = email ? String(email).trim().toLowerCase() : "";
+    const safeName = name ? String(name).trim() : "Google User";
+
+    let user: any = null;
+    if (safeEmail) {
+      user = await User.findOne({ $or: [{ email: safeEmail }, { "profile.email": safeEmail }] });
+    }
+
+    if (!user) {
+      // Generate a unique fallback phone for new Google user if needed
+      const uniqueSuffix = Date.now().toString().slice(-6);
+      const generatedPhone = `+919000${uniqueSuffix}`;
+
+      user = await User.create({
+        phone: generatedPhone,
+        email: safeEmail || undefined,
+        emailVerified: Boolean(safeEmail),
+        accountType: "individual",
+        status: UserStatus.ACTIVE,
+        profile: {
+          name: safeName,
+          avatar: avatar || "",
+          city: "Hyderabad",
+          pincode: "500081",
+          area: "Madhapur",
+          language: "en",
+          memberSince: new Date()
+        },
+        verificationSummary: {
+          mobileVerified: true,
+          emailVerified: Boolean(safeEmail),
+          identityVerified: false,
+          businessVerified: false,
+          riskScore: 98
+        }
+      });
+    }
+
+    // Revoke prior active sessions
+    await UserSession.updateMany(
+      { userId: user._id, isRevoked: false },
+      { $set: { isRevoked: true } }
+    );
+
+    const rawRefreshToken = generateOpaqueToken();
+    const refreshTokenHash = hashToken(rawRefreshToken);
+    const refreshExpiresAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
+
+    const session = await UserSession.create({
+      userId: user._id,
+      refreshTokenHash,
+      ipAddress: req.ip,
+      userAgent: req.get("user-agent"),
+      expiresAt: refreshExpiresAt,
+      isRevoked: false
+    });
+
+    const accessToken = generateUserAccessToken(user._id.toString(), session._id.toString());
+
+    res.cookie(USER_REFRESH_COOKIE, rawRefreshToken, {
+      httpOnly: true,
+      secure: env.NODE_ENV === "production",
+      sameSite: "strict",
+      path: "/api/v1/auth",
+      expires: refreshExpiresAt
+    });
+
+    res.status(200).json({
+      success: true,
+      message: "Signed in successfully with Google",
+      data: {
+        accessToken,
+        refreshToken: rawRefreshToken,
+        user: {
+          id: user._id.toString(),
+          _id: user._id.toString(),
+          phone: user.phone,
+          email: user.email,
+          accountType: user.accountType,
+          status: user.status,
+          profile: user.profile,
+          verificationSummary: user.verificationSummary
+        }
+      }
+    });
+  } catch (error) {
+    next(error);
+  }
+}
