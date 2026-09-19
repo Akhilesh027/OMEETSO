@@ -15,11 +15,13 @@ function getAuthHeaders(): Record<string, string> {
 
 export interface ConversationItem {
   id: string;
-  contextType: "LISTING" | "STORE" | "JOB";
+  contextType: "LISTING" | "STORE" | "JOB" | "SERVICE";
   contextId: string;
   listingId?: string;
   listingTitle: string;
   listingPriceInPaise: number;
+  salaryText?: string;
+  servicePriceText?: string;
   listingImage: string;
   otherParty: { id: string; name: string; avatar?: string };
   lastMessagePreview: string;
@@ -29,7 +31,7 @@ export interface ConversationItem {
 }
 
 export async function startConversationApi(
-  contextType: "LISTING" | "STORE" | "JOB",
+  contextType: "LISTING" | "STORE" | "JOB" | "SERVICE",
   contextId: string,
   recipientId?: string
 ): Promise<{ success: boolean; data?: any; error?: any }> {

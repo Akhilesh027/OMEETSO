@@ -34,7 +34,15 @@ function PublicPreview() {
           <p className="mt-1 flex items-center justify-center gap-1 text-[11px] text-muted-foreground">
             <MapPin className="h-3 w-3" /> {p.area}, {p.city}
           </p>
-          <p className="text-[11px] text-muted-foreground">Member since {new Date(p.memberSince).toLocaleDateString("en-IN", { month: "short", year: "numeric" })}</p>
+          <p className="text-[11px] text-muted-foreground">
+            Member since {(() => {
+              try {
+                const d = new Date(p.memberSince);
+                if (!isNaN(d.getTime())) return d.toLocaleDateString("en-IN", { month: "short", year: "numeric" });
+              } catch { }
+              return "2024";
+            })()}
+          </p>
           <p className="mt-1 flex items-center justify-center gap-1 text-[11px] text-muted-foreground">
             <MessageCircle className="h-3 w-3" /> {p.responseTime}
           </p>

@@ -130,25 +130,86 @@ export async function startConversation(req: AuthenticatedUserRequest, res: Resp
 
     res.status(200).json({
       success: true,
-      data: {
-        id: populated!._id.toString(),
-        contextType: (populated as any).contextType,
-        contextId: (populated as any).contextId?.toString(),
-        listingId: (populated as any).listingId?._id?.toString(),
-        listingTitle: (populated as any).listingId?.title || (populated as any).storeId?.name || ((populated as any).jobId ? `${(populated as any).jobId.title} (${(populated as any).jobId.companyName})` : "Chat"),
-        listingPriceInPaise: (populated as any).listingId?.priceInPaise || (populated as any).jobId?.salary?.maxSalary || 0,
-        listingImage: (populated as any).listingId?.images?.[0] || (populated as any).storeId?.logo || (populated as any).jobId?.companyLogo || "",
-        otherParty: {
-          id: otherParticipant?._id ? otherParticipant._id.toString() : (otherParticipant ? otherParticipant.toString() : buyerId.toString()),
-          name: otherParticipant?.profile?.name || otherParticipant?.email || "User",
-          avatar: otherParticipant?.profile?.avatar
-        },
-        unreadCount: 0
-      }
+      data: formatConversationItem(populated, buyerId)
     });
   } catch (error) {
     next(error);
   }
+}
+
+function formatSalaryText(salary: any): string {
+  if (!salary) return "Salary: Negotiable";
+  if (salary.salaryDisclosed === false) return "Salary: Negotiable";
+  const min = typeof salary.minSalary === "number" ? salary.minSalary : 0;
+  const max = typeof salary.maxSalary === "number" ? salary.maxSalary : 0;
+  const period = salary.salaryPeriod || "monthly";
+  const periodLabel = period === "yearly" ? "year" : period === "hourly" ? "hour" : period === "daily" ? "day" : "month";
+  if (min > 0 && max > 0 && min !== max) {
+    return `₹${min.toLocaleString("en-IN")} - ₹${max.toLocaleString("en-IN")} / ${periodLabel}`;
+  }
+  if (max > 0) {
+    return `₹${max.toLocaleString("en-IN")} / ${periodLabel}`;
+  }
+  if (min > 0) {
+    return `₹${min.toLocaleString("en-IN")} / ${periodLabel}`;
+  }
+  return "Salary: Negotiable";
+}
+
+function formatConversationItem(c: any, userId: any) {
+  const participants = Array.isArray(c.participantIds) ? c.participantIds : [];
+  const otherParticipant = participants.find((p: any) => {
+    const pid = p?._id ? p._id.toString() : (p ? p.toString() : "");
+    return pid && pid !== userId.toString();
+  }) || participants[0];
+
+  const userUnreadObj = c.unreadCounts?.find((u: any) => {
+    const uid = u?.userId?._id ? u.userId._id.toString() : (u?.userId ? u.userId.toString() : "");
+    return uid === userId.toString();
+  });
+
+  const isJob = c.contextType === "JOB" || !!c.jobId;
+  const isStore = c.contextType === "STORE" || !!c.storeId;
+
+  let title = "Marketplace Conversation";
+  let image = "https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=400";
+  let priceInPaise = 0;
+  let salaryText = "";
+
+  if (isJob) {
+    title = c.jobId?.title ? `${c.jobId.title}${c.jobId.companyName ? ` (${c.jobId.companyName})` : ""}` : (c.listingTitle || "Job Opportunity");
+    image = c.jobId?.companyLogo || "https://images.unsplash.com/photo-1486406146926-c627a92ad1ab?w=400";
+    salaryText = formatSalaryText(c.jobId?.salary);
+    priceInPaise = 0;
+  } else if (isStore) {
+    title = c.storeId?.name || c.listingTitle || "Store Conversation";
+    image = c.storeId?.logo || "https://images.unsplash.com/photo-1528698827591-e19ccd7bc23d?w=400";
+    priceInPaise = 0;
+  } else {
+    title = c.listingId?.title || c.listingTitle || "Product Listing";
+    image = c.listingId?.images?.[0] || c.listingImage || "https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=400";
+    priceInPaise = c.listingId?.priceInPaise || 0;
+  }
+
+  return {
+    id: c._id.toString(),
+    contextType: isJob ? "JOB" : isStore ? "STORE" : "LISTING",
+    contextId: c.contextId?.toString(),
+    listingId: c.listingId?._id?.toString() || c.jobId?._id?.toString() || c.storeId?._id?.toString(),
+    listingTitle: title,
+    listingPriceInPaise: priceInPaise,
+    salaryText: salaryText,
+    listingImage: image,
+    otherParty: {
+      id: otherParticipant?._id ? otherParticipant._id.toString() : (otherParticipant ? otherParticipant.toString() : userId.toString()),
+      name: otherParticipant?.profile?.name || otherParticipant?.email || "Omeetso User",
+      avatar: otherParticipant?.profile?.avatar
+    },
+    lastMessagePreview: c.lastMessagePreview || "No messages yet",
+    lastMessageType: c.lastMessageType || "TEXT",
+    lastMessageAt: c.lastMessageAt || c.createdAt,
+    unreadCount: userUnreadObj?.count || 0
+  };
 }
 
 export async function getConversationById(req: AuthenticatedUserRequest, res: Response, next: NextFunction): Promise<void> {
@@ -187,36 +248,9 @@ export async function getConversationById(req: AuthenticatedUserRequest, res: Re
       return;
     }
 
-    const otherParticipant = participants.find((p: any) => {
-      const pid = p?._id ? p._id.toString() : (p ? p.toString() : "");
-      return pid && pid !== userId.toString();
-    }) || participants[0];
-
-    const userUnreadObj = c.unreadCounts?.find((u: any) => {
-      const uid = u?.userId?._id ? u.userId._id.toString() : (u?.userId ? u.userId.toString() : "");
-      return uid === userId.toString();
-    });
-
     res.status(200).json({
       success: true,
-      data: {
-        id: c._id.toString(),
-        contextType: c.contextType || "LISTING",
-        contextId: c.contextId?.toString(),
-        listingId: c.listingId?._id?.toString(),
-        listingTitle: c.listingId?.title || c.storeId?.name || (c.jobId ? `${c.jobId.title} (${c.jobId.companyName})` : "Marketplace Conversation"),
-        listingPriceInPaise: c.listingId?.priceInPaise || c.jobId?.salary?.maxSalary || 0,
-        listingImage: c.listingId?.images?.[0] || c.storeId?.logo || c.jobId?.companyLogo || "https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=400",
-        otherParty: {
-          id: otherParticipant?._id ? otherParticipant._id.toString() : (otherParticipant ? otherParticipant.toString() : userId.toString()),
-          name: otherParticipant?.profile?.name || otherParticipant?.email || "Omeetso User",
-          avatar: otherParticipant?.profile?.avatar
-        },
-        lastMessagePreview: c.lastMessagePreview || "No messages yet",
-        lastMessageType: c.lastMessageType || "TEXT",
-        lastMessageAt: c.lastMessageAt || c.createdAt,
-        unreadCount: userUnreadObj?.count || 0
-      }
+      data: formatConversationItem(c, userId)
     });
   } catch (error) {
     next(error);
@@ -242,37 +276,7 @@ export async function getConversations(req: AuthenticatedUserRequest, res: Respo
       .sort({ lastMessageAt: -1, updatedAt: -1 })
       .lean();
 
-    const items = conversations.map((c: any) => {
-      const participants = Array.isArray(c.participantIds) ? c.participantIds : [];
-      const otherParticipant = participants.find((p: any) => {
-        const pid = p?._id ? p._id.toString() : (p ? p.toString() : "");
-        return pid && pid !== userId.toString();
-      }) || participants[0];
-
-      const userUnreadObj = c.unreadCounts?.find((u: any) => {
-        const uid = u?.userId?._id ? u.userId._id.toString() : (u?.userId ? u.userId.toString() : "");
-        return uid === userId.toString();
-      });
-
-      return {
-        id: c._id.toString(),
-        contextType: c.contextType || "LISTING",
-        contextId: c.contextId?.toString(),
-        listingId: c.listingId?._id?.toString(),
-        listingTitle: c.listingId?.title || c.storeId?.name || (c.jobId ? `${c.jobId.title} (${c.jobId.companyName})` : "Marketplace Conversation"),
-        listingPriceInPaise: c.listingId?.priceInPaise || c.jobId?.salary?.maxSalary || 0,
-        listingImage: c.listingId?.images?.[0] || c.storeId?.logo || c.jobId?.companyLogo || "https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=400",
-        otherParty: {
-          id: otherParticipant?._id ? otherParticipant._id.toString() : (otherParticipant ? otherParticipant.toString() : "user"),
-          name: otherParticipant?.profile?.name || otherParticipant?.email || "Omeetso User",
-          avatar: otherParticipant?.profile?.avatar
-        },
-        lastMessagePreview: c.lastMessagePreview || "No messages yet",
-        lastMessageType: c.lastMessageType || "TEXT",
-        lastMessageAt: c.lastMessageAt || c.createdAt,
-        unreadCount: userUnreadObj?.count || 0
-      };
-    });
+    const items = conversations.map((c: any) => formatConversationItem(c, userId));
 
     res.status(200).json({
       success: true,

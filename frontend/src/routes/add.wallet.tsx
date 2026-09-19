@@ -117,7 +117,7 @@ export default function AddMoney() {
         });
       }
 
-      const keyId = import.meta.env.VITE_RAZORPAY_KEY_ID || orderRes.key_id || "rzp_test_TWMJ5ahCK6Kbdj";
+      const keyId = orderRes.key_id || import.meta.env.VITE_RAZORPAY_KEY_ID || "rzp_live_Tdn1qazhzAEG64";
 
       // STEP 2: FRONTEND - Open Razorpay Modal with order_id
       const options = {

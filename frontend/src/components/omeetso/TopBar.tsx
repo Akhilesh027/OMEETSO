@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { Link } from "@tanstack/react-router";
-import { Bell, Heart, MessageCircle, MapPin, ChevronDown, ArrowLeft, User } from "lucide-react";
+import { Bell, Heart, MessageCircle, MapPin, ChevronDown, ArrowLeft, User, Zap } from "lucide-react";
 import type { ReactNode } from "react";
 import { getSaved, subscribe as subscribeSaved } from "@/lib/saved";
 import { getThreads, subscribe as subscribeChat, seedIfEmpty } from "@/lib/chat";
@@ -102,6 +102,16 @@ export function LocationTopBar({
         </Link>
 
         <div className="flex items-center gap-1.5 shrink-0">
+          <Link
+            to="/results"
+            search={{ quickSale: "1" } as any}
+            aria-label="Quick Deals"
+            title="Quick Deals"
+            className="relative grid h-8.5 w-8.5 place-items-center rounded-full bg-amber-400 text-slate-950 hover:bg-amber-300 shadow-2xs transition-all active:scale-95"
+          >
+            <Zap className="h-4 w-4 fill-slate-950 text-slate-950" />
+          </Link>
+
           <Link
             to="/saved"
             aria-label="Saved"

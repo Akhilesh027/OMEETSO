@@ -163,7 +163,7 @@ function StorePage() {
       if (followed.includes(store.id)) {
         setFollowing(true);
       }
-    } catch {}
+    } catch { }
   }, [store.id]);
 
   // Cover image fallback handler
@@ -193,7 +193,7 @@ function StorePage() {
       if (revRes?.success && Array.isArray(revRes.data)) {
         setRealReviews(revRes.data);
       }
-      
+
       const serverItems: any[] = [];
       if (sRes?.success && Array.isArray(sRes.data)) serverItems.push(...sRes.data);
       if (storeListingsRes?.success && Array.isArray(storeListingsRes.data)) serverItems.push(...storeListingsRes.data);
@@ -294,8 +294,8 @@ function StorePage() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ action: isNowFollowing ? "follow" : "unfollow" })
-      }).catch(() => {});
-    } catch {}
+      }).catch(() => { });
+    } catch { }
   };
 
   const handleShareStore = async () => {
@@ -441,7 +441,7 @@ function StorePage() {
                       try {
                         const res = await startConversationApi("STORE", store.id);
                         if (res.success && res.data?.id) {
-                          window.location.href = `/chat/${res.data.id}`;
+                          nav({ to: "/chat/$id", params: { id: res.data.id } });
                         } else {
                           toast.error(res.error?.message || "Could not start chat");
                         }

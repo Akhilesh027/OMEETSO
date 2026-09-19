@@ -340,10 +340,11 @@ export function WebsiteHeader() {
               <Link
                 to="/results"
                 search={{ quickSale: "1" } as any}
-                className="grid h-8.5 w-8.5 place-items-center rounded-xl bg-amber-500/15 text-amber-600 dark:text-amber-400 hover:bg-amber-500/25 active:scale-95 transition-all"
+                className="grid h-8.5 w-8.5 place-items-center rounded-xl bg-amber-500/20 text-amber-600 dark:text-amber-400 hover:bg-amber-500/30 active:scale-95 transition-all"
+                aria-label="Quick Deals"
                 title="Quick Deals"
               >
-                <Zap className="h-4 w-4 fill-amber-500" />
+                <Zap className="h-4 w-4 fill-amber-500 text-amber-500" />
               </Link>
 
               <button
@@ -367,6 +368,14 @@ export function WebsiteHeader() {
                   className="flex items-center gap-2.5 rounded-xl bg-secondary/50 hover:bg-secondary p-2.5 transition-colors text-foreground"
                 >
                   <span>🏠</span> Home
+                </Link>
+                <Link
+                  to="/results"
+                  search={{ quickSale: "1" } as any}
+                  onClick={() => setMobileMenuOpen(false)}
+                  className="flex items-center gap-2.5 rounded-xl bg-amber-500/15 hover:bg-amber-500/25 border border-amber-500/30 p-2.5 text-amber-600 dark:text-amber-400 font-extrabold transition-colors"
+                >
+                  <Zap className="h-4 w-4 fill-amber-500 text-amber-500" /> Quick Deals
                 </Link>
                 <Link
                   to="/categories"

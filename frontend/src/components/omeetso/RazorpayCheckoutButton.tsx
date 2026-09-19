@@ -59,7 +59,7 @@ export const RazorpayCheckoutButton: React.FC<RazorpayCheckoutButtonProps> = ({
         throw new Error(orderRes.error || "Failed to initiate payment order");
       }
 
-      const keyId = import.meta.env.VITE_RAZORPAY_KEY_ID || orderRes.key_id || "rzp_test_TWMJ5ahCK6Kbdj";
+      const keyId = orderRes.key_id || import.meta.env.VITE_RAZORPAY_KEY_ID || "rzp_live_Tdn1qazhzAEG64";
 
       // User details fallback
       const userRaw = typeof localStorage !== "undefined" ? localStorage.getItem("omeetso_user") : null;

@@ -10,7 +10,16 @@ import {
   addRecentSearch, clearRecentSearches, getRecentSearches, removeRecentSearch,
 } from "@/lib/saved";
 
+type SearchRouteParams = {
+  q?: string;
+  mode?: "voice" | "image" | string;
+};
+
 export const Route = createFileRoute("/search")({
+  validateSearch: (s: Record<string, unknown>): SearchRouteParams => ({
+    q: typeof s.q === "string" ? s.q : undefined,
+    mode: typeof s.mode === "string" ? s.mode : undefined,
+  }),
   head: () => ({
     meta: [
       { title: "Search · Omeetso" },
@@ -24,10 +33,11 @@ export const Route = createFileRoute("/search")({
 
 function SearchLanding() {
   const nav = useNavigate();
-  const [q, setQ] = useState("");
+  const searchParams = Route.useSearch();
+  const [q, setQ] = useState(searchParams.q || "");
   const [recents, setRecents] = useState<string[]>([]);
-  const [voiceOpen, setVoiceOpen] = useState(false);
-  const [imageOpen, setImageOpen] = useState(false);
+  const [voiceOpen, setVoiceOpen] = useState(searchParams.mode === "voice");
+  const [imageOpen, setImageOpen] = useState(searchParams.mode === "image");
   const inputRef = useRef<HTMLInputElement | null>(null);
 
   useEffect(() => {
@@ -35,6 +45,12 @@ function SearchLanding() {
     const stored = getRecentSearches();
     setRecents(stored.length ? stored : DEFAULT_RECENT_SEARCHES);
   }, []);
+
+  useEffect(() => {
+    if (searchParams.mode === "voice") setVoiceOpen(true);
+    if (searchParams.mode === "image") setImageOpen(true);
+    if (searchParams.q && searchParams.q !== q) setQ(searchParams.q);
+  }, [searchParams.mode, searchParams.q]);
 
   const submit = (query: string) => {
     const s = query.trim();
@@ -44,7 +60,9 @@ function SearchLanding() {
   };
 
   const suggestions = useMemo(() => {
-    if (!q.trim()) return null;
+    const trimmed = q.trim();
+    if (!trimmed) return null;
+    const needle = trimmed.toLowerCase();
     const allCats = getCachedCategories().length > 0 ? getCachedCategories() : CATEGORIES;
     return {
       products: PRODUCTS.filter((p) => !p.sponsored && p.title.toLowerCase().includes(needle)).slice(0, 5),

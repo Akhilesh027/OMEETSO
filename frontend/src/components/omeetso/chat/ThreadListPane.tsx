@@ -183,7 +183,18 @@ function ThreadRow({ t, conv, active }: { t: ReturnType<typeof conversationToThr
           </div>
           <span className="shrink-0 text-[10px] text-muted-foreground">{formatChatTime(t.updatedAt)}</span>
         </div>
-        {conv && <p className="line-clamp-1 text-[10px] text-muted-foreground">{conv.listingTitle} · {conv.listingPriceInPaise ? formatINR(conv.listingPriceInPaise / 100) : ""}</p>}
+        {conv && (
+          <p className="line-clamp-1 text-[10px] text-muted-foreground">
+            {conv.listingTitle}
+            {conv.salaryText
+              ? ` · ${conv.salaryText}`
+              : conv.servicePriceText
+                ? ` · ${conv.servicePriceText}`
+                : conv.listingPriceInPaise && conv.listingPriceInPaise > 0
+                  ? ` · ${formatINR(conv.listingPriceInPaise / 100)}`
+                  : ""}
+          </p>
+        )}
         <div className="mt-0.5 flex items-center gap-1.5">
           <p className="line-clamp-1 flex-1 text-[11px] text-foreground/80">{t.lastMessagePreview ?? "Start the conversation"}</p>
           {statusChip && (

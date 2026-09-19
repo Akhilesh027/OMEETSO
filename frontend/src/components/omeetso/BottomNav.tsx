@@ -37,30 +37,6 @@ export function BottomNav() {
     setFabOpen(false);
   }, [path]);
 
-  const fabActions = [
-    {
-      to: "/sell/store",
-      label: "Store Update",
-      sublabel: "Business Shop",
-      icon: Store,
-      color: "bg-gradient-to-r from-emerald-500 to-teal-600 text-white shadow-lg shadow-emerald-500/30 border border-white/20",
-    },
-    {
-      to: "/sell/quick",
-      label: "Quick Sell",
-      sublabel: "⚡ Urgent Deal",
-      icon: Zap,
-      color: "bg-gradient-to-r from-amber-400 via-amber-500 to-amber-600 text-slate-950 shadow-lg shadow-amber-500/35 border border-white/30 font-black",
-    },
-    {
-      to: "/sell",
-      label: "Regular Sell",
-      sublabel: "Post Item",
-      icon: Package,
-      color: "bg-gradient-to-r from-blue-500 to-indigo-600 text-white shadow-lg shadow-blue-500/30 border border-white/20",
-    },
-  ];
-
   return (
     <>
       {/* Soft Backdrop Blur Overlay (Clicking anywhere on screen closes FAB menu) */}
@@ -107,7 +83,7 @@ export function BottomNav() {
             )}
             style={{ transitionDelay: "40ms" }}
           >
-            <div className="grid h-13.5 w-13.5 place-items-center rounded-full bg-gradient-to-br from-amber-400 via-amber-500 to-amber-600 text-slate-950 shadow-2xl shadow-amber-500/50 ring-2 ring-amber-300 border-2 border-white/40">
+            <div className="grid h-13.5 w-13.5 place-items-center rounded-full bg-gradient-to-br from-amber-400 via-amber-500 to-amber-600 text-slate-950 shadow-2xl shadow-amber-500/50 ring-2 ring-amber-300 border-2 border-white/40 animate-pulse">
               <Zap className="h-6 w-6 fill-slate-950 stroke-[2.5]" />
             </div>
             <span className="rounded-full bg-amber-400 text-slate-950 px-2.5 py-0.5 text-[10px] font-black shadow-md border border-amber-300">
@@ -137,59 +113,59 @@ export function BottomNav() {
 
         </div>
 
-      {/* Main Bottom Nav Bar */}
-      <nav className="border-t border-border/80 bg-card/95 backdrop-blur-xl safe-b shadow-2xl">
-        <div className="grid grid-cols-5 items-center px-2 py-1">
-          {items.slice(0, 2).map(({ to, label, icon: Icon }) => {
-            const active = path === to;
-            return (
-              <Link key={to} to={to} className="flex flex-col items-center gap-0.5 py-1.5 transition-all">
-                <div className={cn("grid h-7 w-7 place-items-center rounded-xl transition-all", active ? "bg-primary/10 text-primary scale-110" : "text-muted-foreground")}>
-                  <Icon className="h-5 w-5" />
-                </div>
-                <span className={cn("text-[10px] font-bold tracking-tight transition-colors", active ? "text-primary font-black" : "text-muted-foreground")}>
-                  {label}
-                </span>
-              </Link>
-            );
-          })}
-          
-          {/* Crisp Center Sell (+) FAB Toggle Button */}
-          <button
-            type="button"
-            onClick={() => setFabOpen((prev) => !prev)}
-            aria-label="Sell options on Omeetso"
-            className="relative flex flex-col items-center -mt-5 active:scale-95 transition-transform group"
-          >
-            <div
-              className={cn(
-                "relative grid h-13 w-13 place-items-center rounded-full bg-gradient-to-br from-amber-400 via-amber-500 to-amber-600 text-slate-950 shadow-xl shadow-amber-500/35 ring-4 ring-card hover:brightness-110 transition-all duration-300",
-                fabOpen && "rotate-45 bg-slate-900 text-white ring-amber-400"
-              )}
+        {/* Main Bottom Nav Bar */}
+        <nav className="border-t border-border/80 bg-card/95 backdrop-blur-xl safe-b shadow-2xl">
+          <div className="grid grid-cols-5 items-center px-2 py-1">
+            {items.slice(0, 2).map(({ to, label, icon: Icon }) => {
+              const active = path === to;
+              return (
+                <Link key={to} to={to} className="flex flex-col items-center gap-0.5 py-1.5 transition-all">
+                  <div className={cn("grid h-7 w-7 place-items-center rounded-xl transition-all", active ? "bg-primary/10 text-primary scale-110" : "text-muted-foreground")}>
+                    <Icon className="h-5 w-5" />
+                  </div>
+                  <span className={cn("text-[10px] font-bold tracking-tight transition-colors", active ? "text-primary font-black" : "text-muted-foreground")}>
+                    {label}
+                  </span>
+                </Link>
+              );
+            })}
+            
+            {/* Crisp Center Sell (+) FAB Toggle Button */}
+            <button
+              type="button"
+              onClick={() => setFabOpen((prev) => !prev)}
+              aria-label="Sell options on Omeetso"
+              className="relative flex flex-col items-center -mt-5 active:scale-95 transition-transform group"
             >
-              <Plus className="h-6.5 w-6.5 stroke-[3] transition-transform duration-300" />
-            </div>
-            <span className={cn("mt-0.5 text-[10px] font-black uppercase tracking-wider transition-colors", fabOpen ? "text-amber-400 font-extrabold" : "text-foreground")}>
-              {fabOpen ? "Close" : "Sell"}
-            </span>
-          </button>
+              <div
+                className={cn(
+                  "relative grid h-13 w-13 place-items-center rounded-full bg-gradient-to-br from-amber-400 via-amber-500 to-amber-600 text-slate-950 shadow-xl shadow-amber-500/35 ring-4 ring-card hover:brightness-110 transition-all duration-300",
+                  fabOpen && "rotate-45 bg-slate-900 text-white ring-amber-400"
+                )}
+              >
+                <Plus className="h-6.5 w-6.5 stroke-[3] transition-transform duration-300" />
+              </div>
+              <span className={cn("mt-0.5 text-[10px] font-black uppercase tracking-wider transition-colors", fabOpen ? "text-amber-400 font-extrabold" : "text-foreground")}>
+                {fabOpen ? "Close" : "Sell"}
+              </span>
+            </button>
 
-          {items.slice(2).map(({ to, label, icon: Icon }) => {
-            const active = path === to;
-            return (
-              <Link key={to} to={to} className="flex flex-col items-center gap-0.5 py-1.5 transition-all">
-                <div className={cn("grid h-7 w-7 place-items-center rounded-xl transition-all", active ? "bg-primary/10 text-primary scale-110" : "text-muted-foreground")}>
-                  <Icon className="h-5 w-5" />
-                </div>
-                <span className={cn("text-[10px] font-bold tracking-tight transition-colors", active ? "text-primary font-black" : "text-muted-foreground")}>
-                  {label}
-                </span>
-              </Link>
-            );
-          })}
-        </div>
-      </nav>
-    </div>
-  </>
-);
+            {items.slice(2).map(({ to, label, icon: Icon }) => {
+              const active = path === to;
+              return (
+                <Link key={to} to={to} className="flex flex-col items-center gap-0.5 py-1.5 transition-all">
+                  <div className={cn("grid h-7 w-7 place-items-center rounded-xl transition-all", active ? "bg-primary/10 text-primary scale-110" : "text-muted-foreground")}>
+                    <Icon className="h-5 w-5" />
+                  </div>
+                  <span className={cn("text-[10px] font-bold tracking-tight transition-colors", active ? "text-primary font-black" : "text-muted-foreground")}>
+                    {label}
+                  </span>
+                </Link>
+              );
+            })}
+          </div>
+        </nav>
+      </div>
+    </>
+  );
 }

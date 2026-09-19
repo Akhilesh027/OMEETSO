@@ -4,10 +4,10 @@ import { MobileFrame } from "@/components/omeetso/MobileFrame";
 import {
   Phone, MoreVertical, Send, Smile, HandCoins, Paperclip, ArrowLeft,
   BadgeCheck, Search, VolumeX, Bell, Archive as ArchiveIcon, Ban, Flag, ShieldCheck,
-  UserCircle2, Package, X, Trash2, Eraser, Loader2, WifiOff, Star,
+  UserCircle2, Package, X, Trash2, Eraser, Loader2, WifiOff, Star, Briefcase, Wrench,
 } from "lucide-react";
 import { ReviewModal } from "@/components/omeetso/chat/ReviewModal";
-import { PRODUCTS, formatINR } from "@/lib/mock";
+import { formatINR, type Product } from "@/lib/mock";
 import {
   isMuted, muteThread, unmuteThread,
   archiveThread, isArchived, blockUser, unblockUser, isBlocked,
@@ -49,7 +49,13 @@ const SELLER_SUGGESTIONS = [
   "Yes, it is available.", "The price is negotiable.", "You can inspect it today.", "Pickup is available.", "Please send your offer.",
 ];
 const STORE_SUGGESTIONS = [
-  "This product is in stock.", "Delivery is available.", "Our store is open until 9 PM.", "You can visit the store today.", "Please share your area.",
+  "Is this product in stock?", "What are your store timings?", "Do you offer home delivery?", "Can I visit your store today?", "Where is your store located?",
+];
+const JOB_SUGGESTIONS = [
+  "Is this position still open?", "I am interested in this role, where can I send my resume?", "What are the shift timings and work location?", "Can we schedule an interview?", "What is the selection process?",
+];
+const SERVICE_SUGGESTIONS = [
+  "Are you available for service this week?", "Can you provide a price quote / estimate?", "Do you provide on-site / home service?", "What is included in this service?", "Do you offer warranty or guarantee?",
 ];
 
 function Conversation() {
@@ -162,15 +168,65 @@ function Conversation() {
       }
     : null;
 
-  const product = thread ? PRODUCTS.find((p) => p.id === thread.productId) : null;
-  const iAmSeller = thread?.role === "selling";
   const blocked = thread ? isBlocked(thread.peerId) : false;
   const muted = thread ? isMuted(thread.id) : false;
   const archived = thread ? isArchived(thread.id) : false;
-  const listingUnavailable = product?.sold || product?.unavailable;
   const showSafety = thread ? !isSafetyDismissed(thread.id) : false;
+  const listingUnavailable = false;
 
-  const suggestions = thread?.role === "buying" ? BUYER_SUGGESTIONS : thread?.role === "store" ? STORE_SUGGESTIONS : SELLER_SUGGESTIONS;
+  const isJob = conversation?.contextType === "JOB" || 
+    conversation?.listingTitle?.toLowerCase().includes("job") ||
+    conversation?.listingTitle?.toLowerCase().includes("executive") ||
+    conversation?.listingTitle?.toLowerCase().includes("manager") ||
+    conversation?.contextId?.startsWith?.("job-") ||
+    conversation?.contextId?.startsWith?.("JOB-") ||
+    !!(conversation as any)?.salaryText;
+
+  const isService = conversation?.contextType === "SERVICE" ||
+    conversation?.listingTitle?.toLowerCase().includes("service") ||
+    conversation?.listingTitle?.toLowerCase().includes("repair") ||
+    conversation?.contextId?.startsWith?.("srv-") ||
+    conversation?.contextId?.startsWith?.("service-");
+
+  const isStore = conversation?.contextType === "STORE" || thread?.role === "store";
+
+  const itemCategory = isJob ? "job" : isService ? "service" : isStore ? "store" : "product";
+
+  const suggestions = isJob
+    ? JOB_SUGGESTIONS
+    : isService
+    ? SERVICE_SUGGESTIONS
+    : isStore
+    ? STORE_SUGGESTIONS
+    : thread?.role === "selling"
+    ? SELLER_SUGGESTIONS
+    : BUYER_SUGGESTIONS;
+
+  const productForOffer: Product | null = (conversation && !isJob && !isService && (conversation.listingPriceInPaise || conversation.contextType === "LISTING")) ? {
+    id: conversation.contextId || conversation.id,
+    title: conversation.listingTitle || "Product",
+    price: Math.max(1, Math.round((conversation.listingPriceInPaise || 0) / 100)),
+    category: "all",
+    location: "India",
+    postedAgo: "Recently",
+    images: conversation.listingImage ? [conversation.listingImage] : [],
+    image: conversation.listingImage || "",
+    seller: {
+      id: conversation.otherParty?.id || "",
+      name: conversation.otherParty?.name || "Seller",
+      avatar: conversation.otherParty?.avatar,
+      rating: 4.8,
+      reviewsCount: 1,
+      verified: true,
+      joinedDate: "2024",
+      responseRate: 98,
+      responseTime: "within 1 hour",
+      badge: "Verified Seller",
+    },
+    negotiable: true,
+    description: "",
+    featured: false,
+  } : null;
 
   // ── Send message via API + Socket ──
   const send = useCallback(async (text?: string) => {
@@ -276,91 +332,141 @@ function Conversation() {
         {/* Header */}
         <header className="sticky top-0 z-30 border-b border-border bg-card safe-t">
           <div className="flex items-center gap-2 px-2 py-2">
-            <button aria-label="Back" onClick={() => nav({ to: "/chats" })} className="grid h-9 w-9 place-items-center rounded-full hover:bg-secondary">
-              <ArrowLeft className="h-5 w-5" />
+            <button
+              type="button"
+              aria-label="Back"
+              onClick={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                if (typeof window !== "undefined" && window.history.length > 1) {
+                  window.history.back();
+                } else {
+                  nav({ to: "/chats" });
+                }
+              }}
+              className="relative z-20 grid h-10 w-10 shrink-0 place-items-center rounded-full hover:bg-secondary active:scale-95 transition-transform cursor-pointer"
+            >
+              <ArrowLeft className="h-5 w-5 pointer-events-none" />
             </button>
+
             <Link
               to={thread.peerType === "store" ? "/store/$id" : "/seller/$id"}
               params={{ id: thread.peerId }}
-              className="flex min-w-0 flex-1 items-center gap-2"
+              onClick={(e) => {
+                e.stopPropagation();
+              }}
+              className="flex min-w-0 flex-1 items-center gap-2.5 rounded-xl px-1 py-1 hover:bg-secondary/40 transition-colors"
             >
               {thread.peerAvatar ? (
-                <img src={thread.peerAvatar} alt="" className="h-9 w-9 rounded-full object-cover" />
+                <img src={thread.peerAvatar} alt="" className="h-9 w-9 rounded-full object-cover shrink-0" />
               ) : (
-                <span className="grid h-9 w-9 place-items-center rounded-full bg-secondary text-muted-foreground">
+                <span className="grid h-9 w-9 place-items-center rounded-full bg-secondary text-muted-foreground shrink-0">
                   <UserCircle2 className="h-5 w-5" />
                 </span>
               )}
               <div className="min-w-0">
                 <div className="flex items-center gap-1">
                   <p className="truncate text-sm font-bold">{thread.peerName}</p>
-                  {thread.peerVerified && <BadgeCheck className="h-3.5 w-3.5 text-primary" aria-label="Verified" />}
+                  {thread.peerVerified && <BadgeCheck className="h-3.5 w-3.5 text-primary shrink-0" aria-label="Verified" />}
                 </div>
                 <p className="truncate text-[11px] text-muted-foreground">
                   {blocked ? "Blocked" : isTyping ? "typing..." : connectionStatus === "connected" ? "Online" : "Offline"}
                 </p>
               </div>
             </Link>
+
             <button
+              type="button"
               aria-label="Rate and Review"
               onClick={() => setReviewOpen(true)}
-              className="flex items-center gap-1 rounded-full bg-amber-500/10 text-amber-600 border border-amber-500/30 px-2.5 py-1 text-xs font-black hover:bg-amber-500 hover:text-slate-950 transition-all shadow-xs"
+              className="flex items-center gap-1 rounded-full bg-amber-500/10 text-amber-600 border border-amber-500/30 px-2.5 py-1 text-xs font-black hover:bg-amber-500 hover:text-slate-950 transition-all shadow-xs shrink-0"
               title="Rate and Review Seller/Store"
             >
               <Star className="h-3.5 w-3.5 fill-amber-400" /> Review
             </button>
-            <button aria-label="Call" onClick={() => setCallOpen(true)} className="grid h-9 w-9 place-items-center rounded-full hover:bg-secondary">
+            <button
+              type="button"
+              aria-label="Call"
+              onClick={() => setCallOpen(true)}
+              className="grid h-9 w-9 place-items-center rounded-full hover:bg-secondary shrink-0"
+            >
               <Phone className="h-4 w-4" />
             </button>
-            <button aria-label="More" onClick={() => setMenuOpen(true)} className="grid h-9 w-9 place-items-center rounded-full hover:bg-secondary">
+            <button
+              type="button"
+              aria-label="More"
+              onClick={() => setMenuOpen(true)}
+              className="grid h-9 w-9 place-items-center rounded-full hover:bg-secondary shrink-0"
+            >
               <MoreVertical className="h-4 w-4" />
             </button>
           </div>
 
-          {product && (
-            <div className="flex items-center gap-3 border-t border-border bg-card px-3 py-2">
-              <img src={product.image} alt="" className="h-11 w-11 rounded-xl object-cover" />
-              <div className="min-w-0 flex-1">
-                <Link to="/product/$id" params={{ id: product.id }} className="truncate text-xs font-semibold">
-                  {product.title}
-                </Link>
-                <p className="text-sm font-extrabold">
-                  {formatINR(product.price)}
-                  {product.negotiable && <span className="ml-1 text-[10px] font-medium text-muted-foreground">· Negotiable</span>}
-                </p>
-                <p className="text-[10px]">
-                  {product.sold ? <span className="text-emerald-700 font-bold">Sold</span> :
-                   product.unavailable ? <span className="text-muted-foreground">Listing unavailable</span> :
-                   <span className="text-emerald-700">Available</span>}
-                </p>
-              </div>
-              {!listingUnavailable && thread.role !== "selling" && (
-                <button
-                  onClick={() => setOfferOpen(true)}
-                  className="flex items-center gap-1 rounded-full border border-border px-3 py-1.5 text-[11px] font-bold"
-                >
-                  <HandCoins className="h-3.5 w-3.5" /> Offer
-                </button>
-              )}
-            </div>
-          )}
-
-          {/* Listing info when product not in mock data (MongoDB-only listing) */}
-          {!product && conversation && (
+          {/* Context Header Card */}
+          {conversation && (conversation.listingTitle || conversation.listingImage) && (
             <div className="flex items-center gap-3 border-t border-border bg-card px-3 py-2">
               {conversation.listingImage ? (
-                <img src={conversation.listingImage} alt="" className="h-11 w-11 rounded-xl object-cover" />
+                <img src={conversation.listingImage} alt="" className="h-10 w-10 rounded-xl object-cover shrink-0" />
+              ) : isJob ? (
+                <div className="grid h-10 w-10 place-items-center rounded-xl bg-blue-500/10 text-blue-600 shrink-0">
+                  <Briefcase className="h-5 w-5" />
+                </div>
+              ) : isService ? (
+                <div className="grid h-10 w-10 place-items-center rounded-xl bg-indigo-500/10 text-indigo-600 shrink-0">
+                  <Wrench className="h-5 w-5" />
+                </div>
               ) : (
-                <div className="grid h-11 w-11 place-items-center rounded-xl bg-secondary">
+                <div className="grid h-10 w-10 place-items-center rounded-xl bg-secondary shrink-0">
                   <Package className="h-5 w-5 text-muted-foreground" />
                 </div>
               )}
+
               <div className="min-w-0 flex-1">
-                <p className="truncate text-xs font-semibold">{conversation.listingTitle || "Listing"}</p>
-                <p className="text-sm font-extrabold">
-                  {conversation.listingPriceInPaise ? formatINR(conversation.listingPriceInPaise / 100) : ""}
+                <p className="truncate text-xs font-bold text-foreground">
+                  {conversation.listingTitle || (isJob ? "Job Posting" : isService ? "Service Details" : "Product Listing")}
                 </p>
+
+                {isJob ? (
+                  <p className="text-xs font-semibold text-blue-600 dark:text-blue-400">
+                    {conversation.salaryText || "Verified Employer · Application Open"}
+                  </p>
+                ) : isService ? (
+                  <p className="text-xs font-semibold text-indigo-600 dark:text-indigo-400">
+                    {conversation.servicePriceText || "Service Inquiry"}
+                  </p>
+                ) : conversation.listingPriceInPaise && conversation.listingPriceInPaise > 0 ? (
+                  <p className="text-xs font-extrabold text-foreground">
+                    {formatINR(conversation.listingPriceInPaise / 100)}
+                  </p>
+                ) : null}
               </div>
+
+              {/* Action buttons on the right side of header */}
+              {isJob ? (
+                <Link
+                  to="/jobs"
+                  className="flex items-center gap-1 rounded-full bg-blue-500/10 border border-blue-500/30 px-3 py-1.5 text-[11px] font-bold text-blue-600 hover:bg-blue-500 hover:text-white transition-colors shrink-0"
+                >
+                  <Briefcase className="h-3.5 w-3.5" /> Job Info
+                </Link>
+              ) : isService ? (
+                <Link
+                  to="/services"
+                  className="flex items-center gap-1 rounded-full bg-indigo-500/10 border border-indigo-500/30 px-3 py-1.5 text-[11px] font-bold text-indigo-600 hover:bg-indigo-500 hover:text-white transition-colors shrink-0"
+                >
+                  <Wrench className="h-3.5 w-3.5" /> Service
+                </Link>
+              ) : (
+                !listingUnavailable && thread?.role !== "selling" && (
+                  <button
+                    type="button"
+                    onClick={() => setOfferOpen(true)}
+                    className="flex items-center gap-1 rounded-full border border-border px-3 py-1.5 text-[11px] font-bold hover:bg-secondary transition-colors shrink-0"
+                  >
+                    <HandCoins className="h-3.5 w-3.5" /> Offer
+                  </button>
+                )
+              )}
             </div>
           )}
         </header>
@@ -391,13 +497,21 @@ function Conversation() {
           )}
 
           {showSafety && thread && (
-            <ChatSafetyNotice onDismiss={() => { dismissSafety(thread.id); }} />
+            <ChatSafetyNotice category={itemCategory} onDismiss={() => { dismissSafety(thread.id); }} />
           )}
 
           {!isLoading && messages.length === 0 && (
             <div className="mt-8 rounded-2xl border border-dashed border-border bg-card p-6 text-center">
-              <p className="text-sm font-bold">Say hello</p>
-              <p className="mt-1 text-xs text-muted-foreground">Ask about condition, price or a meeting point.</p>
+              <p className="text-sm font-bold">
+                {isJob ? "Apply & Inquire" : isService ? "Inquire About Service" : "Say hello"}
+              </p>
+              <p className="mt-1 text-xs text-muted-foreground">
+                {isJob
+                  ? "Ask about job requirements, shift timings, or interview details."
+                  : isService
+                  ? "Ask about service availability, scope of work, or estimated quote."
+                  : "Ask about condition, price or a meeting point."}
+              </p>
             </div>
           )}
 
@@ -542,7 +656,7 @@ function Conversation() {
         ) : listingUnavailable ? (
           <div className="border-t border-border bg-card p-4 text-center safe-b">
             <p className="text-xs font-semibold text-muted-foreground">
-              {product?.sold ? "This listing has been marked as sold." : "Listing unavailable"}
+              Listing unavailable
             </p>
             <p className="mt-1 text-[11px] text-muted-foreground">You can still send final coordination messages.</p>
             <div className="mt-2 flex gap-2">
@@ -593,7 +707,14 @@ function Conversation() {
           </div>
         )}
 
-        {product && <MakeOfferSheet open={offerOpen} onClose={() => setOfferOpen(false)} product={product} threadId={thread.id} />}
+        {productForOffer && (
+          <MakeOfferSheet
+            open={offerOpen}
+            onClose={() => setOfferOpen(false)}
+            product={productForOffer}
+            threadId={thread.id}
+          />
+        )}
         <AttachmentSheet
           open={attachOpen}
           onClose={() => setAttachOpen(false)}
@@ -612,6 +733,7 @@ function Conversation() {
         <MoreMenu
           open={menuOpen} onClose={() => setMenuOpen(false)}
           thread={thread} muted={muted} archived={archived} blocked={blocked}
+          isJob={isJob} isService={isService}
           onMute={doMute} onUnmute={() => { unmuteThread(thread.id); toast.success("Notifications on"); setMenuOpen(false); }}
           onArchive={doArchive} onBlock={doBlockToggle} onReport={() => { setMenuOpen(false); setReportOpen(true); }}
           onClear={() => { setMenuOpen(false); setConfirmClear(true); }}
@@ -644,11 +766,12 @@ function Conversation() {
 }
 
 function MoreMenu({
-  open, onClose, thread, muted, archived, blocked,
+  open, onClose, thread, muted, archived, blocked, isJob, isService,
   onMute, onUnmute, onArchive, onBlock, onReport, onClear, onDelete,
 }: {
   open: boolean; onClose: () => void;
   thread: Thread; muted: boolean; archived: boolean; blocked: boolean;
+  isJob?: boolean; isService?: boolean;
   onMute: (h: number | "always") => void; onUnmute: () => void;
   onArchive: () => void; onBlock: () => void; onReport: () => void;
   onClear: () => void; onDelete: () => void;
@@ -658,7 +781,9 @@ function MoreMenu({
       <div className="grid grid-cols-1 gap-1">
         <Row icon={UserCircle2} label={thread.peerType === "store" ? "View store" : "View seller profile"}
           to={thread.peerType === "store" ? "/store/$id" : "/seller/$id"} params={{ id: thread.peerId }} onNav={onClose} />
-        <Row icon={Package} label="View product" to="/product/$id" params={{ id: thread.productId }} onNav={onClose} />
+        {!isJob && !isService && (
+          <Row icon={Package} label="View product" to="/product/$id" params={{ id: thread.productId }} onNav={onClose} />
+        )}
         <Row icon={Search} label="Search in conversation" onClick={() => { toast("Message search coming soon"); onClose(); }} />
         {muted ? (
           <Row icon={Bell} label="Unmute notifications" onClick={onUnmute} />

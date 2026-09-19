@@ -1,42 +1,77 @@
-import { createFileRoute, notFound, useNavigate } from "@tanstack/react-router";
-import { useState, useEffect } from "react";
-import { ArrowLeft, MapPin, Star, ShieldCheck, User, Store as StoreIcon, MoreVertical, Ban, Flag, Share2, UserCheck, UserPlus } from "lucide-react";
+import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import { useState, useEffect, useMemo } from "react";
+import {
+  ArrowLeft, MapPin, Star, ShieldCheck, User, Store as StoreIcon,
+  MoreVertical, Ban, Flag, Share2, UserCheck, UserPlus,
+} from "lucide-react";
 import { MobileFrame } from "@/components/omeetso/MobileFrame";
 import { ProductCard } from "@/components/omeetso/ProductCard";
 import { EmptyState } from "@/components/omeetso/EmptyState";
 import { isFollowingSeller, toggleFollowSeller } from "@/lib/saved";
 import { toast } from "sonner";
 import { API_BASE } from "@/config/api";
+import { startConversationApi } from "@/api/chat.api";
+import { getUserAccessToken } from "@/api/auth.api";
+import { getSeller, productsBySeller } from "@/lib/mock";
+import { listListings } from "@/lib/listings";
 
 export const Route = createFileRoute("/seller/$id")({
   loader: async ({ params }) => {
+    const cleanId = (params.id || "").trim();
     try {
-      const res = await fetch(`${API_BASE}/users/${params.id}/public`);
-      const json = await res.json();
-      if (json.success && json.data) {
-        return {
-          seller: {
-            id: json.data.id || json.data._id,
-            name: json.data.name || "Omeetso Seller",
-            avatar: json.data.avatar,
-            type: json.data.businessEnabled ? "business" : "individual",
-            rating: json.data.rating || 0,
-            reviews: json.data.reviewCount || 0,
-            area: json.data.area || json.data.city || "Hyderabad",
-            city: json.data.city || "Hyderabad",
-            responseTime: "Within 1 hour",
-            responseRate: "98%",
-            verified: json.data.verification?.verified || true,
-            memberSince: new Date(json.data.createdAt || Date.now()).getFullYear().toString(),
-            about: json.data.bio || "Trusted Omeetso verified seller."
+      if (cleanId) {
+        const res = await fetch(`${API_BASE}/users/${cleanId}/public`);
+        if (res.ok) {
+          const json = await res.json();
+          if (json.success && json.data) {
+            return {
+              seller: {
+                id: json.data.id || json.data._id || cleanId,
+                name: json.data.name || "Omeetso Seller",
+                businessName: json.data.businessName,
+                avatar: json.data.avatar,
+                type: json.data.businessEnabled || json.data.accountType === "business" ? "business" : "individual",
+                rating: json.data.rating || 0,
+                reviews: json.data.reviewCount || json.data.reviews || 0,
+                area: json.data.area || json.data.city || "Hyderabad",
+                city: json.data.city || "Hyderabad",
+                responseTime: json.data.responseTime || "Within 1 hour",
+                responseRate: json.data.responseRate || "98%",
+                verified: json.data.verification?.verified ?? json.data.verificationSummary?.identityVerified ?? true,
+                memberSince: json.data.memberSince || (json.data.createdAt ? new Date(json.data.createdAt).getFullYear().toString() : "2024"),
+                about: json.data.bio || "Trusted Omeetso verified seller."
+              }
+            };
           }
-        };
+        }
       }
     } catch { }
 
+    const mock = cleanId ? getSeller(cleanId) : null;
+    if (mock) {
+      return {
+        seller: {
+          id: mock.id || cleanId || "u_seller",
+          name: mock.name || "Verified Seller",
+          businessName: (mock as any).businessName,
+          avatar: mock.avatar,
+          type: mock.type || "individual",
+          rating: mock.rating || 0,
+          reviews: mock.reviews || 0,
+          area: mock.area || "Hyderabad",
+          city: (mock as any).city || "Hyderabad",
+          responseTime: mock.responseTime || "Within 1 hour",
+          responseRate: mock.responseRate || "98%",
+          verified: mock.verified ?? true,
+          memberSince: mock.memberSince || "2024",
+          about: mock.about || "Trusted Omeetso verified seller."
+        }
+      };
+    }
+
     return {
       seller: {
-        id: params.id,
+        id: cleanId || "u_seller",
         name: "Verified Seller",
         type: "individual",
         rating: 0,
@@ -44,72 +79,135 @@ export const Route = createFileRoute("/seller/$id")({
         area: "Hyderabad",
         city: "Hyderabad",
         responseTime: "Within 1 hour",
+        responseRate: "98%",
         verified: true,
-        memberSince: "2026",
+        memberSince: "2024",
         about: "Trusted Omeetso verified seller."
       }
     };
   },
-  head: ({ loaderData }) => ({
-    meta: loaderData
-      ? [
-        { title: `${loaderData.seller.name} · Omeetso Seller` },
-        { name: "description", content: `${loaderData.seller.name} on Omeetso — ${loaderData.seller.reviews} reviews.` },
-        { property: "og:title", content: `${loaderData.seller.name} · Omeetso` },
-      ]
-      : [{ title: "Seller · Omeetso" }],
-  }),
+  head: ({ loaderData }) => {
+    const s = loaderData?.seller;
+    const name = s?.businessName || s?.name || "Seller";
+    const reviews = s?.reviews || 0;
+    return {
+      meta: [
+        { title: `${name} · Omeetso Seller` },
+        { name: "description", content: `${name} on Omeetso — ${reviews} reviews.` },
+        { property: "og:title", content: `${name} · Omeetso` },
+      ],
+    };
+  },
   component: SellerPage,
+  errorComponent: () => <SellerFallback />,
   notFoundComponent: () => (
     <MobileFrame><EmptyState title="Seller not found" body="This seller is unavailable." /></MobileFrame>
   ),
 });
 
+function SellerFallback() {
+  return (
+    <MobileFrame>
+      <div className="min-h-dvh bg-background p-6 flex flex-col items-center justify-center text-center">
+        <div className="grid h-16 w-16 place-items-center rounded-full bg-secondary text-primary mb-4 font-black text-2xl">
+          S
+        </div>
+        <h2 className="text-base font-extrabold text-foreground">Verified Seller</h2>
+        <p className="mt-1 text-xs text-muted-foreground max-w-xs">Active verified seller on Omeetso Marketplace.</p>
+        <button
+          onClick={() => history.back()}
+          className="mt-6 inline-flex items-center gap-2 rounded-2xl bg-primary px-5 py-2.5 text-xs font-bold text-primary-foreground shadow-sm"
+        >
+          <ArrowLeft className="h-4 w-4" /> Go Back
+        </button>
+      </div>
+    </MobileFrame>
+  );
+}
+
 function SellerPage() {
   const { id } = Route.useParams();
   const loaderData = Route.useLoaderData();
-  const [seller, setSeller] = useState<any>(loaderData.seller);
+
+  const fallbackSeller = useMemo(() => {
+    const mock = id ? getSeller(id) : null;
+    return {
+      id: id || "u_seller",
+      name: mock?.name || "Verified Seller",
+      businessName: (mock as any)?.businessName,
+      avatar: mock?.avatar,
+      type: mock?.type || "individual",
+      rating: mock?.rating || 0,
+      reviews: mock?.reviews || 0,
+      area: mock?.area || "Hyderabad",
+      city: (mock as any)?.city || "Hyderabad",
+      responseTime: mock?.responseTime || "Within 1 hour",
+      responseRate: mock?.responseRate || "98%",
+      verified: mock?.verified ?? true,
+      memberSince: mock?.memberSince || "2024",
+      about: mock?.about || "Trusted Omeetso verified seller.",
+    };
+  }, [id]);
+
+  const [seller, setSeller] = useState<any>(() => loaderData?.seller || fallbackSeller);
   const [sellerListings, setSellerListings] = useState<any[]>([]);
   const nav = useNavigate();
-  const [following, setFollowing] = useState(() => isFollowingSeller(seller.id));
+  const [following, setFollowing] = useState(() => isFollowingSeller(seller?.id || id));
   const [blocked, setBlocked] = useState(false);
   const [menu, setMenu] = useState(false);
   const [reported, setReported] = useState(false);
 
   useEffect(() => {
+    if (!id) return;
+
     fetch(`${API_BASE}/users/${id}/public`)
-      .then((res) => res.json())
+      .then((res) => {
+        if (!res.ok) return null;
+        return res.json();
+      })
       .then((json) => {
-        if (json.success && json.data) {
-          const updated = {
-            id: json.data.id || json.data._id || id,
-            name: json.data.name || "Omeetso Seller",
-            avatar: json.data.avatar,
-            type: json.data.accountType || "individual",
-            area: json.data.area || json.data.city || "Hyderabad",
-            city: json.data.city || "Hyderabad",
-            memberSince: json.data.memberSince || "2024",
-            rating: 0,
-            reviews: 0,
-            verified: true,
-          };
-          setSeller(updated);
-          setFollowing(isFollowingSeller(updated.id));
+        if (json?.success && json?.data) {
+          const d = json.data;
+          setSeller((prev: any) => {
+            const updated = {
+              ...prev,
+              id: d.id || d._id || id,
+              name: d.name || prev?.name || "Omeetso Seller",
+              businessName: d.businessName || prev?.businessName,
+              avatar: d.avatar || prev?.avatar,
+              type: d.accountType || d.type || prev?.type || "individual",
+              area: d.area || d.city || prev?.area || "Hyderabad",
+              city: d.city || prev?.city || "Hyderabad",
+              memberSince: d.memberSince || (d.createdAt ? new Date(d.createdAt).getFullYear().toString() : prev?.memberSince || "2024"),
+              rating: d.rating ?? prev?.rating ?? 0,
+              reviews: d.reviewCount ?? d.reviews ?? prev?.reviews ?? 0,
+              responseTime: d.responseTime || prev?.responseTime || "Within 1 hour",
+              responseRate: d.responseRate || prev?.responseRate || "98%",
+              verified: d.verification?.verified ?? d.verificationSummary?.identityVerified ?? prev?.verified ?? true,
+              about: d.bio || prev?.about || "Trusted Omeetso verified seller.",
+            };
+            setFollowing(isFollowingSeller(updated.id));
+            return updated;
+          });
         }
       })
       .catch(() => { });
 
     fetch(`${API_BASE}/listings?sellerId=${id}`)
-      .then((res) => res.json())
+      .then((res) => {
+        if (!res.ok) return null;
+        return res.json();
+      })
       .then((json) => {
-        if (json.success && Array.isArray(json.data)) {
+        let items: any[] = [];
+        if (json?.success && Array.isArray(json?.data) && json.data.length > 0) {
           const ownListings = json.data.filter((item: any) => {
             const itemSellerId = typeof item.sellerId === "object" ? item.sellerId?._id : item.sellerId;
             return String(itemSellerId) === String(id);
           });
-          setSellerListings(ownListings.map((item: any) => ({
-            id: item.id || item._id,
-            title: item.title,
+          items = ownListings.map((item: any) => ({
+            id: String(item.id || item._id),
+            title: item.title || "Product Listing",
             price: item.price || (item.priceInPaise ? item.priceInPaise / 100 : 0),
             originalPrice: Math.round((item.price || (item.priceInPaise ? item.priceInPaise / 100 : 0)) * 1.15),
             image: item.coverUrl || (Array.isArray(item.images) && item.images[0]) || "https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=400",
@@ -120,19 +218,54 @@ function SellerPage() {
             category: item.category || "General",
             condition: item.condition || "Like New",
             badge: "Verified"
-          })));
+          }));
         }
+
+        // Fallback to mock / local listings if API returns no listings
+        if (items.length === 0) {
+          const mockListings = productsBySeller(id);
+          if (mockListings.length > 0) {
+            items = mockListings;
+          } else {
+            const allLocal = listListings();
+            const matchedLocal = allLocal.filter(
+              (l) => l.sellerId === id || (l as any).seller?.id === id || (l as any).sellerId?._id === id
+            );
+            if (matchedLocal.length > 0) {
+              items = matchedLocal.map((l: any) => ({
+                id: String(l.id),
+                title: l.title || "Product Listing",
+                price: l.price || 0,
+                originalPrice: Math.round((l.price || 0) * 1.15),
+                image: (Array.isArray(l.images) && l.images[0]) || l.image || "https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=400",
+                location: l.area ? `${l.area}, ${l.city || "Hyderabad"}` : (l.city || "Hyderabad"),
+                area: l.area || l.city || "Hyderabad",
+                distanceKm: 1.5,
+                time: "Recently",
+                category: l.category || "General",
+                condition: l.condition || "Like New",
+                badge: "Verified"
+              }));
+            }
+          }
+        }
+
+        setSellerListings(items);
       })
-      .catch(() => { });
+      .catch(() => {
+        const mockListings = productsBySeller(id);
+        setSellerListings(mockListings);
+      });
   }, [id]);
 
   const active = sellerListings;
   const sold = 0;
+  const currentSeller = seller || fallbackSeller;
 
   const handleShare = async () => {
     const shareData = {
-      title: `${seller.name} · Omeetso Seller`,
-      text: `Check out ${seller.name}'s active listings on Omeetso Marketplace!`,
+      title: `${currentSeller.name} · Omeetso Seller`,
+      text: `Check out ${currentSeller.name}'s active listings on Omeetso Marketplace!`,
       url: window.location.href,
     };
     if (typeof navigator !== "undefined" && navigator.share) {
@@ -147,17 +280,36 @@ function SellerPage() {
 
   const handleFollowToggle = () => {
     const nextState = toggleFollowSeller({
-      id: seller.id,
-      name: seller.name,
-      avatar: seller.avatar,
-      area: seller.area,
-      rating: seller.rating,
+      id: currentSeller.id,
+      name: currentSeller.name,
+      avatar: currentSeller.avatar,
+      area: currentSeller.area,
+      rating: currentSeller.rating,
     });
     setFollowing(nextState);
     if (nextState) {
-      toast.success(`You are now following ${seller.name}`);
+      toast.success(`You are now following ${currentSeller.name}`);
     } else {
-      toast.info(`Unfollowed ${seller.name}`);
+      toast.info(`Unfollowed ${currentSeller.name}`);
+    }
+  };
+
+  const handleMessageSeller = async () => {
+    const token = getUserAccessToken() || (typeof localStorage !== "undefined" ? localStorage.getItem("omeetso_user_token") || localStorage.getItem("omeetso_auth_token") : null);
+    if (!token) {
+      toast.info("Please sign in to message this seller.");
+      nav({ to: "/login" });
+      return;
+    }
+    try {
+      const res = await startConversationApi("LISTING", currentSeller.id, currentSeller.id);
+      if (res.success && res.data?.id) {
+        nav({ to: "/chat/$id", params: { id: res.data.id } });
+      } else {
+        nav({ to: "/chats" });
+      }
+    } catch {
+      nav({ to: "/chats" });
     }
   };
 
@@ -211,14 +363,20 @@ function SellerPage() {
         <div className="px-4 pt-4 md:mx-auto md:max-w-[1440px] md:px-6 md:pt-8">
           <div className="flex items-center gap-3">
             <div className="relative">
-              {seller.avatar ? (
-                <img src={seller.avatar} alt={seller.name} className="h-16 w-16 rounded-full object-cover shadow-sm" />
-              ) : (
+              {currentSeller.avatar ? (
+                <img
+                  src={currentSeller.avatar}
+                  alt={currentSeller.name}
+                  className="h-16 w-16 rounded-full object-cover shadow-sm"
+                  onError={(e) => { (e.target as HTMLElement).style.display = "none"; }}
+                />
+              ) : null}
+              {(!currentSeller.avatar) && (
                 <div className="grid h-16 w-16 place-items-center rounded-full bg-secondary font-bold text-indigo-brand text-xl">
-                  {seller.name?.charAt(0) || "S"}
+                  {currentSeller.name?.charAt(0) || "S"}
                 </div>
               )}
-              {seller.verified && (
+              {currentSeller.verified && (
                 <span className="absolute -bottom-1 -right-1 grid h-6 w-6 place-items-center rounded-full bg-emerald-600 text-white shadow">
                   <ShieldCheck className="h-3.5 w-3.5" />
                 </span>
@@ -226,17 +384,17 @@ function SellerPage() {
             </div>
             <div className="min-w-0 flex-1">
               <div className="flex items-center gap-2">
-                <p className="truncate text-lg font-extrabold">{seller.businessName || seller.name}</p>
-                {seller.verified && <ShieldCheck className="h-4 w-4 text-emerald-600 shrink-0" />}
+                <p className="truncate text-lg font-extrabold">{currentSeller.businessName || currentSeller.name}</p>
+                {currentSeller.verified && <ShieldCheck className="h-4 w-4 text-emerald-600 shrink-0" />}
               </div>
-              {seller.businessName && seller.name && seller.businessName !== seller.name && (
+              {currentSeller.businessName && currentSeller.name && currentSeller.businessName !== currentSeller.name && (
                 <p className="text-xs font-semibold text-muted-foreground truncate">
-                  Owner: {seller.name}
+                  Owner: {currentSeller.name}
                 </p>
               )}
               <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground mt-0.5">
                 <span className="inline-flex items-center gap-1 rounded-full bg-secondary px-2 py-0.5 font-semibold">
-                  {seller.type === "business" || seller.businessName ? (
+                  {currentSeller.type === "business" || currentSeller.businessName ? (
                     <span className="inline-flex items-center gap-1 text-indigo-600 dark:text-indigo-400">
                       <StoreIcon className="h-3 w-3" /> Business Owner
                     </span>
@@ -244,19 +402,21 @@ function SellerPage() {
                     <><User className="h-3 w-3" /> Individual</>
                   )}
                 </span>
-                <span className="inline-flex items-center gap-0.5"><Star className="h-3 w-3 fill-yellow-brand text-yellow-brand" /> {seller.rating} · {seller.reviews} reviews</span>
+                <span className="inline-flex items-center gap-0.5">
+                  <Star className="h-3 w-3 fill-yellow-brand text-yellow-brand" /> {currentSeller.rating || 0} · {currentSeller.reviews || 0} reviews
+                </span>
               </div>
               <p className="mt-0.5 flex items-center gap-1 text-[11px] text-muted-foreground">
-                <MapPin className="h-3 w-3 text-indigo-brand" /> {seller.area} · Replies {seller.responseTime} · {seller.responseRate ?? "98%"}
+                <MapPin className="h-3 w-3 text-indigo-brand" /> {currentSeller.area || "Hyderabad"} · Replies {currentSeller.responseTime || "Within 1 hour"} · {currentSeller.responseRate ?? "98%"}
               </p>
             </div>
           </div>
-          <p className="mt-3 text-sm text-muted-foreground">{seller.about ?? "Trusted Omeetso seller."}</p>
+          <p className="mt-3 text-sm text-muted-foreground">{currentSeller.about ?? "Trusted Omeetso seller."}</p>
 
           <div className="mt-4 grid grid-cols-3 gap-2 text-center">
             <StatCard label="Active" value={String(active.length)} />
             <StatCard label="Sold" value={String(sold)} />
-            <StatCard label="Member" value={seller.memberSince} />
+            <StatCard label="Member" value={currentSeller.memberSince || "2024"} />
           </div>
 
           <div className="mt-4 flex gap-2">
@@ -276,7 +436,7 @@ function SellerPage() {
               <Share2 className="h-4 w-4 text-indigo-brand" /> Share
             </button>
             <button
-              onClick={() => nav({ to: "/chats" })}
+              onClick={handleMessageSeller}
               className="rounded-2xl border border-border bg-card px-4 py-3 text-sm font-bold text-foreground hover:bg-secondary"
             >
               Message
@@ -296,7 +456,7 @@ function SellerPage() {
         </div>
 
         <div className="mt-6 px-4 md:mx-auto md:max-w-[1440px] md:px-6 md:pb-16">
-          <h3 className="mb-3 text-sm font-extrabold md:text-lg">Listings from {seller.name}</h3>
+          <h3 className="mb-3 text-sm font-extrabold md:text-lg">Listings from {currentSeller.name}</h3>
           {active.length === 0 ? (
             <EmptyState title="No active listings" body="This seller has no active listings right now." />
           ) : (
