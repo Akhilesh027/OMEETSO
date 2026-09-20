@@ -3,11 +3,11 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { ArrowLeft, Mic, Camera, Search, X, TrendingUp, Clock, Compass, Store } from "lucide-react";
 import { MobileFrame } from "@/components/omeetso/MobileFrame";
 import {
-  CATEGORIES, PRODUCTS, STORES, TRENDING_SEARCHES, DEFAULT_RECENT_SEARCHES,
+  CATEGORIES, PRODUCTS, STORES, TRENDING_SEARCHES,
 } from "@/lib/mock";
 import { getCachedCategories } from "@/lib/categories";
 import {
-  addRecentSearch, clearRecentSearches, getRecentSearches, removeRecentSearch,
+  addRecentSearch, clearRecentSearches, getRecentSearches, removeRecentSearch, subscribe as subscribeSaved,
 } from "@/lib/saved";
 
 type SearchRouteParams = {
@@ -35,15 +35,18 @@ function SearchLanding() {
   const nav = useNavigate();
   const searchParams = Route.useSearch();
   const [q, setQ] = useState(searchParams.q || "");
-  const [recents, setRecents] = useState<string[]>([]);
+  const [recents, setRecents] = useState<string[]>(() => getRecentSearches());
   const [voiceOpen, setVoiceOpen] = useState(searchParams.mode === "voice");
   const [imageOpen, setImageOpen] = useState(searchParams.mode === "image");
   const inputRef = useRef<HTMLInputElement | null>(null);
 
   useEffect(() => {
     inputRef.current?.focus();
-    const stored = getRecentSearches();
-    setRecents(stored.length ? stored : DEFAULT_RECENT_SEARCHES);
+    setRecents(getRecentSearches());
+    const unsub = subscribeSaved(() => {
+      setRecents(getRecentSearches());
+    });
+    return unsub;
   }, []);
 
   useEffect(() => {

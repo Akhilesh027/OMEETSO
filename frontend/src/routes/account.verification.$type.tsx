@@ -342,7 +342,7 @@ function EmailVerify({ v, email }: { v: any; email: string }) {
 function IdentityVerify({ v }: { v: any }) {
   const nav = useNavigate();
   const isVerified = v.status === "verified";
-  const [docType, setDocType] = useState<"aadhaar" | "pan" | "driving_license" | "voter_id" | "passport">(
+  const [docType, setDocType] = useState<"aadhaar" | "pan" | "driving_license" | "passport">(
     (v.details?.docType?.toLowerCase().replace(" ", "_") as any) || "aadhaar"
   );
   const [docNumber, setDocNumber] = useState(v.details?.docNumber || "");
@@ -489,12 +489,11 @@ function IdentityVerify({ v }: { v: any }) {
           {/* Document Type Chips */}
           <div className="space-y-1.5">
             <label className="block text-[11px] font-bold text-foreground">Select Document Type *</label>
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+            <div className="grid grid-cols-3 gap-2">
               {[
                 { id: "aadhaar", label: "Aadhaar Card" },
                 { id: "pan", label: "PAN Card" },
                 { id: "driving_license", label: "Driving Licence" },
-                { id: "voter_id", label: "Voter ID" },
               ].map((d) => (
                 <button
                   key={d.id}

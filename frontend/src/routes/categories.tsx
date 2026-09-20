@@ -6,7 +6,7 @@ import { fetchLiveCategories, getCachedCategories, type LiveCategory } from "@/l
 import { CategoryDetailModal } from "@/components/omeetso/CategoryDetailModal";
 import { BRANDS_BY_CATEGORY } from "@/lib/aiAssistance";
 import * as Icons from "lucide-react";
-import { Search, ChevronRight, Sparkles, Package, ArrowRight, Flame, ShieldCheck, Tag, Layers, Zap } from "lucide-react";
+import { Search, ChevronRight, Sparkles, Package, ArrowRight, Flame, ShieldCheck, Tag, Layers, Zap, LayoutGrid, Smartphone, Car, Bike, Laptop, Sofa, Briefcase } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/categories")({
@@ -37,13 +37,13 @@ const CATEGORY_TINTS: Record<string, { bg: string; text: string; border: string;
 const DEFAULT_TINT = { bg: "bg-primary/10", text: "text-primary", border: "hover:border-primary/50", badgeBg: "bg-primary/15 text-primary" };
 
 const QUICK_FILTER_TAGS = [
-  { id: "all", label: "All Categories" },
-  { id: "mobiles", label: "📱 Mobiles" },
-  { id: "cars", label: "🚗 Cars" },
-  { id: "bikes", label: "🏍️ Bikes" },
-  { id: "electronics", label: "💻 Electronics" },
-  { id: "furniture", label: "🛋️ Furniture" },
-  { id: "jobs", label: "💼 Jobs" },
+  { id: "all", label: "All Categories", icon: LayoutGrid },
+  { id: "mobiles", label: "Mobiles", icon: Smartphone },
+  { id: "cars", label: "Cars", icon: Car },
+  { id: "bikes", label: "Bikes", icon: Bike },
+  { id: "electronics", label: "Electronics", icon: Laptop },
+  { id: "furniture", label: "Furniture", icon: Sofa },
+  { id: "jobs", label: "Jobs", icon: Briefcase },
 ];
 
 function CategoriesPage() {
@@ -171,20 +171,24 @@ function CategoriesPage() {
 
           {/* Quick Filter Horizontal Scroll */}
           <div className="flex gap-2 overflow-x-auto no-scrollbar">
-            {QUICK_FILTER_TAGS.map((tag) => (
-              <button
-                key={tag.id}
-                onClick={() => setActiveFilter(tag.id)}
-                className={cn(
-                  "shrink-0 rounded-full px-3 py-1.5 text-xs font-bold transition-all border",
-                  activeFilter === tag.id
-                    ? "bg-primary text-primary-foreground border-primary shadow-xs"
-                    : "bg-card text-foreground border-border hover:bg-secondary"
-                )}
-              >
-                {tag.label}
-              </button>
-            ))}
+            {QUICK_FILTER_TAGS.map((tag) => {
+              const TagIcon = tag.icon;
+              return (
+                <button
+                  key={tag.id}
+                  onClick={() => setActiveFilter(tag.id)}
+                  className={cn(
+                    "shrink-0 inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-bold transition-all border",
+                    activeFilter === tag.id
+                      ? "bg-primary text-primary-foreground border-primary shadow-xs"
+                      : "bg-card text-foreground border-border hover:bg-secondary"
+                  )}
+                >
+                  {TagIcon && <TagIcon className="h-3.5 w-3.5 shrink-0" />}
+                  <span>{tag.label}</span>
+                </button>
+              );
+            })}
           </div>
         </div>
 
@@ -193,20 +197,24 @@ function CategoriesPage() {
 
           {/* Desktop Filter Pills */}
           <div className="hidden md:flex items-center gap-2 overflow-x-auto no-scrollbar pb-1 border-b border-border/60">
-            {QUICK_FILTER_TAGS.map((tag) => (
-              <button
-                key={tag.id}
-                onClick={() => setActiveFilter(tag.id)}
-                className={cn(
-                  "shrink-0 rounded-2xl px-4 py-2 text-xs font-extrabold transition-all border cursor-pointer",
-                  activeFilter === tag.id
-                    ? "bg-primary text-primary-foreground border-primary shadow-sm"
-                    : "bg-card text-foreground border-border hover:bg-secondary hover:border-primary/40"
-                )}
-              >
-                {tag.label}
-              </button>
-            ))}
+            {QUICK_FILTER_TAGS.map((tag) => {
+              const TagIcon = tag.icon;
+              return (
+                <button
+                  key={tag.id}
+                  onClick={() => setActiveFilter(tag.id)}
+                  className={cn(
+                    "shrink-0 inline-flex items-center gap-2 rounded-2xl px-4 py-2 text-xs font-extrabold transition-all border cursor-pointer",
+                    activeFilter === tag.id
+                      ? "bg-primary text-primary-foreground border-primary shadow-sm"
+                      : "bg-card text-foreground border-border hover:bg-secondary hover:border-primary/40"
+                  )}
+                >
+                  {TagIcon && <TagIcon className="h-4 w-4 shrink-0" />}
+                  <span>{tag.label}</span>
+                </button>
+              );
+            })}
           </div>
 
           {loading && categories.length === 0 && (

@@ -3,7 +3,7 @@ import { useState, useEffect, useRef } from "react";
 import {
   ArrowLeft, Building2, MapPin, ShieldCheck, Share2, Heart, MessageCircle, Phone,
   Clock, Calendar, CheckCircle2, AlertTriangle, ShieldAlert, Sparkles, Footprints, Flag, ArrowRight,
-  FileText, Trash2, ExternalLink, Upload, RefreshCw
+  FileText, Trash2, ExternalLink, Upload, RefreshCw, Eye, Loader2
 } from "lucide-react";
 import { MobileFrame } from "@/components/omeetso/MobileFrame";
 import { JobCard } from "@/components/omeetso/jobs/JobCard";
@@ -45,6 +45,7 @@ function JobDetailPage() {
   const [applied, setApplied] = useState(false);
   const [candidateProfile, setCandidateProfile] = useState<CandidateProfileItem | null>(null);
   const [uploadingResume, setUploadingResume] = useState(false);
+  const [initiatingChat, setInitiatingChat] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const currentUser = (() => {
@@ -294,22 +295,22 @@ function JobDetailPage() {
                 />
 
                 {/* Method 1: Uploaded Resume Status */}
-                <div className={`p-3 rounded-xl border transition-all ${
+                <div className={`p-3 rounded-2xl border transition-all ${
                   candidateProfile?.resumeFileName || candidateProfile?.resumeUrl
                     ? "border-emerald-500/30 bg-emerald-50/40 dark:bg-emerald-950/20"
                     : "border-border bg-card"
                 }`}>
-                  <div className="flex items-start justify-between gap-2">
-                    <div className="flex items-center gap-2 min-w-0">
-                      <div className={`w-7 h-7 rounded-lg flex items-center justify-center shrink-0 ${
+                  <div className="flex items-center justify-between gap-2">
+                    <div className="flex items-center gap-2.5 min-w-0 flex-1">
+                      <div className={`w-8 h-8 rounded-xl flex items-center justify-center shrink-0 ${
                         candidateProfile?.resumeFileName || candidateProfile?.resumeUrl
-                          ? "bg-emerald-600 text-white"
+                          ? "bg-emerald-600 text-white shadow-xs"
                           : "bg-secondary text-muted-foreground"
                       }`}>
-                        <FileText className="w-3.5 h-3.5" />
+                        <FileText className="w-4 h-4" />
                       </div>
-                      <div className="min-w-0">
-                        <p className="text-xs font-black text-foreground truncate">
+                      <div className="min-w-0 flex-1">
+                        <p className="text-xs font-black text-foreground truncate" title={candidateProfile?.resumeFileName || "Uploaded Resume"}>
                           {candidateProfile?.resumeFileName || (candidateProfile?.resumeUrl ? "Uploaded Resume.pdf" : "Upload Resume (PDF/DOCX)")}
                         </p>
                         <p className="text-[10px] text-muted-foreground font-semibold truncate">
@@ -325,20 +326,21 @@ function JobDetailPage() {
                             href={candidateProfile.resumeUrl}
                             target="_blank"
                             rel="noreferrer"
-                            className="p-1.5 rounded-lg bg-card border border-border text-foreground hover:bg-secondary text-[10px] font-bold flex items-center gap-1"
-                            title="View Resume"
+                            className="px-2.5 py-1.5 rounded-xl bg-emerald-500/15 border border-emerald-500/40 text-emerald-700 dark:text-emerald-300 hover:bg-emerald-500/25 text-[11px] font-black flex items-center gap-1 shadow-xs transition-colors"
+                            title="View Uploaded Resume"
                           >
-                            <ExternalLink className="w-3 h-3 text-indigo-600" />
+                            <Eye className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" />
+                            <span>View</span>
                           </a>
 
                           <button
                             type="button"
                             onClick={() => fileInputRef.current?.click()}
                             disabled={uploadingResume}
-                            className="px-2 py-1 rounded-lg border border-indigo-500/30 bg-indigo-50 dark:bg-indigo-950/50 text-indigo-600 dark:text-indigo-400 hover:bg-indigo-100 text-[10px] font-bold flex items-center gap-1"
+                            className="px-2.5 py-1.5 rounded-xl border border-indigo-500/30 bg-indigo-50 dark:bg-indigo-950/50 text-indigo-600 dark:text-indigo-400 hover:bg-indigo-100 text-[11px] font-bold flex items-center gap-1 transition-colors"
                             title="Replace Resume"
                           >
-                            <RefreshCw className={`w-3 h-3 ${uploadingResume ? "animate-spin" : ""}`} />
+                            <RefreshCw className={`w-3.5 h-3.5 ${uploadingResume ? "animate-spin" : ""}`} />
                             <span>Replace</span>
                           </button>
 
@@ -363,9 +365,9 @@ function JobDetailPage() {
                           type="button"
                           onClick={() => fileInputRef.current?.click()}
                           disabled={uploadingResume}
-                          className="px-2.5 py-1 rounded-lg bg-indigo-600 hover:bg-indigo-700 text-white font-black text-[10px] flex items-center gap-1 shadow-xs transition-all active:scale-95"
+                          className="px-3 py-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-black text-xs flex items-center gap-1 shadow-xs transition-all active:scale-95"
                         >
-                          <Upload className="w-3 h-3" />
+                          <Upload className="w-3.5 h-3.5" />
                           <span>{uploadingResume ? "Uploading..." : "Upload PDF"}</span>
                         </button>
                       )}
@@ -489,21 +491,42 @@ function JobDetailPage() {
               </Link>
 
               <button
+                type="button"
+                disabled={initiatingChat}
                 onClick={async () => {
                   try {
-                    const res = await startConversationApi("JOB", job.id, job.employerId);
+                    const token = localStorage.getItem("omeetso_user_token");
+                    if (!token) {
+                      toast.error("Please login to chat with the employer");
+                      nav({ to: "/login", search: { redirect: `/job/${job.id}` } });
+                      return;
+                    }
+                    setInitiatingChat(true);
+                    const res = await startConversationApi("JOB", job.id || (job as any)._id, job.employerId);
                     if (res.success && res.data?.id) {
                       nav({ to: "/chat/$id", params: { id: res.data.id } });
                     } else {
                       toast.error(res.error?.message || "Could not start chat with employer");
                     }
-                  } catch {
-                    toast.error("Failed to start chat. Please make sure you are logged in.");
+                  } catch (err: any) {
+                    toast.error(err?.message || "Failed to start chat. Please make sure you are logged in.");
+                  } finally {
+                    setInitiatingChat(false);
                   }
                 }}
-                className="h-12 px-5 rounded-2xl border border-border bg-card hover:bg-secondary font-bold text-xs flex items-center gap-2"
+                className="h-12 px-5 rounded-2xl border border-border bg-card hover:bg-secondary font-bold text-xs flex items-center gap-2 cursor-pointer transition-colors active:scale-98 disabled:opacity-60"
               >
-                <MessageCircle className="h-4 w-4 text-indigo-brand" /> Chat with Employer
+                {initiatingChat ? (
+                  <>
+                    <Loader2 className="h-4 w-4 animate-spin text-indigo-brand" />
+                    <span>Connecting...</span>
+                  </>
+                ) : (
+                  <>
+                    <MessageCircle className="h-4 w-4 text-indigo-brand" />
+                    <span>Chat with Employer</span>
+                  </>
+                )}
               </button>
 
               <button

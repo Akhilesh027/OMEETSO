@@ -2,6 +2,7 @@ import { createFileRoute, notFound, useNavigate } from "@tanstack/react-router";
 import { useState, useMemo } from "react";
 import { X, Share2, ChevronLeft, ChevronRight, Play } from "lucide-react";
 import { getProduct } from "@/lib/mock";
+import { fetchLiveListingById, listListings } from "@/lib/listings";
 import { ProductWatermark } from "@/components/omeetso/Watermark";
 
 function getEmbedUrl(url: string) {
@@ -15,14 +16,47 @@ function getEmbedUrl(url: string) {
 
 export const Route = createFileRoute("/gallery/$id")({
   validateSearch: (s: Record<string, unknown>) => ({ i: typeof s.i === "string" ? s.i : "0" }),
-  loader: ({ params }) => {
-    const p = getProduct(params.id);
+  loader: async ({ params }) => {
+    const cleanId = (params.id || "").trim();
+    let p = getProduct(cleanId);
+    if (!p && cleanId) {
+      try {
+        const live = await fetchLiveListingById(cleanId);
+        if (live) p = live as any;
+      } catch (err) {
+        console.warn("Live listing fetch error in gallery:", err);
+      }
+    }
+    if (!p && cleanId) {
+      try {
+        const userListings = listListings();
+        const found = userListings.find((l) => l.id === cleanId);
+        if (found) p = found as any;
+      } catch { /* ignore */ }
+    }
     if (!p) throw notFound();
     return { product: p };
   },
   head: ({ loaderData }) => ({
     meta: [{ title: loaderData ? `Gallery — ${loaderData.product.title} · Omeetso` : "Gallery · Omeetso" }],
   }),
+  notFoundComponent: () => (
+    <div className="fixed inset-0 z-50 flex flex-col items-center justify-center bg-black text-white p-6 text-center space-y-4">
+      <div className="w-16 h-16 rounded-full bg-white/10 flex items-center justify-center text-2xl font-bold">
+        🖼️
+      </div>
+      <h2 className="text-xl font-black">Media Gallery Unavailable</h2>
+      <p className="text-xs text-white/70 max-w-xs leading-relaxed">
+        The image or product could not be loaded. Please return to the product page.
+      </p>
+      <button
+        onClick={() => (window.history.length > 1 ? window.history.back() : window.location.assign("/home"))}
+        className="px-6 py-2.5 rounded-full bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs shadow-lg transition-all cursor-pointer"
+      >
+        Go Back
+      </button>
+    </div>
+  ),
   component: GalleryPage,
 });
 
@@ -30,8 +64,11 @@ function GalleryPage() {
   const { product } = Route.useLoaderData();
   const search = Route.useSearch();
   const nav = useNavigate();
+  const targetId = product.id || (product as any)._id || "";
   const videoUrl = product.videoUrl || product.video;
-  const rawImages = product.images ?? [product.image];
+  const rawImages = (Array.isArray(product.images) && product.images.length > 0)
+    ? product.images.filter(Boolean)
+    : (product.image ? [product.image] : []);
   const images = rawImages.length > 0 ? rawImages : ["https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=800"];
 
   const mediaList = useMemo(() => {
@@ -44,7 +81,7 @@ function GalleryPage() {
     return list;
   }, [images, videoUrl]);
 
-  const [idx, setIdx] = useState(() => Math.min(Math.max(Number(search.i) || 0, 0), mediaList.length - 1));
+  const [idx, setIdx] = useState(() => Math.min(Math.max(Number(search.i) || 0, 0), Math.max(0, mediaList.length - 1)));
   const [zoom, setZoom] = useState(false);
   const currentMedia = mediaList[idx] || mediaList[0];
 
@@ -59,17 +96,17 @@ function GalleryPage() {
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex flex-col bg-black text-white">
+    <div className="fixed inset-0 z-50 flex flex-col bg-black text-white select-none">
       <header className="flex items-center justify-between p-3 safe-t">
         <button
-          onClick={() => history.length > 1 ? history.back() : nav({ to: "/product/$id", params: { id: product.id } })}
-          className="grid h-10 w-10 place-items-center rounded-full bg-white/10"
+          onClick={() => (window.history.length > 1 ? window.history.back() : nav({ to: "/product/$id", params: { id: targetId } }))}
+          className="grid h-10 w-10 place-items-center rounded-full bg-white/10 hover:bg-white/20 transition-colors cursor-pointer"
           aria-label="Close"
         >
           <X className="h-5 w-5" />
         </button>
         <span className="text-sm font-semibold">{idx + 1} / {mediaList.length}</span>
-        <button onClick={share} className="grid h-10 w-10 place-items-center rounded-full bg-white/10" aria-label="Share">
+        <button onClick={share} className="grid h-10 w-10 place-items-center rounded-full bg-white/10 hover:bg-white/20 transition-colors" aria-label="Share">
           <Share2 className="h-5 w-5" />
         </button>
       </header>

@@ -1,7 +1,7 @@
 import { Link, useRouterState, useNavigate } from "@tanstack/react-router";
 import { Search, Heart, MessageCircle, Bell, User, MapPin, Plus, ChevronDown, Zap, X, Clock, TrendingUp, Sparkles, ArrowRight, CheckCheck, MessageSquare, HandCoins, Package, Store, ShieldCheck, ArrowLeft, Menu, Radio, Briefcase } from "lucide-react";
 import { useEffect, useState, useRef, useMemo, useCallback } from "react";
-import { NOTIFICATIONS, CATEGORIES, PRODUCTS, formatINR } from "@/lib/mock";
+import { NOTIFICATIONS, CATEGORIES, PRODUCTS, formatINR, TRENDING_SEARCHES } from "@/lib/mock";
 import { getSaved, getRecentSearches, addRecentSearch, subscribe as subscribeSaved } from "@/lib/saved";
 import { getThreads, subscribe as subscribeChat, seedIfEmpty } from "@/lib/chat";
 import { listNotifications, markRead, markAllRead } from "@/lib/account";
@@ -26,7 +26,6 @@ const secondaryNav = [
   { id: "services", label: "Services" },
 ];
 
-const TRENDING_KEYWORDS = ["iPhone 15", "Used Cars", "Bikes", "MacBook Pro", "Sofa Set", "RE Bullet 350", "Gaming PC"];
 
 const NOTIF_ICON_MAP: Record<string, any> = {
   chat_message: MessageSquare,
@@ -224,6 +223,7 @@ export function WebsiteHeader() {
     setSavedCount(getSaved().length);
     const unsubscribeSaved = subscribeSaved(() => {
       setSavedCount(getSaved().length);
+      setRecentSearches(getRecentSearches());
     });
     return unsubscribeSaved;
   }, []);
@@ -285,7 +285,7 @@ export function WebsiteHeader() {
     ).slice(0, 3);
   }, [q]);
 
-  const recentSearches = getRecentSearches();
+  const [recentSearches, setRecentSearches] = useState<string[]>(() => getRecentSearches());
 
   // Hide on auth/onboarding routes
   const hideOn = ["/", "/language", "/onboarding", "/welcome", "/login", "/otp", "/profile-setup", "/location", "/register"];
@@ -574,7 +574,7 @@ export function WebsiteHeader() {
                         <span>Trending Searches Nearby</span>
                       </div>
                       <div className="flex flex-wrap gap-1.5">
-                        {TRENDING_KEYWORDS.map((kw) => (
+                        {TRENDING_SEARCHES.map((kw) => (
                           <button
                             key={kw}
                             type="button"

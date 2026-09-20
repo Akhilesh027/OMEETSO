@@ -81,7 +81,7 @@ function VerificationCentre() {
 
   // KYC Document Form State
   const [kycLoading, setKycLoading] = useState(false);
-  const [docType, setDocType] = useState<"aadhaar" | "pan" | "driving_license" | "voter_id">("aadhaar");
+  const [docType, setDocType] = useState<"aadhaar" | "pan" | "driving_license">("aadhaar");
   const [docNumber, setDocNumber] = useState("");
   const [frontImage, setFrontImage] = useState<string | null>(null);
   const [backImage, setBackImage] = useState<string | null>(null);
@@ -533,7 +533,7 @@ function VerificationCentre() {
                   )}
                 </div>
                 <p className="mt-1 text-xs text-muted-foreground leading-relaxed">
-                  Upload Aadhaar Card, PAN Card, Driving License, or Voter ID to earn the Verified Seller Badge and unlock higher buyer reach.
+                  Upload Aadhaar Card, PAN Card, or Driving License to earn the Verified Seller Badge and unlock higher buyer reach.
                 </p>
 
                 <div className="mt-3.5 flex items-center gap-3">
@@ -849,12 +849,11 @@ function VerificationCentre() {
                   <label className="block text-[11px] font-bold text-foreground mb-1.5">
                     Select Document Type *
                   </label>
-                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                  <div className="grid grid-cols-3 gap-2">
                     {[
                       { id: "aadhaar", label: "Aadhaar Card" },
                       { id: "pan", label: "PAN Card" },
                       { id: "driving_license", label: "Driving Licence" },
-                      { id: "voter_id", label: "Voter ID" },
                     ].map((d) => (
                       <button
                         key={d.id}

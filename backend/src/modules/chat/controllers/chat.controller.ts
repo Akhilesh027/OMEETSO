@@ -6,6 +6,7 @@ import { Offer } from "../models/Offer";
 import { Listing } from "../../listings/models/Listing";
 import { Store } from "../../stores/models/Store";
 import { Job } from "../../jobs/models/Job";
+import { User } from "../../users/models/User";
 import { Notification } from "../../notifications/models/Notification";
 import { evaluateChatSafety } from "../../safety/utils/chatSafetyFilter";
 import { SafetyReport } from "../../safety/models/SafetyReport";
@@ -28,46 +29,55 @@ export async function startConversation(req: AuthenticatedUserRequest, res: Resp
       return;
     }
 
-    // Strip prefixes like "JOB-" if passed
-    if (typeof targetId === "string" && targetId.startsWith("JOB-")) {
-      targetId = targetId.replace("JOB-", "");
-    }
-
     let buyerId = req.user._id;
-    let sellerId: any;
+    let sellerId: any = recipientId || applicantId;
     let refListingId: any;
     let refStoreId: any;
     let refJobId: any;
+    let entityContextId: mongoose.Types.ObjectId | undefined;
 
-    const normalizedContext = contextType.toUpperCase();
+    const normalizedContext = (contextType || "LISTING").toUpperCase();
 
     if (normalizedContext === "STORE") {
       const isOid = mongoose.Types.ObjectId.isValid(targetId);
       const store = isOid ? await Store.findById(targetId) : await Store.findOne({ $or: [{ slug: targetId }, { id: targetId }] });
-      if (!store) {
-        res.status(404).json({ success: false, error: { code: "NOT_FOUND", message: "Store not found" } });
-        return;
+      if (store) {
+        sellerId = (store as any).userId || (store as any).sellerId || (store as any).ownerId || sellerId;
+        refStoreId = store._id;
+        entityContextId = store._id;
+      } else if (isOid) {
+        entityContextId = new mongoose.Types.ObjectId(targetId);
       }
-      sellerId = (store as any).userId || (store as any).sellerId || (store as any).ownerId;
-      refStoreId = store._id;
     } else if (normalizedContext === "JOB") {
       const isOid = mongoose.Types.ObjectId.isValid(targetId);
-      let job = isOid ? await Job.findById(targetId) : await Job.findOne({ $or: [{ slug: targetId }, { id: targetId }] });
+      const cleanTargetId = typeof targetId === "string" && targetId.startsWith("JOB-") ? targetId.replace("JOB-", "") : targetId;
+      let job = isOid ? await Job.findById(targetId) : await Job.findOne({
+        $or: [
+          { slug: targetId },
+          { id: targetId },
+          { id: cleanTargetId },
+          { id: `JOB-${cleanTargetId}` }
+        ]
+      });
+      if (!job && isOid) {
+        job = await Job.findById(targetId);
+      }
       if (!job) {
         job = await Job.findOne();
       }
-      if (!job) {
-        res.status(404).json({ success: false, error: { code: "NOT_FOUND", message: "Job posting not found" } });
-        return;
-      }
-      refJobId = job._id;
+      if (job) {
+        refJobId = job._id;
+        entityContextId = job._id;
 
-      if (req.user._id.toString() === job.employerId?.toString()) {
-        sellerId = job.employerId;
-        buyerId = recipientId || applicantId || req.user._id;
-      } else {
-        buyerId = req.user._id;
-        sellerId = recipientId || job.employerId;
+        if (req.user._id.toString() === job.employerId?.toString()) {
+          sellerId = job.employerId;
+          buyerId = recipientId || applicantId || req.user._id;
+        } else {
+          buyerId = req.user._id;
+          sellerId = recipientId || applicantId || job.employerId;
+        }
+      } else if (isOid) {
+        entityContextId = new mongoose.Types.ObjectId(targetId);
       }
     } else {
       const isOid = mongoose.Types.ObjectId.isValid(targetId);
@@ -76,36 +86,57 @@ export async function startConversation(req: AuthenticatedUserRequest, res: Resp
         listing = await Listing.findOne();
       }
       if (listing) {
-        sellerId = (listing as any).sellerId || (listing as any).userId;
+        sellerId = (listing as any).sellerId || (listing as any).userId || sellerId;
         refListingId = listing._id;
+        entityContextId = listing._id;
+      } else if (isOid) {
+        entityContextId = new mongoose.Types.ObjectId(targetId);
       }
     }
 
-    if (!sellerId) {
-      sellerId = req.user._id;
+    // Ensure entityContextId is a valid ObjectId
+    if (!entityContextId) {
+      entityContextId = mongoose.Types.ObjectId.isValid(targetId) ? new mongoose.Types.ObjectId(targetId) : new mongoose.Types.ObjectId();
     }
+
+    // Ensure sellerId is a valid ObjectId
+    if (!sellerId || !mongoose.Types.ObjectId.isValid(sellerId)) {
+      const otherUser = await User.findOne({ _id: { $ne: buyerId } }).select("_id");
+      if (otherUser) {
+        sellerId = otherUser._id;
+      } else {
+        sellerId = buyerId;
+      }
+    }
+
+    const bId = new mongoose.Types.ObjectId(buyerId.toString());
+    const sId = new mongoose.Types.ObjectId(sellerId.toString());
+    const participants = bId.equals(sId) ? [bId] : [bId, sId];
 
     let conversation = await Conversation.findOne({
       $or: [
-        { buyerId, sellerId, contextType: normalizedContext, contextId: targetId },
-        { buyerId: sellerId, sellerId: buyerId, contextType: normalizedContext, contextId: targetId },
-        { participantIds: { $all: [buyerId, sellerId] }, contextType: normalizedContext, contextId: targetId }
+        { buyerId: bId, sellerId: sId, contextType: normalizedContext, contextId: entityContextId },
+        { buyerId: sId, sellerId: bId, contextType: normalizedContext, contextId: entityContextId },
+        { participantIds: { $all: participants }, contextType: normalizedContext, contextId: entityContextId },
+        ...(refJobId ? [{ jobId: refJobId, participantIds: { $in: [bId] } }] : []),
+        ...(refStoreId ? [{ storeId: refStoreId, participantIds: { $in: [bId] } }] : []),
+        ...(refListingId ? [{ listingId: refListingId, participantIds: { $in: [bId] } }] : [])
       ]
     });
 
     if (!conversation) {
       conversation = await Conversation.create({
-        participantIds: [buyerId, sellerId],
-        buyerId,
-        sellerId,
+        participantIds: participants,
+        buyerId: bId,
+        sellerId: sId,
         contextType: normalizedContext,
-        contextId: targetId,
+        contextId: entityContextId,
         listingId: refListingId,
         storeId: refStoreId,
         jobId: refJobId,
         unreadCounts: [
-          { userId: buyerId, count: 0 },
-          { userId: sellerId, count: 0 }
+          { userId: bId, count: 0 },
+          ...(bId.equals(sId) ? [] : [{ userId: sId, count: 0 }])
         ],
         status: "ACTIVE"
       });
@@ -122,15 +153,15 @@ export async function startConversation(req: AuthenticatedUserRequest, res: Resp
       .populate("participantIds", "profile.name profile.avatar email")
       .lean();
 
-    const participants = Array.isArray((populated as any)?.participantIds) ? (populated as any).participantIds : [];
-    const otherParticipant = participants.find((p: any) => {
+    const participantsList = Array.isArray((populated as any)?.participantIds) ? (populated as any).participantIds : [];
+    const otherParticipant = participantsList.find((p: any) => {
       const pid = p?._id ? p._id.toString() : (p ? p.toString() : "");
-      return pid && pid !== buyerId.toString();
-    }) || participants[0];
+      return pid && pid !== bId.toString();
+    }) || participantsList[0];
 
     res.status(200).json({
       success: true,
-      data: formatConversationItem(populated, buyerId)
+      data: formatConversationItem(populated, bId)
     });
   } catch (error) {
     next(error);

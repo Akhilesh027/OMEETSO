@@ -390,13 +390,19 @@ export const AREA_PINCODES: Record<string, string> = {
 };
 
 export const TRENDING_SEARCHES = [
-  "Bikes under ₹50,000", "Dining tables", "AC for sale",
-  "Rental flats", "Jobs near me", "iPhone 15", "Study table",
+  "iPhone 15",
+  "Used Cars",
+  "Bikes",
+  "MacBook Pro",
+  "Sofa Set",
+  "RE Bullet 350",
+  "Gaming PC",
+  "2 BHK Flat",
+  "Air Conditioner",
+  "Jobs near me",
 ];
 
-export const DEFAULT_RECENT_SEARCHES = [
-  "Used cars", "iPhone 13", "Wooden sofa", "2 BHK rent",
-];
+export const DEFAULT_RECENT_SEARCHES: string[] = [];
 
 export const SORT_OPTIONS = [
   { id: "relevance", label: "Relevance" },

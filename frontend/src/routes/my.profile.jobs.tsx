@@ -1686,6 +1686,15 @@ export function CandidateProfilePage() {
                     </div>
                   </div>
                   <div className="flex items-center gap-2 shrink-0">
+                    <a
+                      href={formData.resumeUrl}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="px-3 py-1.5 rounded-xl bg-emerald-500/15 border border-emerald-500/40 text-emerald-700 dark:text-emerald-300 hover:bg-emerald-500/25 text-xs font-bold flex items-center gap-1 active:scale-95 transition-all"
+                      title="View Resume in New Tab"
+                    >
+                      <Eye className="w-3.5 h-3.5 text-emerald-600 dark:text-emerald-400" /> View
+                    </a>
                     <button
                       type="button"
                       onClick={() => downloadDocument(formData.resumeUrl, formData.resumeFileName)}

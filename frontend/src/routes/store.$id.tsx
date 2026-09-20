@@ -571,18 +571,7 @@ function StorePage() {
                   ) : apiListings.length > 0 ? (
                     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                       {apiListings.map((p: any) => (
-                        <div key={p.id} className="relative group flex flex-col justify-between">
-                          <ProductCard p={p} />
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              nav({ to: "/ads/new", search: { id: "", listingId: p.id, step: 1 } as any });
-                            }}
-                            className="mt-2 w-full bg-primary/10 hover:bg-primary hover:text-white text-primary border border-primary/20 rounded-2xl py-2 text-[11px] font-black transition-colors flex items-center justify-center gap-1 shadow-xs"
-                          >
-                            <Zap className="h-3.5 w-3.5" /> Boost This Item
-                          </button>
-                        </div>
+                        <ProductCard key={p.id} p={p} />
                       ))}
                     </div>
                   ) : (
