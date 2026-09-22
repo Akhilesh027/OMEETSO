@@ -595,6 +595,10 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
     joinConversation(conversationId);
   }, []);
 
+  const leaveRoom = useCallback((conversationId: string) => {
+    leaveConversation(conversationId);
+  }, []);
+
   // ── Online presence check ──
   const isUserOnline = useCallback(
     (userId: string) => {
