@@ -10,7 +10,7 @@ import { VerifBadge } from "@/components/omeetso/account";
 import { toast } from "sonner";
 import {
   Camera, IdCard, FileText, ShieldCheck, Upload, RefreshCw, Lock,
-  CheckCircle2, Sparkles, AlertCircle, Loader2, ArrowRight, Check
+  CheckCircle2, Sparkles, AlertCircle, Loader2, ArrowRight, Check, Mail
 } from "lucide-react";
 import { uploadFile } from "@/lib/upload";
 import { API_BASE } from "@/config/api";

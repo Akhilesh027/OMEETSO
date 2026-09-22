@@ -8,6 +8,7 @@ import mongoose from "mongoose";
 import { env } from "./config/env";
 import { userAuthRouter } from "./modules/auth/routes/userAuth.routes";
 import { adminAuthRouter } from "./modules/auth/routes/adminAuth.routes";
+import { authenticateAdmin } from "./middleware/authenticateAdmin";
 import { categoriesRouter } from "./modules/categories/routes/categories.routes";
 import { uploadsRouter } from "./modules/uploads/routes/uploads.routes";
 import { usersRouter } from "./modules/users/routes/users.routes";
@@ -177,7 +178,13 @@ app.get("/health", (req: Request, res: Response) => {
   });
 });
 
-app.get("/api/v1/seed-banners-ads", async (req: Request, res: Response) => {
+// ─── Protected Seeding & Admin Dev Endpoints ────────────────────────
+// Strictly locked down behind Super Admin authentication & disabled in production
+app.post("/api/v1/seed-banners-ads", authenticateAdmin, async (req: Request, res: Response) => {
+  if (env.NODE_ENV === "production") {
+    res.status(403).json({ success: false, error: "Seeding is disabled in production" });
+    return;
+  }
   try {
     const { seedBannersAndAds } = await import("./database/seeders/bannerAdSeeder");
     const result = await seedBannersAndAds();
@@ -191,7 +198,11 @@ app.get("/api/v1/seed-banners-ads", async (req: Request, res: Response) => {
   }
 });
 
-app.get("/api/v1/seed-admins", async (req: Request, res: Response) => {
+app.post("/api/v1/seed-admins", authenticateAdmin, async (req: Request, res: Response) => {
+  if (env.NODE_ENV === "production") {
+    res.status(403).json({ success: false, error: "Admin seeding is disabled in production" });
+    return;
+  }
   try {
     const { seedAdminUsers } = await import("./database/seeders/adminSeeder");
     await seedAdminUsers();
@@ -204,7 +215,11 @@ app.get("/api/v1/seed-admins", async (req: Request, res: Response) => {
   }
 });
 
-app.get("/api/v1/seed-market", async (req: Request, res: Response) => {
+app.post("/api/v1/seed-market", authenticateAdmin, async (req: Request, res: Response) => {
+  if (env.NODE_ENV === "production") {
+    res.status(403).json({ success: false, error: "Market seeding is disabled in production" });
+    return;
+  }
   try {
     const { seedMultiLocationMarket } = await import("./database/seeders/multiLocationMarketSeeder");
     const result = await seedMultiLocationMarket();
@@ -218,7 +233,11 @@ app.get("/api/v1/seed-market", async (req: Request, res: Response) => {
   }
 });
 
-app.get("/api/v1/seed-banners-clean", async (req: Request, res: Response) => {
+app.post("/api/v1/seed-banners-clean", authenticateAdmin, async (req: Request, res: Response) => {
+  if (env.NODE_ENV === "production") {
+    res.status(403).json({ success: false, error: "Seeding is disabled in production" });
+    return;
+  }
   try {
     const { seedBannersAndAds } = await import("./database/seeders/bannerAdSeeder");
     const result = await seedBannersAndAds();
@@ -232,83 +251,7 @@ app.get("/api/v1/seed-banners-clean", async (req: Request, res: Response) => {
   }
 });
 
-app.get("/api/v1/wipe-marketplace-data", async (req: Request, res: Response) => {
-  try {
-    const { Listing } = await import("./modules/listings/models/Listing");
-    const { ListingRevision } = await import("./modules/listings/models/ListingRevision");
-    const { ListingModeration } = await import("./modules/listings/models/ListingModeration");
-    const { User } = await import("./modules/users/models/User");
-    const { UserSession } = await import("./modules/auth/models/UserSession");
-    const { Store } = await import("./modules/stores/models/Store");
-    const { StoreMember } = await import("./modules/stores/models/StoreMember");
-    const { AdCampaign } = await import("./modules/revenue/models/AdCampaign");
-    const { WalletHold } = await import("./modules/revenue/models/WalletHold");
-    const { WalletTransaction } = await import("./modules/revenue/models/WalletTransaction");
-    const { Wallet } = await import("./modules/revenue/models/Wallet");
-
-    const [
-      listingsRes,
-      revisionsRes,
-      listingModRes,
-      usersRes,
-      sessionsRes,
-      storesRes,
-      storeMembersRes,
-      campaignsRes,
-      holdsRes,
-      txRes,
-      walletRes
-    ] = await Promise.all([
-      Listing.deleteMany({}),
-      ListingRevision.deleteMany({}),
-      ListingModeration.deleteMany({}),
-      User.deleteMany({}),
-      UserSession.deleteMany({}),
-      Store.deleteMany({}),
-      StoreMember.deleteMany({}),
-      AdCampaign.deleteMany({}),
-      WalletHold.deleteMany({}),
-      WalletTransaction.deleteMany({}),
-      Wallet.deleteMany({})
-    ]);
-
-    res.json({
-      success: true,
-      message: "Successfully removed all listings, users, stores, and live ad campaigns from MongoDB!",
-      deleted: {
-        listings: listingsRes.deletedCount,
-        listingRevisions: revisionsRes.deletedCount,
-        listingModeration: listingModRes.deletedCount,
-        users: usersRes.deletedCount,
-        userSessions: sessionsRes.deletedCount,
-        stores: storesRes.deletedCount,
-        storeMembers: storeMembersRes.deletedCount,
-        adCampaigns: campaignsRes.deletedCount,
-        walletHolds: holdsRes.deletedCount,
-        walletTransactions: txRes.deletedCount,
-        wallets: walletRes.deletedCount
-      }
-    });
-  } catch (err: any) {
-    res.status(500).json({ success: false, error: err.message });
-  }
-});
-
-app.get("/api/v1/clear-ad-campaigns", async (req: Request, res: Response) => {
-  try {
-    const { AdCampaign } = await import("./modules/revenue/models/AdCampaign");
-    const deleteResult = await AdCampaign.deleteMany({});
-    res.json({
-      success: true,
-      message: `Successfully removed ${deleteResult.deletedCount} seeded ad campaigns. Placements and ad products are preserved and ready for live campaigns!`,
-      deletedCount: deleteResult.deletedCount
-    });
-  } catch (err: any) {
-    res.status(500).json({ success: false, error: err.message });
-  }
-});
-
-app.get("/api/v1/inspect-campaigns", async (req: Request, res: Response) => {
+app.get("/api/v1/inspect-campaigns", authenticateAdmin, async (req: Request, res: Response) => {
   try {
     const { AdCampaign } = await import("./modules/revenue/models/AdCampaign");
     const campaigns = await AdCampaign.find({}).populate("listingId", "title priceInPaise categoryId").populate("advertiserUserId", "phone email profile.name profile.city");
@@ -338,7 +281,7 @@ app.get("/api/v1/inspect-campaigns", async (req: Request, res: Response) => {
   }
 });
 
-app.get("/api/v1/inspect-campaign/:id", async (req: Request, res: Response) => {
+app.get("/api/v1/inspect-campaign/:id", authenticateAdmin, async (req: Request, res: Response) => {
   try {
     const { AdCampaign } = await import("./modules/revenue/models/AdCampaign");
     const campaign = await AdCampaign.findById(req.params.id).lean();
@@ -348,7 +291,7 @@ app.get("/api/v1/inspect-campaign/:id", async (req: Request, res: Response) => {
   }
 });
 
-app.get("/api/v1/inspect-listing/:id", async (req: Request, res: Response) => {
+app.get("/api/v1/inspect-listing/:id", authenticateAdmin, async (req: Request, res: Response) => {
   try {
     const rawId = req.params.id;
     const searchId = Array.isArray(rawId) ? String(rawId[0]) : String(rawId);
