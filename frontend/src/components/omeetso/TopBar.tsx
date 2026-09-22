@@ -8,6 +8,8 @@ import { LocationModal } from "@/components/omeetso/LocationModal";
 import { Logo } from "@/components/omeetso/Logo";
 import { unreadCount, listNotifications } from "@/lib/account";
 import { getNotificationsApi } from "@/api/notifications.api";
+import { getConversationsApi } from "@/api/chat.api";
+import { getUserAccessToken } from "@/api/auth.api";
 
 export function LocationTopBar({
   area,
@@ -59,7 +61,18 @@ export function LocationTopBar({
     const unsubSaved = subscribeSaved(() => setSavedCount(getSaved().length));
     seedIfEmpty();
 
-    const updateChatCount = () => {
+    const updateChatCount = async () => {
+      const token = getUserAccessToken();
+      if (token) {
+        try {
+          const res = await getConversationsApi();
+          if (res.success && Array.isArray(res.data)) {
+            const total = res.data.reduce((acc, c) => acc + (c.unreadCount || 0), 0);
+            setUnreadChats(total);
+            return;
+          }
+        } catch {}
+      }
       const threads = getThreads();
       const totalUnread = threads.reduce((acc, t) => acc + (t.unread || 0), 0);
       setUnreadChats(totalUnread);
@@ -80,16 +93,24 @@ export function LocationTopBar({
     };
     updateNotifCount();
 
+    window.addEventListener("omeetso_chat_updated", updateChatCount);
     window.addEventListener("omeetso_notifications_changed", updateNotifCount);
+    window.addEventListener("omeetso_notifications_changed", updateChatCount);
     window.addEventListener("omeetso_auth_changed", updateNotifCount);
+    window.addEventListener("omeetso_auth_changed", updateChatCount);
     window.addEventListener("storage", updateNotifCount);
+    window.addEventListener("storage", updateChatCount);
 
     return () => {
       unsubSaved();
       unsubChat();
+      window.removeEventListener("omeetso_chat_updated", updateChatCount);
       window.removeEventListener("omeetso_notifications_changed", updateNotifCount);
+      window.removeEventListener("omeetso_notifications_changed", updateChatCount);
       window.removeEventListener("omeetso_auth_changed", updateNotifCount);
+      window.removeEventListener("omeetso_auth_changed", updateChatCount);
       window.removeEventListener("storage", updateNotifCount);
+      window.removeEventListener("storage", updateChatCount);
     };
   }, []);
 

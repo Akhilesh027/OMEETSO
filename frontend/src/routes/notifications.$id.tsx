@@ -53,23 +53,57 @@ function NotifDetail() {
             </div>
           )}
 
-          {n.destination && (
-            <button
-              type="button"
-              onClick={() => {
-                markRead(id, true);
-                if (n.destination?.startsWith("/")) {
-                  nav({ to: n.destination as any });
-                } else if (n.destination) {
-                  window.location.href = n.destination;
-                }
-              }}
-              className="mt-4 flex w-full items-center justify-between rounded-full bg-primary px-4 py-3 text-sm font-bold text-primary-foreground shadow-md hover:brightness-110 active:scale-95 transition-all"
-            >
-              <span>{n.destinationLabel ?? "View Details"}</span>
-              <ArrowRight className="h-4 w-4" />
-            </button>
-          )}
+          {(() => {
+            let dest = n.destination;
+            const isJob = n.category === "job_application" || n.title?.toLowerCase().includes("job") || n.body?.toLowerCase().includes("application");
+            if (isJob && (!dest || dest.includes("profile/jobs") || dest === "/account" || dest === "/account/jobs")) {
+              dest = "/my/jobs";
+            }
+            const label = n.destinationLabel || (isJob ? "View Job Application" : "View Details");
+
+            if (!dest) return null;
+
+            return (
+              <button
+                type="button"
+                onClick={() => {
+                  markRead(id, true);
+                  if (dest.startsWith("/chat/")) {
+                    const chatId = dest.replace("/chat/", "");
+                    nav({ to: "/chat/$id", params: { id: chatId } });
+                  } else if (dest.startsWith("/product/")) {
+                    const prodId = dest.replace("/product/", "");
+                    nav({ to: "/product/$id", params: { id: prodId } });
+                  } else if (dest.startsWith("/store/")) {
+                    const storeId = dest.replace("/store/", "");
+                    nav({ to: "/store/$id", params: { id: storeId } });
+                  } else if (dest.startsWith("/job/")) {
+                    const jobId = dest.replace("/job/", "").split("?")[0].split("#")[0];
+                    nav({ to: "/job/$id", params: { id: jobId } });
+                  } else if (dest.startsWith("/my/employer/jobs")) {
+                    nav({ to: "/my/employer/jobs" });
+                  } else if (dest.startsWith("/my/jobs")) {
+                    try {
+                      const urlObj = new URL(dest, "http://localhost");
+                      const searchId = urlObj.searchParams.get("id") || urlObj.searchParams.get("jobId") || undefined;
+                      const searchTab = (urlObj.searchParams.get("tab") as any) || undefined;
+                      nav({ to: "/my/jobs", search: { id: searchId, tab: searchTab } as any });
+                    } catch {
+                      nav({ to: "/my/jobs" as any });
+                    }
+                  } else if (dest.startsWith("/")) {
+                    nav({ to: dest as any });
+                  } else {
+                    window.location.href = dest;
+                  }
+                }}
+                className="mt-4 flex w-full items-center justify-between rounded-full bg-primary px-4 py-3 text-sm font-bold text-primary-foreground shadow-md hover:brightness-110 active:scale-95 transition-all"
+              >
+                <span>{label}</span>
+                <ArrowRight className="h-4 w-4" />
+              </button>
+            );
+          })()}
 
           <button onClick={() => { markRead(id, false); toast.success("Marked as unread"); nav({ to: "/notifications" }); }}
             className="mt-2 w-full rounded-full border border-border py-2 text-xs font-semibold">

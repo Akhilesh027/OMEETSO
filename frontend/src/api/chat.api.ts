@@ -65,6 +65,18 @@ export async function getConversationByIdApi(conversationId: string): Promise<{
   return res.json();
 }
 
+export async function markConversationReadApi(conversationId: string): Promise<{
+  success: boolean;
+  data?: any;
+  error?: any;
+}> {
+  const res = await fetch(`${API_BASE}/conversations/${conversationId}/read`, {
+    method: "POST",
+    headers: getAuthHeaders(),
+  });
+  return res.json();
+}
+
 // ─── Messages ────────────────────────────────────────────
 
 export interface MessageItem {

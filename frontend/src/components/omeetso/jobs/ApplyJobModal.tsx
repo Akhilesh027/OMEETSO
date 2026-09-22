@@ -334,11 +334,11 @@ export function ApplyJobModal({ job, isOpen, onClose, onSuccess }: ApplyJobModal
       if (!token) {
         pushNotification({
           id: `job-app-${job.id}-${Date.now()}`,
-          category: "system",
+          category: "job_application",
           title: `Job Application Submitted: ${job.title}`,
           body: `Your application for "${job.title}" at ${job.companyName} was submitted successfully.`,
-          destination: "/my/jobs",
-          destinationLabel: "View Applications",
+          destination: `/my/jobs?id=${job.id}`,
+          destinationLabel: "View Job Application",
           read: false,
           time: Date.now(),
         });

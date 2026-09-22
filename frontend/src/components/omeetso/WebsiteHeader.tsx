@@ -6,6 +6,8 @@ import { getSaved, getRecentSearches, addRecentSearch, subscribe as subscribeSav
 import { getThreads, subscribe as subscribeChat, seedIfEmpty } from "@/lib/chat";
 import { listNotifications, markRead, markAllRead } from "@/lib/account";
 import { getNotificationsApi, markNotificationReadApi, markAllNotificationsReadApi, type NotificationItem } from "@/api/notifications.api";
+import { getConversationsApi } from "@/api/chat.api";
+import { getUserAccessToken } from "@/api/auth.api";
 import { cn } from "@/lib/utils";
 import { Logo } from "@/components/omeetso/Logo";
 import { LocationModal } from "@/components/omeetso/LocationModal";
@@ -159,7 +161,20 @@ export function WebsiteHeader() {
     markNotificationReadApi(n.id);
     markRead(n.id, true);
 
-    const targetLink = n.link || `/notifications/${n.id}`;
+    let targetLink = n.link || `/notifications/${n.id}`;
+    const isJob = n.type === "job_application" || n.type === "jobs" || n.title?.toLowerCase().includes("job") || n.body?.toLowerCase().includes("application");
+
+    // Fix: Job application notifications must open the candidate applications view / job details, never the profile builder
+    if (isJob && (
+      targetLink.startsWith("/notifications/") ||
+      targetLink.includes("/account/profile/jobs") ||
+      targetLink.includes("/my/profile/jobs") ||
+      targetLink === "/account" ||
+      targetLink === "/profile" ||
+      targetLink === "/account/jobs"
+    )) {
+      targetLink = "/my/jobs";
+    }
 
     if (targetLink.startsWith("/chat/")) {
       const id = targetLink.replace("/chat/", "");
@@ -173,6 +188,20 @@ export function WebsiteHeader() {
     } else if (targetLink.startsWith("/store/")) {
       const id = targetLink.replace("/store/", "");
       nav({ to: "/store/$id", params: { id } });
+    } else if (targetLink.startsWith("/job/")) {
+      const id = targetLink.replace("/job/", "").split("?")[0].split("#")[0];
+      nav({ to: "/job/$id", params: { id } });
+    } else if (targetLink.startsWith("/my/employer/jobs")) {
+      nav({ to: "/my/employer/jobs" });
+    } else if (targetLink.startsWith("/my/jobs")) {
+      try {
+        const urlObj = new URL(targetLink, "http://localhost");
+        const searchId = urlObj.searchParams.get("id") || urlObj.searchParams.get("jobId") || undefined;
+        const searchTab = (urlObj.searchParams.get("tab") as any) || undefined;
+        nav({ to: "/my/jobs", search: { id: searchId, tab: searchTab } as any });
+      } catch {
+        nav({ to: "/my/jobs" as any });
+      }
     } else if (targetLink.startsWith("/notifications/")) {
       const id = targetLink.replace("/notifications/", "");
       nav({ to: "/notifications/$id", params: { id } });
@@ -190,17 +219,40 @@ export function WebsiteHeader() {
     setNotifList((prev) => prev.map((n) => ({ ...n, isRead: true })));
   };
 
-  // Exact unread chats count from local storage
+  // Exact unread chats count from live server and local storage
   useEffect(() => {
     seedIfEmpty();
-    const updateChatCount = () => {
+    const updateChatCount = async () => {
+      const token = getUserAccessToken();
+      if (token) {
+        try {
+          const res = await getConversationsApi();
+          if (res.success && Array.isArray(res.data)) {
+            const total = res.data.reduce((acc, c) => acc + (c.unreadCount || 0), 0);
+            setUnreadChats(total);
+            return;
+          }
+        } catch {}
+      }
       const threads = getThreads();
       const totalUnread = threads.reduce((acc, t) => acc + (t.unread || 0), 0);
       setUnreadChats(totalUnread);
     };
     updateChatCount();
     const unsubChat = subscribeChat(updateChatCount);
-    return unsubChat;
+
+    window.addEventListener("omeetso_chat_updated", updateChatCount);
+    window.addEventListener("omeetso_notifications_changed", updateChatCount);
+    window.addEventListener("omeetso_auth_changed", updateChatCount);
+    window.addEventListener("storage", updateChatCount);
+
+    return () => {
+      unsubChat();
+      window.removeEventListener("omeetso_chat_updated", updateChatCount);
+      window.removeEventListener("omeetso_notifications_changed", updateChatCount);
+      window.removeEventListener("omeetso_auth_changed", updateChatCount);
+      window.removeEventListener("storage", updateChatCount);
+    };
   }, []);
 
   // Scroll listener for header transformation with hysteresis

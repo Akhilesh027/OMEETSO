@@ -1,5 +1,6 @@
 // Omeetso core types & dynamic data helpers
 import { listListings } from "./listings";
+import { MALE_AVATAR_DATA_URI } from "./avatarSvgs";
 
 export type ID = string;
 
@@ -536,7 +537,7 @@ export const getSeller = (id: string): Seller => {
   return {
     id: id || "u_seller",
     name: "Omeetso Seller",
-    avatar: "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&w=200&h=200&q=80",
+    avatar: MALE_AVATAR_DATA_URI,
     memberSince: "2024",
     rating: 0,
     reviews: 0,

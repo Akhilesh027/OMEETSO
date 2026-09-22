@@ -19,7 +19,7 @@ import {
 import { getUserAccessToken } from "@/api/auth.api";
 import {
   getConversationsApi, getConversationByIdApi, getMessagesApi, sendMessageApi,
-  createOfferApi, updateOfferStatusApi,
+  createOfferApi, updateOfferStatusApi, markConversationReadApi,
   type ConversationItem, type MessageItem,
 } from "@/api/chat.api";
 import { apiMessageToLocal, conversationToThread } from "@/lib/chat-adapter";
@@ -35,6 +35,10 @@ interface ChatState {
   conversations: ConversationItem[];
   conversationsLoading: boolean;
   conversationsError: string | null;
+
+  // presence
+  onlineUserIds: Set<string>;
+  isUserOnline: (userId: string) => boolean;
 
   // per-conversation messages
   messages: Map<string, Message[]>;
@@ -89,6 +93,7 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
   const [conversations, setConversations] = useState<ConversationItem[]>([]);
   const [conversationsLoading, setConversationsLoading] = useState(false);
   const [conversationsError, setConversationsError] = useState<string | null>(null);
+  const [onlineUserIds, setOnlineUserIds] = useState<Set<string>>(new Set());
 
   const [messages, setMessages] = useState<Map<string, Message[]>>(new Map());
   const [messagesLoading, setMessagesLoading] = useState<Map<string, boolean>>(new Map());
@@ -172,6 +177,11 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
             : c
         )
       );
+
+      try {
+        window.dispatchEvent(new CustomEvent("omeetso_chat_updated"));
+        window.dispatchEvent(new CustomEvent("omeetso_notifications_changed"));
+      } catch {}
     });
 
     // Typing indicator
@@ -232,6 +242,27 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
       });
     });
 
+    // Real-time Presence Tracking
+    socket.on("presence:initial", (data: { onlineUserIds: string[] }) => {
+      if (Array.isArray(data?.onlineUserIds)) {
+        setOnlineUserIds(new Set(data.onlineUserIds.map((id) => String(id))));
+      }
+    });
+
+    socket.on("presence:status", (data: { userId: string; online: boolean }) => {
+      if (!data?.userId) return;
+      const targetId = String(data.userId);
+      setOnlineUserIds((prev) => {
+        const next = new Set(prev);
+        if (data.online) {
+          next.add(targetId);
+        } else {
+          next.delete(targetId);
+        }
+        return next;
+      });
+    });
+
     return () => {
       disconnectSocket();
     };
@@ -255,6 +286,9 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
       if (res.success && Array.isArray(res.data)) {
         setConversations(res.data);
         setConversationsError(null);
+        try {
+          window.dispatchEvent(new CustomEvent("omeetso_chat_updated"));
+        } catch {}
       } else {
         const errCode = (res as any)?.error?.code;
         if (
@@ -537,9 +571,14 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
   // ── Mark as read ──
   const markAsRead = useCallback((conversationId: string) => {
     emitMessageRead(conversationId);
+    markConversationReadApi(conversationId).catch(() => {});
     setConversations((prev) =>
       prev.map((c) => (c.id === conversationId ? { ...c, unreadCount: 0 } : c))
     );
+    try {
+      window.dispatchEvent(new CustomEvent("omeetso_chat_updated"));
+      window.dispatchEvent(new CustomEvent("omeetso_notifications_changed"));
+    } catch {}
   }, []);
 
   // ── Typing ──
@@ -556,9 +595,14 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
     joinConversation(conversationId);
   }, []);
 
-  const leaveRoom = useCallback((conversationId: string) => {
-    leaveConversation(conversationId);
-  }, []);
+  // ── Online presence check ──
+  const isUserOnline = useCallback(
+    (userId: string) => {
+      if (!userId) return false;
+      return onlineUserIds.has(String(userId));
+    },
+    [onlineUserIds]
+  );
 
   return (
     <ChatContext.Provider
@@ -567,6 +611,8 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
         conversations,
         conversationsLoading,
         conversationsError,
+        onlineUserIds,
+        isUserOnline,
         messages,
         messagesLoading,
         cursors,

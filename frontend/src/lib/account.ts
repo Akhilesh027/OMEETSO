@@ -1,5 +1,12 @@
 // Omeetso Phase 6 — Account, Trust, Safety, Reviews & Support
 import { logoutUserApi, setUserAccessToken } from "@/api/auth.api";
+import {
+  MALE_AVATAR_DATA_URI,
+  FEMALE_AVATAR_DATA_URI,
+  NEUTRAL_AVATAR_DATA_URI,
+  isPhotoUrl,
+  getCleanAvatar
+} from "./avatarSvgs";
 
 export const AK = {
   profile: "omeetso_profile_data",
@@ -70,10 +77,54 @@ export type Profile = {
 };
 
 export const DEFAULT_AVATARS = {
-  male: "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&w=250&h=250&q=85",
-  female: "https://images.unsplash.com/photo-1494790108377-be9c29b29330?auto=format&fit=crop&w=250&h=250&q=85",
-  other: "https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=250&h=250&q=85"
+  male: MALE_AVATAR_DATA_URI,
+  female: FEMALE_AVATAR_DATA_URI,
+  other: NEUTRAL_AVATAR_DATA_URI,
 };
+
+function getStoredActiveLocation(): { area: string; city: string; pincode: string } {
+  if (typeof window === "undefined") return { area: "", city: "Hyderabad", pincode: "500081" };
+  try {
+    const raw = localStorage.getItem("omeetso_selected_location") || localStorage.getItem("omeetso_location");
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      if (parsed && typeof parsed === "object") {
+        return {
+          area: typeof parsed.area === "string" ? parsed.area : "",
+          city: typeof parsed.city === "string" ? parsed.city : "",
+          pincode: typeof parsed.pincode === "string" ? parsed.pincode : "500081"
+        };
+      }
+    }
+  } catch {}
+  return { area: "", city: "Hyderabad", pincode: "500081" };
+}
+
+export function formatLocationDisplay(area?: any, city?: any, pincode?: any): string {
+  try {
+    const raw = typeof window !== "undefined" ? (localStorage.getItem("omeetso_selected_location") || localStorage.getItem("omeetso_location")) : null;
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      if (parsed && typeof parsed === "object" && typeof parsed.area === "string" && parsed.area) {
+        return parsed.pincode && typeof parsed.pincode === "string" && !parsed.area.includes(parsed.pincode)
+          ? `${parsed.area}, ${parsed.pincode}`
+          : parsed.area;
+      }
+    }
+  } catch {}
+
+  const cleanArea = typeof area === "string" ? area.trim() : (area && typeof area === "object" ? String(area.area || area.city || "").trim() : "");
+  const cleanCity = typeof city === "string" ? city.trim() : (city && typeof city === "object" ? String(city.city || city.name || "").trim() : "");
+
+  const isLegacyMadhapur = cleanArea.toLowerCase() === "madhapur" && cleanCity && !cleanCity.toLowerCase().includes("madhapur");
+  const effArea = isLegacyMadhapur ? "" : (cleanArea.toLowerCase() === "madhapur" ? "" : cleanArea);
+
+  if (effArea && cleanCity) {
+    if (cleanCity.toLowerCase().includes(effArea.toLowerCase())) return cleanCity;
+    return `${effArea}, ${cleanCity}`;
+  }
+  return effArea || cleanCity || "Hyderabad";
+}
 
 const DEFAULT_PROFILE: Profile = {
   name: "Omeetso User",
@@ -84,7 +135,7 @@ const DEFAULT_PROFILE: Profile = {
   mobileVerified: false,
   city: "Hyderabad",
   pincode: "500081",
-  area: "Madhapur",
+  area: "",
   language: "en",
   bio: "",
   avatar: DEFAULT_AVATARS.male,
@@ -95,47 +146,87 @@ const DEFAULT_PROFILE: Profile = {
 };
 
 export function getProfile(): Profile {
-  let liveUser: any = null;
-  if (typeof window !== "undefined") {
-    try {
-      const raw = localStorage.getItem("omeetso_user");
-      if (raw) liveUser = JSON.parse(raw);
-    } catch { /* ignore */ }
+  try {
+    const activeLoc = getStoredActiveLocation();
+    let liveUser: any = null;
+    if (typeof window !== "undefined") {
+      try {
+        const raw = localStorage.getItem("omeetso_user");
+        if (raw) liveUser = JSON.parse(raw);
+      } catch { /* ignore */ }
+    }
+
+    const stored = read<Partial<Profile> | null>(AK.profile, null);
+
+    if (liveUser && typeof liveUser === "object") {
+      const normalizedPhone = liveUser.phone && typeof liveUser.phone === "string" ? liveUser.phone.replace(/\D/g, "").slice(-10) : "";
+      const isSameUser = !stored || !stored.mobile || (typeof stored.mobile === "string" && stored.mobile.replace(/\D/g, "").slice(-10) === normalizedPhone);
+      const validStored = isSameUser ? stored : null;
+      const formattedMobile = liveUser.phone && typeof liveUser.phone === "string"
+        ? (liveUser.phone.startsWith("+91") ? liveUser.phone : `+91${liveUser.phone.replace(/\D/g, "").slice(-10)}`)
+        : "";
+
+      let resolvedAvatar =
+        (typeof liveUser.profile?.avatar === "string" ? liveUser.profile.avatar : null) ||
+        (typeof liveUser.avatar === "string" ? liveUser.avatar : null) ||
+        (validStored && typeof validStored.avatar === "string" ? validStored.avatar : null) ||
+        DEFAULT_AVATARS.male;
+
+      if (isPhotoUrl(resolvedAvatar)) {
+        resolvedAvatar = DEFAULT_AVATARS.male;
+      }
+
+      const rawArea = (typeof liveUser.profile?.area === "string" ? liveUser.profile.area : "") ||
+                      (validStored && typeof validStored.area === "string" ? validStored.area : "") ||
+                      activeLoc.area || "";
+      const isLegacyMadhapur = typeof rawArea === "string" && rawArea.toLowerCase() === "madhapur" && activeLoc.area && activeLoc.area.toLowerCase() !== "madhapur";
+      const cleanArea = isLegacyMadhapur ? activeLoc.area : (typeof rawArea === "string" && rawArea.toLowerCase() === "madhapur" ? "" : rawArea);
+      const rawCity = (typeof liveUser.profile?.city === "string" ? liveUser.profile.city : "") ||
+                      (validStored && typeof validStored.city === "string" ? validStored.city : "") ||
+                      activeLoc.city || activeLoc.area || "Hyderabad";
+
+      return {
+        ...DEFAULT_PROFILE,
+        name: (typeof liveUser.profile?.name === "string" && liveUser.profile.name) ||
+              (validStored && typeof validStored.name === "string" && validStored.name) ||
+              (formattedMobile ? `User (${formattedMobile})` : "Omeetso User"),
+        mobile: formattedMobile || (validStored && typeof validStored.mobile === "string" ? validStored.mobile : ""),
+        mobileVerified: Boolean(liveUser.verificationSummary?.mobileVerified ?? true),
+        email: (typeof liveUser.email === "string" ? liveUser.email : "") ||
+               (validStored && typeof validStored.email === "string" ? validStored.email : ""),
+        emailVerified: Boolean(liveUser.emailVerified === true && liveUser.verificationSummary?.emailVerified === true),
+        city: rawCity,
+        pincode: (typeof liveUser.profile?.pincode === "string" ? liveUser.profile.pincode : "") ||
+                 (validStored && typeof validStored.pincode === "string" ? validStored.pincode : "") ||
+                 activeLoc.pincode || "500081",
+        area: cleanArea,
+        avatar: resolvedAvatar,
+        bio: (typeof liveUser.profile?.bio === "string" ? liveUser.profile.bio : "") ||
+             (validStored && typeof validStored.bio === "string" ? validStored.bio : ""),
+        accountType: (liveUser.accountType === "business" || liveUser.accountType === "individual" ? liveUser.accountType : (validStored?.accountType || "individual")),
+        memberSince: liveUser.createdAt ? new Date(liveUser.createdAt).getTime() : (validStored?.memberSince || Date.now()),
+      };
+    }
+
+    if (stored && typeof stored === "object") {
+      let cleanAvatar = (typeof stored.avatar === "string" ? stored.avatar : "") || DEFAULT_AVATARS.male;
+      if (isPhotoUrl(cleanAvatar)) {
+        cleanAvatar = DEFAULT_AVATARS.male;
+      }
+      const rawStoredArea = typeof stored.area === "string" ? stored.area : "";
+      const cleanArea = rawStoredArea.toLowerCase() === "madhapur" ? "" : rawStoredArea;
+      return {
+        ...DEFAULT_PROFILE,
+        ...stored,
+        area: cleanArea || activeLoc.area || "",
+        city: (typeof stored.city === "string" ? stored.city : "") || activeLoc.city || activeLoc.area || "Hyderabad",
+        avatar: cleanAvatar
+      };
+    }
+    return { ...DEFAULT_PROFILE, area: activeLoc.area || "", city: activeLoc.city || activeLoc.area || "Hyderabad", pincode: activeLoc.pincode || "500081" };
+  } catch {
+    return { ...DEFAULT_PROFILE };
   }
-
-  const stored = read<Partial<Profile> | null>(AK.profile, null);
-
-  if (liveUser) {
-    const normalizedPhone = liveUser.phone ? liveUser.phone.replace(/\D/g, "").slice(-10) : "";
-    const isSameUser = !stored || !stored.mobile || stored.mobile.replace(/\D/g, "").slice(-10) === normalizedPhone;
-    const validStored = isSameUser ? stored : null;
-    const formattedMobile = liveUser.phone ? (liveUser.phone.startsWith("+91") ? liveUser.phone : `+91${liveUser.phone.replace(/\D/g, "").slice(-10)}`) : "";
-
-    const resolvedAvatar =
-      liveUser.profile?.avatar ||
-      liveUser.avatar ||
-      validStored?.avatar ||
-      DEFAULT_AVATARS.male;
-
-    return {
-      ...DEFAULT_PROFILE,
-      name: liveUser.profile?.name || validStored?.name || (formattedMobile ? `User (${formattedMobile})` : "Omeetso User"),
-      mobile: formattedMobile || validStored?.mobile || "",
-      mobileVerified: Boolean(liveUser.verificationSummary?.mobileVerified ?? true),
-      email: liveUser.email || validStored?.email || "",
-      emailVerified: Boolean(liveUser.emailVerified === true && liveUser.verificationSummary?.emailVerified === true),
-      city: liveUser.profile?.city || validStored?.city || "Hyderabad",
-      pincode: liveUser.profile?.pincode || validStored?.pincode || "500081",
-      area: liveUser.profile?.area || validStored?.area || "Madhapur",
-      avatar: resolvedAvatar,
-      bio: liveUser.profile?.bio || validStored?.bio || "",
-      accountType: liveUser.accountType || validStored?.accountType || "individual",
-      memberSince: liveUser.createdAt ? new Date(liveUser.createdAt).getTime() : Date.now(),
-    };
-  }
-
-  if (stored) return { ...DEFAULT_PROFILE, ...stored };
-  return DEFAULT_PROFILE;
 }
 export function setProfile(p: Partial<Profile>) {
   const cur = getProfile();

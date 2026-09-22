@@ -282,8 +282,11 @@ function Chats() {
 }
 
 function ChatCard({ t, conv }: { t: ReturnType<typeof conversationToThread>; conv?: ConversationItem }) {
+  const { isUserOnline } = useChatContext();
   const muted = isMuted(t.id);
   const blocked = isBlocked(t.peerId);
+  const peerUserId = conv?.otherParty?.id || t.peerId;
+  const isOnline = peerUserId ? isUserOnline(peerUserId) : false;
 
   const statusChip = (() => {
     if (blocked) return { text: "Blocked", cls: "bg-red-100 text-red-800" };
@@ -303,7 +306,7 @@ function ChatCard({ t, conv }: { t: ReturnType<typeof conversationToThread>; con
             <StoreIcon className="h-2.5 w-2.5" />
           </span>
         )}
-        {t.online && !t.peerType.includes("store") && (
+        {isOnline && !t.peerType.includes("store") && (
           <span className="absolute -right-0.5 -top-0.5 h-3 w-3 rounded-full border-2 border-card bg-emerald-500" />
         )}
       </div>

@@ -3,6 +3,8 @@ import { createPortal } from "react-dom";
 import { MapPin, LocateFixed, Search, X, Loader2, Check, ArrowRight } from "lucide-react";
 import { toast } from "sonner";
 import { fetchAreaFromPincode, detectDeviceLocation } from "@/lib/location";
+import { getUserAccessToken } from "@/api/auth.api";
+import { API_BASE } from "@/config/api";
 
 export function LocationModal({
   open,
@@ -48,6 +50,23 @@ export function LocationModal({
     }
     setCurrentLoc(loc);
     if (onSelect) onSelect(loc);
+
+    // Sync to user profile in MongoDB if authenticated
+    const token = getUserAccessToken();
+    if (token) {
+      fetch(`${API_BASE}/users/me`, {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          city: loc.city || loc.area,
+          pincode: loc.pincode,
+          area: loc.area,
+        }),
+      }).catch(() => {});
+    }
   };
 
   const handleLiveGps = async () => {

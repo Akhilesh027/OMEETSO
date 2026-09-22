@@ -14,6 +14,7 @@ import { startConversationApi } from "@/api/chat.api";
 import { getUserAccessToken } from "@/api/auth.api";
 import { getSeller, productsBySeller } from "@/lib/mock";
 import { listListings } from "@/lib/listings";
+import { getCleanAvatar, MALE_AVATAR_DATA_URI } from "@/lib/avatarSvgs";
 
 export const Route = createFileRoute("/seller/$id")({
   loader: async ({ params }) => {
@@ -365,9 +366,9 @@ function SellerPage() {
             <div className="relative">
               {currentSeller.avatar ? (
                 <img
-                  src={currentSeller.avatar}
+                  src={getCleanAvatar(currentSeller.avatar, "male")}
                   alt={currentSeller.name}
-                  className="h-16 w-16 rounded-full object-cover shadow-sm"
+                  className="h-16 w-16 rounded-full object-cover shadow-sm bg-slate-50"
                   onError={(e) => { (e.target as HTMLElement).style.display = "none"; }}
                 />
               ) : null}

@@ -7,6 +7,8 @@ import {
   deleteSavedLocation,
   getPublicProfile,
   getAdminUsersList,
+  updateUserAdmin,
+  deleteUserAdmin,
   deleteMyAccount
 } from "../controllers/users.controller";
 import { authenticateUser } from "../../../middleware/authenticateUser";
@@ -14,6 +16,8 @@ import { authenticateUser } from "../../../middleware/authenticateUser";
 export const usersRouter = Router();
 
 usersRouter.get("/admin/all", getAdminUsersList);
+usersRouter.patch("/admin/:userId", updateUserAdmin);
+usersRouter.delete("/admin/:userId", deleteUserAdmin);
 
 usersRouter.get("/me", authenticateUser, getMyProfile);
 usersRouter.patch("/me", authenticateUser, updateMyProfile);

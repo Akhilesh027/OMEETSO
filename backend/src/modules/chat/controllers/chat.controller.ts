@@ -801,3 +801,65 @@ export async function getOfferById(req: AuthenticatedUserRequest, res: Response,
     next(error);
   }
 }
+
+export async function markConversationAsRead(req: AuthenticatedUserRequest, res: Response, next: NextFunction): Promise<void> {
+  try {
+    if (!req.user) {
+      res.status(401).json({ success: false, error: { code: "UNAUTHORIZED", message: "User required" } });
+      return;
+    }
+
+    const conversationId = String(req.params.conversationId);
+    const userId = req.user._id;
+
+    if (!mongoose.Types.ObjectId.isValid(conversationId)) {
+      res.status(404).json({ success: false, error: { code: "NOT_FOUND", message: "Conversation not found" } });
+      return;
+    }
+
+    const conv = await Conversation.findById(conversationId);
+    if (!conv) {
+      res.status(404).json({ success: false, error: { code: "NOT_FOUND", message: "Conversation not found" } });
+      return;
+    }
+
+    // Reset unread count for current user
+    conv.unreadCounts = (conv.unreadCounts || []).map((uc) => {
+      if (uc.userId.toString() === userId.toString()) {
+        return { userId: uc.userId, count: 0 };
+      }
+      return uc;
+    }) as any;
+    await conv.save();
+
+    // Mark messages in conversation as read
+    await Message.updateMany(
+      { conversationId: conv._id, senderId: { $ne: userId }, status: { $ne: "READ" } },
+      { $set: { status: "READ", readAt: new Date() } }
+    );
+
+    // Also mark chat_message notifications for this conversation as read
+    await Notification.updateMany(
+      { userId, type: "chat_message", link: { $regex: conversationId } },
+      { $set: { isRead: true, readAt: new Date() } }
+    ).catch(() => {});
+
+    // Broadcast read receipt via Socket.IO
+    const io = getIO();
+    if (io) {
+      conv.participantIds.forEach((pId) => {
+        if (pId.toString() !== userId.toString()) {
+          io.to(`user:${pId.toString()}`).emit("message:read", {
+            conversationId,
+            readByUserId: userId.toString(),
+            readAt: new Date()
+          });
+        }
+      });
+    }
+
+    res.status(200).json({ success: true, data: { message: "Conversation marked as read" } });
+  } catch (error) {
+    next(error);
+  }
+}

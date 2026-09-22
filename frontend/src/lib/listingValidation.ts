@@ -24,12 +24,13 @@ export function validateBasic(l: Partial<Listing>): Validation {
   return { ok: Object.keys(errors).length === 0, errors, summary };
 }
 
-export function validateMedia(l: Partial<Listing>): Validation {
+export function validateMedia(l: Partial<Listing>, minImages = 3): Validation {
   const errors: Record<string, string> = {};
   const summary: string[] = [];
-  if (!l.images || l.images.length === 0) {
-    errors.images = "Add at least one photo";
-    summary.push("At least one photo is required");
+  const count = l.images?.length || 0;
+  if (!l.images || count < minImages) {
+    errors.images = `Add at least ${minImages} photos (${count}/${minImages} uploaded)`;
+    summary.push(`At least ${minImages} photos are required (${count}/${minImages} uploaded)`);
   }
   return { ok: Object.keys(errors).length === 0, errors, summary };
 }

@@ -79,6 +79,8 @@ function Conversation() {
     conversations,
     conversationsLoading,
     fetchConversationById,
+    onlineUserIds,
+    isUserOnline,
     messages: messagesMap,
     messagesLoading,
     hasMore,
@@ -147,6 +149,12 @@ function Conversation() {
     bottomRef.current?.scrollIntoView({ behavior: "smooth", block: "end" });
   }, [messages.length]);
 
+  const isPeerOnline = Boolean(
+    conversation?.otherParty?.id
+      ? isUserOnline(conversation.otherParty.id)
+      : false
+  );
+
   // Build a pseudo-thread from conversation data for UI compatibility
   const thread: Thread | null = conversation
     ? {
@@ -158,7 +166,7 @@ function Conversation() {
         peerName: conversation.otherParty?.name || "Omeetso User",
         peerAvatar: conversation.otherParty?.avatar,
         peerVerified: false,
-        online: false,
+        online: isPeerOnline,
         lastActive: undefined,
         createdAt: new Date(conversation.lastMessageAt || Date.now()).getTime(),
         updatedAt: new Date(conversation.lastMessageAt || Date.now()).getTime(),
@@ -351,26 +359,39 @@ function Conversation() {
 
             <Link
               to={thread.peerType === "store" ? "/store/$id" : "/seller/$id"}
-              params={{ id: thread.peerId }}
+              params={{ id: String(thread.peerId || "u_seller") }}
               onClick={(e) => {
                 e.stopPropagation();
               }}
               className="flex min-w-0 flex-1 items-center gap-2.5 rounded-xl px-1 py-1 hover:bg-secondary/40 transition-colors"
             >
-              {thread.peerAvatar ? (
-                <img src={thread.peerAvatar} alt="" className="h-9 w-9 rounded-full object-cover shrink-0" />
-              ) : (
-                <span className="grid h-9 w-9 place-items-center rounded-full bg-secondary text-muted-foreground shrink-0">
-                  <UserCircle2 className="h-5 w-5" />
-                </span>
-              )}
+              <div className="relative shrink-0">
+                {thread.peerAvatar ? (
+                  <img src={thread.peerAvatar} alt="" className="h-9 w-9 rounded-full object-cover shrink-0" />
+                ) : (
+                  <span className="grid h-9 w-9 place-items-center rounded-full bg-secondary text-muted-foreground shrink-0">
+                    <UserCircle2 className="h-5 w-5" />
+                  </span>
+                )}
+                {isPeerOnline && thread.peerType !== "store" && (
+                  <span className="absolute -right-0.5 -top-0.5 h-2.5 w-2.5 rounded-full border-2 border-card bg-emerald-500" />
+                )}
+              </div>
               <div className="min-w-0">
                 <div className="flex items-center gap-1">
                   <p className="truncate text-sm font-bold">{thread.peerName}</p>
                   {thread.peerVerified && <BadgeCheck className="h-3.5 w-3.5 text-primary shrink-0" aria-label="Verified" />}
                 </div>
                 <p className="truncate text-[11px] text-muted-foreground">
-                  {blocked ? "Blocked" : isTyping ? "typing..." : connectionStatus === "connected" ? "Online" : "Offline"}
+                  {blocked
+                    ? "Blocked"
+                    : isTyping
+                      ? "typing..."
+                      : thread.peerType === "store"
+                        ? "Verified Store"
+                        : isPeerOnline
+                          ? "Online"
+                          : "Offline"}
                 </p>
               </div>
             </Link>
@@ -780,9 +801,9 @@ function MoreMenu({
     <BottomSheet open={open} onClose={onClose} title="Chat options">
       <div className="grid grid-cols-1 gap-1">
         <Row icon={UserCircle2} label={thread.peerType === "store" ? "View store" : "View seller profile"}
-          to={thread.peerType === "store" ? "/store/$id" : "/seller/$id"} params={{ id: thread.peerId }} onNav={onClose} />
-        {!isJob && !isService && (
-          <Row icon={Package} label="View product" to="/product/$id" params={{ id: thread.productId }} onNav={onClose} />
+          to={thread.peerType === "store" ? "/store/$id" : "/seller/$id"} params={{ id: String(thread.peerId || "u_seller") }} onNav={onClose} />
+        {!isJob && !isService && thread.productId && (
+          <Row icon={Package} label="View product" to="/product/$id" params={{ id: String(thread.productId) }} onNav={onClose} />
         )}
         <Row icon={Search} label="Search in conversation" onClick={() => { toast("Message search coming soon"); onClose(); }} />
         {muted ? (

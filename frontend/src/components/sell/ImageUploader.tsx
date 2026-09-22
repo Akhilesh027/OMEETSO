@@ -3,6 +3,8 @@ import { Camera, ImagePlus, Trash2, Star, ArrowLeft, ArrowRight, Loader2, AlertT
 import { cn } from "@/lib/utils";
 import { ProductWatermark, applyInfinityWatermarkToDataUrl } from "@/components/omeetso/Watermark";
 
+import { compressImageForUpload, uploadImageToCloudinary, uploadVideoToCloudinary } from "@/lib/upload";
+
 const ACCEPTED = ["image/jpeg", "image/jpg", "image/png", "image/webp"];
 const MAX_SIZE = 10 * 1024 * 1024; // 10MB
 const MAX_IMAGES = 10;
@@ -16,6 +18,7 @@ export function ImageUploader({
   onChange,
   onCover,
   onVideoUrlChange,
+  min = 3,
   max = MAX_IMAGES,
 }: {
   images: string[];
@@ -24,6 +27,7 @@ export function ImageUploader({
   onChange: (imgs: string[]) => void;
   onCover: (i: number) => void;
   onVideoUrlChange?: (v: string) => void;
+  min?: number;
   max?: number;
 }) {
   const inputRef = useRef<HTMLInputElement>(null);
@@ -32,10 +36,13 @@ export function ImageUploader({
   const [uploading, setUploading] = useState(false);
   const [uploadingVideo, setUploadingVideo] = useState(false);
   const [errors, setErrors] = useState<UploadError[]>([]);
+  const imagesRef = useRef(images);
+  imagesRef.current = images;
 
   async function addFiles(files: FileList | null) {
     if (!files) return;
-    const room = max - images.length;
+    const currentImgs = imagesRef.current;
+    const room = max - currentImgs.length;
     if (room <= 0) {
       setErrors([{ file: "", reason: `Maximum ${max} images reached` }]);
       return;
@@ -50,19 +57,48 @@ export function ImageUploader({
     }
     setErrors(errs);
     if (accepted.length === 0) return;
+    
     setUploading(true);
     try {
-      const processed = await Promise.all(
+      // 1. Instant client-side compression (reduces 10MB to ~150KB in milliseconds)
+      const compressedList = await Promise.all(
         accepted.map(async (f) => {
-          return await new Promise<string>((resolve, reject) => {
-            const reader = new FileReader();
-            reader.onload = () => resolve(String(reader.result));
-            reader.onerror = reject;
-            reader.readAsDataURL(f);
-          });
+          try {
+            return await compressImageForUpload(f, 1280, 0.82);
+          } catch {
+            return await new Promise<string>((res) => {
+              const r = new FileReader();
+              r.onload = () => res(String(r.result));
+              r.onerror = () => res("");
+              r.readAsDataURL(f);
+            });
+          }
         })
       );
-      onChange([...images, ...processed]);
+
+      const validCompressed = compressedList.filter(Boolean);
+      if (validCompressed.length === 0) return;
+
+      // 2. Instantly update UI so user sees previews without any delay
+      const updatedList = [...imagesRef.current, ...validCompressed];
+      onChange(updatedList);
+
+      // 3. Proactively upload to Cloudinary in background while user types details
+      validCompressed.forEach((dataUrl) => {
+        uploadImageToCloudinary(dataUrl, "listings")
+          .then((remoteUrl) => {
+            if (remoteUrl && remoteUrl.startsWith("http")) {
+              const current = imagesRef.current;
+              const idx = current.indexOf(dataUrl);
+              if (idx !== -1) {
+                const copy = [...current];
+                copy[idx] = remoteUrl;
+                onChange(copy);
+              }
+            }
+          })
+          .catch(() => {});
+      });
     } catch {
       // Fallback
     } finally {
@@ -70,7 +106,7 @@ export function ImageUploader({
     }
   }
 
-  function handleVideoFile(files: FileList | null) {
+  async function handleVideoFile(files: FileList | null) {
     if (!files || files.length === 0) return;
     const file = files[0];
     if (!file.type.startsWith("video/")) {
@@ -84,10 +120,21 @@ export function ImageUploader({
 
     setUploadingVideo(true);
     const reader = new FileReader();
-    reader.onload = () => {
+    reader.onload = async () => {
       const dataUrl = String(reader.result);
       onVideoUrlChange?.(dataUrl);
-      setUploadingVideo(false);
+      
+      // Background upload to Cloudinary
+      try {
+        const remoteUrl = await uploadVideoToCloudinary(dataUrl, "listing_videos");
+        if (remoteUrl && remoteUrl.startsWith("http")) {
+          onVideoUrlChange?.(remoteUrl);
+        }
+      } catch {
+        // keep local preview
+      } finally {
+        setUploadingVideo(false);
+      }
     };
     reader.onerror = () => {
       setErrors([{ file: file.name, reason: "Failed to read video file" }]);
@@ -112,11 +159,23 @@ export function ImageUploader({
     if (cover >= next.length) onCover(Math.max(0, next.length - 1));
   }
 
+  const remaining = Math.max(0, min - images.length);
+
   return (
     <section aria-label="Photos" className="space-y-3">
       <div className="flex items-center justify-between">
-        <div className="text-sm font-semibold">
-          Photos <span className="text-muted-foreground">({images.length} of {max})</span>
+        <div className="flex items-center gap-2">
+          <div className="text-sm font-semibold">
+            Photos <span className="text-muted-foreground font-normal">({images.length} of {max})</span>
+          </div>
+          <span className={cn(
+            "text-[10px] font-bold px-2 py-0.5 rounded-full uppercase tracking-wider",
+            images.length < min
+              ? "bg-amber-500/15 text-amber-600 dark:text-amber-400 border border-amber-500/30"
+              : "bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30"
+          )}>
+            {images.length < min ? `Min ${min} required (${remaining} more)` : `✓ ${images.length} added`}
+          </span>
         </div>
         {uploading && (
           <span className="inline-flex items-center gap-1 text-xs text-muted-foreground" aria-live="polite">
@@ -268,12 +327,12 @@ export function ImageUploader({
         />
       </div>
 
-      <div className="rounded-xl bg-secondary/60 p-3 text-[11px] text-muted-foreground">
-        <p className="font-semibold text-foreground">Photo tips</p>
-        <ul className="ml-4 mt-1 list-disc space-y-0.5">
-          <li>Use clear, well-lit photographs</li>
-          <li>Show the complete product from different angles</li>
-          <li>Avoid phone numbers or promotional text in images</li>
+      <div className="rounded-xl bg-secondary/60 p-3 text-[11px] text-muted-foreground space-y-1">
+        <p className="font-semibold text-foreground">Photo requirements & tips</p>
+        <ul className="ml-4 list-disc space-y-0.5">
+          <li className="text-foreground font-medium">Upload a <strong>minimum of 3–4 photos</strong> (front, back, details, accessories)</li>
+          <li>Clear, well-lit photos get 3x faster buyer responses and instant approval</li>
+          <li>Avoid phone numbers, watermarks, or promotional text in images</li>
         </ul>
       </div>
     </section>

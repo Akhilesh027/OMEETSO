@@ -115,16 +115,24 @@ export default function UsersListPage() {
     showSuccess("Verification Status Updated", `Updated ${field} status for user.`);
   };
 
-  const handleStatusChange = () => {
+  const handleStatusChange = async () => {
     if (!selectedUser) return;
     const updated = MockDataService.updateUserStatus(selectedUser.id, targetStatus, statusReason);
     setUsers(updated);
     setIsStatusOpen(false);
     setStatusReason("");
     showSuccess("User Status Updated", `User status changed to ${targetStatus}.`);
+
+    try {
+      await fetch(`${API_BASE}/users/admin/${selectedUser.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ status: targetStatus }),
+      });
+    } catch {}
   };
 
-  const handleSaveUser = (e: React.FormEvent) => {
+  const handleSaveUser = async (e: React.FormEvent) => {
     e.preventDefault();
     if (isAddOpen) {
       const updated = MockDataService.addUser(formData);
@@ -136,15 +144,29 @@ export default function UsersListPage() {
       setUsers(updated);
       setIsEditOpen(false);
       showSuccess("User Updated", "User details saved successfully.");
+
+      try {
+        await fetch(`${API_BASE}/users/admin/${selectedUser.id}`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(formData),
+        });
+      } catch {}
     }
     setFormData({});
   };
 
-  const handleDeleteUser = (targetUserId: string) => {
+  const handleDeleteUser = async (targetUserId: string) => {
     if (window.confirm("Are you sure you want to delete this user record permanently?")) {
       const updated = MockDataService.deleteUser(targetUserId);
       setUsers(updated);
       showSuccess("User Deleted", "User record permanently removed.");
+
+      try {
+        await fetch(`${API_BASE}/users/admin/${targetUserId}`, {
+          method: "DELETE",
+        });
+      } catch {}
     }
   };
 
@@ -266,8 +288,8 @@ export default function UsersListPage() {
                       </span>
                     </td>
                     <td className="p-3 text-[#111827]">
-                      <div>{u.city}</div>
-                      <div className="text-[10px] text-slate-400">PIN: {u.pincode}</div>
+                      <div>{u.city || "Hyderabad"}</div>
+                      <div className="text-[10px] text-slate-400">PIN: {u.pincode || "500081"}</div>
                     </td>
                     <td className="p-3 space-y-1">
                       <button
@@ -381,7 +403,7 @@ export default function UsersListPage() {
               </div>
               <div className="grid grid-cols-2 gap-2 border border-[#E2E8F0] p-3 rounded-xl">
                 <div>Account Type: <span className="font-bold text-[#111827] capitalize">{selectedUser.accountType}</span></div>
-                <div>City / PIN: <span className="font-bold text-[#111827]">{selectedUser.city} ({selectedUser.pincode})</span></div>
+                <div>City / PIN: <span className="font-bold text-[#111827]">{selectedUser.city || "Hyderabad"} ({selectedUser.pincode || "500081"})</span></div>
                 <div>Active Listings: <span className="font-bold text-[#111827]">{selectedUser.listingsCount}</span></div>
                 <div>Registered Stores: <span className="font-bold text-[#111827]">{selectedUser.storesCount}</span></div>
                 <div>Reports Received: <span className="font-bold text-[#DC3545]">{selectedUser.reportsReceived}</span></div>
@@ -448,7 +470,7 @@ export default function UsersListPage() {
                   />
                 </div>
               </div>
-              <div className="grid grid-cols-2 gap-2">
+              <div className="grid grid-cols-3 gap-2">
                 <div>
                   <label className="block font-bold text-[#111827] mb-1">Account Type</label>
                   <select
@@ -466,6 +488,17 @@ export default function UsersListPage() {
                     type="text"
                     value={formData.city || "Hyderabad"}
                     onChange={(e) => setFormData({ ...formData, city: e.target.value })}
+                    className="w-full p-2.5 rounded-xl border border-[#E2E8F0] bg-[#F5F7FC] focus:outline-none"
+                  />
+                </div>
+                <div>
+                  <label className="block font-bold text-[#111827] mb-1">Pincode</label>
+                  <input
+                    type="text"
+                    maxLength={6}
+                    value={formData.pincode || ""}
+                    onChange={(e) => setFormData({ ...formData, pincode: e.target.value.replace(/\D/g, "").slice(0, 6) })}
+                    placeholder="500081"
                     className="w-full p-2.5 rounded-xl border border-[#E2E8F0] bg-[#F5F7FC] focus:outline-none"
                   />
                 </div>

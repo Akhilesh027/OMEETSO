@@ -8,6 +8,17 @@ import { Message } from "../modules/chat/models/Message";
 import { Conversation } from "../modules/chat/models/Conversation";
 
 let io: Server | null = null;
+const onlineUsers = new Map<string, Set<string>>();
+
+export function isUserOnline(userId: string): boolean {
+  if (!userId) return false;
+  const sockets = onlineUsers.get(userId);
+  return Boolean(sockets && sockets.size > 0);
+}
+
+export function getOnlineUserIds(): string[] {
+  return Array.from(onlineUsers.keys());
+}
 
 export function initSocketServer(httpServer: HttpServer): Server {
   io = new Server(httpServer, {
@@ -59,7 +70,6 @@ export function initSocketServer(httpServer: HttpServer): Server {
 
     if (isAdmin) {
       console.log(`[Socket] Admin connected: ${adminId}`);
-      // Join admin monitoring room automatically or on demand
       socket.join("admin:monitoring");
 
       socket.on("admin:join_monitoring", () => {
@@ -80,8 +90,36 @@ export function initSocketServer(httpServer: HttpServer): Server {
 
     if (!userId) return;
 
-    // Join Personal User Room for notifications
+    // Track User Online Presence
+    const userSockets = onlineUsers.get(userId) || new Set<string>();
+    const isFirstConnection = userSockets.size === 0;
+    userSockets.add(socket.id);
+    onlineUsers.set(userId, userSockets);
+
+    // Join Personal User Room for direct notifications & messages
     socket.join(`user:${userId}`);
+
+    // Send initial list of currently online user IDs to the connected client
+    socket.emit("presence:initial", { onlineUserIds: Array.from(onlineUsers.keys()) });
+
+    // If newly online, broadcast to all clients
+    if (isFirstConnection) {
+      io?.emit("presence:status", { userId, online: true, lastSeen: Date.now() });
+    }
+
+    // Client presence check query
+    socket.on("presence:query", ({ userIds }: { userIds: string[] }, callback?: (res: any) => void) => {
+      const response: Record<string, boolean> = {};
+      if (Array.isArray(userIds)) {
+        userIds.forEach((id) => {
+          response[id] = isUserOnline(id);
+        });
+      }
+      if (typeof callback === "function") {
+        callback(response);
+      }
+      socket.emit("presence:query:result", response);
+    });
 
     // Join Specific Conversation Room
     socket.on("conversation:join", ({ conversationId }: { conversationId: string }) => {
@@ -165,7 +203,14 @@ export function initSocketServer(httpServer: HttpServer): Server {
     });
 
     socket.on("disconnect", () => {
-      // Clean disconnect
+      const currentSockets = onlineUsers.get(userId);
+      if (currentSockets) {
+        currentSockets.delete(socket.id);
+        if (currentSockets.size === 0) {
+          onlineUsers.delete(userId);
+          io?.emit("presence:status", { userId, online: false, lastSeen: Date.now() });
+        }
+      }
     });
   });
 

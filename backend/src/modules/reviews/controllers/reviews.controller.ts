@@ -2,6 +2,7 @@ import { Request, Response, NextFunction } from "express";
 import { Review } from "../models/Review";
 import { Store } from "../../stores/models/Store";
 import { User } from "../../users/models/User";
+import { MALE_AVATAR_DATA_URI, getCleanAvatar } from "../../../utils/avatarSvgs";
 import mongoose from "mongoose";
 
 export async function createReview(req: Request, res: Response, next: NextFunction): Promise<void> {
@@ -9,7 +10,7 @@ export async function createReview(req: Request, res: Response, next: NextFuncti
     const { targetId, targetType, rating, comment, tags, listingId, buyerName } = req.body;
     const buyerId = (req as any).user?._id || new mongoose.Types.ObjectId();
     const finalBuyerName = buyerName || (req as any).user?.profile?.name || "Verified Buyer";
-    const buyerAvatar = (req as any).user?.profile?.avatar || "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=150";
+    const buyerAvatar = getCleanAvatar((req as any).user?.profile?.avatar, "male");
 
     if (!targetId || !targetType || !rating || !comment) {
       res.status(400).json({ success: false, error: { message: "targetId, targetType, rating and comment are required." } });

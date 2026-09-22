@@ -9,6 +9,7 @@ import { MobileFrame } from "@/components/omeetso/MobileFrame";
 import { ServiceCard } from "@/components/omeetso/services/ServiceCard";
 import { BookServiceModal } from "@/components/omeetso/services/BookServiceModal";
 import { fetchServiceById, ServiceItem, toggleSaveServiceLocal, getSavedServiceIds } from "@/lib/services";
+import { getCleanAvatar } from "@/lib/avatarSvgs";
 import { toast } from "sonner";
 
 export const Route = createFileRoute("/service/$id")({
@@ -193,9 +194,9 @@ function ServiceDetailPage() {
           <div className="rounded-[28px] border border-border bg-card p-5 sm:p-6 shadow-sm flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
             <div className="flex items-center gap-3.5">
               <img
-                src={service.avatar || "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=200&auto=format&fit=crop&q=80"}
+                src={getCleanAvatar(service.avatar, "male")}
                 alt=""
-                className="h-14 w-14 rounded-2xl object-cover border-2 border-border shrink-0"
+                className="h-14 w-14 rounded-2xl object-cover border-2 border-border shrink-0 bg-slate-50"
               />
               <div>
                 <div className="flex items-center gap-1.5">

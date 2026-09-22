@@ -78,7 +78,7 @@ export function SellerSummary({
 
       <Link
         to="/seller/$id"
-        params={{ id: seller.id }}
+        params={{ id: String(seller.id || "u_seller") }}
         className="flex items-start gap-3.5 group"
       >
         <div className="relative h-13 w-13 shrink-0">
@@ -143,7 +143,7 @@ export function SellerSummary({
 
         <Link
           to="/seller/$id"
-          params={{ id: seller.id }}
+          params={{ id: String(seller.id || "u_seller") }}
           className="group inline-flex items-center gap-1 text-primary font-extrabold text-xs hover:underline"
         >
           <span>View Profile</span>

@@ -60,7 +60,7 @@ function FollowingPage() {
                 <Link
                   key={s.id}
                   to="/seller/$id"
-                  params={{ id: s.id }}
+                  params={{ id: String(s.id || "u_seller") }}
                   className="flex items-center justify-between gap-3 rounded-2xl border border-border bg-card p-3.5 shadow-sm hover:border-indigo-brand/30 transition-all"
                 >
                   <div className="flex items-center gap-3 min-w-0 flex-1">

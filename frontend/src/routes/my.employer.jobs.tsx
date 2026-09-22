@@ -203,11 +203,11 @@ function EmployerJobsDashboardPage() {
     if (!token) {
       pushNotification({
         id: `job-app-status-${appId}-${Date.now()}`,
-        category: "system",
+        category: "job_application",
         title: `Application Status Updated: ${target?.job?.title || "Job Application"}`,
         body: `Your application status for "${target?.job?.title || "Position"}" was updated to ${nextStatus}.`,
         destination: "/my/jobs",
-        destinationLabel: "View Status",
+        destinationLabel: "View Job Application",
         read: false,
         time: Date.now(),
       });
@@ -286,11 +286,11 @@ function EmployerJobsDashboardPage() {
       if (!token) {
         pushNotification({
           id: `job-interview-${scheduleModalApp.id}-${Date.now()}`,
-          category: "system",
+          category: "job_application",
           title: `Interview Scheduled: ${scheduleModalApp.job?.title || "Job Application"}`,
           body: `Interview scheduled on ${interviewForm.date || "scheduled date"} at ${interviewForm.time || "scheduled time"}.`,
           destination: "/my/jobs",
-          destinationLabel: "View Details",
+          destinationLabel: "View Job Application",
           read: false,
           time: Date.now(),
         });

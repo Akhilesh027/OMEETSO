@@ -175,10 +175,26 @@ export async function getPublicStores(req: Request, res: Response, next: NextFun
 export async function getStoreById(req: Request, res: Response, next: NextFunction): Promise<void> {
   try {
     const storeId = (req.params.storeId || req.params.id) as string;
-    const isObjectId = /^[0-9a-fA-F]{24}$/.test(storeId);
-    const store = isObjectId
-      ? await Store.findById(storeId).lean()
-      : await Store.findOne({ $or: [{ slug: storeId }, { name: new RegExp(`^${storeId}$`, "i") }] }).lean();
+    const isObjectId = /^[0-9a-fA-F]{24}$/.test(storeId || "");
+    let store: any = null;
+    if (isObjectId) {
+      store = await Store.findById(storeId).lean();
+    }
+    if (!store && storeId) {
+      try {
+        store = await Store.findOne({
+          $or: [
+            ...(isObjectId ? [{ _id: new mongoose.Types.ObjectId(storeId) }] : []),
+            { slug: storeId },
+            { customId: storeId },
+            { id: storeId },
+            { name: new RegExp(`^${escapeRegex(storeId)}$`, "i") }
+          ]
+        }).lean();
+      } catch {
+        // Fallback
+      }
+    }
 
     if (!store) {
       res.status(404).json({ success: false, error: { code: "NOT_FOUND", message: "Store not found" } });

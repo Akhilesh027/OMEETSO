@@ -259,8 +259,9 @@ function QuickSellPage() {
   const handleSubmit = async (e?: React.FormEvent) => {
     if (e && typeof e.preventDefault === "function") e.preventDefault();
 
-    if (!data.images || data.images.length === 0) {
-      toast.error("Please upload at least 1 product image");
+    const imgCount = data.images?.length || 0;
+    if (!data.images || imgCount < 3) {
+      toast.error(`Please upload at least 3 product images (${imgCount}/3 uploaded)`);
       return;
     }
     if (!data.title || data.title.trim().length < 3) {

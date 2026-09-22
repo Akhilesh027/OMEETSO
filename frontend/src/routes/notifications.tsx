@@ -153,7 +153,20 @@ function NotifList() {
     markRead(n.id, true);
 
     // 3. Navigate to destination route or notification detail
-    const targetLink = n.link || `/notifications/${n.id}`;
+    let targetLink = n.link || `/notifications/${n.id}`;
+    const isJob = n.type === "job_application" || n.type === "jobs" || n.title?.toLowerCase().includes("job") || n.body?.toLowerCase().includes("application");
+
+    // Fix: Job application notifications must open the candidate applications view / job details, never the profile builder
+    if (isJob && (
+      targetLink.startsWith("/notifications/") ||
+      targetLink.includes("/account/profile/jobs") ||
+      targetLink.includes("/my/profile/jobs") ||
+      targetLink === "/account" ||
+      targetLink === "/profile" ||
+      targetLink === "/account/jobs"
+    )) {
+      targetLink = "/my/jobs";
+    }
 
     if (targetLink.startsWith("/chat/")) {
       const id = targetLink.replace("/chat/", "");
@@ -167,6 +180,20 @@ function NotifList() {
     } else if (targetLink.startsWith("/store/")) {
       const id = targetLink.replace("/store/", "");
       nav({ to: "/store/$id", params: { id } });
+    } else if (targetLink.startsWith("/job/")) {
+      const id = targetLink.replace("/job/", "").split("?")[0].split("#")[0];
+      nav({ to: "/job/$id", params: { id } });
+    } else if (targetLink.startsWith("/my/employer/jobs")) {
+      nav({ to: "/my/employer/jobs" });
+    } else if (targetLink.startsWith("/my/jobs")) {
+      try {
+        const urlObj = new URL(targetLink, "http://localhost");
+        const searchId = urlObj.searchParams.get("id") || urlObj.searchParams.get("jobId") || undefined;
+        const searchTab = (urlObj.searchParams.get("tab") as any) || undefined;
+        nav({ to: "/my/jobs", search: { id: searchId, tab: searchTab } as any });
+      } catch {
+        nav({ to: "/my/jobs" as any });
+      }
     } else if (targetLink.startsWith("/notifications/")) {
       const id = targetLink.replace("/notifications/", "");
       nav({ to: "/notifications/$id", params: { id } });

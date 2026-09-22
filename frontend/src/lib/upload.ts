@@ -1,17 +1,27 @@
 import { getUserAccessToken } from "@/api/auth.api";
 import { API_BASE } from "@/config/api";
 
+// In-memory upload promise cache to prevent redundant uploads and allow seamless background uploading
+const uploadPromiseCache = new Map<string, Promise<string>>();
+
 /**
  * Fast client-side canvas compression to reduce multi-MB photos down to ~100-200KB before upload,
  * radically speeding up listing publishing and network transfer.
  */
-async function compressImageForUpload(dataUrlOrFile: string | File, maxDim = 1280, quality = 0.82): Promise<string> {
+export async function compressImageForUpload(dataUrlOrFile: string | File, maxDim = 1280, quality = 0.82): Promise<string> {
   return new Promise<string>((resolve) => {
     try {
       if (typeof window === "undefined") {
         return resolve(typeof dataUrlOrFile === "string" ? dataUrlOrFile : "");
       }
+
+      // If already a remote URL, no compression needed
+      if (typeof dataUrlOrFile === "string" && (dataUrlOrFile.startsWith("http://") || dataUrlOrFile.startsWith("https://"))) {
+        return resolve(dataUrlOrFile);
+      }
+
       const img = new Image();
+      img.crossOrigin = "anonymous";
       img.onload = () => {
         try {
           let { width, height } = img;
@@ -37,6 +47,7 @@ async function compressImageForUpload(dataUrlOrFile: string | File, maxDim = 128
         }
       };
       img.onerror = () => resolve(typeof dataUrlOrFile === "string" ? dataUrlOrFile : "");
+
       if (typeof dataUrlOrFile === "string") {
         img.src = dataUrlOrFile;
       } else {
@@ -57,36 +68,53 @@ export async function uploadImageToCloudinary(fileOrBase64: File | string, purpo
     return fileOrBase64;
   }
 
-  // Fast client-side compression before network transmission
-  const compressedBase64 = await compressImageForUpload(fileOrBase64, 1280, 0.82);
-  const base64String = compressedBase64 || (typeof fileOrBase64 === "string" ? fileOrBase64 : "");
-
-  if (!base64String) return "";
-
-  const token = typeof window !== "undefined" ? (getUserAccessToken() || localStorage.getItem("omeetso_user_token")) : null;
-  try {
-    const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 8000); // 8s timeout per image
-
-    const res = await fetch(`${API_BASE}/uploads/direct`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        ...(token ? { Authorization: `Bearer ${token}` } : {})
-      },
-      signal: controller.signal,
-      body: JSON.stringify({ image: base64String, purpose })
-    });
-    clearTimeout(timeout);
-    const json = await res.json();
-    if (json.success && json.data?.url) {
-      return json.data.url;
-    }
-  } catch (err) {
-    console.warn("Cloudinary upload fallback:", err);
+  // Check upload cache if string identifier exists
+  const cacheKey = typeof fileOrBase64 === "string" ? fileOrBase64.slice(0, 200) + fileOrBase64.length : null;
+  if (cacheKey && uploadPromiseCache.has(cacheKey)) {
+    return uploadPromiseCache.get(cacheKey)!;
   }
 
-  return base64String;
+  const uploadTask = (async () => {
+    // Fast client-side compression before network transmission
+    const compressedBase64 = await compressImageForUpload(fileOrBase64, 1280, 0.82);
+    const base64String = compressedBase64 || (typeof fileOrBase64 === "string" ? fileOrBase64 : "");
+
+    if (!base64String) return "";
+    if (base64String.startsWith("http://") || base64String.startsWith("https://")) {
+      return base64String;
+    }
+
+    const token = typeof window !== "undefined" ? (getUserAccessToken() || localStorage.getItem("omeetso_user_token")) : null;
+    try {
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), 10000); // 10s max timeout per image
+
+      const res = await fetch(`${API_BASE}/uploads/direct`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          ...(token ? { Authorization: `Bearer ${token}` } : {})
+        },
+        signal: controller.signal,
+        body: JSON.stringify({ image: base64String, purpose })
+      });
+      clearTimeout(timeout);
+      const json = await res.json();
+      if (json.success && json.data?.url) {
+        return json.data.url;
+      }
+    } catch (err) {
+      console.warn("Cloudinary upload fallback:", err);
+    }
+
+    return base64String;
+  })();
+
+  if (cacheKey) {
+    uploadPromiseCache.set(cacheKey, uploadTask);
+  }
+
+  return uploadTask;
 }
 
 export async function uploadVideoToCloudinary(fileOrBase64: File | string, purpose = "listing_videos"): Promise<string> {

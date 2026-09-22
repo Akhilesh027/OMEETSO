@@ -13,8 +13,9 @@ import {
 import {
   getProfile, setProfile, completionPct, unreadCount, subscribeAccount,
   getBusinessProfile, getVerifications, getTrustScore, logout, logoutMock, DEFAULT_AVATARS,
-  listNearbyChangesNotifications, pushNotification
+  listNearbyChangesNotifications, pushNotification, formatLocationDisplay
 } from "@/lib/account";
+import { getCleanAvatar, isPhotoUrl } from "@/lib/avatarSvgs";
 import { SectionTitle, MenuGroup, MenuRow, Stat, VerifBadge, ConfirmModal } from "@/components/omeetso/account";
 import { toast } from "sonner";
 
@@ -31,7 +32,45 @@ export const Route = createFileRoute("/account")({
     ]
   }),
   component: Account,
+  errorComponent: () => <AccountErrorFallback />,
 });
+
+function AccountErrorFallback() {
+  const nav = useNavigate();
+  return (
+    <MobileFrame>
+      <div className="min-h-dvh bg-background pb-28 md:pb-12 font-sans">
+        <LocationTopBar />
+        <div className="px-6 py-16 text-center space-y-4">
+          <div className="mx-auto grid h-16 w-16 place-items-center rounded-full bg-primary/10 text-primary font-black text-2xl">
+            <User className="h-8 w-8" />
+          </div>
+          <h2 className="text-lg font-black text-foreground">Account Profile</h2>
+          <p className="text-xs text-muted-foreground max-w-sm mx-auto">
+            Your account profile is active. Tap below to reload your latest details or manage your account.
+          </p>
+          <div className="flex flex-col sm:flex-row items-center justify-center gap-2 pt-2">
+            <button
+              onClick={() => {
+                window.location.reload();
+              }}
+              className="w-full sm:w-auto px-5 py-2.5 rounded-2xl bg-primary text-primary-foreground font-bold text-xs shadow"
+            >
+              Refresh Profile
+            </button>
+            <button
+              onClick={() => nav({ to: "/home" })}
+              className="w-full sm:w-auto px-5 py-2.5 rounded-2xl border border-border bg-card font-bold text-xs hover:bg-secondary"
+            >
+              Go to Home
+            </button>
+          </div>
+        </div>
+        <BottomNav />
+      </div>
+    </MobileFrame>
+  );
+}
 
 function Account() {
   const nav = useNavigate();
@@ -224,13 +263,11 @@ function Account() {
           <aside className="hidden md:block">
             <div className="sticky top-20 rounded-2xl border border-border bg-card p-3 shadow-sm">
               <div className="mb-3 flex items-center gap-3 px-1">
-                {p.avatar ? (
-                  <img src={p.avatar} alt="" className="h-10 w-10 rounded-full object-cover border border-border" />
-                ) : (
-                  <div className="grid h-10 w-10 place-items-center rounded-full bg-secondary text-foreground font-bold">
-                    {p.name ? p.name[0].toUpperCase() : "U"}
-                  </div>
-                )}
+                <img
+                  src={getCleanAvatar(p.avatar, p.gender || p.name)}
+                  alt={`${p.name || "User"} avatar`}
+                  className="h-10 w-10 rounded-full object-cover border border-border bg-slate-50"
+                />
                 <div className="min-w-0">
                   <p className="truncate text-sm font-bold">{p.name}</p>
                   <p className="truncate text-[11px] text-muted-foreground capitalize">{p.accountType} {p.accountType === "individual" ? "Seller" : "Owner"}</p>
@@ -278,13 +315,11 @@ function Account() {
             <section id="overview">
               <div className="-mt-6 mx-4 rounded-2xl bg-card p-4 card-elev md:mx-0 md:mt-0">
                 <div className="flex items-start gap-3">
-                  {p.avatar ? (
-                    <img src={p.avatar} alt={`${p.name} profile picture`} className="h-14 w-14 rounded-full object-cover md:h-16 md:w-16 border border-border" />
-                  ) : (
-                    <div className="grid h-14 w-14 place-items-center rounded-full bg-navy text-white text-xl font-bold md:h-16 md:w-16">
-                      {p.name ? p.name[0].toUpperCase() : "U"}
-                    </div>
-                  )}
+                  <img
+                    src={getCleanAvatar(p.avatar, p.gender || p.name)}
+                    alt={`${p.name || "User"} avatar`}
+                    className="h-14 w-14 rounded-full object-cover md:h-16 md:w-16 border border-border bg-slate-50 shadow-xs"
+                  />
                   <div className="min-w-0 flex-1">
                     <p className="truncate text-base font-bold md:text-lg">{p.name}</p>
                     {p.email && <p className="truncate text-xs text-muted-foreground">{p.email}</p>}
@@ -353,7 +388,10 @@ function Account() {
                     </div>
                   )}
                 </div>
-                <p className="mt-2 text-[11px] text-muted-foreground">{p.area}, {p.city}</p>
+                <p className="mt-2 text-[11px] text-muted-foreground flex items-center gap-1 font-medium">
+                  <MapPin className="h-3 w-3 text-indigo-brand shrink-0" />
+                  <span>{formatLocationDisplay(p.area, p.city, p.pincode)}</span>
+                </p>
               </div>
 
               <div className="mx-4 mt-4 grid grid-cols-4 gap-2.5 md:mx-0">
@@ -715,12 +753,12 @@ function EditProfileModal({ open, onClose, profile, onSaved }: { open: boolean; 
   const [name, setName] = useState(profile.name || "");
   const [email, setEmail] = useState(profile.email || "");
   const [city, setCity] = useState(profile.city || "Hyderabad");
-  const [area, setArea] = useState(profile.area || "Madhapur");
+  const [area, setArea] = useState(profile.area && profile.area !== "Madhapur" ? profile.area : "");
   const [pincode, setPincode] = useState(profile.pincode || "500081");
   const [bio, setBio] = useState(profile.bio || "");
-  const [avatar, setAvatar] = useState(profile.avatar || DEFAULT_AVATARS.male);
+  const [avatar, setAvatar] = useState(getCleanAvatar(profile.avatar, "male"));
   const [gender, setGender] = useState<"male" | "female" | "other">(
-    profile.avatar?.includes("494790108377") ? "female" : "male"
+    profile.avatar === DEFAULT_AVATARS.female || profile.avatar?.includes("bgF") ? "female" : "male"
   );
   const [saving, setSaving] = useState(false);
 
@@ -728,14 +766,14 @@ function EditProfileModal({ open, onClose, profile, onSaved }: { open: boolean; 
     setName(profile.name || "");
     setEmail(profile.email || "");
     setCity(profile.city || "Hyderabad");
-    setArea(profile.area || "Madhapur");
+    setArea(profile.area && profile.area !== "Madhapur" ? profile.area : "");
     setPincode(profile.pincode || "500081");
     setBio(profile.bio || "");
-    const initialAvatar = profile.avatar || DEFAULT_AVATARS.male;
+    const initialAvatar = getCleanAvatar(profile.avatar, "male");
     setAvatar(initialAvatar);
-    if (initialAvatar.includes("494790108377")) {
+    if (initialAvatar === DEFAULT_AVATARS.female || initialAvatar.includes("bgF")) {
       setGender("female");
-    } else if (initialAvatar.includes("1535713875002")) {
+    } else if (initialAvatar === DEFAULT_AVATARS.male || initialAvatar.includes("bgM")) {
       setGender("male");
     } else {
       setGender("other");

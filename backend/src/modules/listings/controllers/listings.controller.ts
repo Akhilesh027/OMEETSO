@@ -63,6 +63,18 @@ export async function createListing(req: AuthenticatedUserRequest, res: Response
     const safeTitle = (title && String(title).trim()) || "Untitled Product";
     const safeDescription = (description && String(description).trim()) || safeTitle;
 
+    const imgCount = Array.isArray(images) ? images.filter(Boolean).length : 0;
+    if (imgCount < 3 && !req.body.isMock) {
+      res.status(400).json({
+        success: false,
+        error: {
+          code: "VALIDATION_ERROR",
+          message: `At least 3 product photos are required (${imgCount}/3 provided).`
+        }
+      });
+      return;
+    }
+
     const rawImages = Array.isArray(images) && images.length > 0 ? images : ["https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=400"];
     const [processedImages, processedVideo] = await Promise.all([
       convertImagesToCloudinary(rawImages, "omeetso/listings"),
@@ -96,40 +108,38 @@ export async function createListing(req: AuthenticatedUserRequest, res: Response
       expiresAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000)
     });
 
-    // Create moderation queue entry
-    await ListingModeration.create({
-      listingId: listing._id,
-      status: "unassigned",
-      version: 1
-    });
-
-    // Invalidate Admin Listings Cache immediately
-    try {
-      const { invalidateListingsCache } = await import("../../admin/controllers/adminListings.controller");
-      invalidateListingsCache();
-    } catch { }
-
-    // Generate listing created notification
-    await Notification.create({
-      userId: sellerId,
-      type: "listing_moderation",
-      title: `Listing Submitted: ${listing.title}`,
-      body: `Your listing "${listing.title}" was submitted and is pending review.`,
-      link: `/product/${listing._id}`,
-      thumbnail: listing.images?.[0]
-    }).catch(() => { });
-
-    // Generate nearby changes notification if enabled or broadcast
-    if (req.body.nearbyChanges?.enabled) {
-      await Notification.create({
+    // Dispatch moderation entry, cache invalidation, and notifications concurrently in background
+    Promise.allSettled([
+      ListingModeration.create({
+        listingId: listing._id,
+        status: "unassigned",
+        version: 1
+      }),
+      (async () => {
+        try {
+          const { invalidateListingsCache } = await import("../../admin/controllers/adminListings.controller");
+          invalidateListingsCache();
+        } catch { }
+      })(),
+      Notification.create({
         userId: sellerId,
-        type: "nearby_changes",
-        title: `Nearby Changes: ${listing.title}`,
-        body: `Nearby changes and broadcast active for "${listing.title}" within ${req.body.nearbyChanges.radiusKm || 10} km of ${listing.area || "your area"}.`,
+        type: "listing_moderation",
+        title: `Listing Submitted: ${listing.title}`,
+        body: `Your listing "${listing.title}" was submitted and is pending review.`,
         link: `/product/${listing._id}`,
         thumbnail: listing.images?.[0]
-      }).catch(() => { });
-    }
+      }),
+      ...(req.body.nearbyChanges?.enabled ? [
+        Notification.create({
+          userId: sellerId,
+          type: "nearby_changes",
+          title: `Nearby Changes: ${listing.title}`,
+          body: `Nearby changes and broadcast active for "${listing.title}" within ${req.body.nearbyChanges.radiusKm || 10} km of ${listing.area || "your area"}.`,
+          link: `/product/${listing._id}`,
+          thumbnail: listing.images?.[0]
+        })
+      ] : [])
+    ]).catch(() => {});
 
     res.status(201).json({
       success: true,

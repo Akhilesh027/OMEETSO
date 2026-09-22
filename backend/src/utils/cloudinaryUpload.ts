@@ -68,7 +68,9 @@ export async function uploadToCloudinary(
     const result = await cloudinary.v2.uploader.upload(media, {
       folder,
       resource_type: resourceType,
-      timeout: resourceType === "video" ? 60000 : 20000
+      quality: "auto:eco",
+      fetch_format: "auto",
+      timeout: resourceType === "video" ? 30000 : 8000
     });
     return result.secure_url;
   } catch (err: any) {
@@ -93,9 +95,15 @@ export async function uploadVideoToCloudinary(video: string, folder = "omeetso/l
 
 /**
  * Convert an array of images (mix of base64 and URLs) to all Cloudinary URLs in parallel.
+ * Fast-paths already hosted URLs instantly with zero network overhead.
  */
 export async function convertImagesToCloudinary(images: string[], folder = "omeetso/listings"): Promise<string[]> {
   if (!Array.isArray(images) || images.length === 0) return images || [];
+
+  const allUrls = images.every((img) => typeof img === "string" && (img.startsWith("http://") || img.startsWith("https://")));
+  if (allUrls) {
+    return images;
+  }
 
   const results = await Promise.allSettled(
     images.map((img) => uploadToCloudinary(img, folder, "auto"))
@@ -109,5 +117,6 @@ export async function convertImagesToCloudinary(images: string[], folder = "omee
  */
 export async function convertVideoToCloudinary(video?: string, folder = "omeetso/listing_videos"): Promise<string> {
   if (!video) return "";
+  if (video.startsWith("http://") || video.startsWith("https://")) return video;
   return uploadToCloudinary(video, folder, "video");
 }

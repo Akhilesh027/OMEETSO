@@ -155,7 +155,6 @@ function HeroProductShowcase({ items }: { items?: any[] }) {
                       <span className="inline-flex items-center gap-1 rounded-full bg-amber-500/20 text-amber-300 border border-amber-400/40 px-2.5 py-0.5 text-[11px] font-black shadow-xs">
                         <Zap className="h-3 w-3 fill-amber-300" /> {item.tag}
                       </span>
-                      <span className="text-[10px] text-amber-300 font-bold bg-amber-500/15 border border-amber-400/25 px-2 py-0.5 rounded-full">5s Auto</span>
                     </div>
                     <h4 className="text-base font-black truncate text-white pt-0.5 group-hover:text-amber-300 transition-colors">{item.title}</h4>
                     <p className="text-[11px] text-slate-300 font-semibold">{item.area}</p>

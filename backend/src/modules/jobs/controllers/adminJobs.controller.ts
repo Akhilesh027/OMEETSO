@@ -137,7 +137,7 @@ export async function updateAdminJobStatus(req: Request, res: Response, next: Ne
         type: "listing_moderation",
         title: notifTitle,
         body: notifBody,
-        link: `/account/employer/jobs`,
+        link: `/my/employer/jobs`,
       }).catch(() => {});
     }
 

@@ -176,7 +176,16 @@ function write<T>(key: string, val: T) {
 const rid = (p = "id") => `${p}_${Date.now().toString(36)}${Math.random().toString(36).slice(2, 7)}`;
 
 // -------- getters --------
-export function getThreads(): Thread[] { return read<Thread[]>(K_THREADS, []); }
+export function getThreads(): Thread[] {
+  const list = read<Thread[]>(K_THREADS, []);
+  // Ensure legacy seeded mock threads don't retain fake unread counts
+  if (list.some((t) => (t.id.startsWith("th_") || t.id.startsWith("mock_")) && t.unread > 0)) {
+    const cleaned = list.map((t) => ((t.id.startsWith("th_") || t.id.startsWith("mock_")) ? { ...t, unread: 0 } : t));
+    saveThreads(cleaned);
+    return cleaned;
+  }
+  return list;
+}
 export function saveThreads(t: Thread[]) { write(K_THREADS, t); }
 export function getMessagesFor(threadId: string): Message[] {
   const all = read<Record<string, Message[]>>(K_MESSAGES, {});
@@ -322,7 +331,7 @@ export function seedIfEmpty() {
       id: tid, productId: p.id, role: "buying", peerType: "user",
       peerId: seller.id, peerName: seller.name, peerAvatar: seller.avatar,
       peerVerified: seller.verified, online: false, lastActive: "Last active 2h ago",
-      createdAt: now - 86400_000, updatedAt: now - 3600_000, unread: 1, status: "active",
+      createdAt: now - 86400_000, updatedAt: now - 3600_000, unread: 0, status: "active",
       lastMessagePreview: "Offer sent · " + inr(Math.round(p.price * 0.9)),
     });
     const off: Offer = {
@@ -351,7 +360,7 @@ export function seedIfEmpty() {
       id: tid, productId: p.id, role: "selling", peerType: "user",
       peerId: "buyer_sanjay", peerName: "Sanjay Reddy", peerAvatar: undefined,
       peerVerified: false, online: false, lastActive: "Last active 30m ago",
-      createdAt: now - 2 * 86400_000, updatedAt: now - 30 * 60_000, unread: 2, status: "active",
+      createdAt: now - 2 * 86400_000, updatedAt: now - 30 * 60_000, unread: 0, status: "active",
       lastMessagePreview: `Would you accept ${inr(Math.round(p.price * 0.88))}?`,
     });
     const buyerOffer = Math.round(p.price * 0.88);

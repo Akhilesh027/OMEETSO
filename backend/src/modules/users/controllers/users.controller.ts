@@ -4,6 +4,7 @@ import { User } from "../models/User";
 import { UserSession } from "../../auth/models/UserSession";
 import { UserStatus } from "../../../contracts";
 import { AuthenticatedUserRequest } from "../../../middleware/authenticateUser";
+import { MALE_AVATAR_DATA_URI } from "../../../utils/avatarSvgs";
 
 export async function getMyProfile(req: AuthenticatedUserRequest, res: Response, next: NextFunction): Promise<void> {
   try {
@@ -152,16 +153,18 @@ export async function deleteSavedLocation(req: AuthenticatedUserRequest, res: Re
 
 export async function getPublicProfile(req: Request, res: Response, next: NextFunction): Promise<void> {
   try {
-    const userId = (Array.isArray(req.params.userId) ? req.params.userId[0] : req.params.userId) as string;
-    if (!mongoose.Types.ObjectId.isValid(userId)) {
+    const rawId = Array.isArray(req.params.userId) ? req.params.userId[0] : req.params.userId;
+    const userId = (rawId || "").trim();
+
+    if (!userId || !mongoose.Types.ObjectId.isValid(userId)) {
       res.status(200).json({
         success: true,
         data: {
-          id: userId,
+          id: userId || "u_seller",
           name: "Omeetso Seller",
-          avatar: "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&w=200&h=200&q=80",
+          avatar: MALE_AVATAR_DATA_URI,
           city: "Hyderabad",
-          area: "Madhapur",
+          area: "Hyderabad",
           memberSince: "2024",
           accountType: "individual",
           verificationSummary: { identityVerified: true, phoneVerified: true, emailVerified: true }
@@ -175,7 +178,19 @@ export async function getPublicProfile(req: Request, res: Response, next: NextFu
       .lean();
 
     if (!user) {
-      res.status(404).json({ success: false, error: { code: "NOT_FOUND", message: "User not found" } });
+      res.status(200).json({
+        success: true,
+        data: {
+          id: userId,
+          name: "Omeetso Seller",
+          avatar: MALE_AVATAR_DATA_URI,
+          city: "Hyderabad",
+          area: "Hyderabad",
+          memberSince: "2024",
+          accountType: "individual",
+          verificationSummary: { identityVerified: true, phoneVerified: true, emailVerified: true }
+        }
+      });
       return;
     }
 
@@ -185,9 +200,9 @@ export async function getPublicProfile(req: Request, res: Response, next: NextFu
         id: user._id.toString(),
         name: user.profile?.name || (user as any).name || "Omeetso Seller",
         businessName: user.profile?.businessName || (user as any).businessName,
-        avatar: user.profile?.avatar || (user as any).avatar,
+        avatar: user.profile?.avatar || (user as any).avatar || MALE_AVATAR_DATA_URI,
         city: user.profile?.city || (user as any).city || "Hyderabad",
-        area: user.profile?.area || (user as any).area || "Madhapur",
+        area: user.profile?.area || (user as any).area || "Hyderabad",
         memberSince: user.profile?.memberSince || (user.createdAt ? new Date(user.createdAt).getFullYear().toString() : "2024"),
         bio: user.profile?.bio || "Trusted Omeetso verified seller.",
         accountType: user.accountType || "individual",
@@ -199,24 +214,112 @@ export async function getPublicProfile(req: Request, res: Response, next: NextFu
   }
 }
 
+import { Listing } from "../../listings/models/Listing";
+import { Store } from "../../stores/models/Store";
+
 export async function getAdminUsersList(req: Request, res: Response, next: NextFunction): Promise<void> {
   try {
     const users = await User.find({}).sort({ createdAt: -1 }).lean();
-    const items = users.map((u: any) => ({
-      id: u._id.toString(),
-      name: u.profile?.name || (u.phone ? `User (${u.phone})` : "Omeetso User"),
-      mobile: u.phone,
-      email: u.email || "",
-      accountType: u.accountType || "individual",
-      status: u.status?.toLowerCase() === "active" ? "active" : u.status?.toLowerCase() === "suspended" ? "suspended" : u.status?.toLowerCase() === "deleted" ? "banned" : "active",
-      role: u.accountType === "business" ? "business" : "seller",
-      city: u.profile?.city || "Hyderabad",
-      area: u.profile?.area || "Madhapur",
-      verified: Boolean(u.verificationSummary?.mobileVerified),
-      listingsCount: 0,
-      createdAt: u.createdAt
-    }));
+    
+    // Compute listings and stores counts per user
+    const userIds = users.map((u) => u._id);
+    const [listingCounts, storeCounts] = await Promise.all([
+      Listing.aggregate([
+        { $match: { sellerId: { $in: userIds } } },
+        { $group: { _id: "$sellerId", count: { $sum: 1 } } }
+      ]).catch(() => []),
+      Store.aggregate([
+        { $match: { ownerId: { $in: userIds } } },
+        { $group: { _id: "$ownerId", count: { $sum: 1 } } }
+      ]).catch(() => [])
+    ]);
+
+    const listingCountMap = new Map<string, number>(
+      listingCounts.map((lc: any) => [lc._id.toString(), lc.count])
+    );
+    const storeCountMap = new Map<string, number>(
+      storeCounts.map((sc: any) => [sc._id.toString(), sc.count])
+    );
+
+    const items = users.map((u: any) => {
+      const uId = u._id.toString();
+      const city = u.profile?.city || (u.savedLocations && u.savedLocations[0]?.city) || "Hyderabad";
+      const pincode = u.profile?.pincode || (u.savedLocations && u.savedLocations[0]?.pincode) || u.pincode || "500081";
+      const area = u.profile?.area || (u.savedLocations && u.savedLocations[0]?.area) || "";
+
+      return {
+        id: uId,
+        name: u.profile?.name || (u.phone ? `User (${u.phone})` : "Omeetso User"),
+        mobile: u.phone,
+        email: u.email || "",
+        accountType: u.accountType || "individual",
+        status:
+          u.status?.toLowerCase() === "active"
+            ? "active"
+            : u.status?.toLowerCase() === "suspended"
+              ? "suspended"
+              : u.status?.toLowerCase() === "deleted"
+                ? "banned"
+                : "active",
+        role: u.accountType === "business" ? "business" : "seller",
+        city,
+        pincode,
+        area,
+        verifiedMobile: Boolean(u.verificationSummary?.mobileVerified),
+        verifiedEmail: Boolean(u.verificationSummary?.emailVerified),
+        verifiedIdentity: Boolean(u.verificationSummary?.identityVerified),
+        verified: Boolean(u.verificationSummary?.mobileVerified),
+        listingsCount: listingCountMap.get(uId) || 0,
+        storesCount: storeCountMap.get(uId) || 0,
+        reportsReceived: 0,
+        riskScore: u.verificationSummary?.riskScore ?? 94,
+        createdAt: u.createdAt,
+        lastActiveAt: u.updatedAt || u.createdAt
+      };
+    });
     res.status(200).json({ success: true, data: items });
+  } catch (error) {
+    next(error);
+  }
+}
+
+export async function updateUserAdmin(req: Request, res: Response, next: NextFunction): Promise<void> {
+  try {
+    const { userId } = req.params;
+    const { name, email, mobile, city, pincode, area, accountType, status } = req.body;
+
+    const updateFields: Record<string, any> = {};
+    if (name) updateFields["profile.name"] = name;
+    if (email !== undefined) updateFields.email = email;
+    if (mobile) updateFields.phone = mobile;
+    if (city) updateFields["profile.city"] = city;
+    if (pincode) updateFields["profile.pincode"] = pincode;
+    if (area !== undefined) updateFields["profile.area"] = area;
+    if (accountType) updateFields.accountType = accountType;
+    if (status) updateFields.status = status;
+
+    const updated = await User.findByIdAndUpdate(
+      userId,
+      { $set: updateFields },
+      { new: true, lean: true }
+    );
+
+    if (!updated) {
+      res.status(404).json({ success: false, error: { message: "User not found" } });
+      return;
+    }
+
+    res.status(200).json({ success: true, data: updated });
+  } catch (error) {
+    next(error);
+  }
+}
+
+export async function deleteUserAdmin(req: Request, res: Response, next: NextFunction): Promise<void> {
+  try {
+    const { userId } = req.params;
+    await User.findByIdAndDelete(userId);
+    res.status(200).json({ success: true, data: { message: "User deleted successfully" } });
   } catch (error) {
     next(error);
   }
