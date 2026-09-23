@@ -50,8 +50,8 @@ function HeroProductShowcase({ items }: { items?: any[] }) {
       return items.slice(0, 5).map((item, idx) => ({
         id: item.id || item.bannerId || `hp-live-${idx}`,
         title: item.title,
-        price: item.price || 0,
-        originalPrice: item.originalPrice || Math.round((item.price || 5000) * 1.18),
+        price: item.price ? Number(item.price) : 0,
+        originalPrice: item.originalPrice ? Number(item.originalPrice) : (item.price ? Math.round(Number(item.price) * 1.18) : 0),
         area: item.location || `${item.area || item.city || "Madhapur"} • ${item.distanceKm || 0.8} km away`,
         tag: item.tag || (item.category ? `${item.category.slice(0, 1).toUpperCase()}${item.category.slice(1)}` : "Verified Deal"),
         image: item.image || (Array.isArray(item.images) && item.images[0]) || "https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=400",
@@ -159,12 +159,16 @@ function HeroProductShowcase({ items }: { items?: any[] }) {
                     <h4 className="text-base font-black truncate text-white pt-0.5 group-hover:text-amber-300 transition-colors">{item.title}</h4>
                     <p className="text-[11px] text-slate-300 font-semibold">{item.area}</p>
                     <div className="pt-0.5 flex items-center justify-between">
-                      <div className="flex items-baseline gap-1.5">
-                        <span className="text-xl font-black text-amber-300">{formatINR(item.price)}</span>
-                        {item.originalPrice > item.price && (
-                          <span className="text-[11px] text-slate-400 line-through font-semibold">{formatINR(item.originalPrice)}</span>
-                        )}
-                      </div>
+                      {item.price > 0 ? (
+                        <div className="flex items-baseline gap-1.5">
+                          <span className="text-xl font-black text-amber-300">{formatINR(item.price)}</span>
+                          {item.originalPrice > item.price && (
+                            <span className="text-[11px] text-slate-400 line-through font-semibold">{formatINR(item.originalPrice)}</span>
+                          )}
+                        </div>
+                      ) : (
+                        <span className="text-xs font-bold text-amber-300/90">Exclusive Promotion</span>
+                      )}
                       <span className="text-[10px] font-black text-emerald-300 bg-emerald-500/20 px-2 py-0.5 rounded-full border border-emerald-400/30">
                         🛡️ Verified DB
                       </span>
@@ -224,7 +228,7 @@ function HeroProductShowcase({ items }: { items?: any[] }) {
                       </span>
                     </div>
                     <h5 className="text-xs font-extrabold text-white truncate">{item.title}</h5>
-                    <p className="text-xs font-black text-amber-300">{formatINR(item.price)}</p>
+                    {item.price > 0 && <p className="text-xs font-black text-amber-300">{formatINR(item.price)}</p>}
                   </div>
                 </div>
               </div>
@@ -254,7 +258,7 @@ function HeroProductShowcase({ items }: { items?: any[] }) {
                       </span>
                     </div>
                     <h5 className="text-xs font-extrabold text-white truncate">{item.title}</h5>
-                    <p className="text-xs font-black text-amber-300">{formatINR(item.price)}</p>
+                    {item.price > 0 && <p className="text-xs font-black text-amber-300">{formatINR(item.price)}</p>}
                   </div>
                 </div>
               </div>
@@ -277,7 +281,7 @@ function HeroProductShowcase({ items }: { items?: any[] }) {
                   />
                   <div className="min-w-0 flex-1">
                     <h6 className="text-[11px] font-bold text-white truncate">{item.title}</h6>
-                    <p className="text-[11px] font-black text-amber-300">{formatINR(item.price)}</p>
+                    {item.price > 0 && <p className="text-[11px] font-black text-amber-300">{formatINR(item.price)}</p>}
                   </div>
                 </div>
               </div>
@@ -299,7 +303,7 @@ function HeroProductShowcase({ items }: { items?: any[] }) {
                 />
                 <div className="min-w-0 flex-1">
                   <h6 className="text-[11px] font-bold text-white truncate">{item.title}</h6>
-                  <p className="text-[11px] font-black text-amber-300">{formatINR(item.price)}</p>
+                  {item.price > 0 && <p className="text-[11px] font-black text-amber-300">{formatINR(item.price)}</p>}
                 </div>
               </div>
             </div>
@@ -527,7 +531,7 @@ function Home() {
               rating: item.rating || 0,
               reviewCount: item.reviewCount || 0,
               description: item.description,
-              method: item.method || "quick",
+              method: item.method || (item.id?.startsWith("Q-") || item.id?.includes("quick") ? "quick" : "detailed"),
               createdAt: item.createdAt,
               publishedAt: item.publishedAt,
             };

@@ -159,11 +159,11 @@ export default function StoreDetailPage() {
         badgeColor="indigo"
         secondaryActions={
           <button
-            onClick={() => navigate("/admin/stores")}
+            onClick={() => (window.history.length > 1 ? navigate(-1) : navigate("/admin/stores"))}
             className="inline-flex items-center space-x-1.5 px-3.5 py-2 rounded-xl text-xs font-semibold bg-white border border-[#E2E8F0] text-[#111827] hover:bg-slate-50"
           >
             <ArrowLeft className="w-4 h-4" />
-            <span>Back to Stores Table</span>
+            <span>Back</span>
           </button>
         }
       />

@@ -33,7 +33,7 @@ import { useRef } from "react";
 import {
   Sparkles, ClipboardList, ShieldCheck, MapPin, Tag, Eye,
   Wand2, Image as ImageIcon, Layers, Phone, MessageSquare, CheckCircle2, X,
-  Radio, ArrowRight, RefreshCw, Clock, Trash2, Loader2,
+  Radio, ArrowRight, RefreshCw, Clock, Trash2, Loader2, Edit3, Plus,
 } from "lucide-react";
 
 export const Route = createFileRoute("/sell/detailed")({
@@ -69,6 +69,8 @@ function DetailedSellPage() {
     specs: {}
   });
   const [selectedBrand, setSelectedBrand] = useState<string>("");
+  const [isManualSubcategory, setIsManualSubcategory] = useState(false);
+  const [isManualBrand, setIsManualBrand] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [summary, setSummary] = useState<string[]>([]);
   const [showMissingModal, setShowMissingModal] = useState(false);
@@ -131,13 +133,19 @@ function DetailedSellPage() {
 
     const restoredCat = d?.category || "commercial-vehicles";
     const validBrands = getBrandsForCategory(restoredCat);
-    const restoredBrand = d?.specs?.Brand || (d as any)?.brand;
-    const isValidBrand = restoredBrand && (validBrands.includes(restoredBrand) || restoredBrand === "Other");
-    const cleanBrand = isValidBrand ? restoredBrand : "";
-    if (cleanBrand) {
-      setSelectedBrand(cleanBrand);
+    const restoredBrand = d?.specs?.Brand || (d as any)?.brand || d?.specs?.["Brand / Manufacturer"] || "";
+    if (restoredBrand) {
+      setSelectedBrand(restoredBrand);
+      if (!validBrands.includes(restoredBrand)) {
+        setIsManualBrand(true);
+      }
     }
-    const cleanSpecs = cleanBrand ? (d?.specs || {}) : { ...(d?.specs || {}), Brand: "" };
+    const cleanSpecs = restoredBrand ? (d?.specs || {}) : { ...(d?.specs || {}), Brand: "" };
+
+    const liveSubs = getLiveSubcategories(restoredCat);
+    if (d?.subcategory && !liveSubs.some(s => s.id === d.subcategory || s.name === d.subcategory)) {
+      setIsManualSubcategory(true);
+    }
 
     if (d && (d.title || d.price || (d.images && d.images.length > 0) || d.description || (cleanSpecs && Object.keys(cleanSpecs).length > 0))) {
       setDraftRestored(true);
@@ -345,7 +353,8 @@ function DetailedSellPage() {
         city: data.city || "",
         area: data.area || "",
         pincode: data.pincode || "",
-        specs: data.specs || {}
+        specs: data.specs || {},
+        method: "detailed"
       });
 
       if (res.success && res.data?.id) {
@@ -549,6 +558,8 @@ function DetailedSellPage() {
                         const cat = e.target.value;
                         patch({ category: cat, subcategory: "", specs: {} });
                         setSelectedBrand("");
+                        setIsManualSubcategory(false);
+                        setIsManualBrand(false);
                       }}
                       className="w-full h-11 rounded-2xl border border-border bg-background px-3 text-xs font-bold text-foreground outline-none focus:border-indigo-brand"
                     >
@@ -559,50 +570,171 @@ function DetailedSellPage() {
                   </div>
 
                   <div>
-                    <label className="block text-xs font-bold text-muted-foreground mb-1">Subcategory</label>
-                    <select
-                      value={data.subcategory ?? ""}
-                      onChange={(e) => patch({ subcategory: e.target.value, specs: {} })}
-                      className="w-full h-11 rounded-2xl border border-border bg-background px-3 text-xs font-bold text-foreground outline-none focus:border-indigo-brand"
-                    >
-                      <option value="">Select Subcategory…</option>
-                      {getLiveSubcategories(data.category ?? categories[0]?.id ?? "electronics").map((s) => (
-                        <option key={s.id} value={s.id}>{s.name}</option>
-                      ))}
-                      {data.subcategory && !getLiveSubcategories(data.category ?? categories[0]?.id ?? "electronics").some(s => s.id === data.subcategory || s.name === data.subcategory) && (
-                        <option value={data.subcategory}>{data.subcategory}</option>
-                      )}
-                    </select>
+                    <div className="flex items-center justify-between mb-1">
+                      <label className="block text-xs font-bold text-muted-foreground">Subcategory</label>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setIsManualSubcategory(!isManualSubcategory);
+                        }}
+                        className="text-[11px] font-bold text-indigo-brand hover:underline flex items-center gap-1 cursor-pointer"
+                      >
+                        <Edit3 className="h-3 w-3" />
+                        {isManualSubcategory ? "Choose from list" : "Type manually"}
+                      </button>
+                    </div>
+
+                    {isManualSubcategory ? (
+                      <div className="relative">
+                        <input
+                          type="text"
+                          value={data.subcategory ?? ""}
+                          onChange={(e) => patch({ subcategory: e.target.value, specs: {} })}
+                          placeholder="Type custom subcategory..."
+                          className="w-full h-11 rounded-2xl border border-border bg-background px-3.5 text-xs font-bold text-foreground outline-none focus:border-indigo-brand focus:ring-2 focus:ring-indigo-brand/20 transition-all"
+                        />
+                        {data.subcategory && (
+                          <span className="absolute right-3 top-1/2 -translate-y-1/2 text-[10px] font-extrabold bg-indigo-500/10 text-indigo-brand px-2 py-0.5 rounded-md pointer-events-none">
+                            Manual
+                          </span>
+                        )}
+                      </div>
+                    ) : (
+                      <select
+                        value={data.subcategory ?? ""}
+                        onChange={(e) => {
+                          const val = e.target.value;
+                          if (val === "__custom__") {
+                            setIsManualSubcategory(true);
+                            patch({ subcategory: "", specs: {} });
+                          } else {
+                            patch({ subcategory: val, specs: {} });
+                          }
+                        }}
+                        className="w-full h-11 rounded-2xl border border-border bg-background px-3 text-xs font-bold text-foreground outline-none focus:border-indigo-brand"
+                      >
+                        <option value="">Select Subcategory…</option>
+                        {getLiveSubcategories(data.category ?? categories[0]?.id ?? "electronics").map((s) => (
+                          <option key={s.id} value={s.id}>{s.name}</option>
+                        ))}
+                        <option value="__custom__">➕ Type Custom Subcategory...</option>
+                        {data.subcategory && !getLiveSubcategories(data.category ?? categories[0]?.id ?? "electronics").some(s => s.id === data.subcategory || s.name === data.subcategory) && (
+                          <option value={data.subcategory}>{data.subcategory} (Custom)</option>
+                        )}
+                      </select>
+                    )}
                     {errors.subcategory && <p className="text-xs font-bold text-rose-600 mt-1">{errors.subcategory}</p>}
                   </div>
                 </div>
 
                 {/* Brand Selection Dropdown & Popular Pills */}
-                <div>
-                  <label className="block text-xs font-bold text-muted-foreground mb-1.5">Brand / Manufacturer</label>
-                  <select
-                    value={selectedBrand}
-                    onChange={(e) => {
-                      const b = e.target.value;
-                      setSelectedBrand(b);
-                      patch({
-                        specs: {
-                          ...(data.specs || {}),
-                          Brand: b,
-                          "Brand / Manufacturer": b,
-                          Model: "",
-                        },
-                      });
-                    }}
-                    className="w-full h-11 rounded-2xl border border-border bg-background px-3 text-xs font-bold text-foreground outline-none focus:border-indigo-brand mb-2"
-                  >
-                    <option value="">Select Brand / Manufacturer…</option>
-                    {categoryBrands.map((b) => (
-                      <option key={b} value={b}>{b}</option>
-                    ))}
-                    <option value="Other">Other / Custom Brand</option>
-                  </select>
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <label className="block text-xs font-bold text-muted-foreground">Brand / Manufacturer</label>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setIsManualBrand(!isManualBrand);
+                      }}
+                      className="text-[11px] font-bold text-indigo-brand hover:underline flex items-center gap-1 cursor-pointer"
+                    >
+                      <Edit3 className="h-3 w-3" />
+                      {isManualBrand ? "Choose from list" : "Type manually"}
+                    </button>
+                  </div>
 
+                  {isManualBrand ? (
+                    <div className="relative">
+                      <input
+                        type="text"
+                        value={selectedBrand === "Other" ? "" : selectedBrand}
+                        onChange={(e) => {
+                          const b = e.target.value;
+                          setSelectedBrand(b);
+                          patch({
+                            specs: {
+                              ...(data.specs || {}),
+                              Brand: b,
+                              "Brand / Manufacturer": b,
+                            },
+                          });
+                        }}
+                        placeholder="Type custom brand or manufacturer name..."
+                        className="w-full h-11 rounded-2xl border border-border bg-background px-3.5 text-xs font-bold text-foreground outline-none focus:border-indigo-brand focus:ring-2 focus:ring-indigo-brand/20 transition-all"
+                      />
+                      {selectedBrand && (
+                        <span className="absolute right-3 top-1/2 -translate-y-1/2 text-[10px] font-extrabold bg-indigo-500/10 text-indigo-brand px-2 py-0.5 rounded-md pointer-events-none">
+                          Manual
+                        </span>
+                      )}
+                    </div>
+                  ) : (
+                    <>
+                      <select
+                        value={selectedBrand}
+                        onChange={(e) => {
+                          const b = e.target.value;
+                          if (b === "Other") {
+                            setIsManualBrand(true);
+                            setSelectedBrand("");
+                            patch({
+                              specs: {
+                                ...(data.specs || {}),
+                                Brand: "",
+                                "Brand / Manufacturer": "",
+                                Model: "",
+                              },
+                            });
+                          } else {
+                            setSelectedBrand(b);
+                            patch({
+                              specs: {
+                                ...(data.specs || {}),
+                                Brand: b,
+                                "Brand / Manufacturer": b,
+                                Model: "",
+                              },
+                            });
+                          }
+                        }}
+                        className="w-full h-11 rounded-2xl border border-border bg-background px-3 text-xs font-bold text-foreground outline-none focus:border-indigo-brand"
+                      >
+                        <option value="">Select Brand / Manufacturer…</option>
+                        {categoryBrands.map((b) => (
+                          <option key={b} value={b}>{b}</option>
+                        ))}
+                        <option value="Other">➕ Type Custom Brand / Manufacturer...</option>
+                        {selectedBrand && !categoryBrands.includes(selectedBrand) && selectedBrand !== "Other" && (
+                          <option value={selectedBrand}>{selectedBrand} (Custom)</option>
+                        )}
+                      </select>
+
+                      {/* If custom brand entered while in select mode */}
+                      {selectedBrand && !categoryBrands.includes(selectedBrand) && selectedBrand !== "Other" && (
+                        <div className="pt-1">
+                          <input
+                            type="text"
+                            value={selectedBrand}
+                            onChange={(e) => {
+                              const b = e.target.value;
+                              setSelectedBrand(b);
+                              patch({
+                                specs: {
+                                  ...(data.specs || {}),
+                                  Brand: b,
+                                  "Brand / Manufacturer": b,
+                                },
+                              });
+                            }}
+                            placeholder="Type custom brand name..."
+                            className="w-full h-10 rounded-2xl border border-indigo-brand/50 bg-background px-3 text-xs font-bold text-foreground outline-none focus:border-indigo-brand"
+                          />
+                        </div>
+                      )}
+                    </>
+                  )}
+
+                  {/* Popular Brand Pills */}
                   <div className="flex flex-wrap gap-1.5 pt-1">
                     {categoryBrands.map((b) => (
                       <button
@@ -610,6 +742,7 @@ function DetailedSellPage() {
                         type="button"
                         onClick={() => {
                           const nextB = b === selectedBrand ? "" : b;
+                          setIsManualBrand(false);
                           setSelectedBrand(nextB);
                           patch({
                             specs: {
@@ -620,14 +753,26 @@ function DetailedSellPage() {
                             },
                           });
                         }}
-                        className={`px-3 py-1 rounded-full text-xs font-bold transition-all border ${selectedBrand === b
+                        className={`px-3 py-1 rounded-full text-xs font-bold transition-all border ${selectedBrand === b && !isManualBrand
                           ? "bg-indigo-brand text-white border-indigo-brand shadow-sm"
-                          : "bg-secondary/70 text-foreground border-border hover:bg-secondary"
+                          : "bg-secondary/70 text-foreground border-border hover:bg-secondary cursor-pointer"
                           }`}
                       >
                         {b}
                       </button>
                     ))}
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setIsManualBrand(true);
+                      }}
+                      className={`px-3 py-1 rounded-full text-xs font-bold transition-all border cursor-pointer ${isManualBrand
+                        ? "bg-indigo-brand text-white border-indigo-brand shadow-sm"
+                        : "bg-secondary/70 text-indigo-brand border-dashed border-indigo-brand/40 hover:bg-secondary"
+                        }`}
+                    >
+                      + Custom Brand
+                    </button>
                   </div>
                 </div>
               </section>

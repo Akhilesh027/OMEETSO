@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
-import { Search, X, Loader2, ArrowRight, CornerDownLeft, Shield } from "lucide-react";
+import { Search, X, Loader2, ArrowRight, ArrowLeft, CornerDownLeft, Shield } from "lucide-react";
 import { MOCK_SEARCH_INDEX, SearchResultItem } from "@/data/globalSearch";
 import { MockDataService } from "@/services/mockDataService";
 
@@ -29,17 +29,28 @@ export const GlobalSearchModal: React.FC<GlobalSearchModalProps> = ({ isOpen, on
   }, [isOpen]);
 
   useEffect(() => {
+    if (!isOpen) return;
+
     const handleKeyDown = (e: KeyboardEvent) => {
       if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "k") {
         e.preventDefault();
-        if (isOpen) onClose();
+        onClose();
       }
-      if (e.key === "Escape" && isOpen) {
+      if (e.key === "Escape") {
         onClose();
       }
     };
+
+    const handlePopState = () => {
+      onClose();
+    };
+
     window.addEventListener("keydown", handleKeyDown);
-    return () => window.removeEventListener("keydown", handleKeyDown);
+    window.addEventListener("popstate", handlePopState);
+    return () => {
+      window.removeEventListener("keydown", handleKeyDown);
+      window.removeEventListener("popstate", handlePopState);
+    };
   }, [isOpen, onClose]);
 
   useEffect(() => {
@@ -167,13 +178,26 @@ export const GlobalSearchModal: React.FC<GlobalSearchModalProps> = ({ isOpen, on
   let globalItemCounter = 0;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-start justify-center pt-16 px-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in-50">
+    <div
+      onClick={onClose}
+      className="fixed inset-0 z-50 flex items-start justify-center pt-16 px-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in-50 cursor-pointer"
+    >
       <div
-        className="w-full max-w-2xl bg-white rounded-2xl shadow-2xl border border-[#E2E8F0] overflow-hidden flex flex-col max-h-[80vh]"
+        onClick={(e) => e.stopPropagation()}
+        className="w-full max-w-2xl bg-white rounded-2xl shadow-2xl border border-[#E2E8F0] overflow-hidden flex flex-col max-h-[80vh] cursor-default"
         onKeyDown={handleKeyDownInResults}
       >
         {/* Search Header */}
         <div className="flex items-center space-x-3 p-4 border-b border-[#E2E8F0] bg-white">
+          <button
+            type="button"
+            onClick={onClose}
+            title="Back / Close (ESC)"
+            className="p-1.5 -ml-1 text-[#64748B] hover:text-[#111827] hover:bg-slate-100 rounded-xl transition-colors shrink-0"
+            aria-label="Back"
+          >
+            <ArrowLeft className="w-5 h-5" />
+          </button>
           <Search className="w-5 h-5 text-[#3547D4] shrink-0" />
           <input
             ref={inputRef}
@@ -185,15 +209,25 @@ export const GlobalSearchModal: React.FC<GlobalSearchModalProps> = ({ isOpen, on
           />
           {query && (
             <button
+              type="button"
               onClick={() => setQuery("")}
+              title="Clear search query"
               className="p-1 text-[#64748B] hover:text-[#111827] rounded-lg"
             >
               <X className="w-4 h-4" />
             </button>
           )}
-          <kbd className="hidden sm:inline-flex items-center px-2 py-0.5 text-[10px] font-mono text-[#64748B] bg-slate-100 rounded border border-slate-200">
-            ESC
-          </kbd>
+          <button
+            type="button"
+            onClick={onClose}
+            title="Close search modal (ESC)"
+            className="inline-flex items-center p-1 text-[#64748B] hover:text-[#111827] hover:bg-slate-100 rounded-lg transition-colors"
+          >
+            <kbd className="hidden sm:inline-flex items-center px-2 py-0.5 text-[10px] font-mono text-[#64748B] bg-slate-100 rounded border border-slate-200">
+              ESC
+            </kbd>
+            <X className="w-4 h-4 sm:hidden" />
+          </button>
         </div>
 
         {/* Results / Content Area */}

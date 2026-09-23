@@ -48,7 +48,7 @@ export async function getAdminListings(req: AuthenticatedAdminRequest, res: Resp
 
     const [listings, total] = await Promise.all([
       Listing.find(query)
-        .select("title description priceInPaise condition categoryId subcategoryId pincode area city status createdAt updatedAt sellerId sellerPhone images coverIndex")
+        .select("title description priceInPaise condition categoryId subcategoryId pincode area city status createdAt updatedAt sellerId sellerPhone images coverIndex method videoUrl video")
         .sort({ _id: -1 })
         .skip(skip)
         .limit(limit)
@@ -76,6 +76,8 @@ export async function getAdminListings(req: AuthenticatedAdminRequest, res: Resp
         category: l.categoryId || "General",
         subcategoryId: l.subcategoryId || l.categoryId || "General",
         subcategory: l.subcategoryId || l.categoryId || "General",
+        method: l.method || "detailed",
+        videoUrl: l.videoUrl || (l as any).video || undefined,
         images: Array.isArray(l.images) && l.images.length > 0 ? l.images : ["https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=400"],
         coverIndex: l.coverIndex || 0,
         pincode: l.pincode || "500081",
@@ -585,6 +587,7 @@ export async function getAdminListingById(req: AuthenticatedAdminRequest, res: R
         category: listing.categoryId,
         subcategoryId: listing.subcategoryId,
         subcategory: listing.subcategoryId,
+        method: (listing as any).method || "detailed",
         images: listing.images || [],
         coverIndex: listing.coverIndex || 0,
         videoUrl: listing.videoUrl,

@@ -395,7 +395,7 @@ export async function fetchLiveListingById(id: string): Promise<Listing | null> 
         sellerName: item.sellerName || item.seller?.name || "Omeetso Seller",
         seller: item.seller,
         status: (item.status?.toLowerCase() || "active") as ListingStatus,
-        method: item.method || "quick",
+        method: item.method || (item.id?.startsWith("Q-") || item.id?.includes("quick") ? "quick" : "detailed"),
         createdAt: new Date(item.createdAt || item.publishedAt || Date.now()).getTime(),
         updatedAt: new Date(item.createdAt || item.publishedAt || Date.now()).getTime()
       } as any;

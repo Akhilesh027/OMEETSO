@@ -41,7 +41,8 @@ export const CreateListingRequestSchema = z.object({
   city: z.string().optional().default("Hyderabad"),
   fulfilment: z.string().optional().default("pickup"),
   specs: z.union([z.record(z.string(), z.any()), z.any()]).optional().default({}),
-  contactPref: z.string().optional().default("call_and_chat")
+  contactPref: z.string().optional().default("call_and_chat"),
+  method: z.enum(["quick", "detailed"]).optional().default("detailed")
 }).passthrough();
 
 export const ListingSearchQuerySchema = PaginationQuerySchema.extend({

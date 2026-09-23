@@ -332,7 +332,7 @@ function CategoryPage() {
       images: item.images,
       specs: item.specs || {},
       description: item.description,
-      method: item.method || "quick",
+      method: item.method || (item.id?.startsWith("Q-") || item.id?.includes("quick") ? "quick" : "detailed"),
     }));
 
     let list = [...localItems, ...liveProducts];
@@ -358,11 +358,14 @@ function CategoryPage() {
 
     if (search.quickSale === "1") {
       list = list.filter((p) =>
-        (p as any).method === "quick" ||
-        (p as any).quickSale ||
-        (p as any).isQuickSell ||
-        p.id.startsWith("Q-") ||
-        p.id.includes("quick")
+        (p as any).method !== "detailed" &&
+        (
+          (p as any).method === "quick" ||
+          (p as any).quickSale ||
+          (p as any).isQuickSell ||
+          p.id.startsWith("Q-") ||
+          p.id.includes("quick")
+        )
       );
     }
     if (search.verified === "1") list = list.filter((p) => p.verified);

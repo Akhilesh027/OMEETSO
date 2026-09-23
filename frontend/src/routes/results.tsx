@@ -140,7 +140,7 @@ function Results() {
             reviewCount: item.reviewCount || 0,
             description: item.description,
             specs: item.specs || {},
-            method: item.method || "quick",
+            method: item.method || (item.id?.startsWith("Q-") || item.id?.includes("quick") ? "quick" : "detailed"),
             createdAt: item.createdAt,
             publishedAt: item.publishedAt,
           };
@@ -244,11 +244,14 @@ function Results() {
     }
     if (search.quickSale === "1") {
       list = list.filter((p) =>
-        (p as any).method === "quick" ||
-        (p as any).quickSale ||
-        (p as any).isQuickSell ||
-        p.id.startsWith("Q-") ||
-        p.id.includes("quick")
+        (p as any).method !== "detailed" &&
+        (
+          (p as any).method === "quick" ||
+          (p as any).quickSale ||
+          (p as any).isQuickSell ||
+          p.id.startsWith("Q-") ||
+          p.id.includes("quick")
+        )
       );
     }
     if (search.verified === "1") list = list.filter((p) => p.verified);

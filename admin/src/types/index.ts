@@ -62,6 +62,8 @@ export interface Listing {
   condition?: string;
   images?: string[];
   coverIndex?: number;
+  videoUrl?: string;
+  video?: string;
   sellerId?: ID;
   sellerName?: string;
   sellerRiskScore?: number;

@@ -49,6 +49,7 @@ export interface IListing extends Document {
   fulfilment: string;
   specs: Map<string, string>;
   contactPref: string;
+  method?: "quick" | "detailed";
   rating?: number;
   reviewCount?: number;
   status: ListingStatus;
@@ -89,6 +90,7 @@ const ListingSchema = new Schema<IListing>(
     fulfilment: { type: String, required: true, default: "pickup" },
     specs: { type: Map, of: Schema.Types.Mixed, default: {} },
     contactPref: { type: String, default: "call_and_chat" },
+    method: { type: String, enum: ["quick", "detailed"], default: "detailed", index: true },
     rating: { type: Number, default: 0 },
     reviewCount: { type: Number, default: 0 },
     status: { type: String, enum: Object.values(ListingStatus), default: ListingStatus.SUBMITTED, index: true },

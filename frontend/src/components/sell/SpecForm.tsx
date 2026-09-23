@@ -46,40 +46,96 @@ export function SpecForm({
         // 1. Category-Appropriate Brand / Manufacturer Selection
         if (isBrand) {
           const brandOptions = validCategoryBrands.length > 0 ? validCategoryBrands : (f.options || []);
+          const isCustomBrand = Boolean(brand && !brandOptions.includes(brand) && brand !== "Other");
+
           return (
-            <div key={f.key}>
-              <label htmlFor={id} className="mb-1 block text-xs font-semibold text-foreground">
-                {f.label}
-                {f.required && <span className="ml-0.5 text-red-500">*</span>}
-              </label>
-              <select
-                id={id}
-                value={brand || values[f.key] || ""}
-                onChange={(e) => {
-                  const val = e.target.value;
-                  const nextValues: Record<string, string> = {
-                    ...values,
-                    [f.key]: val,
-                    Brand: val,
-                    "Brand / Manufacturer": val,
-                  };
-                  // Clear model if previous model is not valid for new brand
-                  if (values["Model"] && values["Model"] !== "Other") {
-                    const validForNewBrand = val ? getModelsForBrand(category, val) : [];
-                    if (!validForNewBrand.includes(values["Model"])) {
-                      nextValues["Model"] = "";
+            <div key={f.key} className="space-y-1.5">
+              <div className="flex items-center justify-between">
+                <label htmlFor={id} className="block text-xs font-semibold text-foreground">
+                  {f.label}
+                  {f.required && <span className="ml-0.5 text-red-500">*</span>}
+                </label>
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (isCustomBrand || brand === "Other") {
+                      // switch to dropdown, clear to first option or empty
+                      set(f.key, "");
+                      onChange({ ...values, [f.key]: "", Brand: "", "Brand / Manufacturer": "" });
+                    } else {
+                      // switch to manual typing
+                      set(f.key, brand || "");
+                      onChange({ ...values, [f.key]: brand || "", Brand: brand || "", "Brand / Manufacturer": brand || "" });
                     }
-                  }
-                  onChange(nextValues);
-                }}
-                className={cn("w-full rounded-2xl border bg-background px-3 py-3 text-xs font-bold text-foreground outline-none focus:border-indigo-brand", err ? "border-red-400" : "border-border")}
-              >
-                <option value="">Select Brand / Manufacturer…</option>
-                {brandOptions.map((b) => (
-                  <option key={b} value={b}>{b}</option>
-                ))}
-                <option value="Other">Other / Custom Brand</option>
-              </select>
+                  }}
+                  className="text-[11px] font-bold text-indigo-brand hover:underline cursor-pointer"
+                >
+                  {isCustomBrand || brand === "Other" ? "Choose from list" : "Type manually"}
+                </button>
+              </div>
+
+              {isCustomBrand || brand === "Other" ? (
+                <div className="space-y-1">
+                  <input
+                    id={id}
+                    type="text"
+                    value={brand === "Other" ? "" : brand}
+                    onChange={(e) => {
+                      const val = e.target.value;
+                      const nextValues: Record<string, string> = {
+                        ...values,
+                        [f.key]: val,
+                        Brand: val,
+                        "Brand / Manufacturer": val,
+                      };
+                      onChange(nextValues);
+                    }}
+                    placeholder="Type brand or manufacturer name..."
+                    className={cn(
+                      "w-full rounded-2xl border bg-background px-3.5 py-2.5 text-xs font-bold text-foreground outline-none focus:border-indigo-brand focus:ring-2 focus:ring-indigo-brand/20 transition-all",
+                      err ? "border-red-400" : "border-border"
+                    )}
+                  />
+                  <p className="text-[10px] text-muted-foreground">
+                    Custom brand/manufacturer manually entered.
+                  </p>
+                </div>
+              ) : (
+                <select
+                  id={id}
+                  value={brand || values[f.key] || ""}
+                  onChange={(e) => {
+                    const val = e.target.value;
+                    const nextValues: Record<string, string> = {
+                      ...values,
+                      [f.key]: val,
+                      Brand: val,
+                      "Brand / Manufacturer": val,
+                    };
+                    // Clear model if previous model is not valid for new brand
+                    if (values["Model"] && values["Model"] !== "Other") {
+                      const validForNewBrand = val && val !== "Other" ? getModelsForBrand(category, val) : [];
+                      if (!validForNewBrand.includes(values["Model"])) {
+                        nextValues["Model"] = "";
+                      }
+                    }
+                    onChange(nextValues);
+                  }}
+                  className={cn(
+                    "w-full rounded-2xl border bg-background px-3 py-3 text-xs font-bold text-foreground outline-none focus:border-indigo-brand",
+                    err ? "border-red-400" : "border-border"
+                  )}
+                >
+                  <option value="">Select Brand / Manufacturer…</option>
+                  {brandOptions.map((b) => (
+                    <option key={b} value={b}>{b}</option>
+                  ))}
+                  <option value="Other">➕ Type Custom Brand / Manufacturer...</option>
+                  {brand && !brandOptions.includes(brand) && brand !== "Other" && (
+                    <option value={brand}>{brand} (Custom)</option>
+                  )}
+                </select>
+              )}
               {err && <p className="mt-1 text-[11px] text-red-600" role="alert">{err}</p>}
             </div>
           );

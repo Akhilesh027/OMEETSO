@@ -39,11 +39,11 @@ export default function PromotionReviewPage() {
         badgeColor="indigo"
         secondaryActions={
           <button
-            onClick={() => navigate("/admin/promotions")}
+            onClick={() => (window.history.length > 1 ? navigate(-1) : navigate("/admin/promotions"))}
             className="inline-flex items-center space-x-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold bg-white border border-[#E2E8F0] text-[#111827] hover:bg-slate-50"
           >
             <ArrowLeft className="w-4 h-4" />
-            <span>Back to Promotions</span>
+            <span>Back</span>
           </button>
         }
       />

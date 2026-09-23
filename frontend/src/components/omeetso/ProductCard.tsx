@@ -50,11 +50,14 @@ export function ProductCard({
   const imgSrc = p.image || (p as any).coverUrl || (Array.isArray(p.images) && p.images[0]) || fallbackImg;
 
   const isQuickSale = Boolean(
-    (p as any).method === "quick" ||
-    (p as any).quickSale ||
-    (p as any).isQuickSell ||
-    p.id.startsWith("Q-") ||
-    p.id.includes("quick")
+    (p as any).method !== "detailed" &&
+    (
+      (p as any).method === "quick" ||
+      (p as any).quickSale ||
+      (p as any).isQuickSell ||
+      p.id.startsWith("Q-") ||
+      p.id.includes("quick")
+    )
   );
 
   const handleQuickSaleClick = (e: React.MouseEvent) => {

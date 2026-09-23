@@ -20,7 +20,7 @@ import {
 import { validateAll } from "@/lib/listingValidation";
 import { specFieldsFor } from "@/lib/specConfig";
 import { toast } from "sonner";
-import { Save, AlertCircle, Sparkles, MapPin, PhoneCall, Sliders, Layers, Loader2 } from "lucide-react";
+import { Save, AlertCircle, Sparkles, MapPin, PhoneCall, Sliders, Layers, Loader2, Edit3 } from "lucide-react";
 import { API_BASE } from "@/config/api";
 import { pushNotification } from "@/lib/account";
 import { getUserAccessToken } from "@/api/auth.api";
@@ -34,6 +34,7 @@ function EditListing() {
   const { id } = Route.useParams();
   const nav = useNavigate();
   const [l, setL] = useState<Listing | undefined>(() => getListing(id));
+  const [isManualSubcategory, setIsManualSubcategory] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [summary, setSummary] = useState<string[]>([]);
   const [showMissingModal, setShowMissingModal] = useState(false);
@@ -62,13 +63,28 @@ function EditListing() {
 
   useEffect(() => {
     fetchLiveListingById(id).then((live) => {
-      if (live) setL(live);
+      if (live) {
+        setL(live);
+        const liveSubs = getLiveSubcategories(live.category);
+        if (live.subcategory && !liveSubs.some(s => s.id === live.subcategory || s.name === live.subcategory)) {
+          setIsManualSubcategory(true);
+        }
+      }
     }).catch(() => {
       const cached = getListing(id);
-      if (cached) setL(cached);
+      if (cached) {
+        setL(cached);
+        const liveSubs = getLiveSubcategories(cached.category);
+        if (cached.subcategory && !liveSubs.some(s => s.id === cached.subcategory || s.name === cached.subcategory)) {
+          setIsManualSubcategory(true);
+        }
+      }
     });
 
-    const unsub = subscribe(() => setL(getListing(id)));
+    const unsub = subscribe(() => {
+      const updated = getListing(id);
+      if (updated) setL(updated);
+    });
     return () => { unsub(); };
   }, [id]);
 
@@ -255,7 +271,7 @@ function EditListing() {
                 {errors.description && <p className="mt-1 text-[11px] font-bold text-rose-600">{errors.description}</p>}
               </div>
 
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
                   <label className="block text-xs font-extrabold text-foreground mb-1">Category</label>
                   <select
@@ -263,6 +279,7 @@ function EditListing() {
                     onChange={(e) => {
                       const cat = e.target.value;
                       patch({ category: cat, subcategory: "" });
+                      setIsManualSubcategory(false);
                     }}
                     className="w-full h-12 rounded-2xl border border-border bg-background px-3 text-xs font-extrabold outline-none focus:border-indigo-brand transition-all"
                   >
@@ -270,18 +287,56 @@ function EditListing() {
                   </select>
                 </div>
                 <div>
-                  <label className="block text-xs font-extrabold text-foreground mb-1">Subcategory</label>
-                  <select
-                    value={l.subcategory}
-                    onChange={(e) => patch({ subcategory: e.target.value })}
-                    className="w-full h-12 rounded-2xl border border-border bg-background px-3 text-xs font-extrabold outline-none focus:border-indigo-brand transition-all"
-                  >
-                    <option value="">Select Subcategory</option>
-                    {getLiveSubcategories(l.category).map((s) => <option key={s.id} value={s.name}>{s.name}</option>)}
-                    {l.subcategory && !getLiveSubcategories(l.category).some(s => s.id === l.subcategory || s.name === l.subcategory) && (
-                      <option value={l.subcategory}>{l.subcategory}</option>
-                    )}
-                  </select>
+                  <div className="flex items-center justify-between mb-1">
+                    <label className="block text-xs font-extrabold text-foreground">Subcategory</label>
+                    <button
+                      type="button"
+                      onClick={() => setIsManualSubcategory(!isManualSubcategory)}
+                      className="text-[11px] font-bold text-indigo-brand hover:underline flex items-center gap-1 cursor-pointer"
+                    >
+                      <Edit3 className="h-3 w-3" />
+                      {isManualSubcategory ? "Choose from list" : "Type manually"}
+                    </button>
+                  </div>
+
+                  {isManualSubcategory ? (
+                    <div className="relative">
+                      <input
+                        type="text"
+                        value={l.subcategory ?? ""}
+                        onChange={(e) => patch({ subcategory: e.target.value })}
+                        placeholder="Type custom subcategory..."
+                        className="w-full h-12 rounded-2xl border border-border bg-background px-3.5 text-xs font-bold text-foreground outline-none focus:border-indigo-brand focus:ring-2 focus:ring-indigo-brand/20 transition-all"
+                      />
+                      {l.subcategory && (
+                        <span className="absolute right-3 top-1/2 -translate-y-1/2 text-[10px] font-extrabold bg-indigo-500/10 text-indigo-brand px-2 py-0.5 rounded-md pointer-events-none">
+                          Manual
+                        </span>
+                      )}
+                    </div>
+                  ) : (
+                    <select
+                      value={l.subcategory ?? ""}
+                      onChange={(e) => {
+                        const val = e.target.value;
+                        if (val === "__custom__") {
+                          setIsManualSubcategory(true);
+                          patch({ subcategory: "" });
+                        } else {
+                          patch({ subcategory: val });
+                        }
+                      }}
+                      className="w-full h-12 rounded-2xl border border-border bg-background px-3 text-xs font-extrabold outline-none focus:border-indigo-brand transition-all"
+                    >
+                      <option value="">Select Subcategory</option>
+                      {getLiveSubcategories(l.category).map((s) => <option key={s.id} value={s.name}>{s.name}</option>)}
+                      <option value="__custom__">➕ Type Custom Subcategory...</option>
+                      {l.subcategory && !getLiveSubcategories(l.category).some(s => s.id === l.subcategory || s.name === l.subcategory) && (
+                        <option value={l.subcategory}>{l.subcategory} (Custom)</option>
+                      )}
+                    </select>
+                  )}
+                  {errors.subcategory && <p className="text-xs font-bold text-rose-600 mt-1">{errors.subcategory}</p>}
                 </div>
               </div>
             </div>
@@ -299,6 +354,7 @@ function EditListing() {
               <SpecForm
                 fields={fields}
                 values={l.specs ?? {}}
+                category={l.category}
                 onChange={(specs) => patch({ specs })}
                 errors={errors}
               />

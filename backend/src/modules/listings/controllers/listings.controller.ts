@@ -41,7 +41,8 @@ export async function createListing(req: AuthenticatedUserRequest, res: Response
       city,
       fulfilment,
       specs,
-      contactPref
+      contactPref,
+      method
     } = req.body;
 
     // Derived Seller Identity
@@ -62,6 +63,7 @@ export async function createListing(req: AuthenticatedUserRequest, res: Response
     const safeFulfilment = (fulfilment && String(fulfilment).trim()) || "pickup";
     const safeTitle = (title && String(title).trim()) || "Untitled Product";
     const safeDescription = (description && String(description).trim()) || safeTitle;
+    const safeMethod = method === "quick" ? "quick" : "detailed";
 
     const imgCount = Array.isArray(images) ? images.filter(Boolean).length : 0;
     if (imgCount < 3 && !req.body.isMock) {
@@ -103,6 +105,7 @@ export async function createListing(req: AuthenticatedUserRequest, res: Response
       fulfilment: safeFulfilment,
       specs: specs || {},
       contactPref: contactPref || "call_and_chat",
+      method: safeMethod,
       status: ListingStatus.SUBMITTED,
       publishedAt: undefined,
       expiresAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000)
@@ -171,6 +174,7 @@ export async function createListing(req: AuthenticatedUserRequest, res: Response
         fulfilment: listing.fulfilment,
         specs: listing.specs ? Object.fromEntries(listing.specs) : {},
         contactPref: listing.contactPref,
+        method: listing.method || safeMethod,
         rating: listing.rating || 0,
         reviewCount: listing.reviewCount || 0,
         status: listing.status,
@@ -278,7 +282,7 @@ export async function getPublicListings(req: Request, res: Response, next: NextF
 
     const [listings, total] = await Promise.all([
       Listing.find(query)
-        .select("title priceInPaise condition area city pincode coverIndex images sellerId storeId status publishedAt free negotiable categoryId subcategoryId description specs")
+        .select("title priceInPaise condition area city pincode coverIndex images sellerId storeId status publishedAt free negotiable categoryId subcategoryId description specs method")
         .populate("sellerId", "profile.name profile.businessName profile.avatar accountType verificationSummary")
         .populate("storeId", "name slug logo cover rating reviewCount")
         .sort(sortOptions)
@@ -311,6 +315,8 @@ export async function getPublicListings(req: Request, res: Response, next: NextF
         subcategoryId: l.subcategoryId,
         description: l.description,
         specs: l.specs || {},
+        method: l.method || "detailed",
+        videoUrl: l.videoUrl || (l as any).video || undefined,
         rating: l.rating || 0,
         reviewCount: l.reviewCount || 0,
         status: l.status,
@@ -421,6 +427,7 @@ export async function getListingById(req: Request, res: Response, next: NextFunc
         fulfilment: listing.fulfilment,
         specs: listing.specs ? Object.fromEntries(Object.entries(listing.specs)) : {},
         contactPref: listing.contactPref,
+        method: listing.method || "detailed",
         rating: listing.rating || 0,
         reviewCount: listing.reviewCount || 0,
         status: listing.status,
@@ -481,7 +488,7 @@ export async function getMyListings(req: AuthenticatedUserRequest, res: Response
 
     res.status(200).json({
       success: true,
-      data: listings.map((l) => ({
+      data: listings.map((l: any) => ({
         id: l._id.toString(),
         title: l.title,
         priceInPaise: l.priceInPaise,
@@ -489,8 +496,10 @@ export async function getMyListings(req: AuthenticatedUserRequest, res: Response
         status: l.status,
         images: l.images,
         coverIndex: l.coverIndex,
+        videoUrl: l.videoUrl || (l as any).video || undefined,
         area: l.area,
         city: l.city,
+        method: l.method || "detailed",
         createdAt: l.createdAt,
         expiresAt: l.expiresAt,
         rejection: l.rejection
