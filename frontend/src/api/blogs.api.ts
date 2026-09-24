@@ -17,7 +17,7 @@ export interface BlogArticle {
     bio?: string;
   };
   readTime: string;
-  status: "DRAFT" | "PUBLISHED" | "ARCHIVED";
+  status: "DRAFT" | "PUBLISHED" | "SCHEDULED" | "ARCHIVED";
   isFeatured: boolean;
   viewsCount: number;
   likesCount: number;
@@ -26,6 +26,7 @@ export interface BlogArticle {
     metaDescription?: string;
     keywords?: string[];
   };
+  scheduledAt?: string;
   publishedAt?: string;
   createdAt: string;
   related?: BlogArticle[];

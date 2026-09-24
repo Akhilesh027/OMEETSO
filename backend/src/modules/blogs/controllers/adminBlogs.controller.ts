@@ -57,6 +57,7 @@ export async function getAdminBlogs(req: Request, res: Response, next: NextFunct
     const stats = {
       total: 0,
       published: 0,
+      scheduled: 0,
       draft: 0,
       archived: 0,
       totalViews: 0
@@ -64,6 +65,7 @@ export async function getAdminBlogs(req: Request, res: Response, next: NextFunct
 
     counts.forEach((c) => {
       if (c._id === "PUBLISHED") stats.published = c.count;
+      else if (c._id === "SCHEDULED") stats.scheduled = c.count;
       else if (c._id === "DRAFT") stats.draft = c.count;
       else if (c._id === "ARCHIVED") stats.archived = c.count;
       stats.total += c.count;
@@ -99,7 +101,8 @@ export async function createAdminBlog(req: Request, res: Response, next: NextFun
       author,
       status,
       isFeatured,
-      seo
+      seo,
+      scheduledAt
     } = req.body;
 
     if (!title || !content || !excerpt) {
@@ -131,7 +134,7 @@ export async function createAdminBlog(req: Request, res: Response, next: NextFun
       tags: Array.isArray(tags) ? tags : typeof tags === "string" ? tags.split(",").map((t: string) => t.trim()).filter(Boolean) : [],
       author: {
         name: author?.name || "Omeetso Editorial Team",
-        avatar: author?.avatar || "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=200",
+        avatar: author?.avatar || "",
         role: author?.role || "Marketplace Specialist",
         bio: author?.bio || ""
       },
@@ -143,6 +146,7 @@ export async function createAdminBlog(req: Request, res: Response, next: NextFun
         metaDescription: excerpt,
         keywords: Array.isArray(tags) ? tags : []
       },
+      scheduledAt: blogStatus === "SCHEDULED" && scheduledAt ? new Date(scheduledAt) : undefined,
       publishedAt: blogStatus === "PUBLISHED" ? new Date() : undefined
     });
 
@@ -174,7 +178,8 @@ export async function updateAdminBlog(req: Request, res: Response, next: NextFun
       author,
       status,
       isFeatured,
-      seo
+      seo,
+      scheduledAt
     } = req.body;
 
     const existing = await Blog.findById(id);
@@ -204,6 +209,9 @@ export async function updateAdminBlog(req: Request, res: Response, next: NextFun
     }
     if (isFeatured !== undefined) updates.isFeatured = Boolean(isFeatured);
     if (seo) updates.seo = seo;
+    if (scheduledAt !== undefined) {
+      updates.scheduledAt = scheduledAt ? new Date(scheduledAt) : null;
+    }
 
     if (status) {
       const nextStatus = status.toUpperCase() as BlogStatus;
@@ -236,7 +244,7 @@ export async function updateAdminBlog(req: Request, res: Response, next: NextFun
 export async function updateAdminBlogStatus(req: Request, res: Response, next: NextFunction): Promise<void> {
   try {
     const id = String(req.params.id);
-    const { status } = req.body;
+    const { status, scheduledAt } = req.body;
 
     if (!mongoose.Types.ObjectId.isValid(id)) {
       res.status(400).json({ success: false, error: { message: "Invalid article ID" } });
@@ -244,7 +252,7 @@ export async function updateAdminBlogStatus(req: Request, res: Response, next: N
     }
 
     const nextStatus = (status || "").toUpperCase() as BlogStatus;
-    if (!["DRAFT", "PUBLISHED", "ARCHIVED"].includes(nextStatus)) {
+    if (!["DRAFT", "PUBLISHED", "SCHEDULED", "ARCHIVED"].includes(nextStatus)) {
       res.status(400).json({ success: false, error: { message: "Invalid status value" } });
       return;
     }
@@ -252,6 +260,10 @@ export async function updateAdminBlogStatus(req: Request, res: Response, next: N
     const updates: Record<string, any> = { status: nextStatus };
     if (nextStatus === "PUBLISHED") {
       updates.publishedAt = new Date();
+    } else if (nextStatus === "SCHEDULED") {
+      if (scheduledAt) {
+        updates.scheduledAt = new Date(scheduledAt);
+      }
     }
 
     const updated = await Blog.findByIdAndUpdate(id, updates, { new: true });

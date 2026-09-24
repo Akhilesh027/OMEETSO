@@ -9,6 +9,10 @@ import {
   AlertCircle,
   Upload,
   Trash2,
+  Calendar,
+  Clock,
+  CheckCircle2,
+  Sparkles,
   Image as ImageIcon
 } from "lucide-react";
 import { uploadCategoryImageApi } from "@/api/adminCategories.api";
@@ -30,7 +34,7 @@ export interface BlogItem {
     bio?: string;
   };
   readTime?: string;
-  status: "DRAFT" | "PUBLISHED" | "ARCHIVED";
+  status: "DRAFT" | "PUBLISHED" | "SCHEDULED" | "ARCHIVED";
   isFeatured: boolean;
   viewsCount?: number;
   likesCount?: number;
@@ -39,6 +43,7 @@ export interface BlogItem {
     metaDescription?: string;
     keywords?: string[];
   };
+  scheduledAt?: string;
   publishedAt?: string;
   createdAt?: string;
 }
@@ -69,6 +74,13 @@ function slugify(text: string): string {
     .replace(/^-+|-+$/g, "");
 }
 
+function getDefaultScheduledDate(): string {
+  const tomorrow = new Date();
+  tomorrow.setDate(tomorrow.getDate() + 1);
+  tomorrow.setHours(9, 0, 0, 0);
+  return tomorrow.toISOString().slice(0, 16);
+}
+
 export const BlogEditorModal: React.FC<BlogEditorModalProps> = ({
   isOpen,
   blog,
@@ -86,11 +98,11 @@ export const BlogEditorModal: React.FC<BlogEditorModalProps> = ({
     author: {
       name: "Omeetso Editorial Team",
       role: "Marketplace Specialist",
-      avatar: "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=200",
       bio: "Insights and guidance for safe, fast local buying and selling."
     },
     status: "DRAFT",
     isFeatured: false,
+    scheduledAt: getDefaultScheduledDate(),
     seo: {
       metaTitle: "",
       metaDescription: "",
@@ -100,6 +112,8 @@ export const BlogEditorModal: React.FC<BlogEditorModalProps> = ({
 
   const [tagsInput, setTagsInput] = useState("");
   const [activeTab, setActiveTab] = useState<"edit" | "preview">("edit");
+  const [showSchedulePicker, setShowSchedulePicker] = useState(false);
+  const [scheduledDateTime, setScheduledDateTime] = useState<string>(getDefaultScheduledDate());
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isUploadingImage, setIsUploadingImage] = useState(false);
   const [errorMsg, setErrorMsg] = useState("");
@@ -126,22 +140,32 @@ export const BlogEditorModal: React.FC<BlogEditorModalProps> = ({
 
   useEffect(() => {
     if (blog) {
+      let initScheduled = getDefaultScheduledDate();
+      if (blog.scheduledAt) {
+        try {
+          initScheduled = new Date(blog.scheduledAt).toISOString().slice(0, 16);
+        } catch {}
+      }
+
       setFormData({
         ...blog,
         author: {
           name: blog.author?.name || "Omeetso Editorial Team",
           role: blog.author?.role || "Marketplace Specialist",
-          avatar: blog.author?.avatar || "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=200",
           bio: blog.author?.bio || ""
         },
+        scheduledAt: initScheduled,
         seo: {
           metaTitle: blog.seo?.metaTitle || blog.title || "",
           metaDescription: blog.seo?.metaDescription || blog.excerpt || "",
           keywords: blog.seo?.keywords || blog.tags || []
         }
       });
+      setScheduledDateTime(initScheduled);
+      setShowSchedulePicker(blog.status === "SCHEDULED");
       setTagsInput(Array.isArray(blog.tags) ? blog.tags.join(", ") : "");
     } else {
+      const defaultDate = getDefaultScheduledDate();
       setFormData({
         title: "",
         slug: "",
@@ -153,17 +177,19 @@ export const BlogEditorModal: React.FC<BlogEditorModalProps> = ({
         author: {
           name: "Omeetso Editorial Team",
           role: "Marketplace Specialist",
-          avatar: "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=200",
           bio: "Insights and guidance for safe, fast local buying and selling."
         },
         status: "DRAFT",
         isFeatured: false,
+        scheduledAt: defaultDate,
         seo: {
           metaTitle: "",
           metaDescription: "",
           keywords: []
         }
       });
+      setScheduledDateTime(defaultDate);
+      setShowSchedulePicker(false);
       setTagsInput("hyderabad, marketplace");
     }
     setErrorMsg("");
@@ -202,7 +228,16 @@ export const BlogEditorModal: React.FC<BlogEditorModalProps> = ({
     }));
   };
 
-  const handleSubmit = async (targetStatus?: "DRAFT" | "PUBLISHED") => {
+  const applyPreset = (daysAhead: number, hour: number = 9) => {
+    const d = new Date();
+    d.setDate(d.getDate() + daysAhead);
+    d.setHours(hour, 0, 0, 0);
+    const val = d.toISOString().slice(0, 16);
+    setScheduledDateTime(val);
+    setFormData((prev) => ({ ...prev, scheduledAt: val }));
+  };
+
+  const handleSubmit = async (targetStatus?: "DRAFT" | "PUBLISHED" | "SCHEDULED") => {
     if (!formData.title?.trim()) {
       setErrorMsg("Please enter an article title");
       return;
@@ -216,12 +251,27 @@ export const BlogEditorModal: React.FC<BlogEditorModalProps> = ({
       return;
     }
 
+    const finalStatus = targetStatus || formData.status || "DRAFT";
+
+    if (finalStatus === "SCHEDULED") {
+      if (!scheduledDateTime) {
+        setErrorMsg("Please select a date and time to schedule publication");
+        return;
+      }
+      const selected = new Date(scheduledDateTime);
+      if (selected <= new Date()) {
+        setErrorMsg("Scheduled time must be in the future");
+        return;
+      }
+    }
+
     setIsSubmitting(true);
     setErrorMsg("");
     try {
       const payload: Partial<BlogItem> = {
         ...formData,
-        status: targetStatus || formData.status || "DRAFT",
+        status: finalStatus,
+        scheduledAt: finalStatus === "SCHEDULED" ? new Date(scheduledDateTime).toISOString() : undefined,
         tags: tagsInput.split(",").map((t) => t.trim()).filter(Boolean)
       };
       await onSave(payload);
@@ -248,7 +298,7 @@ export const BlogEditorModal: React.FC<BlogEditorModalProps> = ({
                 {blog ? "Edit Article" : "Compose New Article"}
               </h2>
               <p className="text-xs text-admin-muted font-medium">
-                Publish marketplace guides, buying checklists, and customer stories
+                Publish marketplace guides, buying checklists, and schedule releases
               </p>
             </div>
           </div>
@@ -258,20 +308,22 @@ export const BlogEditorModal: React.FC<BlogEditorModalProps> = ({
               <button
                 type="button"
                 onClick={() => setActiveTab("edit")}
-                className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold rounded-lg transition ${activeTab === "edit"
+                className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold rounded-lg transition ${
+                  activeTab === "edit"
                     ? "bg-admin-indigo text-white shadow-xs"
                     : "text-admin-muted hover:text-admin-text"
-                  }`}
+                }`}
               >
                 <Edit3 className="h-3.5 w-3.5" /> Editor
               </button>
               <button
                 type="button"
                 onClick={() => setActiveTab("preview")}
-                className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold rounded-lg transition ${activeTab === "preview"
+                className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold rounded-lg transition ${
+                  activeTab === "preview"
                     ? "bg-admin-indigo text-white shadow-xs"
                     : "text-admin-muted hover:text-admin-text"
-                  }`}
+                }`}
               >
                 <Eye className="h-3.5 w-3.5" /> Preview
               </button>
@@ -297,6 +349,7 @@ export const BlogEditorModal: React.FC<BlogEditorModalProps> = ({
 
           {activeTab === "edit" ? (
             <div className="space-y-4 bg-white p-6 rounded-2xl border border-admin-border shadow-xs">
+              
               {/* Row 1: Title & Category */}
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <div className="md:col-span-2">
@@ -437,7 +490,7 @@ export const BlogEditorModal: React.FC<BlogEditorModalProps> = ({
                 />
               </div>
 
-              {/* Rich Content Editor (Markdown Supported) */}
+              {/* Rich Content Editor */}
               <div>
                 <div className="flex items-center justify-between mb-1.5">
                   <label className="text-xs font-bold text-slate-700">
@@ -477,7 +530,7 @@ export const BlogEditorModal: React.FC<BlogEditorModalProps> = ({
                   </label>
                   <input
                     type="text"
-                    placeholder="e.g. Rajesh Varma"
+                    placeholder="e.g. Omeetso Editorial Team"
                     value={formData.author?.name || ""}
                     onChange={(e) =>
                       setFormData({
@@ -503,14 +556,91 @@ export const BlogEditorModal: React.FC<BlogEditorModalProps> = ({
                   Feature this article prominently in Spotlight / Hero banner
                 </label>
               </div>
+
+              {/* Inline Schedule Date Picker Card if schedule picker is open */}
+              {showSchedulePicker && (
+                <div className="p-5 rounded-2xl border border-purple-200 bg-purple-50/70 space-y-3.5 animate-in fade-in slide-in-from-top-2">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-purple-600 text-white shadow-xs">
+                        <Calendar className="h-4 w-4" />
+                      </div>
+                      <div>
+                        <h4 className="text-xs font-black text-purple-950">Publishing Schedule</h4>
+                        <p className="text-[11px] text-purple-700">Choose when this guide will automatically go live</p>
+                      </div>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setShowSchedulePicker(false)}
+                      className="text-xs font-bold text-purple-600 hover:text-purple-900"
+                    >
+                      Hide
+                    </button>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 items-center">
+                    <div>
+                      <label className="block text-[11px] font-bold text-purple-900 mb-1">
+                        Release Date & Time *
+                      </label>
+                      <input
+                        type="datetime-local"
+                        value={scheduledDateTime}
+                        onChange={(e) => {
+                          setScheduledDateTime(e.target.value);
+                          setFormData((prev) => ({ ...prev, scheduledAt: e.target.value }));
+                        }}
+                        className="w-full h-10 rounded-xl border border-purple-300 bg-white px-3 text-xs font-bold text-purple-950 outline-none focus:border-purple-600 shadow-xs"
+                      />
+                    </div>
+
+                    <div className="space-y-1">
+                      <span className="block text-[11px] font-bold text-purple-900">Quick Presets:</span>
+                      <div className="flex flex-wrap gap-1.5">
+                        <button
+                          type="button"
+                          onClick={() => applyPreset(1, 9)}
+                          className="px-2.5 py-1 rounded-lg bg-white border border-purple-200 text-[11px] font-bold text-purple-800 hover:bg-purple-100 transition shadow-2xs cursor-pointer"
+                        >
+                          Tomorrow 9 AM
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => applyPreset(2, 10)}
+                          className="px-2.5 py-1 rounded-lg bg-white border border-purple-200 text-[11px] font-bold text-purple-800 hover:bg-purple-100 transition shadow-2xs cursor-pointer"
+                        >
+                          In 2 Days
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => applyPreset(7, 9)}
+                          className="px-2.5 py-1 rounded-lg bg-white border border-purple-200 text-[11px] font-bold text-purple-800 hover:bg-purple-100 transition shadow-2xs cursor-pointer"
+                        >
+                          In 1 Week
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+
             </div>
           ) : (
             /* PREVIEW TAB */
             <div className="max-w-2xl mx-auto space-y-6 py-4 bg-white p-8 rounded-2xl border border-admin-border shadow-sm">
               <div className="space-y-3">
-                <span className="inline-block px-3 py-1 rounded-full bg-indigo-50 text-admin-indigo text-xs font-black uppercase tracking-wider">
-                  {formData.category}
-                </span>
+                <div className="flex items-center gap-2">
+                  <span className="inline-block px-3 py-1 rounded-full bg-indigo-50 text-admin-indigo text-xs font-black uppercase tracking-wider">
+                    {formData.category}
+                  </span>
+                  {showSchedulePicker && (
+                    <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-purple-100 text-purple-800 text-[10px] font-black uppercase">
+                      <Clock className="h-3 w-3" /> Scheduled for {new Date(scheduledDateTime).toLocaleString("en-IN", { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" })}
+                    </span>
+                  )}
+                </div>
+
                 <h1 className="text-2xl font-black text-admin-text leading-tight">
                   {formData.title || "Untitled Article"}
                 </h1>
@@ -519,15 +649,13 @@ export const BlogEditorModal: React.FC<BlogEditorModalProps> = ({
                 </p>
 
                 <div className="flex items-center gap-3 pt-3 border-t border-admin-border">
-                  <img
-                    src={formData.author?.avatar || "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=200"}
-                    alt="Author"
-                    className="h-10 w-10 rounded-full object-cover border border-admin-border"
-                  />
+                  <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-indigo-50 text-admin-indigo border border-indigo-100">
+                    <BookOpen className="h-4 w-4" />
+                  </div>
                   <div>
                     <h4 className="text-xs font-black text-admin-text">{formData.author?.name}</h4>
                     <p className="text-[11px] text-admin-muted font-semibold">
-                      {formData.author?.role || "Marketplace Editor"} • Just now
+                      {formData.author?.role || "Marketplace Specialist"} • {showSchedulePicker ? "Scheduled" : "Draft Preview"}
                     </p>
                   </div>
                 </div>
@@ -558,24 +686,29 @@ export const BlogEditorModal: React.FC<BlogEditorModalProps> = ({
           )}
         </div>
 
-        {/* Modal Footer */}
-        <div className="flex items-center justify-between border-t border-admin-border px-6 py-4 bg-slate-50">
+        {/* Modal Footer with Schedule Button */}
+        <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 border-t border-admin-border px-6 py-4 bg-slate-50">
           <div className="flex items-center gap-2 text-xs font-bold text-admin-muted">
             <span>Status:</span>
-            <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase ${formData.status === "PUBLISHED"
-                ? "bg-emerald-100 text-emerald-800"
-                : "bg-amber-100 text-amber-800"
-              }`}>
-              {formData.status}
+            <span
+              className={`px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase ${
+                showSchedulePicker
+                  ? "bg-purple-100 text-purple-800"
+                  : formData.status === "PUBLISHED"
+                  ? "bg-emerald-100 text-emerald-800"
+                  : "bg-amber-100 text-amber-800"
+              }`}
+            >
+              {showSchedulePicker ? "SCHEDULED" : formData.status}
             </span>
           </div>
 
-          <div className="flex items-center gap-3">
+          <div className="flex flex-wrap items-center gap-2 sm:gap-3">
             <button
               type="button"
               onClick={onClose}
               disabled={isSubmitting}
-              className="px-4 py-2 rounded-xl border border-admin-border bg-white text-xs font-bold text-admin-text hover:bg-slate-100 transition shadow-xs"
+              className="px-3.5 py-2 rounded-xl border border-admin-border bg-white text-xs font-bold text-admin-text hover:bg-slate-100 transition shadow-xs"
             >
               Cancel
             </button>
@@ -584,9 +717,26 @@ export const BlogEditorModal: React.FC<BlogEditorModalProps> = ({
               type="button"
               onClick={() => handleSubmit("DRAFT")}
               disabled={isSubmitting}
-              className="flex items-center gap-1.5 px-4 py-2 rounded-xl border border-admin-border bg-white text-admin-indigo text-xs font-bold hover:bg-slate-100 transition shadow-xs"
+              className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl border border-admin-border bg-white text-admin-indigo text-xs font-bold hover:bg-slate-100 transition shadow-xs"
             >
               <Save className="h-3.5 w-3.5" /> Save as Draft
+            </button>
+
+            {/* SCHEDULE BUTTON */}
+            <button
+              type="button"
+              onClick={() => {
+                if (!showSchedulePicker) {
+                  setShowSchedulePicker(true);
+                } else {
+                  handleSubmit("SCHEDULED");
+                }
+              }}
+              disabled={isSubmitting}
+              className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-purple-600 hover:bg-purple-500 text-white text-xs font-bold transition shadow-xs cursor-pointer"
+            >
+              <Calendar className="h-3.5 w-3.5" />
+              <span>{showSchedulePicker ? "Confirm Schedule" : "Schedule"}</span>
             </button>
 
             <button

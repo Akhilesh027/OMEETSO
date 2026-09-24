@@ -10,7 +10,12 @@ export async function getPublicBlogs(req: Request, res: Response, next: NextFunc
 
     const { category, tag, q } = req.query;
 
-    const query: Record<string, any> = { status: "PUBLISHED" };
+    const now = new Date();
+    const activeCondition = {
+      $or: [{ status: "PUBLISHED" }, { status: "SCHEDULED", scheduledAt: { $lte: now } }]
+    };
+
+    const query: Record<string, any> = { ...activeCondition };
 
     if (category && category !== "ALL") {
       query.category = { $regex: new RegExp(`^${category}$`, "i") };
@@ -22,11 +27,13 @@ export async function getPublicBlogs(req: Request, res: Response, next: NextFunc
 
     if (q) {
       const regex = new RegExp(q as string, "i");
-      query.$or = [
-        { title: regex },
-        { excerpt: regex },
-        { tags: regex }
+      query.$and = [
+        activeCondition,
+        {
+          $or: [{ title: regex }, { excerpt: regex }, { tags: regex }]
+        }
       ];
+      delete query.$or;
     }
 
     const [blogs, total] = await Promise.all([
@@ -55,7 +62,11 @@ export async function getPublicBlogs(req: Request, res: Response, next: NextFunc
 
 export async function getFeaturedBlogs(req: Request, res: Response, next: NextFunction): Promise<void> {
   try {
-    const blogs = await Blog.find({ status: "PUBLISHED", isFeatured: true })
+    const now = new Date();
+    const blogs = await Blog.find({
+      $or: [{ status: "PUBLISHED" }, { status: "SCHEDULED", scheduledAt: { $lte: now } }],
+      isFeatured: true
+    })
       .sort({ publishedAt: -1, createdAt: -1 })
       .limit(6)
       .lean();

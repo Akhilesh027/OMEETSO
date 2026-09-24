@@ -204,11 +204,9 @@ function BlogDetailPage() {
             {/* Author Card & Social Share Bar */}
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-y border-border py-4 my-2">
               <div className="flex items-center gap-3">
-                <img
-                  src={blog.author?.avatar || "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=200"}
-                  alt={blog.author?.name}
-                  className="h-11 w-11 rounded-full object-cover border border-border shadow-xs"
-                />
+                <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 border border-indigo-500/20">
+                  <BookOpen className="h-5 w-5" />
+                </div>
                 <div>
                   <h3 className="text-xs font-black text-foreground">{blog.author?.name || "Omeetso Editorial Team"}</h3>
                   <p className="text-[11px] text-muted-foreground font-semibold">
@@ -326,11 +324,9 @@ function BlogDetailPage() {
           {/* Author Bio Card */}
           {blog.author && (
             <div className="flex items-start gap-4 p-6 sm:p-8 rounded-3xl border border-border bg-secondary/30">
-              <img
-                src={blog.author.avatar || "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=200"}
-                alt={blog.author.name}
-                className="h-14 w-14 rounded-full object-cover border border-border shrink-0 shadow-xs"
-              />
+              <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 border border-indigo-500/20 shadow-xs">
+                <BookOpen className="h-6 w-6" />
+              </div>
               <div className="space-y-1">
                 <h4 className="text-sm font-black text-foreground">Written by {blog.author.name}</h4>
                 <p className="text-xs font-bold text-indigo-brand">{blog.author.role || "Marketplace Specialist"}</p>

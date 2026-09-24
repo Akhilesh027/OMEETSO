@@ -118,7 +118,7 @@ const SUBCATEGORY_IMAGES: Record<string, string> = {
   "Cleaning": "https://images.unsplash.com/photo-1581578731548-c64695cc6952?w=600&auto=format&fit=crop&q=80",
   "Tutors": "https://images.unsplash.com/photo-1434030216411-0b793f4b4173?w=600&auto=format&fit=crop&q=80",
   "Movers": "https://images.unsplash.com/photo-1600518464441-9154a4dea21b?w=600&auto=format&fit=crop&q=80",
-  "Photography": "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=600&auto=format&fit=crop&q=80",
+  "Photography": "https://images.unsplash.com/photo-1516035069371-29a1b244cc32?w=600&auto=format&fit=crop&q=80",
 
   // Commercial
   "Auto Rickshaws": "https://images.unsplash.com/photo-1596707323863-7185bb8b6f3c?w=600&auto=format&fit=crop&q=80",

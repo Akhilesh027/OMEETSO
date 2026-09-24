@@ -264,14 +264,12 @@ function BlogsIndexPage() {
                     </div>
 
                     <div className="flex items-center justify-between border-t border-border pt-4">
-                      <div className="flex items-center gap-3">
-                        <img
-                          src={spotlight.author?.avatar || "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=200"}
-                          alt={spotlight.author?.name}
-                          className="h-9 w-9 rounded-full object-cover border border-border"
-                        />
+                      <div className="flex items-center gap-2.5">
+                        <span className="flex h-8 w-8 items-center justify-center rounded-xl bg-indigo-500/10 text-indigo-600 dark:text-indigo-400">
+                          <BookOpen className="h-4 w-4" />
+                        </span>
                         <div>
-                          <div className="text-xs font-black text-foreground">{spotlight.author?.name}</div>
+                          <div className="text-xs font-black text-foreground">{spotlight.author?.name || "Omeetso Editorial"}</div>
                           <div className="text-[10px] text-muted-foreground font-semibold">{spotlight.author?.role || "Marketplace Specialist"}</div>
                         </div>
                       </div>
@@ -390,14 +388,12 @@ function BlogsIndexPage() {
 
                       {/* Author & Footer with Like & Share */}
                       <div className="border-t border-border/70 p-4 bg-secondary/20 flex items-center justify-between text-xs">
-                        <div className="flex items-center gap-2">
-                          <img
-                            src={article.author?.avatar || "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=200"}
-                            alt={article.author?.name}
-                            className="h-6 w-6 rounded-full object-cover border border-border"
-                          />
-                          <span className="text-[11px] font-bold text-foreground truncate max-w-[120px]">
-                            {article.author?.name}
+                        <div className="flex items-center gap-1.5">
+                          <span className="flex h-5 w-5 items-center justify-center rounded-full bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 text-[10px]">
+                            <BookOpen className="h-3 w-3" />
+                          </span>
+                          <span className="text-[11px] font-bold text-foreground truncate max-w-[130px]">
+                            {article.author?.name || "Omeetso Team"}
                           </span>
                         </div>
 

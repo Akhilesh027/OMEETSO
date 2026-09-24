@@ -1,6 +1,6 @@
 import mongoose, { Schema, Document } from "mongoose";
 
-export type BlogStatus = "DRAFT" | "PUBLISHED" | "ARCHIVED";
+export type BlogStatus = "DRAFT" | "PUBLISHED" | "SCHEDULED" | "ARCHIVED";
 
 export interface IBlog extends Document {
   _id: mongoose.Types.ObjectId;
@@ -28,6 +28,7 @@ export interface IBlog extends Document {
     metaDescription?: string;
     keywords?: string[];
   };
+  scheduledAt?: Date;
   publishedAt?: Date;
   createdAt: Date;
   updatedAt: Date;
@@ -52,7 +53,7 @@ const BlogSchema = new Schema<IBlog>(
     readTime: { type: String, default: "3 min read" },
     status: {
       type: String,
-      enum: ["DRAFT", "PUBLISHED", "ARCHIVED"],
+      enum: ["DRAFT", "PUBLISHED", "SCHEDULED", "ARCHIVED"],
       default: "DRAFT",
       index: true
     },
@@ -64,6 +65,7 @@ const BlogSchema = new Schema<IBlog>(
       metaDescription: { type: String },
       keywords: [{ type: String }]
     },
+    scheduledAt: { type: Date, index: true },
     publishedAt: { type: Date }
   },
   {
