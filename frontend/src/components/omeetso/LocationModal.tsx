@@ -144,10 +144,22 @@ export function LocationModal({
       };
 
       saveLocation(item);
-      toast.success(`Live location detected: ${displayArea}${loc.pincode ? ` (${loc.pincode})` : ""}`);
+      toast.success(
+        `Live location detected: ${displayArea}${loc.pincode ? ` (${loc.pincode})` : ""}`
+      );
       onClose();
-    } catch {
-      toast.error("Could not automatically detect location. Please search your place or pincode.");
+    } catch (err: any) {
+      console.warn("[LocationModal] Geolocation error:", err);
+      const msg = err?.message || "";
+      if (msg.includes("PERMISSION_DENIED")) {
+        toast.error(
+          "Location permission denied. Please click the lock / settings icon in your browser address bar and choose 'Allow' for Location."
+        );
+      } else {
+        toast.error(
+          msg || "Could not automatically detect location. Please search your place or pincode."
+        );
+      }
     } finally {
       setFetchingGeo(false);
     }
@@ -231,10 +243,10 @@ export function LocationModal({
               </div>
               <div className="min-w-0">
                 <span className="text-xs font-black text-blue-900 dark:text-blue-200 block truncate">
-                  {fetchingGeo ? "Detecting Live Location..." : "Use Current Live Location"}
+                  {fetchingGeo ? "Requesting permission & GPS..." : "Use Current Live Location"}
                 </span>
                 <span className="text-[11px] font-medium text-blue-700/80 dark:text-blue-300/80 block truncate">
-                  {fetchingGeo ? "Accessing GPS / Wi-Fi positioning..." : "Instant GPS & Network positioning"}
+                  {fetchingGeo ? "Please allow browser location when prompted" : "Instant GPS & Network positioning"}
                 </span>
               </div>
             </div>

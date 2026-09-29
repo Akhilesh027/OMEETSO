@@ -290,9 +290,11 @@ export function resolveCoordinatesLocally(lat: number, lng: number): LocationRes
     }
   }
 
+  const isNearby = minDistance <= 10;
+
   return {
-    area: closest.area,
-    pincode: closest.pincode,
+    area: isNearby ? closest.area : closest.city,
+    pincode: isNearby ? closest.pincode : "",
     city: closest.city,
     state: closest.state,
     distanceKm: Math.round(minDistance * 10) / 10,
@@ -329,14 +331,109 @@ export const POPULAR_LOCATIONS: LocationSuggestion[] = [
 
 /**
  * Resolve device lat/lng into exact area, pincode, city.
- * Combines BigDataCloud client reverse geocoding with OpenStreetMap Nominatim and local Haversine fallback.
+ * Combines OpenStreetMap Nominatim (gold standard for Indian postcodes),
+ * Komoot Photon reverse geocoder, BigDataCloud, and local Haversine fallback.
  */
 export async function resolveGpsLocation(lat: number, lng: number): Promise<LocationResult> {
-  // Strategy 1: BigDataCloud Reverse Geocoder (Free client-side endpoint, highly precise for street/suburb)
+  // Strategy 1: OpenStreetMap Nominatim Reverse Geocoding (Highest accuracy for exact Indian Postal pincodes)
   try {
-    const res = await fetch(
-      `https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=${lat}&longitude=${lng}&localityLanguage=en`
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 4500);
+    const nomRes = await fetch(
+      `https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${lat}&lon=${lng}&zoom=18&addressdetails=1`,
+      { signal: controller.signal }
     );
+    clearTimeout(timeoutId);
+    if (nomRes.ok) {
+      const nomData = await nomRes.json();
+      const addr = nomData.address || {};
+      const rawPin = (addr.postcode || "").replace(/\D/g, "");
+      const pincode = rawPin.length === 6 ? rawPin : "";
+
+      let area = cleanLocationName(
+        addr.suburb ||
+        addr.neighbourhood ||
+        addr.residential ||
+        addr.city_district ||
+        addr.quarter ||
+        addr.village ||
+        addr.hamlet ||
+        addr.town ||
+        nomData.name
+      );
+
+      const city = cleanLocationName(
+        addr.city ||
+        addr.town ||
+        addr.county ||
+        addr.state_district ||
+        "Hyderabad"
+      );
+      const state = cleanLocationName(addr.state || "Telangana");
+
+      // Cross-reference with India Post or Known Pincode dictionary if pincode is present
+      if (pincode && KNOWN_PINCODE_MAP[pincode]) {
+        if (!area || area.toLowerCase() === city.toLowerCase()) {
+          area = KNOWN_PINCODE_MAP[pincode].area;
+        }
+      }
+
+      if (area || pincode) {
+        return {
+          area: area || city,
+          pincode,
+          city,
+          state,
+        };
+      }
+    }
+  } catch (err) {
+    console.warn("[Location] Nominatim reverse geocoding failed, trying Photon:", err);
+  }
+
+  // Strategy 2: Komoot Photon Reverse Geocoding (Supports CORS and exact OSM tags)
+  try {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 4000);
+    const photonRes = await fetch(
+      `https://photon.komoot.io/reverse?lat=${lat}&lon=${lng}`,
+      { signal: controller.signal }
+    );
+    clearTimeout(timeoutId);
+    if (photonRes.ok) {
+      const photonData = await photonRes.json();
+      const feat = photonData.features?.[0];
+      if (feat && feat.properties) {
+        const props = feat.properties;
+        const rawPin = (props.postcode || "").replace(/\D/g, "");
+        const pincode = rawPin.length === 6 ? rawPin : "";
+        const area = cleanLocationName(props.name || props.district || props.city || props.street);
+        const city = cleanLocationName(props.city || props.district || props.county || "Hyderabad");
+        const state = cleanLocationName(props.state || "Telangana");
+
+        if (area || pincode) {
+          return {
+            area: area || city,
+            pincode,
+            city,
+            state,
+          };
+        }
+      }
+    }
+  } catch (err) {
+    console.warn("[Location] Photon reverse geocoding failed, trying BigDataCloud:", err);
+  }
+
+  // Strategy 3: BigDataCloud Reverse Geocoder
+  try {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 4000);
+    const res = await fetch(
+      `https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=${lat}&longitude=${lng}&localityLanguage=en`,
+      { signal: controller.signal }
+    );
+    clearTimeout(timeoutId);
     if (res.ok) {
       const data = await res.json();
       const rawPin = (data.postcode || "").replace(/\D/g, "");
@@ -354,47 +451,15 @@ export async function resolveGpsLocation(lat: number, lng: number): Promise<Loca
         "Hyderabad";
       const state = cleanLocationName(data.principalSubdivision) || "Telangana";
 
-      // If pincode is available, check local dictionary for exact well-known locality name
       if (pincode && KNOWN_PINCODE_MAP[pincode]) {
         if (!area || area.toLowerCase() === city.toLowerCase()) {
           area = KNOWN_PINCODE_MAP[pincode].area;
         }
       }
 
-      if (area) {
+      if (area || pincode) {
         return {
-          area,
-          pincode: pincode || (KNOWN_PINCODE_MAP[pincode]?.area ? pincode : "500081"),
-          city,
-          state,
-        };
-      }
-    }
-  } catch (err) {
-    console.warn("[Location] BigDataCloud reverse geocoding failed, trying Nominatim:", err);
-  }
-
-  // Strategy 2: OpenStreetMap Nominatim reverse geocode
-  try {
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 3500);
-    const nomRes = await fetch(
-      `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}&zoom=18&addressdetails=1`,
-      { signal: controller.signal }
-    );
-    clearTimeout(timeoutId);
-    if (nomRes.ok) {
-      const nomData = await nomRes.json();
-      const addr = nomData.address || {};
-      const rawPin = (addr.postcode || "").replace(/\D/g, "");
-      const pincode = rawPin.length === 6 ? rawPin : "";
-      const area = cleanLocationName(addr.suburb || addr.neighbourhood || addr.residential || addr.city_district || addr.city);
-      const city = cleanLocationName(addr.city || addr.town || addr.county || addr.state_district || "Hyderabad");
-      const state = cleanLocationName(addr.state || "Telangana");
-
-      if (area) {
-        return {
-          area,
+          area: area || city,
           pincode,
           city,
           state,
@@ -402,10 +467,10 @@ export async function resolveGpsLocation(lat: number, lng: number): Promise<Loca
       }
     }
   } catch (err) {
-    console.warn("[Location] Nominatim reverse geocoding failed, using local grid:", err);
+    console.warn("[Location] BigDataCloud reverse geocoding failed, checking local grid:", err);
   }
 
-  // Strategy 3: Local mathematical Haversine lookup (100% offline fallback)
+  // Strategy 4: Local mathematical Haversine lookup (100% offline fallback)
   return resolveCoordinatesLocally(lat, lng);
 }
 
@@ -573,16 +638,18 @@ export function calculateDistanceBetweenLocations(
 }
 
 /**
- * High-reliability Network / IP Fallback for Laptops:
- * When laptop has no GPS receiver or Windows Location Services is off, resolves via client network.
+ * High-reliability Network / IP Fallback:
+ * When device has no GPS receiver or location services are disabled, resolves via network.
+ * Never fakes a hardcoded pincode.
  */
 export async function fetchIpLocation(): Promise<LocationResult> {
-  // Strategy 1: BigDataCloud Client IP (automatically resolves client public IP without lat/lng params)
+  // Strategy 1: BigDataCloud Client IP
   try {
     const res = await fetch("https://api.bigdatacloud.net/data/reverse-geocode-client?localityLanguage=en");
     if (res.ok) {
       const data = await res.json();
-      const pincode = (data.postcode || "").replace(/\D/g, "");
+      const rawPin = (data.postcode || "").replace(/\D/g, "");
+      const pincode = rawPin.length === 6 ? rawPin : "";
       let area = cleanLocationName(data.locality) || cleanLocationName(data.city);
       const city = cleanLocationName(data.city) || cleanLocationName(data.principalSubdivision) || "Hyderabad";
       const state = cleanLocationName(data.principalSubdivision) || "Telangana";
@@ -596,7 +663,7 @@ export async function fetchIpLocation(): Promise<LocationResult> {
       if (area || city) {
         return {
           area: area || city,
-          pincode: pincode.length === 6 ? pincode : (KNOWN_PINCODE_MAP[pincode]?.pincode || "500081"),
+          pincode,
           city,
           state,
         };
@@ -606,7 +673,7 @@ export async function fetchIpLocation(): Promise<LocationResult> {
     // try next
   }
 
-  // Strategy 2: ipwho.is (fast HTTPS)
+  // Strategy 2: ipwho.is
   try {
     const res = await fetch("https://ipwho.is/");
     if (res.ok) {
@@ -614,7 +681,8 @@ export async function fetchIpLocation(): Promise<LocationResult> {
       if (data && data.success) {
         const city = cleanLocationName(data.city) || "Hyderabad";
         const state = cleanLocationName(data.region) || "Telangana";
-        const pincode = data.postal && data.postal.replace(/\D/g, "").length === 6 ? data.postal.replace(/\D/g, "") : "";
+        const rawPin = (data.postal || "").replace(/\D/g, "");
+        const pincode = rawPin.length === 6 ? rawPin : "";
 
         let area = city;
         if (pincode && KNOWN_PINCODE_MAP[pincode]) {
@@ -623,7 +691,7 @@ export async function fetchIpLocation(): Promise<LocationResult> {
 
         return {
           area: area || city,
-          pincode: pincode || "500081",
+          pincode,
           city,
           state,
         };
@@ -639,64 +707,84 @@ export async function fetchIpLocation(): Promise<LocationResult> {
       const stored = localStorage.getItem("omeetso_selected_location") || localStorage.getItem("omeetso_location");
       if (stored) {
         const parsed = JSON.parse(stored);
-        if (parsed.area && parsed.pincode) {
+        if (parsed.area) {
           return {
             area: parsed.area,
-            pincode: parsed.pincode,
-            city: parsed.city || "Hyderabad",
-            state: parsed.state || "Telangana"
+            pincode: parsed.pincode || "",
+            city: parsed.city || parsed.area,
+            state: parsed.state || ""
           };
         }
       }
     } catch {}
   }
 
-  return { area: "Madhapur", pincode: "500081", city: "Hyderabad", state: "Telangana" };
+  return { area: "Hyderabad", pincode: "", city: "Hyderabad", state: "Telangana" };
 }
 
 /**
- * Universal Location Detection (Specifically Optimized for Laptops):
- * 1. Executes standard accuracy positioning (enableHighAccuracy: false) FIRST.
- *    On Windows & Mac laptops, this queries Wi-Fi triangulation which works instantly and
- *    avoids the fatal POSITION_UNAVAILABLE error caused by requesting non-existent GPS chips.
- * 2. If standard positioning times out or device has dedicated GPS, falls back to high accuracy.
- * 3. If browser permissions are blocked or OS location service is disabled, seamlessly resolves
- *    the laptop's network location so the user never gets an error or generic default.
+ * Live Device Geolocation Detection:
+ * 1. Checks and explicitly asks for browser location permissions.
+ * 2. Requests high-accuracy GPS / Wi-Fi coordinates (maximumAge: 0).
+ * 3. Reverse geocodes using OpenStreetMap Nominatim and Komoot Photon for the exact Indian postal pincode.
  */
 export async function detectDeviceLocation(): Promise<LocationResult> {
-  if (typeof navigator !== "undefined" && navigator.geolocation) {
-    try {
-      const pos = await new Promise<GeolocationPosition>((resolve, reject) => {
-        // Step 1: Standard Accuracy (Wi-Fi based, ideal for laptops)
-        navigator.geolocation.getCurrentPosition(
-          resolve,
-          (err) => {
-            // Step 2: Try High Accuracy (for phones/devices with GPS chips)
-            navigator.geolocation.getCurrentPosition(resolve, reject, {
-              enableHighAccuracy: true,
-              timeout: 6000,
-              maximumAge: 0,
-            });
-          },
-          {
-            enableHighAccuracy: false,
-            timeout: 6000,
-            maximumAge: 300000, // 5 min cache allowed for instant response
-          }
-        );
-      });
+  if (typeof window === "undefined" || !navigator.geolocation) {
+    throw new Error("Geolocation is not supported by your browser.");
+  }
 
-      const { latitude: lat, longitude: lng } = pos.coords;
-      const result = await resolveGpsLocation(lat, lng);
-      if (result && result.area) {
-        return result;
+  // Step 1: Check permission state if permissions API is available
+  if (navigator.permissions && navigator.permissions.query) {
+    try {
+      const perm = await navigator.permissions.query({ name: "geolocation" as PermissionName });
+      if (perm.state === "denied") {
+        throw new Error("PERMISSION_DENIED: Location permission is blocked in your browser. Please allow location access in your address bar (lock/settings icon) and try again.");
       }
-    } catch (gpsError: any) {
-      console.warn("[Location] Laptop/device geolocation failed or unavailable, falling back to network IP:", gpsError?.message || gpsError);
+    } catch (e: any) {
+      if (e?.message?.includes("PERMISSION_DENIED")) throw e;
     }
   }
 
-  // Network / IP Fallback for laptops with disabled Windows Location Services
+  // Step 2: Request High-Accuracy live coordinates (forces prompt if not yet decided)
+  let pos: GeolocationPosition;
+  try {
+    pos = await new Promise<GeolocationPosition>((resolve, reject) => {
+      navigator.geolocation.getCurrentPosition(resolve, reject, {
+        enableHighAccuracy: true, // Query real GPS / Wi-Fi triangulation for true accuracy
+        timeout: 12000,           // 12s allows user to see and click 'Allow' on permission dialog
+        maximumAge: 0,            // Force fresh fix, no cached coordinates
+      });
+    });
+  } catch (err: any) {
+    // If user explicitly clicked 'Block' or 'Deny'
+    if (err.code === 1) {
+      throw new Error("PERMISSION_DENIED: Location permission was denied. Please allow location access in your browser to detect your live location.");
+    }
+    // If high accuracy GPS chip is absent (e.g. desktop), try standard accuracy before falling back
+    try {
+      pos = await new Promise<GeolocationPosition>((resolve, reject) => {
+        navigator.geolocation.getCurrentPosition(resolve, reject, {
+          enableHighAccuracy: false,
+          timeout: 8000,
+          maximumAge: 0,
+        });
+      });
+    } catch (fallbackErr: any) {
+      if (fallbackErr.code === 1) {
+        throw new Error("PERMISSION_DENIED: Location permission was denied. Please allow location access in your browser to detect your live location.");
+      }
+      console.warn("[Location] Device GPS unavailable, attempting network IP resolution:", fallbackErr?.message);
+      return fetchIpLocation();
+    }
+  }
+
+  // Step 3: High-precision reverse geocoding
+  const { latitude: lat, longitude: lng } = pos.coords;
+  const result = await resolveGpsLocation(lat, lng);
+  if (result && (result.area || result.pincode)) {
+    return result;
+  }
+
   return fetchIpLocation();
 }
 
