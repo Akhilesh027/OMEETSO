@@ -220,7 +220,7 @@ import { Store } from "../../stores/models/Store";
 export async function getAdminUsersList(req: Request, res: Response, next: NextFunction): Promise<void> {
   try {
     const users = await User.find({}).sort({ createdAt: -1 }).lean();
-    
+
     // Compute listings and stores counts per user
     const userIds = users.map((u) => u._id);
     const [listingCounts, storeCounts] = await Promise.all([

@@ -299,9 +299,37 @@ export function resolveCoordinatesLocally(lat: number, lng: number): LocationRes
   };
 }
 
+export interface LocationSuggestion {
+  id: string;
+  area: string;
+  city: string;
+  state?: string;
+  pincode: string;
+  displayName: string;
+  secondaryText: string;
+  lat?: number;
+  lng?: number;
+  source?: "gps" | "postal" | "osm" | "local";
+}
+
+export const POPULAR_LOCATIONS: LocationSuggestion[] = [
+  { id: "pop-1", area: "Madhapur", city: "Hyderabad", state: "Telangana", pincode: "500081", displayName: "Madhapur", secondaryText: "Hyderabad, Telangana", source: "local" },
+  { id: "pop-2", area: "Gachibowli", city: "Hyderabad", state: "Telangana", pincode: "500032", displayName: "Gachibowli", secondaryText: "Hyderabad, Telangana", source: "local" },
+  { id: "pop-3", area: "Kondapur", city: "Hyderabad", state: "Telangana", pincode: "500084", displayName: "Kondapur", secondaryText: "Hyderabad, Telangana", source: "local" },
+  { id: "pop-4", area: "Kukatpally", city: "Hyderabad", state: "Telangana", pincode: "500072", displayName: "Kukatpally", secondaryText: "Hyderabad, Telangana", source: "local" },
+  { id: "pop-5", area: "Banjara Hills", city: "Hyderabad", state: "Telangana", pincode: "500034", displayName: "Banjara Hills", secondaryText: "Hyderabad, Telangana", source: "local" },
+  { id: "pop-6", area: "Jubilee Hills", city: "Hyderabad", state: "Telangana", pincode: "500033", displayName: "Jubilee Hills", secondaryText: "Hyderabad, Telangana", source: "local" },
+  { id: "pop-7", area: "Secunderabad", city: "Hyderabad", state: "Telangana", pincode: "500003", displayName: "Secunderabad", secondaryText: "Hyderabad, Telangana", source: "local" },
+  { id: "pop-8", area: "Indiranagar", city: "Bangalore", state: "Karnataka", pincode: "560038", displayName: "Indiranagar", secondaryText: "Bangalore, Karnataka", source: "local" },
+  { id: "pop-9", area: "Koramangala", city: "Bangalore", state: "Karnataka", pincode: "560034", displayName: "Koramangala", secondaryText: "Bangalore, Karnataka", source: "local" },
+  { id: "pop-10", area: "Bandra West", city: "Mumbai", state: "Maharashtra", pincode: "400050", displayName: "Bandra West", secondaryText: "Mumbai, Maharashtra", source: "local" },
+  { id: "pop-11", area: "Connaught Place", city: "New Delhi", state: "Delhi", pincode: "110001", displayName: "Connaught Place", secondaryText: "New Delhi, Delhi", source: "local" },
+  { id: "pop-12", area: "Adilabad", city: "Adilabad", state: "Telangana", pincode: "504312", displayName: "Adilabad", secondaryText: "Adilabad, Telangana", source: "local" },
+];
+
 /**
  * Resolve device lat/lng into exact area, pincode, city.
- * Combines BigDataCloud client reverse geocoding with local Haversine fallback.
+ * Combines BigDataCloud client reverse geocoding with OpenStreetMap Nominatim and local Haversine fallback.
  */
 export async function resolveGpsLocation(lat: number, lng: number): Promise<LocationResult> {
   // Strategy 1: BigDataCloud Reverse Geocoder (Free client-side endpoint, highly precise for street/suburb)
@@ -343,16 +371,49 @@ export async function resolveGpsLocation(lat: number, lng: number): Promise<Loca
       }
     }
   } catch (err) {
-    console.warn("[Location] Online reverse geocoding failed, using local grid:", err);
+    console.warn("[Location] BigDataCloud reverse geocoding failed, trying Nominatim:", err);
   }
 
-  // Strategy 2: Local mathematical Haversine lookup (100% offline fallback)
+  // Strategy 2: OpenStreetMap Nominatim reverse geocode
+  try {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 3500);
+    const nomRes = await fetch(
+      `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}&zoom=18&addressdetails=1`,
+      { signal: controller.signal }
+    );
+    clearTimeout(timeoutId);
+    if (nomRes.ok) {
+      const nomData = await nomRes.json();
+      const addr = nomData.address || {};
+      const rawPin = (addr.postcode || "").replace(/\D/g, "");
+      const pincode = rawPin.length === 6 ? rawPin : "";
+      const area = cleanLocationName(addr.suburb || addr.neighbourhood || addr.residential || addr.city_district || addr.city);
+      const city = cleanLocationName(addr.city || addr.town || addr.county || addr.state_district || "Hyderabad");
+      const state = cleanLocationName(addr.state || "Telangana");
+
+      if (area) {
+        return {
+          area,
+          pincode,
+          city,
+          state,
+        };
+      }
+    }
+  } catch (err) {
+    console.warn("[Location] Nominatim reverse geocoding failed, using local grid:", err);
+  }
+
+  // Strategy 3: Local mathematical Haversine lookup (100% offline fallback)
   return resolveCoordinatesLocally(lat, lng);
 }
 
 /**
- * Pure In-Build Pincode Resolution:
- * Instant local lookup without external network APIs.
+ * Universal Pincode Resolution:
+ * 1. Instant local dictionary lookup
+ * 2. Real-time official India Post API for all 19,000+ Indian pincodes
+ * 3. District prefix fallback
  */
 export async function fetchAreaFromPincode(pincode: string): Promise<LocationResult> {
   const cleanPin = (pincode || "").replace(/\D/g, "").slice(0, 6);
@@ -363,6 +424,28 @@ export async function fetchAreaFromPincode(pincode: string): Promise<LocationRes
   if (KNOWN_PINCODE_MAP[cleanPin]) {
     const item = KNOWN_PINCODE_MAP[cleanPin];
     return { area: item.area, pincode: cleanPin, city: item.city, state: item.state || "Telangana" };
+  }
+
+  // Real-time India Post API
+  try {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 3500);
+    const res = await fetch(`https://api.postalpincode.in/pincode/${cleanPin}`, { signal: controller.signal });
+    clearTimeout(timeoutId);
+    if (res.ok) {
+      const data = await res.json();
+      if (Array.isArray(data) && data[0]?.Status === "Success" && Array.isArray(data[0].PostOffice) && data[0].PostOffice.length > 0) {
+        const po = data[0].PostOffice[0];
+        return {
+          area: po.Name,
+          pincode: cleanPin,
+          city: po.District || po.Division || po.Circle || "India",
+          state: po.State || "India"
+        };
+      }
+    }
+  } catch {
+    // fallback
   }
 
   // District prefix resolver for Telangana & AP
@@ -616,3 +699,273 @@ export async function detectDeviceLocation(): Promise<LocationResult> {
   // Network / IP Fallback for laptops with disabled Windows Location Services
   return fetchIpLocation();
 }
+
+/**
+ * Universal Location & Pincode Search Engine
+ * Integrates:
+ * 1. Fast offline local dictionary (0ms)
+ * 2. Real-time Official India Post Pincode API
+ * 3. Real-time India Post Office locality lookup API
+ * 4. Komoot Photon OpenStreetMap Geocoding API
+ * 5. OpenStreetMap Nominatim Geocoding API
+ */
+export async function searchLocations(query: string): Promise<LocationSuggestion[]> {
+  const q = query.trim();
+  if (!q) return [];
+
+  const results: LocationSuggestion[] = [];
+  const seenKeys = new Set<string>();
+
+  const addResult = (item: LocationSuggestion) => {
+    // Normalize key for deduplication
+    const normArea = item.area.toLowerCase().replace(/[^a-z0-9]/g, "");
+    const normCity = (item.city || "").toLowerCase().replace(/[^a-z0-9]/g, "");
+    const normPin = (item.pincode || "").replace(/\D/g, "");
+    const key = `${normArea}_${normCity}_${normPin}`;
+    if (!seenKeys.has(key)) {
+      seenKeys.add(key);
+      results.push(item);
+    }
+  };
+
+  const digits = q.replace(/\D/g, "");
+  const isPincodeSearch = digits.length >= 2 && digits.length === q.length;
+
+  // 1. Instant Local offline lookup
+  if (isPincodeSearch) {
+    for (const [pin, info] of Object.entries(KNOWN_PINCODE_MAP)) {
+      if (pin.startsWith(digits)) {
+        addResult({
+          id: `local-pin-${pin}`,
+          area: info.area,
+          city: info.city,
+          state: info.state || "Telangana",
+          pincode: pin,
+          displayName: info.area,
+          secondaryText: `${info.city}${info.state ? `, ${info.state}` : ""}`,
+          source: "local",
+        });
+      }
+    }
+    for (const item of LOCAL_GPS_COORDINATES) {
+      if (item.pincode.startsWith(digits)) {
+        addResult({
+          id: `local-coord-${item.pincode}-${item.area}`,
+          area: item.area,
+          city: item.city,
+          state: item.state,
+          pincode: item.pincode,
+          displayName: item.area,
+          secondaryText: `${item.city}, ${item.state}`,
+          lat: item.lat,
+          lng: item.lng,
+          source: "local",
+        });
+      }
+    }
+  } else {
+    const lowerQ = q.toLowerCase();
+    for (const item of LOCAL_GPS_COORDINATES) {
+      if (
+        item.area.toLowerCase().includes(lowerQ) ||
+        item.city.toLowerCase().includes(lowerQ) ||
+        item.state.toLowerCase().includes(lowerQ)
+      ) {
+        addResult({
+          id: `local-coord-${item.area}-${item.pincode}`,
+          area: item.area,
+          city: item.city,
+          state: item.state,
+          pincode: item.pincode,
+          displayName: item.area,
+          secondaryText: `${item.city}, ${item.state}`,
+          lat: item.lat,
+          lng: item.lng,
+          source: "local",
+        });
+      }
+    }
+    for (const [pin, info] of Object.entries(KNOWN_PINCODE_MAP)) {
+      if (
+        info.area.toLowerCase().includes(lowerQ) ||
+        info.city.toLowerCase().includes(lowerQ)
+      ) {
+        addResult({
+          id: `local-known-${pin}`,
+          area: info.area,
+          city: info.city,
+          state: info.state || "Telangana",
+          pincode: pin,
+          displayName: info.area,
+          secondaryText: `${info.city}${info.state ? `, ${info.state}` : ""}`,
+          source: "local",
+        });
+      }
+    }
+  }
+
+  // 2. Third-Party API 1: India Postal Pincode API (when 6 digits are typed)
+  if (digits.length === 6) {
+    try {
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 3500);
+      const res = await fetch(`https://api.postalpincode.in/pincode/${digits}`, {
+        signal: controller.signal,
+      });
+      clearTimeout(timeoutId);
+
+      if (res.ok) {
+        const data = await res.json();
+        if (Array.isArray(data) && data[0]?.Status === "Success" && Array.isArray(data[0].PostOffice)) {
+          for (const po of data[0].PostOffice) {
+            const area = po.Name;
+            const city = po.District || po.Division || po.Circle || "India";
+            const state = po.State || "";
+            const pin = po.Pincode || digits;
+            addResult({
+              id: `postal-${pin}-${area}`,
+              area,
+              city,
+              state,
+              pincode: pin,
+              displayName: area,
+              secondaryText: `${city}${state ? `, ${state}` : ""}`,
+              source: "postal",
+            });
+          }
+        }
+      }
+    } catch {
+      // ignore network errors
+    }
+  }
+
+  // 3. Third-Party API 2: India Post Office Search (when query is text with >= 3 characters)
+  if (!isPincodeSearch && q.length >= 3) {
+    try {
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 3500);
+      const res = await fetch(`https://api.postalpincode.in/postoffice/${encodeURIComponent(q)}`, {
+        signal: controller.signal,
+      });
+      clearTimeout(timeoutId);
+
+      if (res.ok) {
+        const data = await res.json();
+        if (Array.isArray(data) && data[0]?.Status === "Success" && Array.isArray(data[0].PostOffice)) {
+          for (const po of data[0].PostOffice.slice(0, 10)) {
+            const area = po.Name;
+            const city = po.District || po.Division || "India";
+            const state = po.State || "";
+            const pin = po.Pincode || "";
+            addResult({
+              id: `postal-po-${pin}-${area}`,
+              area,
+              city,
+              state,
+              pincode: pin,
+              displayName: area,
+              secondaryText: `${city}${state ? `, ${state}` : ""}`,
+              source: "postal",
+            });
+          }
+        }
+      }
+    } catch {
+      // ignore network errors
+    }
+  }
+
+  // 4. Third-Party API 3: Photon / OpenStreetMap Geocoding (Great for places, localities, landmarks)
+  if (!isPincodeSearch && q.length >= 2) {
+    try {
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 3500);
+      const res = await fetch(`https://photon.komoot.io/api/?q=${encodeURIComponent(q)}&limit=10&lang=en`, {
+        signal: controller.signal,
+      });
+      clearTimeout(timeoutId);
+
+      if (res.ok) {
+        const data = await res.json();
+        if (Array.isArray(data?.features)) {
+          for (const feat of data.features) {
+            const props = feat.properties || {};
+            const isIndia = props.countrycode === "IN" || /india/i.test(props.country || "");
+            if (!isIndia && props.countrycode && props.countrycode !== "IN") continue;
+
+            const area = props.name || props.district || props.city || q;
+            const city = props.city || props.district || props.county || props.state || "India";
+            const state = props.state || "";
+            const pincode = props.postcode ? props.postcode.replace(/\D/g, "") : "";
+            const lat = feat.geometry?.coordinates?.[1];
+            const lng = feat.geometry?.coordinates?.[0];
+
+            const secondaryParts = [props.district, props.city, props.state]
+              .filter(Boolean)
+              .filter((v, idx, arr) => arr.indexOf(v) === idx && v.toLowerCase() !== area.toLowerCase());
+
+            addResult({
+              id: `photon-${feat.properties.osm_id || Math.random()}`,
+              area,
+              city,
+              state,
+              pincode: pincode.length === 6 ? pincode : "",
+              displayName: area,
+              secondaryText: secondaryParts.length > 0 ? secondaryParts.join(", ") : (state || "India"),
+              lat,
+              lng,
+              source: "osm",
+            });
+          }
+        }
+      }
+    } catch {
+      // ignore
+    }
+  }
+
+  // 5. Third-Party API 4: OpenStreetMap Nominatim (if results are still low)
+  if (results.length < 3 && q.length >= 3) {
+    try {
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 3500);
+      const res = await fetch(
+        `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(q + ", India")}&addressdetails=1&limit=6&countrycodes=in`,
+        { signal: controller.signal }
+      );
+      clearTimeout(timeoutId);
+
+      if (res.ok) {
+        const list = await res.json();
+        if (Array.isArray(list)) {
+          for (const item of list) {
+            const addr = item.address || {};
+            const area = addr.suburb || addr.neighbourhood || addr.residential || addr.city_district || addr.city || item.name || q;
+            const city = addr.city || addr.town || addr.county || addr.state_district || "India";
+            const state = addr.state || "";
+            const pin = (addr.postcode || "").replace(/\D/g, "");
+
+            addResult({
+              id: `nominatim-${item.place_id}`,
+              area,
+              city,
+              state,
+              pincode: pin.length === 6 ? pin : "",
+              displayName: area,
+              secondaryText: `${city}${state ? `, ${state}` : ""}`,
+              lat: item.lat ? parseFloat(item.lat) : undefined,
+              lng: item.lon ? parseFloat(item.lon) : undefined,
+              source: "osm",
+            });
+          }
+        }
+      }
+    } catch {
+      // ignore
+    }
+  }
+
+  return results.slice(0, 25);
+}
+
