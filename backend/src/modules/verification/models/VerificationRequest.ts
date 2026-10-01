@@ -4,7 +4,7 @@ export interface IVerificationRequest extends Document {
   _id: mongoose.Types.ObjectId;
   userId: mongoose.Types.ObjectId;
   type: "mobile" | "email" | "identity" | "business";
-  documentType?: "aadhaar" | "pan" | "driving_license" | "gstin";
+  documentType?: "aadhaar" | "pan" | "driving_license" | "gstin" | "email_otp" | "mobile_otp" | "passport" | "voter_id" | "other" | string;
   documentNumber?: string;
   documentImages?: string[];
   status: "pending" | "approved" | "rejected";
@@ -19,7 +19,10 @@ const VerificationRequestSchema = new Schema<IVerificationRequest>(
   {
     userId: { type: Schema.Types.ObjectId, ref: "User", required: true, index: true },
     type: { type: String, enum: ["mobile", "email", "identity", "business"], required: true, index: true },
-    documentType: { type: String, enum: ["aadhaar", "pan", "driving_license", "gstin"] },
+    documentType: {
+      type: String,
+      enum: ["aadhaar", "pan", "driving_license", "gstin", "email_otp", "mobile_otp", "passport", "voter_id", "other"]
+    },
     documentNumber: { type: String },
     documentImages: [{ type: String }], // Private secure Cloudinary URLs
     status: { type: String, enum: ["pending", "approved", "rejected"], default: "pending", index: true },

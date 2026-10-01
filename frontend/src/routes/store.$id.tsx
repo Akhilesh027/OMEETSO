@@ -260,12 +260,11 @@ function StorePage() {
 
       // Local storage listings attached specifically to this store
       const allLocalListings = listListings();
-      const localStoreListings = allLocalListings.filter((l) =>
-        l.storeId === store.id ||
-        l.storeId === (store as any).slug ||
-        (l as any).store === store.id ||
-        (l as any).store === (store as any).slug
-      );
+      const localStoreListings = allLocalListings.filter((l) => {
+        const sid = l.storeId || (l as any).store;
+        if (!sid) return false;
+        return sid === store.id || (Boolean((store as any).slug) && sid === (store as any).slug);
+      });
 
       // Merge and deduplicate by ID - strictly actual products belonging to this store
       const mergedMap = new Map<string, any>();
