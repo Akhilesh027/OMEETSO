@@ -152,7 +152,7 @@ export default function ListingsListPage() {
     }
   };
 
-  const toggleSelectListing = (id: string, e?: React.MouseEvent) => {
+  const toggleSelectListing = (id: string, e?: React.SyntheticEvent) => {
     if (e) e.stopPropagation();
     setSelectedListingIds((prev) =>
       prev.includes(id) ? prev.filter((item) => item !== id) : [...prev, id]

@@ -25,11 +25,11 @@ export async function authenticateUser(
 
   const token = authHeader.split(" ")[1];
   try {
-    const payload = verifyAccessToken<UserTokenPayload>(token);
+    const payload = verifyAccessToken<any>(token);
 
     if (payload.aud === "omeetso-admin") {
-      (req as any).admin = { id: (payload as any).userId || (payload as any).adminId, role: "admin" };
-      (req as any).user = { _id: (payload as any).userId || (payload as any).adminId, role: "admin" } as any;
+      (req as any).admin = { id: payload.userId || payload.adminId, role: "admin" };
+      (req as any).user = { _id: payload.userId || payload.adminId, role: "admin" } as any;
       return next();
     }
 

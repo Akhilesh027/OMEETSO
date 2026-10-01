@@ -96,7 +96,7 @@ export async function getBlogBySlug(req: Request, res: Response, next: NextFunct
     }
 
     // Atomically increment views count
-    const blog = await Blog.findOneAndUpdate(
+    const blog: any = await Blog.findOneAndUpdate(
       query,
       { $inc: { viewsCount: 1 } },
       { new: true }
@@ -142,7 +142,7 @@ export async function likeBlog(req: Request, res: Response, next: NextFunction):
       query.$or.push({ _id: new mongoose.Types.ObjectId(id) });
     }
 
-    const updated = await Blog.findOneAndUpdate(
+    const updated: any = await Blog.findOneAndUpdate(
       query,
       { $inc: { likesCount: 1 } },
       { new: true }

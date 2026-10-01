@@ -278,7 +278,7 @@ export function JobsPage() {
     }
   };
 
-  const toggleSelectJob = (id: string, e?: React.MouseEvent) => {
+  const toggleSelectJob = (id: string, e?: React.SyntheticEvent) => {
     if (e) e.stopPropagation();
     setSelectedJobIds((prev) =>
       prev.includes(id) ? prev.filter((item) => item !== id) : [...prev, id]
