@@ -14,6 +14,7 @@ import {
 import { env } from "../../../config/env";
 import { AuthenticatedUserRequest } from "../../../middleware/authenticateUser";
 import { sendOtpSms } from "../services/sms.service";
+import { sendUserWelcomeEmail, sendAdminAlertEmail } from "../services/email.service";
 
 const USER_REFRESH_COOKIE = "omeetso_user_refresh";
 
@@ -476,6 +477,33 @@ export async function registerUser(req: Request, res: Response, next: NextFuncti
           identityVerified: false,
           businessVerified: accountType === "business"
         }
+      });
+
+      // Dispatch welcome email to user (if email is provided)
+      if (user.email) {
+        sendUserWelcomeEmail(user.email, user.profile.name).catch((err) => {
+          console.warn("[Email] Failed to dispatch welcome email to user:", err?.message || err);
+        });
+      }
+
+      // Dispatch instant alert to admin
+      sendAdminAlertEmail({
+        eventType: "user_registered",
+        title: `New User Registered: ${user.profile.name}`,
+        summary: `A new ${user.accountType || "individual"} account was created on Omeetso.`,
+        details: {
+          fullName: user.profile.name,
+          phone: user.phone,
+          email: user.email || "Not provided during signup",
+          accountType: user.accountType || "individual",
+          city: user.profile.city || "Not specified",
+          area: user.profile.area || "Not specified",
+          registeredAt: new Date().toLocaleString("en-IN", { timeZone: "Asia/Kolkata" }),
+          userId: user._id.toString()
+        },
+        link: `${env.CLIENT_ADMIN_URL || "https://adminomeetso.omeetso.in"}/users`
+      }).catch((err) => {
+        console.warn("[Email] Failed to dispatch admin user registration alert:", err?.message || err);
       });
     }
 

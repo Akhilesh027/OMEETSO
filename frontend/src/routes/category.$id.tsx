@@ -59,6 +59,9 @@ export const Route = createFileRoute("/category/$id")({
     if (catId === "services") {
       throw redirect({ to: "/services", search: location.search as any });
     }
+    if (catId === "appliances" || catId === "home_appliances") {
+      throw redirect({ to: "/category/$id", params: { id: "home-appliances" }, search: location.search as any });
+    }
     const c = getCategory(params.id);
     if (!c) throw notFound();
     return { category: c };

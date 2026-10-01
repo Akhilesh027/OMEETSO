@@ -5,6 +5,8 @@ import { ServiceCategory } from "../models/ServiceCategory";
 import { ServiceProviderProfile } from "../models/ServiceProviderProfile";
 import { seedInitialServices } from "../../../database/seeders/serviceSeeder";
 import mongoose from "mongoose";
+import { sendAdminAlertEmail } from "../../auth/services/email.service";
+import { env } from "../../../config/env";
 
 // 1. Get Service Categories
 export const getServiceCategories = async (req: Request, res: Response) => {
@@ -175,6 +177,31 @@ export const createService = async (req: Request, res: Response) => {
     };
 
     const newService = await Service.create(serviceData);
+
+    // Dispatch instant alert to admin
+    sendAdminAlertEmail({
+      eventType: "service_registered",
+      title: `New Service Created: ${newService.title}`,
+      summary: `A new professional service offering "${newService.title}" has been published by ${newService.businessName || (req as any).user?.profile?.name || "Provider"}.`,
+      details: {
+        serviceTitle: newService.title,
+        businessName: newService.businessName || (req as any).user?.profile?.name || "Independent Provider",
+        category: newService.serviceCategoryId,
+        subcategory: newService.subcategoryId || "General",
+        price: (newService as any).pricing?.amount ? `₹${(newService as any).pricing.amount} (${(newService as any).pricing.type || "Fixed"})` : "Quote Based",
+        providerPhone: (newService as any).contact?.phone || (req as any).user?.phone,
+        providerEmail: (newService as any).contact?.email || (req as any).user?.email,
+        area: (newService as any).location?.area || "Not specified",
+        city: (newService as any).location?.city || "Hyderabad",
+        submittedAt: new Date().toLocaleString("en-IN", { timeZone: "Asia/Kolkata" }),
+        serviceId: newService._id.toString()
+      },
+      link: `${env.CLIENT_USER_URL || "https://omeetso.in"}/services/${newService._id}`,
+      actionText: "View Service on Omeetso &rarr;"
+    }).catch((err) => {
+      console.warn("[Email] Failed to dispatch admin alert for new service:", err?.message || err);
+    });
+
     res.status(201).json({ success: true, data: newService });
   } catch (error: any) {
     res.status(400).json({ success: false, error: error.message });

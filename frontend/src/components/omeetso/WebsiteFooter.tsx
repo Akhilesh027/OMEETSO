@@ -50,7 +50,7 @@ export function WebsiteFooter() {
   };
 
   const hideOn = ["/", "/language", "/onboarding", "/welcome", "/login", "/otp", "/profile-setup", "/location", "/register"];
-  if (hideOn.includes(path)) return null;
+  if (hideOn.includes(path) || path.startsWith("/chat")) return null;
 
   const groups: { title: string; links: { label: string; to: string }[] }[] = [
     {

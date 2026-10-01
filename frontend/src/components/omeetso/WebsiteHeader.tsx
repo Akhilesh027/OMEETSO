@@ -23,7 +23,7 @@ const secondaryNav = [
   { id: "furniture", label: "Furniture" },
   { id: "properties", label: "Properties" },
   { id: "fashion", label: "Fashion" },
-  { id: "appliances", label: "Home Appliances" },
+  { id: "home-appliances", label: "Home Appliances" },
   { id: "jobs", label: "Jobs" },
   { id: "services", label: "Services" },
 ];
@@ -870,16 +870,17 @@ export function WebsiteHeader() {
             <Zap className="h-3.5 w-3.5 fill-amber-400 text-amber-400" /> Quick Deals
           </Link>
           {secondaryNav.map((c) => {
+            const catId = c.id === "appliances" ? "home-appliances" : c.id;
             let to = "/categories";
             let params: any = undefined;
 
-            if (c.id === "jobs") {
+            if (catId === "jobs") {
               to = "/jobs";
-            } else if (c.id === "services") {
+            } else if (catId === "services") {
               to = "/services";
-            } else if (CATEGORIES.some((x) => x.id === c.id)) {
+            } else if (CATEGORIES.some((x) => x.id === catId || (catId === "home-appliances" && (x.id === "home-appliances" || x.id === "appliances")))) {
               to = "/category/$id";
-              params = { id: c.id };
+              params = { id: catId };
             }
 
             return (

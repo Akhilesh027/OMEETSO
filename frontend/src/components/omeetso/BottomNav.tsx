@@ -52,9 +52,9 @@ export function BottomNav() {
         {/* 3-Point Radial Arc Fan-Out Round Action Buttons (Left, Top Middle, Right - Curved Arch) */}
         <div className="relative w-full">
           
-          {/* Left FAB: Regular Sell */}
+          {/* Left FAB: Detailed / Regular Sell */}
           <Link
-            to="/sell"
+            to="/sell/detailed"
             onClick={() => setFabOpen(false)}
             className={cn(
               "absolute left-[24%] bottom-14 -translate-x-1/2 flex flex-col items-center gap-1 transition-all duration-300 transform active:scale-95 hover:scale-110",
@@ -67,7 +67,7 @@ export function BottomNav() {
               <Package className="h-5.5 w-5.5 stroke-[2.5]" />
             </div>
             <span className="rounded-full bg-slate-950/90 backdrop-blur-md px-2.5 py-0.5 text-[10px] font-black text-white shadow-md border border-white/20">
-              Regular
+              Detailed
             </span>
           </Link>
 

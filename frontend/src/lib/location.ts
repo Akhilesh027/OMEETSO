@@ -638,14 +638,116 @@ export function calculateDistanceBetweenLocations(
 }
 
 /**
- * High-reliability Network / IP Fallback:
- * When device has no GPS receiver or location services are disabled, resolves via network.
- * Never fakes a hardcoded pincode.
+ * High-reliability Network / IP Fallback for Laptops and Desktop PCs:
+ * 1. Resolves client network public IP to coordinates and postal codes using ipwho.is & ipapi.co.
+ * 2. Runs reverse geocoding on the resolved coordinates to get the real neighborhood & pincode.
  */
 export async function fetchIpLocation(): Promise<LocationResult> {
-  // Strategy 1: BigDataCloud Client IP
+  // Strategy 1: ipwho.is (fast HTTPS, returns postal and lat/lng)
   try {
-    const res = await fetch("https://api.bigdatacloud.net/data/reverse-geocode-client?localityLanguage=en");
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 4000);
+    const res = await fetch("https://ipwho.is/", { signal: controller.signal });
+    clearTimeout(timeoutId);
+    if (res.ok) {
+      const data = await res.json();
+      if (data && data.success) {
+        const city = cleanLocationName(data.city) || "Hyderabad";
+        const state = cleanLocationName(data.region) || "Telangana";
+        const rawPin = (data.postal || "").replace(/\D/g, "");
+        const ipPin = rawPin.length === 6 ? rawPin : "";
+
+        // If coordinates are provided by IP provider, reverse geocode to get true street/suburb & postal code
+        if (data.latitude && data.longitude) {
+          try {
+            const resolved = await resolveGpsLocation(data.latitude, data.longitude);
+            if (resolved && (resolved.pincode || resolved.area)) {
+              return {
+                area: resolved.area || city,
+                pincode: resolved.pincode || ipPin,
+                city: resolved.city || city,
+                state: resolved.state || state,
+              };
+            }
+          } catch {
+            // continue with raw IP fields
+          }
+        }
+
+        let area = city;
+        if (ipPin && KNOWN_PINCODE_MAP[ipPin]) {
+          area = KNOWN_PINCODE_MAP[ipPin].area;
+        }
+
+        if (area || ipPin) {
+          return {
+            area,
+            pincode: ipPin,
+            city,
+            state,
+          };
+        }
+      }
+    }
+  } catch {
+    // try next
+  }
+
+  // Strategy 2: ipapi.co (HTTPS, returns postal code & lat/lng)
+  try {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 4000);
+    const res = await fetch("https://ipapi.co/json/", { signal: controller.signal });
+    clearTimeout(timeoutId);
+    if (res.ok) {
+      const data = await res.json();
+      if (data && data.city) {
+        const city = cleanLocationName(data.city) || "Hyderabad";
+        const state = cleanLocationName(data.region) || "Telangana";
+        const rawPin = (data.postal || "").replace(/\D/g, "");
+        const ipPin = rawPin.length === 6 ? rawPin : "";
+
+        if (data.latitude && data.longitude) {
+          try {
+            const resolved = await resolveGpsLocation(data.latitude, data.longitude);
+            if (resolved && (resolved.pincode || resolved.area)) {
+              return {
+                area: resolved.area || city,
+                pincode: resolved.pincode || ipPin,
+                city: resolved.city || city,
+                state: resolved.state || state,
+              };
+            }
+          } catch {
+            // continue
+          }
+        }
+
+        let area = city;
+        if (ipPin && KNOWN_PINCODE_MAP[ipPin]) {
+          area = KNOWN_PINCODE_MAP[ipPin].area;
+        }
+
+        return {
+          area,
+          pincode: ipPin,
+          city,
+          state,
+        };
+      }
+    }
+  } catch {
+    // try next
+  }
+
+  // Strategy 3: BigDataCloud Client IP
+  try {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 4000);
+    const res = await fetch("https://api.bigdatacloud.net/data/reverse-geocode-client?localityLanguage=en", {
+      signal: controller.signal,
+    });
+    clearTimeout(timeoutId);
     if (res.ok) {
       const data = await res.json();
       const rawPin = (data.postcode || "").replace(/\D/g, "");
@@ -660,7 +762,7 @@ export async function fetchIpLocation(): Promise<LocationResult> {
         }
       }
 
-      if (area || city) {
+      if (area || pincode) {
         return {
           area: area || city,
           pincode,
@@ -673,35 +775,7 @@ export async function fetchIpLocation(): Promise<LocationResult> {
     // try next
   }
 
-  // Strategy 2: ipwho.is
-  try {
-    const res = await fetch("https://ipwho.is/");
-    if (res.ok) {
-      const data = await res.json();
-      if (data && data.success) {
-        const city = cleanLocationName(data.city) || "Hyderabad";
-        const state = cleanLocationName(data.region) || "Telangana";
-        const rawPin = (data.postal || "").replace(/\D/g, "");
-        const pincode = rawPin.length === 6 ? rawPin : "";
-
-        let area = city;
-        if (pincode && KNOWN_PINCODE_MAP[pincode]) {
-          area = KNOWN_PINCODE_MAP[pincode].area;
-        }
-
-        return {
-          area: area || city,
-          pincode,
-          city,
-          state,
-        };
-      }
-    }
-  } catch {
-    // try next
-  }
-
-  // Strategy 3: Previous user selection
+  // Strategy 4: Previous user selection
   if (typeof window !== "undefined") {
     try {
       const stored = localStorage.getItem("omeetso_selected_location") || localStorage.getItem("omeetso_location");
@@ -712,7 +786,7 @@ export async function fetchIpLocation(): Promise<LocationResult> {
             area: parsed.area,
             pincode: parsed.pincode || "",
             city: parsed.city || parsed.area,
-            state: parsed.state || ""
+            state: parsed.state || "",
           };
         }
       }
@@ -723,69 +797,93 @@ export async function fetchIpLocation(): Promise<LocationResult> {
 }
 
 /**
- * Live Device Geolocation Detection:
- * 1. Checks and explicitly asks for browser location permissions.
- * 2. Requests high-accuracy GPS / Wi-Fi coordinates (maximumAge: 0).
- * 3. Reverse geocodes using OpenStreetMap Nominatim and Komoot Photon for the exact Indian postal pincode.
+ * Universal Device Geolocation (Optimized for both Phones and Laptops):
+ * - Mobile: Uses dedicated GPS hardware with high accuracy.
+ * - Laptop / PC: Queries Wi-Fi positioning first to avoid GPS chip sensor timeouts,
+ *   and seamlessly resolves exact neighborhood and pincode via network coordinates.
  */
 export async function detectDeviceLocation(): Promise<LocationResult> {
-  if (typeof window === "undefined" || !navigator.geolocation) {
-    throw new Error("Geolocation is not supported by your browser.");
+  if (typeof window === "undefined") {
+    throw new Error("Geolocation is not supported in this environment.");
   }
 
-  // Step 1: Check permission state if permissions API is available
+  const isMobile =
+    /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) ||
+    (typeof navigator.maxTouchPoints === "number" && navigator.maxTouchPoints > 1 && window.innerWidth < 768);
+
+  // Check if browser permission was explicitly blocked beforehand
   if (navigator.permissions && navigator.permissions.query) {
     try {
       const perm = await navigator.permissions.query({ name: "geolocation" as PermissionName });
       if (perm.state === "denied") {
-        throw new Error("PERMISSION_DENIED: Location permission is blocked in your browser. Please allow location access in your address bar (lock/settings icon) and try again.");
+        throw new Error(
+          "PERMISSION_DENIED: Location access is blocked in your browser. Please allow location access in your address bar (lock / settings icon) and try again."
+        );
       }
     } catch (e: any) {
       if (e?.message?.includes("PERMISSION_DENIED")) throw e;
     }
   }
 
-  // Step 2: Request High-Accuracy live coordinates (forces prompt if not yet decided)
-  let pos: GeolocationPosition;
-  try {
-    pos = await new Promise<GeolocationPosition>((resolve, reject) => {
-      navigator.geolocation.getCurrentPosition(resolve, reject, {
-        enableHighAccuracy: true, // Query real GPS / Wi-Fi triangulation for true accuracy
-        timeout: 12000,           // 12s allows user to see and click 'Allow' on permission dialog
-        maximumAge: 0,            // Force fresh fix, no cached coordinates
-      });
-    });
-  } catch (err: any) {
-    // If user explicitly clicked 'Block' or 'Deny'
-    if (err.code === 1) {
-      throw new Error("PERMISSION_DENIED: Location permission was denied. Please allow location access in your browser to detect your live location.");
-    }
-    // If high accuracy GPS chip is absent (e.g. desktop), try standard accuracy before falling back
+  // 1. Try Browser Geolocation
+  if (navigator.geolocation) {
     try {
-      pos = await new Promise<GeolocationPosition>((resolve, reject) => {
-        navigator.geolocation.getCurrentPosition(resolve, reject, {
-          enableHighAccuracy: false,
-          timeout: 8000,
-          maximumAge: 0,
-        });
+      const pos = await new Promise<GeolocationPosition>((resolve, reject) => {
+        if (isMobile) {
+          // Phones have GPS chips: use high accuracy directly
+          navigator.geolocation.getCurrentPosition(resolve, reject, {
+            enableHighAccuracy: true,
+            timeout: 10000,
+            maximumAge: 0,
+          });
+        } else {
+          // Laptops don't have GPS chips: use Wi-Fi positioning (enableHighAccuracy: false)
+          // to avoid Windows POSITION_UNAVAILABLE or Sensor timeout errors
+          navigator.geolocation.getCurrentPosition(
+            resolve,
+            (err) => {
+              if (err.code === 1) {
+                reject(err); // User clicked Deny
+                return;
+              }
+              // Second attempt on laptop with high accuracy
+              navigator.geolocation.getCurrentPosition(resolve, reject, {
+                enableHighAccuracy: true,
+                timeout: 4000,
+                maximumAge: 0,
+              });
+            },
+            {
+              enableHighAccuracy: false,
+              timeout: 4500,
+              maximumAge: 60000,
+            }
+          );
+        }
       });
-    } catch (fallbackErr: any) {
-      if (fallbackErr.code === 1) {
-        throw new Error("PERMISSION_DENIED: Location permission was denied. Please allow location access in your browser to detect your live location.");
+
+      const { latitude: lat, longitude: lng } = pos.coords;
+      const result = await resolveGpsLocation(lat, lng);
+      if (result && (result.area || result.pincode)) {
+        return result;
       }
-      console.warn("[Location] Device GPS unavailable, attempting network IP resolution:", fallbackErr?.message);
-      return fetchIpLocation();
+    } catch (err: any) {
+      if (err.code === 1 || err?.message?.includes("PERMISSION_DENIED")) {
+        throw new Error(
+          "PERMISSION_DENIED: Location permission was denied. Please click the lock or settings icon in your browser address bar and allow location access."
+        );
+      }
+      console.warn("[Location] Laptop/device hardware GPS unavailable, resolving via high-accuracy IP positioning:", err?.message || err);
     }
   }
 
-  // Step 3: High-precision reverse geocoding
-  const { latitude: lat, longitude: lng } = pos.coords;
-  const result = await resolveGpsLocation(lat, lng);
-  if (result && (result.area || result.pincode)) {
-    return result;
+  // 2. High-precision Network IP Fallback (for Laptops where Windows Location is off or no GPS chip)
+  const ipResult = await fetchIpLocation();
+  if (ipResult && (ipResult.area || ipResult.pincode)) {
+    return ipResult;
   }
 
-  return fetchIpLocation();
+  throw new Error("Could not detect your location. Please type your area or 6-digit pincode in the search box.");
 }
 
 /**

@@ -8,6 +8,8 @@ import { AuthenticatedUserRequest } from "../../../middleware/authenticateUser";
 import { ListingStatus } from "../../../contracts";
 import { Notification } from "../../notifications/models/Notification";
 import { convertImagesToCloudinary, convertVideoToCloudinary } from "../../../utils/cloudinaryUpload";
+import { sendAdminAlertEmail } from "../../auth/services/email.service";
+import { env } from "../../../config/env";
 
 function escapeRegex(str: string): string {
   return str.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
@@ -83,8 +85,14 @@ export async function createListing(req: AuthenticatedUserRequest, res: Response
       videoUrl ? convertVideoToCloudinary(videoUrl, "omeetso/listing_videos") : Promise.resolve(videoUrl)
     ]);
 
+    const rawStoreId = req.body.storeId;
+    const safeStoreId = rawStoreId && mongoose.Types.ObjectId.isValid(rawStoreId)
+      ? new mongoose.Types.ObjectId(rawStoreId)
+      : undefined;
+
     const listing = await Listing.create({
       sellerId,
+      storeId: safeStoreId,
       categoryId: safeCategory,
       subcategoryId: safeSubcategory,
       title: safeTitle,
@@ -143,6 +151,31 @@ export async function createListing(req: AuthenticatedUserRequest, res: Response
         })
       ] : [])
     ]).catch(() => {});
+
+    // Dispatch instant alert to admin
+    sendAdminAlertEmail({
+      eventType: "listing_created",
+      title: `New Listing: ${listing.title}`,
+      summary: `A new product listing has been published by ${req.user.profile?.name || req.user.phone}.`,
+      details: {
+        listingTitle: listing.title,
+        price: listing.free ? "Free" : `₹${Math.round((listing.priceInPaise || 0) / 100).toLocaleString("en-IN")}`,
+        category: listing.categoryId,
+        subcategory: listing.subcategoryId || "General",
+        condition: listing.condition,
+        sellerName: req.user.profile?.name || "Seller",
+        sellerPhone: req.user.phone || (listing as any).sellerPhone,
+        city: listing.city || "Not specified",
+        area: listing.area || "Not specified",
+        pincode: listing.pincode || "Not specified",
+        submittedAt: new Date().toLocaleString("en-IN", { timeZone: "Asia/Kolkata" }),
+        listingId: listing._id.toString()
+      },
+      link: `${env.CLIENT_USER_URL || "https://omeetso.in"}/product/${listing._id}`,
+      actionText: "View Listing on Omeetso &rarr;"
+    }).catch((err) => {
+      console.warn("[Email] Failed to dispatch admin alert for new listing:", err?.message || err);
+    });
 
     res.status(201).json({
       success: true,
@@ -257,13 +290,20 @@ export async function getPublicListings(req: Request, res: Response, next: NextF
         ? await Store.findById(storeParam).lean()
         : await Store.findOne({ $or: [{ slug: storeParam }, { name: new RegExp(`^${escapeRegex(storeParam)}$`, "i") }] }).lean();
 
-      const possibleIds: any[] = [storeParam];
-      if (isOid) possibleIds.push(new mongoose.Types.ObjectId(storeParam));
-      if (targetStore) {
-        possibleIds.push(targetStore._id, targetStore._id.toString());
-        if (targetStore.slug) possibleIds.push(targetStore.slug);
+      const storeObjectIds: mongoose.Types.ObjectId[] = [];
+      if (isOid) storeObjectIds.push(new mongoose.Types.ObjectId(storeParam));
+      if (targetStore && targetStore._id) {
+        const targetOid = new mongoose.Types.ObjectId(targetStore._id.toString());
+        if (!storeObjectIds.some((oid) => oid.equals(targetOid))) {
+          storeObjectIds.push(targetOid);
+        }
       }
-      query.storeId = { $in: possibleIds };
+
+      if (storeObjectIds.length > 0) {
+        query.storeId = { $in: storeObjectIds };
+      } else {
+        query.storeId = new mongoose.Types.ObjectId();
+      }
     }
 
     if (req.query.minPrice || req.query.maxPrice) {

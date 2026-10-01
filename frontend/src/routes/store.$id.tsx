@@ -245,10 +245,9 @@ function StorePage() {
       fetch(`${API_BASE}/stores/${store.id}/listings`).then((r) => r.json()).catch(() => null),
       fetch(`${API_BASE}/listings?storeId=${store.id}`).then((r) => r.json()).catch(() => null),
       (store as any).slug ? fetch(`${API_BASE}/listings?storeId=${(store as any).slug}`).then((r) => r.json()).catch(() => null) : null,
-      fetch(`${API_BASE}/listings?category=${store.primaryCategory}&city=${store.city}`).then((r) => r.json()).catch(() => null),
       fetch(`${API_BASE}/reviews/target/${store.id}`).then((r) => r.json()).catch(() => null),
       serveAdsApi("STORE_BANNER").catch(() => null)
-    ]).then(([sRes, storeListingsRes, slugListingsRes, catRes, revRes, adRes]) => {
+    ]).then(([sRes, storeListingsRes, slugListingsRes, revRes, adRes]) => {
       setLoadingListings(false);
       if (revRes?.success && Array.isArray(revRes.data)) {
         setRealReviews(revRes.data);
@@ -259,39 +258,18 @@ function StorePage() {
       if (storeListingsRes?.success && Array.isArray(storeListingsRes.data)) serverItems.push(...storeListingsRes.data);
       if (slugListingsRes?.success && Array.isArray(slugListingsRes.data)) serverItems.push(...slugListingsRes.data);
 
-      // Local storage listings attached to this store
+      // Local storage listings attached specifically to this store
       const allLocalListings = listListings();
       const localStoreListings = allLocalListings.filter((l) =>
         l.storeId === store.id ||
         l.storeId === (store as any).slug ||
         (l as any).store === store.id ||
-        (l as any).store === (store as any).slug ||
-        (store.name && (l as any).storeName?.toLowerCase() === store.name.toLowerCase()) ||
-        (store.name && l.sellerName?.toLowerCase() === store.name.toLowerCase())
+        (l as any).store === (store as any).slug
       );
 
-      // Category match fallback if catalog is completely empty
-      let fallbackCatItems: any[] = [];
-      if (serverItems.length === 0 && localStoreListings.length === 0) {
-        if (catRes?.success && Array.isArray(catRes.data) && catRes.data.length > 0) {
-          fallbackCatItems = catRes.data.filter((item: any) => {
-            const itemCat = (item.categoryId || item.category || "").toLowerCase();
-            const sCat = (store.primaryCategory || "").toLowerCase();
-            return itemCat === sCat || sCat.includes(itemCat) || itemCat.includes(sCat);
-          });
-        }
-        if (fallbackCatItems.length === 0) {
-          const sCat = (store.primaryCategory || "").toLowerCase();
-          fallbackCatItems = allLocalListings.filter((l) => {
-            const lCat = (l.category || l.subcategory || "").toLowerCase();
-            return lCat === sCat || sCat.includes(lCat) || lCat.includes(sCat);
-          });
-        }
-      }
-
-      // Merge and deduplicate by ID
+      // Merge and deduplicate by ID - strictly actual products belonging to this store
       const mergedMap = new Map<string, any>();
-      for (const item of [...serverItems, ...fallbackCatItems]) {
+      for (const item of serverItems) {
         const id = item.id || item._id;
         if (id) {
           mergedMap.set(String(id), {

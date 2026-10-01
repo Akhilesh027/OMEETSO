@@ -6,6 +6,8 @@ import { Listing } from "../../listings/models/Listing";
 import { AuthenticatedUserRequest } from "../../../middleware/authenticateUser";
 import { StoreStatus, ListingStatus } from "../../../contracts";
 import { uploadToCloudinary } from "../../../utils/cloudinaryUpload";
+import { sendAdminAlertEmail } from "../../auth/services/email.service";
+import { env } from "../../../config/env";
 
 function escapeRegex(str: string): string {
   return str.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
@@ -75,6 +77,29 @@ export async function createStore(req: AuthenticatedUserRequest, res: Response, 
       role: "owner",
       permissions: ["*"],
       status: "active"
+    });
+
+    // Dispatch instant alert to admin
+    sendAdminAlertEmail({
+      eventType: "business_registered",
+      title: `New Business Registered: ${store.name}`,
+      summary: `A new business "${store.name}" (${store.businessType || "Retailer"}) has been registered on Omeetso.`,
+      details: {
+        businessName: store.name,
+        businessType: store.businessType || "Retailer",
+        primaryCategory: store.primaryCategory || "General",
+        ownerName: req.user.profile?.name || "Business Owner",
+        contactMobile: store.businessMobile || req.user.phone,
+        contactEmail: store.email || req.user.email,
+        city: store.city || "Not specified",
+        area: store.area || "Not specified",
+        registeredAt: new Date().toLocaleString("en-IN", { timeZone: "Asia/Kolkata" }),
+        storeId: store._id.toString()
+      },
+      link: `${env.CLIENT_USER_URL || "https://omeetso.in"}/store/${store.slug || store._id}`,
+      actionText: "View Business Store on Omeetso &rarr;"
+    }).catch((err) => {
+      console.warn("[Email] Failed to dispatch admin alert for new business:", err?.message || err);
     });
 
     res.status(201).json({
@@ -278,21 +303,25 @@ export async function getStoreListings(req: Request, res: Response, next: NextFu
       status: { $in: [ListingStatus.APPROVED, ListingStatus.ACTIVE, "APPROVED", "ACTIVE", "approved", "active", "SUBMITTED", "submitted"] }
     };
 
-    const storeIds: any[] = [storeId];
-    if (isObjectId) storeIds.push(new mongoose.Types.ObjectId(storeId));
-    if (targetStore) {
-      storeIds.push(targetStore._id, targetStore._id.toString());
-      if (targetStore.slug) storeIds.push(targetStore.slug);
+    const storeObjectIds: mongoose.Types.ObjectId[] = [];
+    if (isObjectId) storeObjectIds.push(new mongoose.Types.ObjectId(storeId));
+    if (targetStore && targetStore._id) {
+      const targetOid = new mongoose.Types.ObjectId(targetStore._id.toString());
+      if (!storeObjectIds.some((oid) => oid.equals(targetOid))) {
+        storeObjectIds.push(targetOid);
+      }
     }
 
-    if (targetStore) {
-      query.$or = [
-        { storeId: { $in: storeIds } },
-        { sellerId: targetStore.ownerId }
-      ];
-    } else {
-      query.storeId = { $in: storeIds };
+    if (storeObjectIds.length === 0) {
+      res.status(200).json({
+        success: true,
+        data: [],
+        pagination: { page, limit, total: 0, totalPages: 0 }
+      });
+      return;
     }
+
+    query.storeId = { $in: storeObjectIds };
 
     const [listings, total] = await Promise.all([
       Listing.find(query)

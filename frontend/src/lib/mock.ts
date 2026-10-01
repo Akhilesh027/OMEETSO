@@ -556,6 +556,11 @@ export const getCategory = (id: string) => {
   const staticFound = CATEGORIES.find((c) => c.id.toLowerCase() === norm);
   if (staticFound) return staticFound;
 
+  if (norm === "appliances" || norm === "home_appliances") {
+    const applianceFound = CATEGORIES.find((c) => c.id === "home-appliances");
+    if (applianceFound) return applianceFound;
+  }
+
   return {
     id: norm,
     name: id.replace(/[-_]/g, " ").replace(/\b\w/g, (l) => l.toUpperCase()),

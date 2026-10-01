@@ -30,6 +30,8 @@ const CATEGORY_TINTS: Record<string, { bg: string; text: string; border: string;
   properties: { bg: "bg-emerald-500/10 dark:bg-emerald-500/15", text: "text-emerald-600 dark:text-emerald-400", border: "hover:border-emerald-500/50", badgeBg: "bg-emerald-500/15 text-emerald-700 dark:text-emerald-300" },
   fashion: { bg: "bg-pink-500/10 dark:bg-pink-500/15", text: "text-pink-600 dark:text-pink-400", border: "hover:border-pink-500/50", badgeBg: "bg-pink-500/15 text-pink-700 dark:text-pink-300" },
   appliances: { bg: "bg-sky-500/10 dark:bg-sky-500/15", text: "text-sky-600 dark:text-sky-400", border: "hover:border-sky-500/50", badgeBg: "bg-sky-500/15 text-sky-700 dark:text-sky-300" },
+  "home-appliances": { bg: "bg-teal-500/10 dark:bg-teal-500/15", text: "text-teal-600 dark:text-teal-400", border: "hover:border-teal-500/50", badgeBg: "bg-teal-500/15 text-teal-700 dark:text-teal-300" },
+  "home_appliances": { bg: "bg-teal-500/10 dark:bg-teal-500/15", text: "text-teal-600 dark:text-teal-400", border: "hover:border-teal-500/50", badgeBg: "bg-teal-500/15 text-teal-700 dark:text-teal-300" },
   jobs: { bg: "bg-indigo-500/10 dark:bg-indigo-500/15", text: "text-indigo-600 dark:text-indigo-400", border: "hover:border-indigo-500/50", badgeBg: "bg-indigo-500/15 text-indigo-700 dark:text-indigo-300" },
   services: { bg: "bg-rose-500/10 dark:bg-rose-500/15", text: "text-rose-600 dark:text-rose-400", border: "hover:border-rose-500/50", badgeBg: "bg-rose-500/15 text-rose-700 dark:text-rose-300" },
 };

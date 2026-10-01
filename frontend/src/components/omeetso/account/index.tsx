@@ -222,16 +222,51 @@ export function ConfirmModal({
 }
 
 // ---------- Small stat ----------
-export function Stat({ label, value, icon: Icon, colorClass = "bg-primary/10 text-primary" }: { label: string; value: string | number; icon?: any; colorClass?: string }) {
-  return (
-    <div className="flex flex-col items-center justify-center rounded-2xl border border-border/60 bg-card p-3.5 text-center card-elev transition-all hover:scale-[1.02] hover:shadow-md">
+export function Stat({
+  label,
+  value,
+  icon: Icon,
+  colorClass = "bg-primary/10 text-primary",
+  to,
+  onClick,
+}: {
+  label: string;
+  value: string | number;
+  icon?: any;
+  colorClass?: string;
+  to?: string;
+  onClick?: () => void;
+}) {
+  const content = (
+    <>
       {Icon && (
         <div className={`mb-1.5 grid h-8 w-8 place-items-center rounded-full ${colorClass}`}>
           <Icon className="h-4 w-4" />
         </div>
       )}
-      <p className="text-xl font-extrabold tracking-tight">{value}</p>
+      <p className="text-xl font-extrabold tracking-tight text-foreground">{value}</p>
       <p className="mt-0.5 text-[11px] font-semibold text-muted-foreground">{label}</p>
-    </div>
+    </>
   );
+
+  const baseClasses =
+    "flex flex-col items-center justify-center rounded-2xl border border-border/60 bg-card p-3.5 text-center card-elev transition-all hover:scale-[1.03] active:scale-[0.98] hover:shadow-md cursor-pointer select-none no-underline";
+
+  if (to) {
+    return (
+      <Link to={to} className={baseClasses}>
+        {content}
+      </Link>
+    );
+  }
+
+  if (onClick) {
+    return (
+      <button type="button" onClick={onClick} className={cn(baseClasses, "w-full")}>
+        {content}
+      </button>
+    );
+  }
+
+  return <div className={baseClasses}>{content}</div>;
 }

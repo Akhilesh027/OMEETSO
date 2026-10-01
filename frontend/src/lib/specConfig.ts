@@ -171,6 +171,7 @@ export const SPEC_CONFIG: Record<string, SpecField[]> = {
 
 // Map aliases
 SPEC_CONFIG["home-appliances"] = SPEC_CONFIG["appliances"];
+SPEC_CONFIG["home_appliances"] = SPEC_CONFIG["appliances"];
 SPEC_CONFIG["commercial"] = SPEC_CONFIG["commercial-vehicles"];
 SPEC_CONFIG["books"] = SPEC_CONFIG["books-sports"];
 SPEC_CONFIG["agri"] = SPEC_CONFIG["agriculture"];

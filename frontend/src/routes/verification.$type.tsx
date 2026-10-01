@@ -294,9 +294,17 @@ function EmailVerify({ v, email }: { v: any; email: string }) {
           {step === "idle" && (
             <button
               onClick={send}
-              className="w-full h-12 rounded-2xl bg-indigo-brand text-xs font-bold text-white shadow-md hover:opacity-95 transition-all"
+              disabled={loading}
+              className="w-full h-12 rounded-2xl bg-indigo-brand text-xs font-bold text-white shadow-md hover:opacity-95 transition-all disabled:opacity-60 flex items-center justify-center gap-2"
             >
-              Send Email Verification OTP
+              {loading ? (
+                <>
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                  <span>Sending Verification Code…</span>
+                </>
+              ) : (
+                "Send Email Verification OTP"
+              )}
             </button>
           )}
 
@@ -308,7 +316,7 @@ function EmailVerify({ v, email }: { v: any; email: string }) {
                 maxLength={4}
                 value={otp}
                 onChange={(e) => setOtp(e.target.value.replace(/\D/g, ""))}
-                placeholder="5 6 7 8"
+                placeholder="1 2 3 4"
                 className="w-full h-12 rounded-2xl border border-border bg-background px-4 text-center font-mono text-xl tracking-[0.5em] font-black text-foreground outline-none focus:border-indigo-brand"
               />
               {error && <p className="text-xs text-rose-600 font-bold text-center">{error}</p>}
@@ -317,19 +325,30 @@ function EmailVerify({ v, email }: { v: any; email: string }) {
                 <button
                   type="button"
                   onClick={send}
-                  className="px-4 py-2.5 rounded-xl border border-border text-xs font-bold text-muted-foreground hover:bg-secondary"
+                  disabled={loading}
+                  className="px-4 py-2.5 rounded-xl border border-border text-xs font-bold text-muted-foreground hover:bg-secondary disabled:opacity-60"
                 >
                   Resend OTP
                 </button>
                 <button
                   type="button"
                   onClick={verify}
-                  className="flex-1 rounded-xl bg-indigo-brand text-xs font-bold text-white shadow hover:opacity-95"
+                  disabled={loading}
+                  className="flex-1 h-11 rounded-xl bg-indigo-brand text-xs font-bold text-white shadow hover:opacity-95 disabled:opacity-60 flex items-center justify-center gap-2"
                 >
-                  Verify Email (+15 Pts)
+                  {loading ? (
+                    <>
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                      <span>Verifying…</span>
+                    </>
+                  ) : (
+                    "Verify Email (+15 Pts)"
+                  )}
                 </button>
               </div>
-              <p className="text-[11px] text-muted-foreground text-center">Demo email OTP code is 5678</p>
+              <p className="text-[11px] text-muted-foreground text-center">
+                Check your inbox and spam folder for your 4-digit code. (Demo fallback code: 5678)
+              </p>
             </div>
           )}
         </div>

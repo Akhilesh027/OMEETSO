@@ -6,6 +6,8 @@ import { CandidateProfile } from "../models/CandidateProfile";
 import { JobCategory } from "../models/JobCategory";
 import { AuthenticatedUserRequest } from "../../../middleware/authenticateUser";
 import { Notification } from "../../notifications/models/Notification";
+import { sendAdminAlertEmail } from "../../auth/services/email.service";
+import { env } from "../../../config/env";
 
 // DEFAULT JOB CATEGORIES SEED DATA
 const DEFAULT_JOB_CATEGORIES = [
@@ -258,6 +260,31 @@ export async function createJobListing(req: AuthenticatedUserRequest, res: Respo
       isFeatured: Boolean(body.isFeatured),
       screeningQuestions: Array.isArray(body.screeningQuestions) ? body.screeningQuestions : [],
       status: "SUBMITTED"
+    });
+
+    // Dispatch instant alert to admin
+    sendAdminAlertEmail({
+      eventType: "job_posted",
+      title: `New Job Posted: ${job.title} at ${job.companyName}`,
+      summary: `A new job vacancy "${job.title}" has been posted by ${req.user.profile?.name || req.user.phone}.`,
+      details: {
+        jobTitle: job.title,
+        companyName: job.companyName,
+        jobCategory: job.jobCategoryId,
+        jobType: job.jobType,
+        workplaceType: job.workplaceType,
+        salary: job.salary?.salaryDisclosed ? `₹${job.salary.minSalary?.toLocaleString("en-IN")} - ₹${job.salary.maxSalary?.toLocaleString("en-IN")} / ${job.salary.salaryPeriod || "month"}` : "Undisclosed",
+        openings: job.openingsCount || 1,
+        location: `${job.location?.area || ""}, ${job.location?.city || "Hyderabad"}`,
+        employerName: req.user.profile?.name || "Employer",
+        employerPhone: req.user.phone,
+        submittedAt: new Date().toLocaleString("en-IN", { timeZone: "Asia/Kolkata" }),
+        jobId: job._id.toString()
+      },
+      link: `${env.CLIENT_USER_URL || "https://omeetso.in"}/jobs/${job._id}`,
+      actionText: "View Job on Omeetso &rarr;"
+    }).catch((err) => {
+      console.warn("[Email] Failed to dispatch admin alert for new job:", err?.message || err);
     });
 
     res.status(201).json({ success: true, data: { ...job.toObject(), id: job._id.toString() } });

@@ -11,6 +11,7 @@ import { seedAdminUsers } from "./database/seeders/adminSeeder";
 import { seedCategories } from "./database/seeders/categorySeeder";
 import { seedBannersAndAds } from "./database/seeders/bannerAdSeeder";
 import { User } from "./modules/users/models/User";
+import { verifySmtpConnection } from "./modules/auth/services/email.service";
 
 // Server initialization timestamp: 2026-09-05T21:43:20
 const server = http.createServer(app);
@@ -32,6 +33,11 @@ async function startServer() {
     console.log(`[Server] Health check available at: http://localhost:${env.PORT}/health`);
     console.log(`[Socket.IO] Real-Time Gateway initialized`);
     console.log(`[OG] Dynamic OpenGraph Social Previews mounted`);
+
+    // Asynchronously verify SMTP Email configuration & connection
+    verifySmtpConnection().catch((err) => {
+      console.warn("[Email/SMTP] Verification error:", err?.message || err);
+    });
   });
 }
 

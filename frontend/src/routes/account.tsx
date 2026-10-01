@@ -13,7 +13,7 @@ import {
 import {
   getProfile, setProfile, completionPct, unreadCount, subscribeAccount,
   getBusinessProfile, getVerifications, getTrustScore, logout, logoutMock, DEFAULT_AVATARS,
-  listNearbyChangesNotifications, pushNotification, formatLocationDisplay
+  listNearbyChangesNotifications, pushNotification, formatLocationDisplay, listReviews
 } from "@/lib/account";
 import { getCleanAvatar, isPhotoUrl } from "@/lib/avatarSvgs";
 import { SectionTitle, MenuGroup, MenuRow, Stat, VerifBadge, ConfirmModal } from "@/components/omeetso/account";
@@ -228,7 +228,7 @@ function Account() {
   const activeCount = myListings.filter((l) => l.status === "active" || l.status === "approved" || l.status === "APPROVED").length;
   const soldCount = myListings.filter((l) => l.status === "sold" || l.status === "SOLD").length;
   const savedCount = typeof window !== "undefined" ? (() => { try { return JSON.parse(localStorage.getItem("omeetso_saved_items") || "[]").length; } catch { return 0; } })() : 0;
-  const reviewsCount = 0;
+  const reviewsCount = typeof window !== "undefined" ? listReviews().filter((r) => r.moderation === "published").length : 0;
 
   const nearbyChangesListings = myListings.filter((l) => l.nearbyChanges?.enabled);
   const nearbyNotifs = listNearbyChangesNotifications();
@@ -395,10 +395,34 @@ function Account() {
               </div>
 
               <div className="mx-4 mt-4 grid grid-cols-4 gap-2.5 md:mx-0">
-                <Stat label="Active" value={activeCount} icon={Package} colorClass="bg-indigo-50 text-indigo-600" />
-                <Stat label="Sold" value={soldCount} icon={CheckCircle} colorClass="bg-emerald-50 text-emerald-600" />
-                <Stat label="Saved" value={savedCount} icon={Heart} colorClass="bg-rose-50 text-rose-600" />
-                <Stat label="Reviews" value={reviewsCount} icon={Star} colorClass="bg-amber-50 text-amber-600" />
+                <Stat
+                  label="Active"
+                  value={activeCount}
+                  icon={Package}
+                  colorClass="bg-indigo-50 text-indigo-600 dark:bg-indigo-950/50 dark:text-indigo-400"
+                  to="/listings?tab=active"
+                />
+                <Stat
+                  label="Sold"
+                  value={soldCount}
+                  icon={CheckCircle}
+                  colorClass="bg-emerald-50 text-emerald-600 dark:bg-emerald-950/50 dark:text-emerald-400"
+                  to="/listings?tab=sold"
+                />
+                <Stat
+                  label="Saved"
+                  value={savedCount}
+                  icon={Heart}
+                  colorClass="bg-rose-50 text-rose-600 dark:bg-rose-950/50 dark:text-rose-400"
+                  to="/saved"
+                />
+                <Stat
+                  label="Reviews"
+                  value={reviewsCount}
+                  icon={Star}
+                  colorClass="bg-amber-50 text-amber-600 dark:bg-amber-950/50 dark:text-amber-400"
+                  to="/reviews"
+                />
               </div>
 
               {/* Trust Score & KYC Verification Banner */}

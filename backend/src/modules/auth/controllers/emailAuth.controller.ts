@@ -1,7 +1,7 @@
 import { Request, Response, NextFunction } from "express";
 import crypto from "crypto";
 import { EmailOtpChallenge } from "../models/EmailOtpChallenge";
-import { sendVerificationOtpEmail } from "../services/email.service";
+import { sendVerificationOtpEmail, sendUserWelcomeEmail, sendAdminAlertEmail } from "../services/email.service";
 import { User } from "../../users/models/User";
 import { VerificationRequest } from "../../verification/models/VerificationRequest";
 
@@ -45,6 +45,7 @@ export async function requestEmailOtp(req: Request, res: Response, next: NextFun
       expiresAt: new Date(Date.now() + 10 * 60 * 1000) // 10 mins expiry
     });
 
+    console.log(`[EmailAuth] 🔑 Generated verification OTP: ${rawCode} for ${normalizedEmail}`);
     console.log(`[EmailAuth] Dispatching real OTP email to ${normalizedEmail}...`);
 
     // Dispatch real email via SMTP
@@ -167,6 +168,28 @@ export async function verifyEmailOtp(req: Request, res: Response, next: NextFunc
           documentType: "email_otp",
           documentNumber: normalizedEmail,
           documentImages: []
+        });
+
+        // Dispatch welcome email to user now that email is confirmed
+        sendUserWelcomeEmail(normalizedEmail, user.profile?.name || "Member").catch((err) => {
+          console.warn("[EmailAuth] Failed to dispatch welcome email:", err?.message || err);
+        });
+
+        // Dispatch admin notification
+        sendAdminAlertEmail({
+          eventType: "user_registered",
+          title: `User Email Verified: ${user.profile?.name || user.phone}`,
+          summary: `User ${user.profile?.name || user.phone} has verified their email address (${normalizedEmail}).`,
+          details: {
+            name: user.profile?.name || "User",
+            phone: user.phone,
+            verifiedEmail: normalizedEmail,
+            verifiedAt: new Date().toLocaleString("en-IN", { timeZone: "Asia/Kolkata" }),
+            trustPointsEarned: "+15 Pts",
+            userId: user._id.toString()
+          }
+        }).catch((err) => {
+          console.warn("[EmailAuth] Failed to dispatch admin alert:", err?.message || err);
         });
       }
     }

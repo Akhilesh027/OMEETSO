@@ -26,7 +26,7 @@ export function SellTypeModal({ open, onClose }: SellTypeModalProps) {
       badgeColor: "bg-blue-500/10 text-blue-600 dark:text-blue-400 border-blue-500/20",
       icon: Package,
       iconBg: "bg-gradient-to-br from-blue-500 to-indigo-600 text-white shadow-md shadow-blue-500/20",
-      to: "/sell",
+      to: "/sell/detailed",
     },
     {
       id: "services",

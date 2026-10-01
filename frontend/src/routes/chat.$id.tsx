@@ -110,6 +110,7 @@ function Conversation() {
 
   const bottomRef = useRef<HTMLDivElement>(null);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   // Load conversations if not loaded yet
   useEffect(() => {
@@ -245,6 +246,9 @@ function Conversation() {
 
     await sendTextMessage(id, body);
     setDraftState("");
+    if (textareaRef.current) {
+      textareaRef.current.style.height = "auto";
+    }
     setSuggestionsShown(false);
   }, [draft, blocked, id, sendTextMessage]);
 
@@ -299,8 +303,8 @@ function Conversation() {
   // Loading state
   if (!thread && (!fetchAttempted || fetchingConversation || conversationsLoading)) {
     return (
-      <MobileFrame>
-        <div className="flex min-h-dvh flex-col items-center justify-center gap-3">
+      <MobileFrame fullHeight>
+        <div className="flex h-full min-h-dvh flex-col items-center justify-center gap-3">
           <Loader2 className="h-7 w-7 animate-spin text-primary" />
           <span className="text-xs font-bold text-muted-foreground">Loading conversation...</span>
         </div>
@@ -311,8 +315,8 @@ function Conversation() {
   // Conversation not found after loading
   if (!thread && fetchAttempted) {
     return (
-      <MobileFrame>
-        <div className="min-h-dvh p-8 text-center flex flex-col items-center justify-center gap-2">
+      <MobileFrame fullHeight>
+        <div className="h-full min-h-dvh p-8 text-center flex flex-col items-center justify-center gap-2">
           <p className="text-base font-bold text-foreground">Conversation unavailable</p>
           <p className="text-xs text-muted-foreground max-w-xs">This chat may have been deleted or you don't have access.</p>
           <Link to="/chats" className="mt-4 inline-block rounded-2xl bg-primary px-5 py-2.5 text-xs font-bold text-primary-foreground shadow-sm">Back to all chats</Link>
@@ -322,23 +326,23 @@ function Conversation() {
   }
 
   return (
-    <MobileFrame>
-      <div className="md:mx-auto md:flex md:min-h-[calc(100dvh-4rem)] md:max-w-[1280px] md:gap-0 md:px-6 md:py-6">
-        <aside className="hidden md:block md:h-[calc(100dvh-6rem)] md:w-[320px] md:shrink-0 md:overflow-hidden md:rounded-l-2xl md:border md:border-r-0 md:border-border">
+    <MobileFrame fullHeight>
+      <div className="flex h-full min-h-0 w-full flex-col md:mx-auto md:flex-row md:h-[calc(100dvh-5.5rem)] md:max-h-[calc(100dvh-5.5rem)] md:max-w-[1280px] md:gap-0 md:px-6 md:py-4">
+        <aside className="hidden md:block md:h-full md:w-[320px] md:shrink-0 md:overflow-hidden md:rounded-l-2xl md:border md:border-r-0 md:border-border">
           <ThreadListPane activeId={id} />
         </aside>
-        <div className="flex min-h-dvh flex-col bg-background md:min-h-0 md:flex-1 md:h-[calc(100dvh-6rem)] md:overflow-hidden md:rounded-r-2xl md:border md:border-border">
+        <div className="flex flex-1 h-full min-h-0 flex-col bg-background overflow-hidden md:rounded-r-2xl md:border md:border-border">
 
         {/* Connection status */}
         {connectionStatus === "error" && !!getUserAccessToken() && (
-          <div className="flex items-center gap-2 bg-destructive/10 px-3 py-1.5 text-xs font-semibold text-destructive">
+          <div className="shrink-0 flex items-center gap-2 bg-destructive/10 px-3 py-1.5 text-xs font-semibold text-destructive">
             <WifiOff className="h-3.5 w-3.5" />
             Connection lost. Messages may be delayed.
           </div>
         )}
 
         {/* Header */}
-        <header className="sticky top-0 z-30 border-b border-border bg-card safe-t">
+        <header className="shrink-0 z-30 border-b border-border bg-card safe-t">
           <div className="flex items-center gap-2 px-2 py-2">
             <button
               type="button"
@@ -425,7 +429,7 @@ function Conversation() {
 
           {/* Context Header Card */}
           {conversation && (conversation.listingTitle || conversation.listingImage) && (
-            <div className="flex items-center gap-3 border-t border-border bg-card px-3 py-2">
+            <div className="shrink-0 flex items-center gap-3 border-t border-border bg-card px-3 py-2">
               {conversation.listingImage ? (
                 <img src={conversation.listingImage} alt="" className="h-10 w-10 rounded-xl object-cover shrink-0" />
               ) : isJob ? (
@@ -496,7 +500,7 @@ function Conversation() {
         <div
           ref={scrollContainerRef}
           onScroll={handleScroll}
-          className="flex-1 overflow-y-auto p-3 space-y-2"
+          className="flex-1 min-h-0 overflow-y-auto overscroll-contain p-3 space-y-2"
         >
           {/* Load more indicator */}
           {canLoadMore && (
@@ -658,7 +662,7 @@ function Conversation() {
 
         {/* Quick suggestions */}
         {suggestionsShown && !blocked && !listingUnavailable && messages.filter((m) => m.from === "me").length < 2 && (
-          <div className="flex gap-2 overflow-x-auto border-t border-border bg-card px-3 py-2 no-scrollbar">
+          <div className="shrink-0 flex gap-2 overflow-x-auto border-t border-border bg-card px-3 py-2 no-scrollbar">
             {suggestions.map((q) => (
               <button
                 key={q} onClick={() => send(q)}
@@ -670,12 +674,12 @@ function Conversation() {
 
         {/* Composer or blocked banner */}
         {blocked ? (
-          <div className="border-t border-border bg-card p-4 text-center safe-b">
+          <div className="shrink-0 border-t border-border bg-card p-4 text-center safe-b">
             <p className="text-xs font-semibold text-destructive">You blocked {thread.peerName}</p>
             <button onClick={doBlockToggle} className="mt-2 rounded-full bg-primary px-4 py-2 text-xs font-bold text-primary-foreground">Unblock</button>
           </div>
         ) : listingUnavailable ? (
-          <div className="border-t border-border bg-card p-4 text-center safe-b">
+          <div className="shrink-0 border-t border-border bg-card p-4 text-center safe-b">
             <p className="text-xs font-semibold text-muted-foreground">
               Listing unavailable
             </p>
@@ -696,35 +700,48 @@ function Conversation() {
             </div>
           </div>
         ) : (
-          <div className="flex items-end gap-2 border-t border-border bg-card p-2 safe-b">
-            <button aria-label="Attach" onClick={() => setAttachOpen(true)} className="grid h-10 w-10 shrink-0 place-items-center rounded-full hover:bg-secondary">
-              <Paperclip className="h-5 w-5 text-muted-foreground" />
-            </button>
-            <div className="flex flex-1 items-center gap-1 rounded-3xl border border-border bg-background px-3 py-1">
-              <textarea
-                value={draft}
-                onChange={(e) => onDraftChange(e.target.value.slice(0, 2000))}
-                onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); send(); } }}
-                placeholder="Type a message..."
-                aria-label="Message"
-                rows={1}
-                className="max-h-24 flex-1 resize-none bg-transparent py-2 text-sm outline-none"
-              />
-              {draft.length > 1600 && (
-                <span className="text-[10px] text-muted-foreground">{draft.length}/2000</span>
-              )}
-              <button aria-label="Emoji" className="grid h-8 w-8 place-items-center text-muted-foreground">
-                <Smile className="h-4 w-4" />
+          <div className="shrink-0 border-t border-border bg-card p-2 safe-b">
+            <div className="flex items-end gap-2">
+              <button aria-label="Attach" onClick={() => setAttachOpen(true)} className="grid h-10 w-10 shrink-0 place-items-center rounded-full hover:bg-secondary">
+                <Paperclip className="h-5 w-5 text-muted-foreground" />
+              </button>
+              <div className="flex flex-1 items-center gap-1 rounded-3xl border border-border bg-background px-3 py-1">
+                <textarea
+                  ref={textareaRef}
+                  value={draft}
+                  onChange={(e) => onDraftChange(e.target.value.slice(0, 2000))}
+                  onInput={(e) => {
+                    const target = e.currentTarget;
+                    target.style.height = "auto";
+                    target.style.height = `${Math.min(target.scrollHeight, 120)}px`;
+                  }}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" && !e.shiftKey) {
+                      e.preventDefault();
+                      send();
+                    }
+                  }}
+                  placeholder="Type a message..."
+                  aria-label="Message"
+                  rows={1}
+                  className="max-h-28 flex-1 resize-none bg-transparent py-2 text-sm outline-none"
+                />
+                {draft.length > 1600 && (
+                  <span className="text-[10px] text-muted-foreground">{draft.length}/2000</span>
+                )}
+                <button aria-label="Emoji" className="grid h-8 w-8 place-items-center text-muted-foreground">
+                  <Smile className="h-4 w-4" />
+                </button>
+              </div>
+              <button
+                onClick={() => send()}
+                aria-label="Send"
+                disabled={!draft.trim()}
+                className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-navy text-white disabled:opacity-40 hover:bg-navy/90 active:scale-95 transition-all shadow-xs"
+              >
+                <Send className="h-4 w-4" />
               </button>
             </div>
-            <button
-              onClick={() => send()}
-              aria-label="Send"
-              disabled={!draft.trim()}
-              className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-navy text-white disabled:opacity-40"
-            >
-              <Send className="h-4 w-4" />
-            </button>
           </div>
         )}
 

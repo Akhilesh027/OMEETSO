@@ -220,7 +220,17 @@ function Results() {
 
   const filtered = useMemo(() => {
     let list: Product[] = allProducts;
-    if (search.cat) list = list.filter((p) => (p.category || "").toLowerCase() === search.cat?.toLowerCase());
+    if (search.cat) {
+      const normCat = search.cat.toLowerCase().replace(/_/g, "-");
+      list = list.filter((p) => {
+        const pCat = (p.category || "").toLowerCase().replace(/_/g, "-");
+        if (pCat === normCat) return true;
+        if ((normCat === "appliances" || normCat === "home-appliances") && (pCat === "appliances" || pCat === "home-appliances")) {
+          return true;
+        }
+        return false;
+      });
+    }
     if (search.cond) list = list.filter((p) => (p.condition || "").toLowerCase() === search.cond?.toLowerCase());
 
     if (q) {
