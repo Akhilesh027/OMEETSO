@@ -31,25 +31,31 @@ function ensureCloudinaryConfig(): boolean {
 }
 
 /**
- * Upload a single base64 image or video to Cloudinary.
+ * Upload a single base64 image or video (or remote image URL) to Cloudinary.
  * Returns the Cloudinary secure_url, or the original string if upload fails or already a URL.
  */
 export async function uploadToCloudinary(
   media: string,
   folder = "omeetso/listings",
-  resourceType: "auto" | "image" | "video" = "auto"
+  resourceType: "auto" | "image" | "video" = "auto",
+  forceCloudinary = false
 ): Promise<string> {
   if (!media || typeof media !== "string") {
     return media || "";
   }
 
-  // Already a hosted URL — no upload needed
-  if (media.startsWith("http://") || media.startsWith("https://")) {
+  // Already a Cloudinary URL — no upload needed
+  if (media.includes("res.cloudinary.com") || media.includes("cloudinary.com")) {
     return media;
   }
 
-  // Not a base64 data URI
-  if (!media.startsWith("data:")) {
+  // If already a hosted URL and we are not explicitly forcing conversion to Cloudinary
+  if (!forceCloudinary && (media.startsWith("http://") || media.startsWith("https://"))) {
+    return media;
+  }
+
+  // Not a base64 data URI and not an HTTP(S) URL
+  if (!media.startsWith("data:") && !media.startsWith("http://") && !media.startsWith("https://")) {
     return media;
   }
 
@@ -70,11 +76,11 @@ export async function uploadToCloudinary(
       resource_type: resourceType,
       quality: "auto:eco",
       fetch_format: "auto",
-      timeout: resourceType === "video" ? 30000 : 8000
+      timeout: resourceType === "video" ? 30000 : 15000
     });
     return result.secure_url;
   } catch (err: any) {
-    console.warn(`[Cloudinary] Upload failed: ${err?.message}`);
+    console.warn(`[Cloudinary] Upload failed for media (${media.slice(0, 50)}...): ${err?.message}`);
     return media; // Fallback to original
   }
 }
@@ -95,18 +101,29 @@ export async function uploadVideoToCloudinary(video: string, folder = "omeetso/l
 
 /**
  * Convert an array of images (mix of base64 and URLs) to all Cloudinary URLs in parallel.
- * Fast-paths already hosted URLs instantly with zero network overhead.
+ * When forceCloudinary is true, remote non-Cloudinary images are uploaded to Cloudinary as well.
  */
-export async function convertImagesToCloudinary(images: string[], folder = "omeetso/listings"): Promise<string[]> {
+export async function convertImagesToCloudinary(
+  images: string[],
+  folder = "omeetso/listings",
+  forceCloudinary = false
+): Promise<string[]> {
   if (!Array.isArray(images) || images.length === 0) return images || [];
 
-  const allUrls = images.every((img) => typeof img === "string" && (img.startsWith("http://") || img.startsWith("https://")));
-  if (allUrls) {
-    return images;
+  if (!forceCloudinary) {
+    const allUrls = images.every((img) => typeof img === "string" && (img.startsWith("http://") || img.startsWith("https://")));
+    if (allUrls) {
+      return images;
+    }
+  } else {
+    const allCloudinary = images.every((img) => typeof img === "string" && (img.includes("res.cloudinary.com") || img.includes("cloudinary.com")));
+    if (allCloudinary) {
+      return images;
+    }
   }
 
   const results = await Promise.allSettled(
-    images.map((img) => uploadToCloudinary(img, folder, "auto"))
+    images.map((img) => uploadToCloudinary(img, folder, "image", forceCloudinary))
   );
 
   return results.map((r, i) => (r.status === "fulfilled" ? r.value : images[i]));

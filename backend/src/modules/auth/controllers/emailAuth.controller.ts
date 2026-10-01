@@ -133,11 +133,11 @@ export async function verifyEmailOtp(req: Request, res: Response, next: NextFunc
       await challenge.save();
     }
 
-    // Update authenticated user or user matching email/session
+    // Update authenticated user or user matching email/phone/session
     const authHeader = req.headers.authorization;
-    let userId: any = null;
+    let userId: any = req.body?.userId || null;
 
-    if (authHeader?.startsWith("Bearer ")) {
+    if (!userId && authHeader?.startsWith("Bearer ")) {
       try {
         const jwt = require("jsonwebtoken");
         const { env } = require("../../../config/env");
@@ -149,49 +149,74 @@ export async function verifyEmailOtp(req: Request, res: Response, next: NextFunc
       } catch { /* ignore token decode errors */ }
     }
 
+    let user = null;
     if (userId) {
-      const user = await User.findById(userId);
-      if (user) {
-        user.email = normalizedEmail;
-        user.emailVerified = true;
-        if (!user.verificationSummary) {
-          user.verificationSummary = { identityVerified: false, mobileVerified: false, emailVerified: false, businessVerified: false };
-        }
-        user.verificationSummary.emailVerified = true;
-        await user.save();
+      try {
+        user = await User.findById(userId);
+      } catch { /* ignore invalid ObjectId */ }
+    }
 
-        // Create approved verification request
-        await VerificationRequest.create({
-          userId: user._id,
-          type: "email",
-          status: "approved",
-          documentType: "email_otp",
-          documentNumber: normalizedEmail,
-          documentImages: []
-        });
-
-        // Dispatch welcome email to user now that email is confirmed
-        sendUserWelcomeEmail(normalizedEmail, user.profile?.name || "Member").catch((err) => {
-          console.warn("[EmailAuth] Failed to dispatch welcome email:", err?.message || err);
-        });
-
-        // Dispatch admin notification
-        sendAdminAlertEmail({
-          eventType: "user_registered",
-          title: `User Email Verified: ${user.profile?.name || user.phone}`,
-          summary: `User ${user.profile?.name || user.phone} has verified their email address (${normalizedEmail}).`,
-          details: {
-            name: user.profile?.name || "User",
-            phone: user.phone,
-            verifiedEmail: normalizedEmail,
-            verifiedAt: new Date().toLocaleString("en-IN", { timeZone: "Asia/Kolkata" }),
-            trustPointsEarned: "+15 Pts",
-            userId: user._id.toString()
-          }
-        }).catch((err) => {
-          console.warn("[EmailAuth] Failed to dispatch admin alert:", err?.message || err);
-        });
+    if (!user && req.body?.phone) {
+      const cleanPhone = String(req.body.phone).replace(/\D/g, "").slice(-10);
+      if (cleanPhone.length === 10) {
+        user = await User.findOne({ phone: `+91${cleanPhone}` });
       }
+    }
+
+    if (!user && normalizedEmail) {
+      user = await User.findOne({ email: normalizedEmail });
+    }
+
+    if (user) {
+      user.email = normalizedEmail;
+      user.emailVerified = true;
+      if (!user.verificationSummary) {
+        user.verificationSummary = { identityVerified: false, mobileVerified: true, emailVerified: true, businessVerified: false };
+      } else {
+        user.verificationSummary.emailVerified = true;
+      }
+      await user.save();
+
+      // Upsert approved verification request
+      try {
+        await VerificationRequest.findOneAndUpdate(
+          { userId: user._id, type: "email" },
+          {
+            $set: {
+              status: "approved",
+              documentType: "email_otp",
+              documentNumber: normalizedEmail,
+              documentImages: [],
+              updatedAt: new Date()
+            }
+          },
+          { upsert: true, new: true }
+        );
+      } catch (err) {
+        console.warn("[EmailAuth] Failed to upsert VerificationRequest:", err);
+      }
+
+      // Dispatch welcome email to user now that email is confirmed
+      sendUserWelcomeEmail(normalizedEmail, user.profile?.name || "Member").catch((err) => {
+        console.warn("[EmailAuth] Failed to dispatch welcome email:", err?.message || err);
+      });
+
+      // Dispatch admin notification
+      sendAdminAlertEmail({
+        eventType: "user_registered",
+        title: `User Email Verified: ${user.profile?.name || user.phone}`,
+        summary: `User ${user.profile?.name || user.phone} has verified their email address (${normalizedEmail}).`,
+        details: {
+          name: user.profile?.name || "User",
+          phone: user.phone,
+          verifiedEmail: normalizedEmail,
+          verifiedAt: new Date().toLocaleString("en-IN", { timeZone: "Asia/Kolkata" }),
+          trustPointsEarned: "+15 Pts",
+          userId: user._id.toString()
+        }
+      }).catch((err) => {
+        console.warn("[EmailAuth] Failed to dispatch admin alert:", err?.message || err);
+      });
     }
 
     res.status(200).json({
@@ -199,7 +224,18 @@ export async function verifyEmailOtp(req: Request, res: Response, next: NextFunc
       data: {
         message: "Email address verified successfully!",
         email: normalizedEmail,
-        pointsAwarded: 15
+        emailVerified: true,
+        pointsAwarded: 15,
+        user: user ? {
+          id: user._id.toString(),
+          phone: user.phone,
+          email: user.email,
+          emailVerified: true,
+          accountType: user.accountType,
+          status: user.status,
+          profile: user.profile,
+          verificationSummary: user.verificationSummary
+        } : undefined
       }
     });
   } catch (error) {

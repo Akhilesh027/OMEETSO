@@ -24,9 +24,9 @@ import { API_BASE } from "@/config/api";
 export const Route = createFileRoute("/home")({
   head: () => ({
     meta: [
-      { title: "Omeetso — Discover nearby deals" },
-      { name: "description", content: "Browse products near you, discover local stores and connect with trusted sellers on Omeetso." },
-      { property: "og:title", content: "Omeetso — Discover nearby deals" },
+      { title: "omeetso — Discover nearby deals" },
+      { name: "description", content: "Browse products near you, discover local stores and connect with trusted sellers on omeetso." },
+      { property: "og:title", content: "omeetso — Discover nearby deals" },
       { property: "og:description", content: "Nearby products, verified sellers, local stores." },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary" },
@@ -647,7 +647,7 @@ function Home() {
               cta: b.tag || "Claim Deal",
               destinationUrl: b.targetUrl || "/results",
               image: b.image,
-              advertiser: b.sellerName || "Omeetso Partner"
+              advertiser: b.sellerName || "omeetso Partner"
             }));
           if (middleItems.length > 0) {
             setLiveMiddleBanners(middleItems);
@@ -663,7 +663,7 @@ function Home() {
               cta: "Discover Now",
               destinationUrl: firstStrip.targetUrl || "/stores",
               image: firstStrip.image,
-              advertiser: firstStrip.sellerName || "Omeetso Network"
+              advertiser: firstStrip.sellerName || "omeetso Network"
             });
           }
         }

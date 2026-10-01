@@ -123,10 +123,10 @@ export function ProductWatermark({
         )}
       >
         <InfinitySymbolSvg width={size === "lg" ? 36 : 24} height={size === "lg" ? 20 : 13} />
-        <span className={cn("font-extrabold uppercase tracking-widest text-white/90 drop-shadow-[0_1px_3px_rgba(0,0,0,0.8)]",
+        <span className={cn("font-extrabold tracking-widest text-white/90 drop-shadow-[0_1px_3px_rgba(0,0,0,0.8)]",
           size === "xs" ? "text-[8px]" : size === "sm" ? "text-[9px]" : size === "md" ? "text-[11px]" : "text-sm"
         )}>
-          Omeetso
+          omeetso
         </span>
       </div>
     );
@@ -154,8 +154,8 @@ export function ProductWatermark({
       style={{ boxShadow: "0 2px 8px rgba(0, 0, 0, 0.35)" }}
     >
       <InfinitySymbolSvg width={config.iconW} height={config.iconH} />
-      <span className={cn("font-black tracking-wider uppercase text-white/95", config.text)}>
-        Omeetso
+      <span className={cn("font-black tracking-wider text-white/95", config.text)}>
+        omeetso
       </span>
     </div>
   );
@@ -196,7 +196,7 @@ export async function applyInfinityWatermarkToDataUrl(
         const padding = Math.max(16, Math.round(24 * scale));
 
         // Draw Watermark Badge at bottom-right
-        const text = options?.watermarkText || "OMEETSO";
+        const text = options?.watermarkText || "omeetso";
         ctx.font = `bold ${fontSize}px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif`;
         const textMetrics = ctx.measureText(text);
 

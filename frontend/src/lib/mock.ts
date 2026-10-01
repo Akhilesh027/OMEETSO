@@ -458,7 +458,7 @@ export const getProduct = (id: string) => {
       category: live.category || "general",
       condition: live.condition || "good",
       sellerId: (live as any).seller?.id || live.sellerId || "u_priya",
-      sellerName: (live as any).seller?.name || live.sellerName || "Omeetso Seller",
+      sellerName: (live as any).seller?.name || live.sellerName || "omeetso Seller",
       seller: (live as any).seller,
       badge: "Verified",
       specs: live.specs || {},
@@ -492,7 +492,7 @@ export const getSeller = (id: string): Seller => {
             : (u.profile?.city || "Hyderabad");
           return {
             id,
-            name: u.profile?.name || u.name || "Omeetso Seller",
+            name: u.profile?.name || u.name || "omeetso Seller",
             avatar: u.profile?.avatar || u.avatar,
             memberSince: u.createdAt ? new Date(u.createdAt).getFullYear().toString() : "2024",
             rating: 0,
@@ -502,7 +502,7 @@ export const getSeller = (id: string): Seller => {
             verified: true,
             type: u.accountType === "business" ? "business" : "individual",
             area: areaDisplay,
-            about: u.profile?.bio || "Active seller on Omeetso Marketplace."
+            about: u.profile?.bio || "Active seller on omeetso Marketplace."
           };
         }
       }
@@ -514,7 +514,7 @@ export const getSeller = (id: string): Seller => {
   );
   if (liveListing) {
     const liveSeller = (liveListing as any).seller;
-    const name = liveSeller?.name || liveListing.sellerName || "Omeetso Seller";
+    const name = liveSeller?.name || liveListing.sellerName || "omeetso Seller";
     const locArea = liveListing.area || (liveSeller?.area && liveSeller.area !== "Madhapur" ? liveSeller.area : null);
     const locCity = liveListing.city || liveSeller?.city || "Hyderabad";
     const areaDisplay = locArea ? `${locArea}, ${locCity}` : locCity;
@@ -530,13 +530,13 @@ export const getSeller = (id: string): Seller => {
       verified: true,
       type: "individual",
       area: areaDisplay,
-      about: `${name} is an active seller on Omeetso Marketplace.`
+      about: `${name} is an active seller on omeetso Marketplace.`
     };
   }
 
   return {
     id: id || "u_seller",
-    name: "Omeetso Seller",
+    name: "omeetso Seller",
     avatar: MALE_AVATAR_DATA_URI,
     memberSince: "2024",
     rating: 0,
@@ -546,7 +546,7 @@ export const getSeller = (id: string): Seller => {
     verified: false,
     type: "individual",
     area: "Hyderabad",
-    about: "Verified seller on Omeetso Marketplace."
+    about: "Verified seller on omeetso Marketplace."
   };
 };
 export const getStore = (id: string) => STORES.find((s) => s.id === id);

@@ -124,3 +124,51 @@ export async function seedServicesApi(): Promise<{ success: boolean; message?: s
   return { success: false, error: "Failed to trigger service seed" };
 }
 
+export async function deleteAdminServiceApi(serviceId: string): Promise<{ success: boolean; error?: string; message?: string }> {
+  try {
+    const res = await fetch(`${API_BASE}/${serviceId}`, {
+      method: "DELETE",
+      headers: getHeaders(),
+      credentials: "include",
+    });
+
+    const json = await res.json().catch(() => ({}));
+    if (res.ok && (json.success || json.acknowledged)) {
+      return { success: true, message: json.message || "Service deleted successfully" };
+    }
+
+    // If admin endpoint responded with error, try public endpoint fallback
+    if (!res.ok) {
+      try {
+        const fallbackRes = await fetch(`${PUBLIC_API_BASE}/${serviceId}`, {
+          method: "DELETE",
+          headers: getHeaders(),
+          credentials: "include",
+        });
+        const fallbackJson = await fallbackRes.json().catch(() => ({}));
+        if (fallbackRes.ok && (fallbackJson.success || fallbackJson.acknowledged)) {
+          return { success: true, message: fallbackJson.message || "Service deleted successfully" };
+        }
+      } catch {}
+    }
+
+    return { success: false, error: json.error?.message || json.error || "Failed to delete service" };
+  } catch (error: any) {
+    // Try public endpoint fallback on network failure
+    try {
+      const fallbackRes = await fetch(`${PUBLIC_API_BASE}/${serviceId}`, {
+        method: "DELETE",
+        headers: getHeaders(),
+        credentials: "include",
+      });
+      const fallbackJson = await fallbackRes.json().catch(() => ({}));
+      if (fallbackRes.ok && (fallbackJson.success || fallbackJson.acknowledged)) {
+        return { success: true, message: fallbackJson.message || "Service deleted successfully" };
+      }
+    } catch {}
+
+    return { success: false, error: error?.message || "Network error: Unable to delete service" };
+  }
+}
+
+

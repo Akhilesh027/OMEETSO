@@ -8,8 +8,8 @@ import { uploadToCloudinary } from "../../../utils/cloudinaryUpload";
 
 export async function directUpload(req: AuthenticatedUserRequest, res: Response, next: NextFunction): Promise<void> {
   try {
-    if (!req.user) {
-      res.status(401).json({ success: false, error: { code: "UNAUTHORIZED", message: "User required" } });
+    if (!req.user && !(req as any).admin) {
+      res.status(401).json({ success: false, error: { code: "UNAUTHORIZED", message: "User or Admin required" } });
       return;
     }
 

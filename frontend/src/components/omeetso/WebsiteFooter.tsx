@@ -38,7 +38,7 @@ export function WebsiteFooter() {
       if (res.success) {
         setIsSubscribed(true);
         setEmail("");
-        toast.success(res.message || "Thank you for subscribing to Omeetso deals and updates!");
+        toast.success(res.message || "Thank you for subscribing to omeetso deals and updates!");
       } else {
         toast.error(res.message || "Unable to subscribe right now. Please try again.");
       }
@@ -54,7 +54,7 @@ export function WebsiteFooter() {
 
   const groups: { title: string; links: { label: string; to: string }[] }[] = [
     {
-      title: "Omeetso",
+      title: "omeetso",
       links: [
         { label: "About Us", to: "/about" },
         { label: "Blogs & Guides", to: "/blogs" },

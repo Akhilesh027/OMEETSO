@@ -138,3 +138,31 @@ export const upsertAdminServiceCategory = async (req: Request, res: Response) =>
     res.status(400).json({ success: false, error: error.message });
   }
 };
+
+// Admin: Permanently delete service
+export const deleteAdminService = async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params;
+
+    const service = await Service.findByIdAndDelete(id);
+    if (!service) {
+      return res.status(404).json({ success: false, error: "Service not found" });
+    }
+
+    // Optionally notify the provider that their service listing was deleted by an admin
+    if (service.providerId) {
+      await Notification.create({
+        userId: service.providerId,
+        type: "listing_moderation",
+        title: `Service Listing Removed: "${service.title}"`,
+        body: `Your service offering "${service.title}" was permanently removed by an administrator.`,
+        link: `/account/provider/services`,
+      }).catch(() => {});
+    }
+
+    res.json({ success: true, message: "Service permanently deleted successfully" });
+  } catch (error: any) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+};
+

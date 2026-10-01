@@ -23,11 +23,14 @@ import {
   Send,
   MessageSquare,
   AlertCircle,
-  FileText
+  FileText,
+  CheckCheck,
+  Loader2
 } from "lucide-react";
 import { useToast } from "@/contexts/ToastContext";
 import { AdminAuthService } from "@/services/adminAuthService";
 import { API_BASE } from "@/config/api";
+import { bulkApproveJobsApi } from "@/api/adminJobs.api";
 
 type JobStatus = "all" | "submitted" | "approved" | "active" | "paused" | "filled" | "expired" | "rejected";
 
@@ -47,6 +50,10 @@ export function JobsPage() {
   });
   const [categories, setCategories] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
+
+  // Selection & Bulk Action state
+  const [selectedJobIds, setSelectedJobIds] = useState<string[]>([]);
+  const [isBulkApproving, setIsBulkApproving] = useState(false);
 
   // Inspector & Action Modals
   const [selectedJob, setSelectedJob] = useState<any | null>(null);
@@ -254,6 +261,62 @@ export function JobsPage() {
     return true;
   });
 
+  const isAllSelected =
+    filteredJobs.length > 0 &&
+    filteredJobs.every((j) => selectedJobIds.includes(j.id || j._id));
+
+  const isSomeSelected =
+    filteredJobs.some((j) => selectedJobIds.includes(j.id || j._id)) && !isAllSelected;
+
+  const toggleSelectAll = () => {
+    if (isAllSelected) {
+      const currentFilteredIds = new Set(filteredJobs.map((j) => j.id || j._id));
+      setSelectedJobIds((prev) => prev.filter((id) => !currentFilteredIds.has(id)));
+    } else {
+      const merged = new Set([...selectedJobIds, ...filteredJobs.map((j) => j.id || j._id)]);
+      setSelectedJobIds(Array.from(merged));
+    }
+  };
+
+  const toggleSelectJob = (id: string, e?: React.MouseEvent) => {
+    if (e) e.stopPropagation();
+    setSelectedJobIds((prev) =>
+      prev.includes(id) ? prev.filter((item) => item !== id) : [...prev, id]
+    );
+  };
+
+  const handleBulkApprove = async () => {
+    if (selectedJobIds.length === 0) return;
+    const count = selectedJobIds.length;
+    if (!window.confirm(`Are you sure you want to approve ${count} selected job posting${count > 1 ? "s" : ""}?`)) {
+      return;
+    }
+
+    setIsBulkApproving(true);
+    try {
+      const res = await bulkApproveJobsApi(selectedJobIds, "Bulk approved by admin");
+      if (res.success) {
+        showSuccess(`Successfully approved ${count} job posting${count > 1 ? "s" : ""}!`);
+        // Update local state immediately
+        setJobs((prev) =>
+          prev.map((j) =>
+            selectedJobIds.includes(j.id || j._id)
+              ? { ...j, status: "APPROVED", rejectionReason: undefined }
+              : j
+          )
+        );
+        setSelectedJobIds([]);
+        await loadAdminJobs(true);
+      } else {
+        showError("Bulk Approval Failed", res.error || "Unable to bulk approve jobs.");
+      }
+    } catch (err: any) {
+      showError("Error", err?.message || "Failed to process bulk approval.");
+    } finally {
+      setIsBulkApproving(false);
+    }
+  };
+
   const totalOpenings = jobs.reduce((acc, j) => acc + (j.openingsCount || 1), 0);
   const totalApplications = jobs.reduce((acc, j) => acc + (j.applicationsCount || 0), 0);
   const pendingCount = jobs.filter((j) => (j.status || "").toLowerCase() === "submitted" || (j.status || "").toLowerCase() === "pending").length;
@@ -405,6 +468,53 @@ export function JobsPage() {
             </div>
           </div>
 
+          {/* Bulk Action Bar */}
+          {selectedJobIds.length > 0 && (
+            <div className="flex flex-wrap items-center justify-between gap-3 p-3.5 bg-gradient-to-r from-emerald-50 via-teal-50 to-indigo-50 dark:from-emerald-950/40 dark:via-teal-950/40 dark:to-indigo-950/40 border border-emerald-200 dark:border-emerald-800/60 rounded-xl shadow-xs transition-all animate-in fade-in-50">
+              <div className="flex items-center space-x-3">
+                <span className="flex items-center justify-center w-7 h-7 bg-emerald-600 text-white rounded-lg text-xs font-bold shadow-xs">
+                  {selectedJobIds.length}
+                </span>
+                <div>
+                  <p className="text-xs font-bold text-gray-900 dark:text-white">
+                    {selectedJobIds.length} job posting{selectedJobIds.length > 1 ? "s" : ""} selected
+                  </p>
+                  <p className="text-[11px] text-gray-500 dark:text-gray-400">
+                    Apply moderation actions across all selected job postings
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex items-center space-x-2">
+                <button
+                  type="button"
+                  onClick={() => setSelectedJobIds([])}
+                  className="px-3 py-1.5 text-xs font-semibold text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white hover:bg-white/80 dark:hover:bg-gray-800/80 rounded-lg transition-colors cursor-pointer"
+                >
+                  Clear Selection
+                </button>
+                <button
+                  type="button"
+                  onClick={handleBulkApprove}
+                  disabled={isBulkApproving}
+                  className="inline-flex items-center space-x-2 px-4 py-2 text-xs font-bold text-white bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 disabled:opacity-50 rounded-xl shadow-sm hover:shadow transition-all cursor-pointer"
+                >
+                  {isBulkApproving ? (
+                    <>
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                      <span>Approving...</span>
+                    </>
+                  ) : (
+                    <>
+                      <CheckCheck className="w-4 h-4" />
+                      <span>Bulk Approve ({selectedJobIds.length})</span>
+                    </>
+                  )}
+                </button>
+              </div>
+            </div>
+          )}
+
           {/* Jobs Table */}
           <div className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl shadow-sm overflow-hidden">
             {loading ? (
@@ -420,6 +530,18 @@ export function JobsPage() {
                 <table className="w-full text-left text-xs">
                   <thead className="bg-gray-50 dark:bg-gray-900/50 border-b border-gray-200 dark:border-gray-700 text-gray-500 font-bold uppercase tracking-wider">
                     <tr>
+                      <th className="p-3.5 w-10 text-center">
+                        <input
+                          type="checkbox"
+                          checked={isAllSelected}
+                          ref={(el) => {
+                            if (el) el.indeterminate = isSomeSelected;
+                          }}
+                          onChange={toggleSelectAll}
+                          className="w-4 h-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500 cursor-pointer"
+                          title={isAllSelected ? "Deselect all" : "Select all"}
+                        />
+                      </th>
                       <th className="p-3.5">Job Title & Employer</th>
                       <th className="p-3.5">Type & Workplace</th>
                       <th className="p-3.5">Salary Package</th>
@@ -435,9 +557,28 @@ export function JobsPage() {
                       const isApproved = statusUpper === "APPROVED" || statusUpper === "ACTIVE";
                       const isPending = statusUpper === "SUBMITTED" || statusUpper === "PENDING";
                       const isRejected = statusUpper === "REJECTED";
+                      const isSelected = selectedJobIds.includes(jobId);
 
                       return (
-                        <tr key={jobId} className="hover:bg-gray-50 dark:hover:bg-gray-700/40 transition">
+                        <tr
+                          key={jobId}
+                          className={`transition ${
+                            isSelected
+                              ? "bg-indigo-50/70 dark:bg-indigo-950/30 hover:bg-indigo-100/50"
+                              : "hover:bg-gray-50 dark:hover:bg-gray-700/40"
+                          }`}
+                        >
+                          <td
+                            className="p-3.5 w-10 text-center"
+                            onClick={(e) => e.stopPropagation()}
+                          >
+                            <input
+                              type="checkbox"
+                              checked={isSelected}
+                              onChange={(e) => toggleSelectJob(jobId, e)}
+                              className="w-4 h-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500 cursor-pointer"
+                            />
+                          </td>
                           <td className="p-3.5">
                             <div className="font-bold text-gray-900 dark:text-white max-w-sm truncate">
                               {job.title}

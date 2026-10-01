@@ -10,6 +10,7 @@ import { startBackgroundWorkers } from "./jobs/cleanupWorker";
 import { seedAdminUsers } from "./database/seeders/adminSeeder";
 import { seedCategories } from "./database/seeders/categorySeeder";
 import { seedBannersAndAds } from "./database/seeders/bannerAdSeeder";
+import { seedBlogs } from "./database/seeders/blogSeeder";
 import { User } from "./modules/users/models/User";
 import { verifySmtpConnection } from "./modules/auth/services/email.service";
 
@@ -25,6 +26,7 @@ async function startServer() {
   try { await seedAdminUsers(); } catch (e) { console.error("[Seed] Admin users failed:", e); }
   try { await seedCategories(); } catch (e) { console.error("[Seed] Categories failed:", e); }
   try { await seedBannersAndAds(); } catch (e) { console.error("[Seed] Banners and ads failed:", e); }
+  try { await seedBlogs(); } catch (e) { console.error("[Seed] Blogs failed:", e); }
 
   startBackgroundWorkers();
 

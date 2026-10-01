@@ -3,6 +3,8 @@ import mongoose from "mongoose";
 import { Blog } from "../models/Blog";
 
 export async function getPublicBlogs(req: Request, res: Response, next: NextFunction): Promise<void> {
+  console.log("[Blogs] >>> getPublicBlogs request received:", req.query);
+  const startTime = Date.now();
   try {
     const page = Math.max(1, parseInt(req.query.page as string) || 1);
     const limit = Math.min(50, Math.max(1, parseInt(req.query.limit as string) || 12));
@@ -10,12 +12,10 @@ export async function getPublicBlogs(req: Request, res: Response, next: NextFunc
 
     const { category, tag, q } = req.query;
 
-    const now = new Date();
-    const activeCondition = {
-      $or: [{ status: "PUBLISHED" }, { status: "SCHEDULED", scheduledAt: { $lte: now } }]
+    const query: Record<string, any> = {
+      status: "PUBLISHED",
+      isBlocked: { $ne: true }
     };
-
-    const query: Record<string, any> = { ...activeCondition };
 
     if (category && category !== "ALL") {
       query.category = { $regex: new RegExp(`^${category}$`, "i") };
@@ -27,23 +27,23 @@ export async function getPublicBlogs(req: Request, res: Response, next: NextFunc
 
     if (q) {
       const regex = new RegExp(q as string, "i");
-      query.$and = [
-        activeCondition,
-        {
-          $or: [{ title: regex }, { excerpt: regex }, { tags: regex }]
-        }
-      ];
-      delete query.$or;
+      query.$or = [{ title: regex }, { excerpt: regex }, { tags: regex }];
     }
 
-    const [blogs, total] = await Promise.all([
-      Blog.find(query)
-        .sort({ isFeatured: -1, publishedAt: -1, createdAt: -1 })
-        .skip(skip)
-        .limit(limit)
-        .lean(),
-      Blog.countDocuments(query)
-    ]);
+    console.log("[Blogs] Executing Blog.find with query:", JSON.stringify(query));
+    const findStart = Date.now();
+    const blogs = await Blog.find(query)
+      .select("-content -galleryImages")
+      .sort({ createdAt: -1 })
+      .skip(skip)
+      .limit(limit)
+      .maxTimeMS(5000)
+      .lean();
+    console.log(`[Blogs] Blog.find completed in ${Date.now() - findStart}ms, found ${blogs.length} items`);
+
+    const countStart = Date.now();
+    const total = await Blog.countDocuments(query).maxTimeMS(5000);
+    console.log(`[Blogs] countDocuments completed in ${Date.now() - countStart}ms, total: ${total}`);
 
     res.status(200).json({
       success: true,
@@ -55,19 +55,22 @@ export async function getPublicBlogs(req: Request, res: Response, next: NextFunc
         totalPages: Math.ceil(total / limit)
       }
     });
-  } catch (err) {
+    console.log(`[Blogs] <<< getPublicBlogs sent in ${Date.now() - startTime}ms`);
+  } catch (err: any) {
+    console.error(`[Blogs] ERROR in getPublicBlogs after ${Date.now() - startTime}ms:`, err?.message || err);
     next(err);
   }
 }
 
 export async function getFeaturedBlogs(req: Request, res: Response, next: NextFunction): Promise<void> {
   try {
-    const now = new Date();
     const blogs = await Blog.find({
-      $or: [{ status: "PUBLISHED" }, { status: "SCHEDULED", scheduledAt: { $lte: now } }],
+      status: "PUBLISHED",
+      isBlocked: { $ne: true },
       isFeatured: true
     })
-      .sort({ publishedAt: -1, createdAt: -1 })
+      .select("-content -galleryImages")
+      .sort({ createdAt: -1 })
       .limit(6)
       .lean();
 
@@ -99,8 +102,8 @@ export async function getBlogBySlug(req: Request, res: Response, next: NextFunct
       { new: true }
     ).lean();
 
-    if (!blog) {
-      res.status(404).json({ success: false, error: { message: "Article not found" } });
+    if (!blog || blog.status === "BLOCKED" || (blog as any).isBlocked) {
+      res.status(404).json({ success: false, error: { message: "Article not found or currently unavailable" } });
       return;
     }
 

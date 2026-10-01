@@ -8,7 +8,7 @@ interface LogoProps {
   alt?: string;
 }
 
-export function Logo({ className, size = "md", mono = false, alt = "Omeetso" }: LogoProps) {
+export function Logo({ className, size = "md", mono = false, alt = "omeetso" }: LogoProps) {
   const sizeMap = {
     xs: "h-7.5 sm:h-8.5",
     sm: "h-10 sm:h-11 md:h-12",

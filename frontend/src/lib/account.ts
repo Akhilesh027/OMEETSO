@@ -194,7 +194,7 @@ export function getProfile(): Profile {
         mobileVerified: Boolean(liveUser.verificationSummary?.mobileVerified ?? true),
         email: (typeof liveUser.email === "string" ? liveUser.email : "") ||
                (validStored && typeof validStored.email === "string" ? validStored.email : ""),
-        emailVerified: Boolean(liveUser.emailVerified === true && liveUser.verificationSummary?.emailVerified === true),
+        emailVerified: Boolean(liveUser.emailVerified === true || liveUser.verificationSummary?.emailVerified === true || validStored?.emailVerified === true),
         city: rawCity,
         pincode: (typeof liveUser.profile?.pincode === "string" ? liveUser.profile.pincode : "") ||
                  (validStored && typeof validStored.pincode === "string" ? validStored.pincode : "") ||
@@ -253,7 +253,7 @@ export function setProfile(p: Partial<Profile>) {
 }
 export function completionPct(p: Profile): number {
   const verifs = getVerifications();
-  const isEmailVerified = Boolean(p.emailVerified || (verifs.email?.status === "verified" && verifs.email?.verifiedViaOtp));
+  const isEmailVerified = Boolean(p.emailVerified || verifs.email?.status === "verified");
   const isMobileVerified = Boolean(p.mobileVerified || verifs.mobile?.status === "verified");
   const isIdVerified = Boolean(verifs.identity?.status === "verified");
 
@@ -326,26 +326,25 @@ export const getVerifications = (): VerificationMap => {
           base.mobile = { status: "verified", updatedAt: Date.now() };
         }
 
-        // Email is ONLY verified if user explicitly completed email OTP (verifiedViaOtp) or backend confirmed emailVerified === true
+        // Email is verified if user completed email OTP or backend confirmed emailVerified / verificationSummary.emailVerified
         const isExplicitEmailVerified = Boolean(
-          (u.emailVerified === true && u.verificationSummary?.emailVerified === true) ||
-          localSaved.email?.verifiedViaOtp === true
+          u.emailVerified === true ||
+          u.verificationSummary?.emailVerified === true ||
+          localSaved.email?.verifiedViaOtp === true ||
+          localSaved.email?.status === "verified"
         );
 
-        if (isExplicitEmailVerified && u.email) {
+        if (isExplicitEmailVerified && (u.email || localSaved.email)) {
           base.email = { status: "verified", verifiedViaOtp: true, updatedAt: Date.now() };
-        } else {
-          // Self-heal: purge incorrect default verification from localStorage
-          base.email = { status: "not_started" };
-          if (u.verificationSummary?.emailVerified && !isExplicitEmailVerified) {
-            u.verificationSummary.emailVerified = false;
-            u.emailVerified = false;
+          // Ensure synced in localStorage user as well
+          if (!u.emailVerified || !u.verificationSummary?.emailVerified) {
+            u.emailVerified = true;
+            if (!u.verificationSummary) u.verificationSummary = {};
+            u.verificationSummary.emailVerified = true;
             localStorage.setItem("omeetso_user", JSON.stringify(u));
           }
-          if (localSaved.email && localSaved.email.status === "verified" && !localSaved.email.verifiedViaOtp) {
-            delete localSaved.email;
-            write(AK.verification, localSaved);
-          }
+        } else {
+          base.email = { status: "not_started" };
         }
 
         if (u.verificationSummary?.identityVerified || u.identityVerified) {

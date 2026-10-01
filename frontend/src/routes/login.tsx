@@ -14,9 +14,9 @@ export const Route = createFileRoute("/login")({
   component: LoginPage,
   head: () => ({
     meta: [
-      { title: "Sign in · Omeetso" },
-      { name: "description", content: "Sign in to Omeetso — buy nearby, sell quickly, post jobs, and connect with trusted local sellers." },
-      { property: "og:title", content: "Sign in · Omeetso" },
+      { title: "Sign in · omeetso" },
+      { name: "description", content: "Sign in to omeetso — buy nearby, sell quickly, post jobs, and connect with trusted local sellers." },
+      { property: "og:title", content: "Sign in · omeetso" },
       { property: "og:description", content: "Buy nearby, sell quickly, post jobs, and connect with trusted local sellers." },
       { property: "og:type", content: "website" },
     ],
@@ -222,7 +222,7 @@ function LoginPage() {
     setIsLoading(false);
 
     if (res.success) {
-      toast.success("🎉 PIN updated successfully! Welcome to Omeetso.");
+      toast.success("🎉 PIN updated successfully! Welcome to omeetso.");
       nav({ to: "/home" });
     } else {
       setErrorMessage(res.error || "Failed to update PIN. Please check your OTP and try again.");
@@ -403,7 +403,7 @@ function LoginPage() {
           </div>
           <div className="text-xs font-semibold text-muted-foreground">
             {step === "not_registered" ? (
-              <span className="text-indigo-brand font-bold">New to Omeetso</span>
+              <span className="text-indigo-brand font-bold">New to omeetso</span>
             ) : (
               <>
                 New user?{" "}
@@ -432,7 +432,7 @@ function LoginPage() {
             <div className="space-y-6">
               <div className="space-y-1.5 text-center md:text-left">
                 <h1 className="text-2xl sm:text-3xl font-black tracking-tight text-foreground">
-                  Sign in to Omeetso
+                  Sign in to omeetso
                 </h1>
                 <p className="text-xs sm:text-sm text-muted-foreground">
                   Enter your registered mobile number to continue.
@@ -543,11 +543,6 @@ function LoginPage() {
           {step === "pin" && (
             <div className="space-y-6">
               <div className="space-y-2 text-center md:text-left">
-                {registeredAvatar && (
-                  <div className="h-14 w-14 rounded-full overflow-hidden border-2 border-indigo-brand mx-auto md:mx-0 shadow-sm">
-                    <img src={registeredAvatar} alt="Profile" className="h-full w-full object-cover" />
-                  </div>
-                )}
                 <h1 className="text-2xl sm:text-3xl font-black tracking-tight text-foreground">
                   Welcome back{registeredName ? `, ${registeredName}` : ""}!
                 </h1>
@@ -862,7 +857,7 @@ function LoginPage() {
         {/* Legal footer */}
         <div className="relative z-10 pt-4 text-center">
           <p className="text-[11.5px] leading-relaxed text-muted-foreground">
-            By signing in, you agree to Omeetso's{" "}
+            By signing in, you agree to omeetso's{" "}
             <Link to="/terms" className="font-bold text-foreground underline underline-offset-2">Terms</Link>{" "}
             and{" "}
             <Link to="/privacy" className="font-bold text-foreground underline underline-offset-2">Privacy Policy</Link>.
@@ -878,7 +873,7 @@ function LoginPage() {
               <Compass className="h-6 w-6" />
             </div>
             <div>
-              <h3 className="text-lg font-bold text-foreground">Explore Omeetso as Guest</h3>
+              <h3 className="text-lg font-bold text-foreground">Explore omeetso as Guest</h3>
               <p className="mt-1 text-xs text-muted-foreground leading-relaxed">
                 You can browse listings, view stores, and search local jobs. You will only need to sign in when you want to chat or post.
               </p>

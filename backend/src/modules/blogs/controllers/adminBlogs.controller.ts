@@ -1,6 +1,7 @@
 import { Request, Response, NextFunction } from "express";
 import mongoose from "mongoose";
 import { Blog, BlogStatus } from "../models/Blog";
+import { uploadToCloudinary, convertImagesToCloudinary } from "../../../utils/cloudinaryUpload";
 
 function slugify(text: string): string {
   return text
@@ -18,12 +19,14 @@ function calculateReadTime(content: string): string {
 }
 
 export async function getAdminBlogs(req: Request, res: Response, next: NextFunction): Promise<void> {
+  // Trigger background auto-sync of any legacy/un-migrated blog images to Cloudinary
+  autoSyncLegacyBlogs().catch(() => {});
   try {
     const page = Math.max(1, parseInt(req.query.page as string) || 1);
     const limit = Math.min(100, Math.max(1, parseInt(req.query.limit as string) || 50));
     const skip = (page - 1) * limit;
 
-    const { status, category, q } = req.query;
+    const { status, category, q, startDate, endDate } = req.query;
 
     const query: Record<string, any> = {};
 
@@ -33,6 +36,18 @@ export async function getAdminBlogs(req: Request, res: Response, next: NextFunct
 
     if (category && category !== "ALL") {
       query.category = { $regex: new RegExp(`^${category}$`, "i") };
+    }
+
+    if (startDate || endDate) {
+      query.createdAt = {};
+      if (startDate) {
+        query.createdAt.$gte = new Date(startDate as string);
+      }
+      if (endDate) {
+        const end = new Date(endDate as string);
+        end.setHours(23, 59, 59, 999);
+        query.createdAt.$lte = end;
+      }
     }
 
     if (q) {
@@ -60,6 +75,7 @@ export async function getAdminBlogs(req: Request, res: Response, next: NextFunct
       scheduled: 0,
       draft: 0,
       archived: 0,
+      blocked: 0,
       totalViews: 0
     };
 
@@ -68,6 +84,7 @@ export async function getAdminBlogs(req: Request, res: Response, next: NextFunct
       else if (c._id === "SCHEDULED") stats.scheduled = c.count;
       else if (c._id === "DRAFT") stats.draft = c.count;
       else if (c._id === "ARCHIVED") stats.archived = c.count;
+      else if (c._id === "BLOCKED") stats.blocked = c.count;
       stats.total += c.count;
       stats.totalViews += c.totalViews || 0;
     });
@@ -96,6 +113,7 @@ export async function createAdminBlog(req: Request, res: Response, next: NextFun
       excerpt,
       content,
       coverImage,
+      galleryImages,
       category,
       tags,
       author,
@@ -124,23 +142,38 @@ export async function createAdminBlog(req: Request, res: Response, next: NextFun
     const readTime = calculateReadTime(content);
     const blogStatus: BlogStatus = (status || "DRAFT").toUpperCase() as BlogStatus;
 
+    // Convert / upload blog images to Cloudinary (mirroring listing upload pipeline)
+    const rawCover = coverImage || "https://images.unsplash.com/photo-1512486130939-2c4f79935e4f?w=800";
+    const rawGallery = Array.isArray(galleryImages) ? galleryImages : [];
+    const rawAvatar = author?.avatar;
+
+    const [processedCover, processedGallery, processedAvatar] = await Promise.all([
+      uploadToCloudinary(rawCover, "omeetso/blogs", "image", true),
+      convertImagesToCloudinary(rawGallery, "omeetso/blogs", true),
+      rawAvatar ? uploadToCloudinary(rawAvatar, "omeetso/blogs", "image", true) : Promise.resolve("")
+    ]);
+
     const blog = await Blog.create({
       title,
       slug,
       excerpt,
       content,
-      coverImage: coverImage || "https://images.unsplash.com/photo-1512486130939-2c4f79935e4f?w=800",
+      coverImage: processedCover,
+      galleryImages: processedGallery,
       category: category || "General",
       tags: Array.isArray(tags) ? tags : typeof tags === "string" ? tags.split(",").map((t: string) => t.trim()).filter(Boolean) : [],
       author: {
         name: author?.name || "Omeetso Editorial Team",
-        avatar: author?.avatar || "",
+        avatar: processedAvatar || author?.avatar || "",
         role: author?.role || "Marketplace Specialist",
         bio: author?.bio || ""
       },
       readTime,
       status: blogStatus,
       isFeatured: Boolean(isFeatured),
+      isBlocked: blogStatus === "BLOCKED",
+      blockedAt: blogStatus === "BLOCKED" ? new Date() : undefined,
+      blockReason: blogStatus === "BLOCKED" ? (req.body.blockReason || "Blocked upon creation") : undefined,
       seo: seo || {
         metaTitle: title,
         metaDescription: excerpt,
@@ -173,13 +206,15 @@ export async function updateAdminBlog(req: Request, res: Response, next: NextFun
       excerpt,
       content,
       coverImage,
+      galleryImages,
       category,
       tags,
       author,
       status,
       isFeatured,
       seo,
-      scheduledAt
+      scheduledAt,
+      blockReason
     } = req.body;
 
     const existing = await Blog.findById(id);
@@ -196,15 +231,26 @@ export async function updateAdminBlog(req: Request, res: Response, next: NextFun
       updates.content = content;
       updates.readTime = calculateReadTime(content);
     }
-    if (coverImage !== undefined) updates.coverImage = coverImage;
+    if (coverImage !== undefined) {
+      updates.coverImage = await uploadToCloudinary(coverImage, "omeetso/blogs", "image", true);
+    }
+    if (galleryImages !== undefined) {
+      const rawGallery = Array.isArray(galleryImages) ? galleryImages : [];
+      updates.galleryImages = await convertImagesToCloudinary(rawGallery, "omeetso/blogs", true);
+    }
     if (category) updates.category = category;
     if (tags !== undefined) {
       updates.tags = Array.isArray(tags) ? tags : typeof tags === "string" ? tags.split(",").map((t: string) => t.trim()).filter(Boolean) : [];
     }
     if (author) {
+      let updatedAvatar = author.avatar;
+      if (author.avatar && !author.avatar.includes("res.cloudinary.com") && !author.avatar.includes("cloudinary.com")) {
+        updatedAvatar = await uploadToCloudinary(author.avatar, "omeetso/blogs", "image", true);
+      }
       updates.author = {
         ...existing.author,
-        ...author
+        ...author,
+        avatar: updatedAvatar !== undefined ? updatedAvatar : existing.author?.avatar
       };
     }
     if (isFeatured !== undefined) updates.isFeatured = Boolean(isFeatured);
@@ -218,6 +264,14 @@ export async function updateAdminBlog(req: Request, res: Response, next: NextFun
       updates.status = nextStatus;
       if (nextStatus === "PUBLISHED" && !existing.publishedAt) {
         updates.publishedAt = new Date();
+      }
+      if (nextStatus === "BLOCKED") {
+        updates.isBlocked = true;
+        updates.blockedAt = new Date();
+        updates.blockReason = blockReason || existing.blockReason || "Blocked by administrator";
+      } else {
+        updates.isBlocked = false;
+        updates.blockReason = undefined;
       }
     }
 
@@ -244,7 +298,7 @@ export async function updateAdminBlog(req: Request, res: Response, next: NextFun
 export async function updateAdminBlogStatus(req: Request, res: Response, next: NextFunction): Promise<void> {
   try {
     const id = String(req.params.id);
-    const { status, scheduledAt } = req.body;
+    const { status, scheduledAt, reason } = req.body;
 
     if (!mongoose.Types.ObjectId.isValid(id)) {
       res.status(400).json({ success: false, error: { message: "Invalid article ID" } });
@@ -252,7 +306,7 @@ export async function updateAdminBlogStatus(req: Request, res: Response, next: N
     }
 
     const nextStatus = (status || "").toUpperCase() as BlogStatus;
-    if (!["DRAFT", "PUBLISHED", "SCHEDULED", "ARCHIVED"].includes(nextStatus)) {
+    if (!["DRAFT", "PUBLISHED", "SCHEDULED", "ARCHIVED", "BLOCKED"].includes(nextStatus)) {
       res.status(400).json({ success: false, error: { message: "Invalid status value" } });
       return;
     }
@@ -260,10 +314,21 @@ export async function updateAdminBlogStatus(req: Request, res: Response, next: N
     const updates: Record<string, any> = { status: nextStatus };
     if (nextStatus === "PUBLISHED") {
       updates.publishedAt = new Date();
+      updates.isBlocked = false;
+      updates.blockReason = undefined;
     } else if (nextStatus === "SCHEDULED") {
       if (scheduledAt) {
         updates.scheduledAt = new Date(scheduledAt);
       }
+      updates.isBlocked = false;
+      updates.blockReason = undefined;
+    } else if (nextStatus === "BLOCKED") {
+      updates.isBlocked = true;
+      updates.blockedAt = new Date();
+      updates.blockReason = reason || "Article blocked by administrator";
+    } else {
+      updates.isBlocked = false;
+      updates.blockReason = undefined;
     }
 
     const updated = await Blog.findByIdAndUpdate(id, updates, { new: true });
@@ -276,6 +341,118 @@ export async function updateAdminBlogStatus(req: Request, res: Response, next: N
     res.status(200).json({
       success: true,
       data: { ...updated.toObject(), id: updated._id.toString() }
+    });
+  } catch (err) {
+    next(err);
+  }
+}
+
+export async function bulkBlockBlogs(req: Request, res: Response, next: NextFunction): Promise<void> {
+  try {
+    const { blogIds, reason, action = "BLOCK" } = req.body;
+    if (!Array.isArray(blogIds) || blogIds.length === 0) {
+      res.status(400).json({ success: false, error: { message: "blogIds array required" } });
+      return;
+    }
+
+    const isUnblocking = action === "UNBLOCK";
+    const blockReason = reason || (isUnblocking ? "Unblocked by administrator" : "Bulk blocked by administrator");
+
+    if (isUnblocking) {
+      await Blog.updateMany(
+        { _id: { $in: blogIds } },
+        {
+          $set: {
+            status: "DRAFT",
+            isBlocked: false,
+            blockReason: undefined
+          },
+          $unset: { blockedAt: "" }
+        }
+      );
+    } else {
+      await Blog.updateMany(
+        { _id: { $in: blogIds } },
+        {
+          $set: {
+            status: "BLOCKED",
+            isBlocked: true,
+            blockedAt: new Date(),
+            blockReason
+          }
+        }
+      );
+    }
+
+    res.status(200).json({
+      success: true,
+      message: `Successfully ${isUnblocking ? "unblocked" : "blocked"} ${blogIds.length} article(s).`,
+      data: { count: blogIds.length, blogIds }
+    });
+  } catch (err) {
+    next(err);
+  }
+}
+
+export async function dateWiseBlockBlogs(req: Request, res: Response, next: NextFunction): Promise<void> {
+  try {
+    const { startDate, endDate, reason, category, status } = req.body;
+    if (!startDate) {
+      res.status(400).json({ success: false, error: { message: "startDate is required" } });
+      return;
+    }
+
+    const start = new Date(startDate);
+    const end = endDate ? new Date(endDate) : new Date(startDate);
+    end.setHours(23, 59, 59, 999);
+
+    const query: Record<string, any> = {
+      createdAt: { $gte: start, $lte: end }
+    };
+
+    if (category && category !== "ALL" && category !== "all") {
+      query.category = { $regex: new RegExp(`^${category}$`, "i") };
+    }
+
+    if (status && status !== "ALL" && status !== "all") {
+      query.status = (status as string).toUpperCase();
+    } else {
+      query.status = { $ne: "BLOCKED" };
+    }
+
+    const blogsToBlock = await Blog.find(query).select("_id title").lean();
+    const blogIds = blogsToBlock.map((b: any) => b._id.toString());
+
+    if (blogIds.length === 0) {
+      res.status(200).json({
+        success: true,
+        message: "No active blogs found in the specified date range to block.",
+        data: { blockedCount: 0, blogIds: [] }
+      });
+      return;
+    }
+
+    const blockReason = reason || `Date-wise blocked for period ${startDate} to ${endDate || startDate}`;
+
+    await Blog.updateMany(
+      { _id: { $in: blogIds } },
+      {
+        $set: {
+          status: "BLOCKED",
+          isBlocked: true,
+          blockedAt: new Date(),
+          blockReason
+        }
+      }
+    );
+
+    res.status(200).json({
+      success: true,
+      message: `Successfully blocked ${blogIds.length} blog(s) between ${startDate} and ${endDate || startDate}.`,
+      data: {
+        blockedCount: blogIds.length,
+        blogIds
+      }
     });
   } catch (err) {
     next(err);
@@ -302,5 +479,117 @@ export async function deleteAdminBlog(req: Request, res: Response, next: NextFun
     });
   } catch (err) {
     next(err);
+  }
+}
+
+/**
+ * Upload a single image directly to Cloudinary under omeetso/blogs.
+ */
+export async function uploadBlogImage(req: Request, res: Response, next: NextFunction): Promise<void> {
+  try {
+    const { image, media } = req.body;
+    const mediaContent = image || media;
+    if (!mediaContent) {
+      res.status(400).json({ success: false, error: { message: "Image content is required" } });
+      return;
+    }
+    const url = await uploadToCloudinary(mediaContent, "omeetso/blogs", "image", true);
+    res.status(200).json({ success: true, url, data: { url } });
+  } catch (err) {
+    next(err);
+  }
+}
+
+/**
+ * Synchronize and convert all legacy non-Cloudinary images across all blogs to Cloudinary.
+ */
+export async function syncAllBlogsToCloudinary(req: Request, res: Response, next: NextFunction): Promise<void> {
+  try {
+    const blogs = await Blog.find({});
+    let updatedCount = 0;
+    const details: Array<{ id: string; title: string; coverImage: string; galleryCount: number }> = [];
+
+    for (const blog of blogs) {
+      let changed = false;
+      let newCover = blog.coverImage;
+      let newGallery = Array.isArray(blog.galleryImages) ? [...blog.galleryImages] : [];
+
+      if (newCover && !newCover.includes("res.cloudinary.com") && !newCover.includes("cloudinary.com")) {
+        const uploaded = await uploadToCloudinary(newCover, "omeetso/blogs", "image", true);
+        if (uploaded && (uploaded.includes("res.cloudinary.com") || uploaded.includes("cloudinary.com"))) {
+          newCover = uploaded;
+          changed = true;
+        }
+      }
+
+      if (newGallery.length > 0) {
+        const convertedGallery = await convertImagesToCloudinary(newGallery, "omeetso/blogs", true);
+        const hasConverted = convertedGallery.some((img, idx) => img !== newGallery[idx]);
+        if (hasConverted) {
+          newGallery = convertedGallery;
+          changed = true;
+        }
+      }
+
+      if (changed) {
+        blog.coverImage = newCover;
+        blog.galleryImages = newGallery;
+        await blog.save();
+        updatedCount++;
+        details.push({
+          id: blog._id.toString(),
+          title: blog.title,
+          coverImage: newCover || "",
+          galleryCount: newGallery.length
+        });
+      }
+    }
+
+    res.status(200).json({
+      success: true,
+      message: `Successfully synchronized ${updatedCount} blog(s) to Cloudinary.`,
+      updatedCount,
+      details
+    });
+  } catch (err) {
+    next(err);
+  }
+}
+
+let hasAutoSynced = false;
+async function autoSyncLegacyBlogs(): Promise<void> {
+  if (hasAutoSynced) return;
+  hasAutoSynced = true;
+  try {
+    const unmigrated = await Blog.find({
+      $or: [
+        { coverImage: { $not: /cloudinary/i } },
+        { galleryImages: { $elemMatch: { $not: /cloudinary/i } } }
+      ]
+    }).limit(10);
+
+    for (const b of unmigrated) {
+      let changed = false;
+      if (b.coverImage && !b.coverImage.includes("cloudinary.com")) {
+        const up = await uploadToCloudinary(b.coverImage, "omeetso/blogs", "image", true);
+        if (up && up.includes("cloudinary.com")) {
+          b.coverImage = up;
+          changed = true;
+        }
+      }
+      if (Array.isArray(b.galleryImages) && b.galleryImages.length > 0) {
+        const conv = await convertImagesToCloudinary(b.galleryImages, "omeetso/blogs", true);
+        if (conv.some((img, idx) => img !== b.galleryImages[idx])) {
+          b.galleryImages = conv;
+          changed = true;
+        }
+      }
+      if (changed) {
+        await b.save();
+        console.log(`[Cloudinary] Auto-migrated blog "${b.title}" images to Cloudinary`);
+      }
+    }
+  } catch (err) {
+    console.warn("[Cloudinary] Auto-sync blogs warning:", err);
   }
 }

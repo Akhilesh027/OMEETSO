@@ -193,21 +193,83 @@ export async function deleteCategoryApi(categoryId: string, permanent: boolean =
   }
 }
 
-export async function uploadCategoryImageApi(file: File): Promise<{ success: boolean; url?: string; error?: string }> {
+export async function uploadBlogImageApi(
+  fileOrBase64: File | string,
+  purpose: string = "blogs"
+): Promise<{ success: boolean; url?: string; error?: string }> {
   try {
-    return new Promise((resolve) => {
-      const reader = new FileReader();
-      reader.onload = async (e) => {
-        const base64 = e.target?.result as string;
-        if (!base64) {
-          return resolve({ success: false, error: "Failed to read image file" });
-        }
-        resolve({ success: true, url: base64 });
-      };
-      reader.onerror = () => resolve({ success: false, error: "File reading error" });
-      reader.readAsDataURL(file);
+    let base64 = "";
+    if (typeof fileOrBase64 === "string") {
+      base64 = fileOrBase64;
+    } else {
+      base64 = await new Promise<string>((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = (e) => resolve((e.target?.result as string) || "");
+        reader.onerror = () => reject(new Error("Failed to read image file"));
+        reader.readAsDataURL(fileOrBase64);
+      });
+    }
+
+    if (!base64) {
+      return { success: false, error: "Empty image payload" };
+    }
+
+    // Already hosted on Cloudinary
+    if (base64.includes("res.cloudinary.com") || base64.includes("cloudinary.com")) {
+      return { success: true, url: base64 };
+    }
+
+    const token = AdminAuthService.getAccessToken();
+    const endpoint = `${BACKEND_URL}/api/v1/admin/blogs/upload-image`;
+
+    const res = await fetch(endpoint, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        ...(token ? { Authorization: `Bearer ${token}` } : {})
+      },
+      body: JSON.stringify({ image: base64, purpose })
     });
-  } catch (error: any) {
-    return { success: false, error: error.message || "Image upload failed" };
+
+    if (res.ok) {
+      const json = await res.json();
+      const cloudinaryUrl = json.url || json.data?.url;
+      if (cloudinaryUrl) {
+        return { success: true, url: cloudinaryUrl };
+      }
+    }
+
+    // Fallback attempt to general direct upload
+    const fallbackRes = await fetch(`${BACKEND_URL}/api/v1/uploads/direct`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        ...(token ? { Authorization: `Bearer ${token}` } : {})
+      },
+      body: JSON.stringify({ image: base64, purpose })
+    });
+
+    if (fallbackRes.ok) {
+      const json = await fallbackRes.json();
+      const cloudinaryUrl = json.url || json.data?.url;
+      if (cloudinaryUrl) {
+        return { success: true, url: cloudinaryUrl };
+      }
+    }
+
+    // If network fails, return base64 so user can continue; backend converts on save
+    return { success: true, url: base64 };
+  } catch (err: any) {
+    console.warn("Cloudinary upload failed, falling back to base64:", err);
+    return {
+      success: typeof fileOrBase64 === "string",
+      url: typeof fileOrBase64 === "string" ? fileOrBase64 : undefined,
+      error: err.message || "Failed to upload image"
+    };
   }
 }
+
+export async function uploadCategoryImageApi(file: File): Promise<{ success: boolean; url?: string; error?: string }> {
+  return uploadBlogImageApi(file, "categories");
+}
+

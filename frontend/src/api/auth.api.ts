@@ -33,6 +33,7 @@ export interface UserAuthResponse {
     id: string;
     phone: string;
     email?: string;
+    emailVerified?: boolean;
     accountType: "individual" | "business";
     status: string;
     profile: {

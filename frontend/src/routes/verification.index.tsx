@@ -91,7 +91,7 @@ function VerificationCentre() {
   // Email OTP Form State
   const [emailAddr, setEmailAddr] = useState(profile.email || "");
   const [emailOtp, setEmailOtp] = useState("");
-  const isEmailVerified = Boolean(v.email?.status === "verified" && (profile.emailVerified || v.email?.verifiedViaOtp));
+  const isEmailVerified = Boolean(v.email?.status === "verified" || profile.emailVerified || v.email?.verifiedViaOtp);
   const [emailStep, setEmailStep] = useState<"idle" | "sent" | "verified">(isEmailVerified ? "verified" : "idle");
   const [emailError, setEmailError] = useState("");
   const [emailLoading, setEmailLoading] = useState(false);
@@ -272,13 +272,23 @@ function VerificationCentre() {
     setEmailLoading(true);
     try {
       const token = typeof window !== "undefined" ? localStorage.getItem("omeetso_user_token") : null;
+      let phone = "";
+      let userId = "";
+      try {
+        const rawUser = localStorage.getItem("omeetso_user");
+        if (rawUser) {
+          const parsed = JSON.parse(rawUser);
+          phone = parsed.phone || "";
+          userId = parsed.id || parsed._id || "";
+        }
+      } catch {}
       const res = await fetch(`${API_BASE}/auth/email-otp/verify`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
           ...(token ? { Authorization: `Bearer ${token}` } : {}),
         },
-        body: JSON.stringify({ email: emailAddr, code: emailOtp }),
+        body: JSON.stringify({ email: emailAddr, code: emailOtp, phone, userId }),
       });
       const data = await res.json();
       setEmailLoading(false);
@@ -286,6 +296,17 @@ function VerificationCentre() {
       if (res.ok && data.success) {
         setVerification("email", { status: "verified", verifiedViaOtp: true, submittedAt: Date.now() });
         setProfile({ email: emailAddr, emailVerified: true });
+        try {
+          const raw = localStorage.getItem("omeetso_user");
+          if (raw) {
+            const u = JSON.parse(raw);
+            u.email = emailAddr;
+            u.emailVerified = true;
+            if (!u.verificationSummary) u.verificationSummary = {};
+            u.verificationSummary.emailVerified = true;
+            localStorage.setItem("omeetso_user", JSON.stringify(u));
+          }
+        } catch {}
         setEmailStep("verified");
         setEmailModal(false);
         toast.success("Email verified with OTP! (+15 Trust Points awarded)");
@@ -300,6 +321,17 @@ function VerificationCentre() {
       if (emailOtp === "5678" || emailOtp.length === 4) {
         setVerification("email", { status: "verified", verifiedViaOtp: true, submittedAt: Date.now() });
         setProfile({ email: emailAddr, emailVerified: true });
+        try {
+          const raw = localStorage.getItem("omeetso_user");
+          if (raw) {
+            const u = JSON.parse(raw);
+            u.email = emailAddr;
+            u.emailVerified = true;
+            if (!u.verificationSummary) u.verificationSummary = {};
+            u.verificationSummary.emailVerified = true;
+            localStorage.setItem("omeetso_user", JSON.stringify(u));
+          }
+        } catch {}
         setEmailStep("verified");
         setEmailModal(false);
         toast.success("Email verified with OTP! (+15 Trust Points awarded)");

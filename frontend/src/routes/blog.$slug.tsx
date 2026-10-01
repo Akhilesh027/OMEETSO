@@ -46,6 +46,7 @@ function BlogDetailPage() {
   const [hasLiked, setHasLiked] = useState(false);
   const [shareModalOpen, setShareModalOpen] = useState(false);
   const [scrollProgress, setScrollProgress] = useState(0);
+  const [selectedGalleryImage, setSelectedGalleryImage] = useState<string | null>(null);
 
   useEffect(() => {
     let isMounted = true;
@@ -282,6 +283,64 @@ function BlogDetailPage() {
               </div>
             )}
           </div>
+
+          {/* Article Photo Gallery (Multiple Images) */}
+          {blog.galleryImages && blog.galleryImages.length > 0 && (
+            <div className="rounded-3xl border border-border bg-card p-6 sm:p-8 shadow-xs space-y-4">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <div className="grid h-8 w-8 place-items-center rounded-xl bg-primary/10 text-primary">
+                    <BookOpen className="h-4 w-4" />
+                  </div>
+                  <div>
+                    <h3 className="text-sm font-black text-foreground">Article Media & Photos</h3>
+                    <p className="text-[11px] text-muted-foreground">Attached illustrations and guides</p>
+                  </div>
+                </div>
+                <span className="text-[11px] font-bold text-muted-foreground">
+                  {blog.galleryImages.length} Photos
+                </span>
+              </div>
+
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                {blog.galleryImages.map((imgUrl, i) => (
+                  <div
+                    key={`${imgUrl}-${i}`}
+                    onClick={() => setSelectedGalleryImage(imgUrl)}
+                    className="group relative rounded-2xl overflow-hidden border border-border bg-secondary aspect-video cursor-pointer shadow-xs hover:shadow-md transition"
+                  >
+                    <img
+                      src={imgUrl}
+                      alt={`Article illustration ${i + 1}`}
+                      className="w-full h-full object-cover group-hover:scale-105 transition duration-300"
+                    />
+                    <div className="absolute inset-0 bg-black/20 opacity-0 group-hover:opacity-100 transition flex items-center justify-center text-white text-xs font-bold">
+                      View Photo
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Lightbox for Gallery Photos */}
+          {selectedGalleryImage && (
+            <div
+              onClick={() => setSelectedGalleryImage(null)}
+              className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/85 backdrop-blur-sm cursor-pointer"
+            >
+              <div
+                onClick={(e) => e.stopPropagation()}
+                className="relative max-w-4xl max-h-[90vh] bg-card rounded-2xl overflow-hidden shadow-2xl p-2 cursor-default"
+              >
+                <img
+                  src={selectedGalleryImage}
+                  alt="Enlarged photo"
+                  className="max-h-[82vh] w-auto max-w-full object-contain rounded-xl"
+                />
+              </div>
+            </div>
+          )}
 
           {/* Helpful / Like Action Box */}
           <div className="flex flex-col sm:flex-row items-center justify-between gap-4 p-6 sm:p-8 rounded-3xl border border-border bg-card shadow-xs">

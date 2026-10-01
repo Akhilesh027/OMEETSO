@@ -166,7 +166,7 @@ function Account() {
   const anyVerified = verifs.mobile.status === "verified" || verifs.identity.status === "verified";
   const unread = unreadCount();
 
-  const isEmailVerified = Boolean(p.emailVerified || (verifs.email?.status === "verified" && verifs.email?.verifiedViaOtp));
+  const isEmailVerified = Boolean(p.emailVerified || verifs.email?.status === "verified");
   const isIdentityVerified = verifs.identity?.status === "verified";
   const isAddressVerified = verifs.address?.status === "verified";
   const isMobileVerified = Boolean(p.mobileVerified || verifs.mobile?.status === "verified");

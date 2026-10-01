@@ -232,9 +232,15 @@ export const updateService = async (req: Request, res: Response) => {
 export const deleteService = async (req: Request, res: Response) => {
   try {
     const userId = (req as any).user?._id || (req as any).user?.id;
+    const userRole = (req as any).user?.role;
     const id = req.params.id as string;
 
-    const service = await Service.findOneAndDelete({ _id: id, providerId: userId });
+    const query: any = { _id: id };
+    if (userRole !== "admin" && userRole !== "superadmin") {
+      query.providerId = userId;
+    }
+
+    const service = await Service.findOneAndDelete(query);
     if (!service) {
       return res.status(404).json({ success: false, error: "Service not found or unauthorized" });
     }

@@ -1,6 +1,6 @@
 import mongoose, { Schema, Document } from "mongoose";
 
-export type BlogStatus = "DRAFT" | "PUBLISHED" | "SCHEDULED" | "ARCHIVED";
+export type BlogStatus = "DRAFT" | "PUBLISHED" | "SCHEDULED" | "ARCHIVED" | "BLOCKED";
 
 export interface IBlog extends Document {
   _id: mongoose.Types.ObjectId;
@@ -9,6 +9,7 @@ export interface IBlog extends Document {
   excerpt: string;
   content: string;
   coverImage?: string;
+  galleryImages?: string[];
   category: string;
   tags: string[];
   author: {
@@ -21,6 +22,9 @@ export interface IBlog extends Document {
   readTime: string;
   status: BlogStatus;
   isFeatured: boolean;
+  isBlocked?: boolean;
+  blockedAt?: Date;
+  blockReason?: string;
   viewsCount: number;
   likesCount: number;
   seo?: {
@@ -41,6 +45,7 @@ const BlogSchema = new Schema<IBlog>(
     excerpt: { type: String, required: true, trim: true },
     content: { type: String, required: true },
     coverImage: { type: String },
+    galleryImages: [{ type: String, trim: true }],
     category: { type: String, required: true, index: true, default: "General" },
     tags: [{ type: String, trim: true }],
     author: {
@@ -53,11 +58,14 @@ const BlogSchema = new Schema<IBlog>(
     readTime: { type: String, default: "3 min read" },
     status: {
       type: String,
-      enum: ["DRAFT", "PUBLISHED", "SCHEDULED", "ARCHIVED"],
+      enum: ["DRAFT", "PUBLISHED", "SCHEDULED", "ARCHIVED", "BLOCKED"],
       default: "DRAFT",
       index: true
     },
     isFeatured: { type: Boolean, default: false, index: true },
+    isBlocked: { type: Boolean, default: false, index: true },
+    blockedAt: { type: Date },
+    blockReason: { type: String },
     viewsCount: { type: Number, default: 0 },
     likesCount: { type: Number, default: 0 },
     seo: {
@@ -74,7 +82,9 @@ const BlogSchema = new Schema<IBlog>(
 );
 
 BlogSchema.index({ status: 1, createdAt: -1 });
-BlogSchema.index({ status: 1, category: 1 });
+BlogSchema.index({ status: 1, isBlocked: 1, createdAt: -1 });
+BlogSchema.index({ isFeatured: 1, status: 1, createdAt: -1 });
+BlogSchema.index({ status: 1, category: 1, createdAt: -1 });
 BlogSchema.index({ title: "text", excerpt: "text", tags: "text" });
 
-export const Blog = mongoose.model<IBlog>("Blog", BlogSchema);
+export const Blog = mongoose.models.Blog || mongoose.model<IBlog>("Blog", BlogSchema);

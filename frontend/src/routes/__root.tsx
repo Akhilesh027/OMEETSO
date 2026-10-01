@@ -13,7 +13,7 @@ function NotFoundComponent() {
       <div className="max-w-md text-center">
         <h1 className="text-7xl font-black text-navy">404</h1>
         <h2 className="mt-4 text-xl font-semibold">Page not found</h2>
-        <p className="mt-2 text-sm text-muted-foreground">The page you're looking for doesn't exist on Omeetso.</p>
+        <p className="mt-2 text-sm text-muted-foreground">The page you're looking for doesn't exist on omeetso.</p>
         <Link to="/home" className="mt-6 inline-flex items-center justify-center rounded-full bg-navy px-5 py-2.5 text-sm font-semibold text-white">Back to Home</Link>
       </div>
     </div>

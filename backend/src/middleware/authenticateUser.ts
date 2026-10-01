@@ -27,6 +27,12 @@ export async function authenticateUser(
   try {
     const payload = verifyAccessToken<UserTokenPayload>(token);
 
+    if (payload.aud === "omeetso-admin") {
+      (req as any).admin = { id: (payload as any).userId || (payload as any).adminId, role: "admin" };
+      (req as any).user = { _id: (payload as any).userId || (payload as any).adminId, role: "admin" } as any;
+      return next();
+    }
+
     if (payload.aud !== "omeetso-user") {
       res.status(403).json({
         success: false,

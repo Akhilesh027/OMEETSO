@@ -30,8 +30,10 @@ import { useToast } from "@/contexts/ToastContext";
 import {
   getAdminServicesQueueApi,
   getAdminServiceCategoriesApi,
-  updateServiceStatusApi
+  updateServiceStatusApi,
+  deleteAdminServiceApi
 } from "@/api/adminServices.api";
+import { ConfirmationModal } from "@/components/common/ConfirmationModal";
 import { API_BASE } from "@/config/api";
 
 type ServiceStatus = "all" | "pending_approval" | "active" | "paused" | "rejected";
@@ -51,6 +53,9 @@ export function ServicesPage() {
   const [rejectReason, setRejectReason] = useState("");
   const [isRejectModalOpen, setIsRejectModalOpen] = useState(false);
   const [serviceToReject, setServiceToReject] = useState<any | null>(null);
+
+  // Delete Confirmation Modal
+  const [serviceToDelete, setServiceToDelete] = useState<any | null>(null);
 
   // Message to Provider modal
   const [isMessageModalOpen, setIsMessageModalOpen] = useState(false);
@@ -129,18 +134,29 @@ export function ServicesPage() {
     showSuccess(`Service spotlight status updated.`);
   };
 
-  const handleDeleteService = async (serviceId: string, title?: string) => {
-    if (!window.confirm(`Are you sure you want to permanently delete service "${title || serviceId}"?`)) return;
+  const handleConfirmDelete = async () => {
+    if (!serviceToDelete) return;
+    const targetId = serviceToDelete.id || serviceToDelete._id;
+    const targetTitle = serviceToDelete.title || "Service";
+
     try {
-      const token = localStorage.getItem("omeetso_admin_token") || localStorage.getItem("adminToken");
-      await fetch(`${API_BASE}/services/${serviceId}`, {
-        method: "DELETE",
-        headers: { Authorization: `Bearer ${token}` }
-      });
-    } catch {}
-    setServices((prev) => prev.filter((s) => s.id !== serviceId && s._id !== serviceId));
-    showSuccess("Service Deleted", `Service "${title || serviceId}" was permanently removed.`);
+      const res = await deleteAdminServiceApi(targetId);
+      if (res.success) {
+        setServices((prev) => prev.filter((s) => (s.id || s._id) !== targetId && s._id !== targetId));
+        showSuccess("Service Deleted", `Service "${targetTitle}" was permanently removed.`);
+        if (selectedService && ((selectedService.id || selectedService._id) === targetId)) {
+          setIsInspectorOpen(false);
+          setSelectedService(null);
+        }
+        setServiceToDelete(null);
+      } else {
+        showError("Delete Failed", res.error || "Failed to delete service from database");
+      }
+    } catch (err: any) {
+      showError("Delete Error", err?.message || "An unexpected error occurred while deleting service");
+    }
   };
+
 
   const handleSendMessageToProvider = (e: React.FormEvent) => {
     e.preventDefault();
@@ -487,11 +503,13 @@ export function ServicesPage() {
                             </button>
 
                             <button
-                              onClick={() => handleDeleteService(srvId, srv.title)}
-                              className="p-1.5 text-rose-500 hover:text-rose-700 hover:bg-rose-50 dark:text-rose-400 dark:hover:text-rose-300 dark:hover:bg-rose-950/40 rounded-lg transition-colors inline-flex items-center justify-center"
-                              title="Delete Service Listing"
+                              type="button"
+                              onClick={() => setServiceToDelete(srv)}
+                              className="p-1.5 text-rose-600 dark:text-rose-400 hover:text-white hover:bg-rose-600 dark:hover:bg-rose-600 rounded-lg border border-rose-200 dark:border-rose-900/60 bg-rose-50/70 dark:bg-rose-950/30 transition-all duration-150 inline-flex items-center justify-center shadow-xs group"
+                              title="Permanently Delete Service Listing"
+                              aria-label={`Delete ${srv.title}`}
                             >
-                              <Trash2 className="w-4 h-4" />
+                              <Trash2 className="w-4 h-4 transition-transform group-hover:scale-110" />
                             </button>
                           </td>
                         </tr>
@@ -589,27 +607,41 @@ export function ServicesPage() {
               </div>
             )}
 
-            <div className="flex justify-end gap-2 pt-3 border-t border-gray-200 dark:border-gray-700">
+            <div className="flex items-center justify-between gap-2 pt-3 border-t border-gray-200 dark:border-gray-700">
               <button
-                onClick={() => {
-                  setMessageRecipient(selectedService);
-                  setMessageText(`Official update regarding your service "${selectedService.title}": `);
-                  setIsInspectorOpen(false);
-                  setIsMessageModalOpen(true);
-                }}
-                className="px-4 py-2 rounded-lg border border-gray-300 dark:border-gray-600 text-xs font-bold hover:bg-gray-50 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-200"
+                type="button"
+                onClick={() => setServiceToDelete(selectedService)}
+                className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg border border-rose-200 dark:border-rose-900/60 text-rose-600 dark:text-rose-400 bg-rose-50/70 dark:bg-rose-950/30 hover:bg-rose-600 hover:text-white text-xs font-bold transition-colors shadow-xs"
+                title="Permanently Delete Service Listing"
               >
-                Send Message
+                <Trash2 className="w-3.5 h-3.5" />
+                <span>Delete Service</span>
               </button>
-              <button
-                onClick={() => {
-                  handleUpdateStatus(selectedService.id || selectedService._id, "ACTIVE");
-                  setIsInspectorOpen(false);
-                }}
-                className="px-4 py-2 rounded-lg bg-emerald-600 text-white text-xs font-bold hover:bg-emerald-700 shadow"
-              >
-                Approve Service
-              </button>
+
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setMessageRecipient(selectedService);
+                    setMessageText(`Official update regarding your service "${selectedService.title}": `);
+                    setIsInspectorOpen(false);
+                    setIsMessageModalOpen(true);
+                  }}
+                  className="px-4 py-2 rounded-lg border border-gray-300 dark:border-gray-600 text-xs font-bold hover:bg-gray-50 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-200"
+                >
+                  Send Message
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    handleUpdateStatus(selectedService.id || selectedService._id, "ACTIVE");
+                    setIsInspectorOpen(false);
+                  }}
+                  className="px-4 py-2 rounded-lg bg-emerald-600 text-white text-xs font-bold hover:bg-emerald-700 shadow"
+                >
+                  Approve Service
+                </button>
+              </div>
             </div>
           </div>
         </div>
@@ -763,6 +795,18 @@ export function ServicesPage() {
           </div>
         </div>
       )}
+
+      {/* CONFIRM PERMANENT DELETE MODAL */}
+      <ConfirmationModal
+        isOpen={!!serviceToDelete}
+        onClose={() => setServiceToDelete(null)}
+        onConfirm={handleConfirmDelete}
+        title="Permanently Delete Service"
+        targetSummary={`Service: "${serviceToDelete?.title}" by ${serviceToDelete?.businessName || "Provider"}`}
+        consequenceWarning="This action cannot be undone. The service offering, pricing rate cards, and associated records will be permanently deleted from the database."
+        confirmText="Permanently Delete"
+        isDestructive={true}
+      />
     </PageContainer>
   );
 }

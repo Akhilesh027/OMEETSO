@@ -8,6 +8,7 @@ export interface BlogArticle {
   excerpt: string;
   content: string;
   coverImage?: string;
+  galleryImages?: string[];
   category: string;
   tags: string[];
   author: {

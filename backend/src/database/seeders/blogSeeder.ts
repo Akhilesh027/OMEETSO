@@ -1,4 +1,5 @@
 import { Blog } from "../../modules/blogs/models/Blog";
+import { uploadToCloudinary, convertImagesToCloudinary } from "../../utils/cloudinaryUpload";
 
 export const INITIAL_BLOGS = [
   {
@@ -163,8 +164,49 @@ If high rental flexibility and career mobility are your priorities, renting in G
 export async function seedBlogs(): Promise<void> {
   try {
     const count = await Blog.countDocuments({});
-    console.log(`[BlogSeeder] Verified ${count} blog articles in MongoDB (auto-seeding disabled).`);
+    console.log(`[BlogSeeder] Verified ${count} blog articles in MongoDB.`);
+
+    // Migrate any blogs that have non-Cloudinary or base64 images
+    const unmigrated = await Blog.find({
+      $or: [
+        { coverImage: { $not: /cloudinary/i } },
+        { galleryImages: { $elemMatch: { $not: /cloudinary/i } } }
+      ]
+    });
+
+    if (unmigrated.length > 0) {
+      console.log(`[BlogSeeder] Converting ${unmigrated.length} legacy blog article image(s) to Cloudinary...`);
+      for (const blog of unmigrated) {
+        let changed = false;
+        let newCover = blog.coverImage;
+        let newGallery = Array.isArray(blog.galleryImages) ? [...blog.galleryImages] : [];
+
+        if (newCover && !newCover.includes("res.cloudinary.com") && !newCover.includes("cloudinary.com")) {
+          const up = await uploadToCloudinary(newCover, "omeetso/blogs", "image", true);
+          if (up && (up.includes("res.cloudinary.com") || up.includes("cloudinary.com"))) {
+            newCover = up;
+            changed = true;
+          }
+        }
+
+        if (newGallery.length > 0) {
+          const convertedGallery = await convertImagesToCloudinary(newGallery, "omeetso/blogs", true);
+          if (convertedGallery.some((img, idx) => img !== newGallery[idx])) {
+            newGallery = convertedGallery;
+            changed = true;
+          }
+        }
+
+        if (changed) {
+          blog.coverImage = newCover;
+          blog.galleryImages = newGallery;
+          await blog.save();
+          console.log(`[BlogSeeder] Successfully migrated blog "${blog.title}" images to Cloudinary.`);
+        }
+      }
+    }
   } catch (err) {
     console.error("[BlogSeeder] Error checking blogs:", err);
   }
 }
+

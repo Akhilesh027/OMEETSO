@@ -636,3 +636,86 @@ export async function getAdminListingById(req: AuthenticatedAdminRequest, res: R
     next(error);
   }
 }
+
+export async function bulkApproveListings(req: AuthenticatedAdminRequest, res: Response, next: NextFunction): Promise<void> {
+  try {
+    if (!req.admin) {
+      res.status(401).json({ success: false, error: { code: "UNAUTHORIZED", message: "Admin required" } });
+      return;
+    }
+
+    const { listingIds, reason } = req.body;
+    if (!Array.isArray(listingIds) || listingIds.length === 0) {
+      res.status(400).json({ success: false, error: { code: "INVALID_REQUEST", message: "listingIds array required" } });
+      return;
+    }
+
+    const approvedIds: string[] = [];
+
+    for (const listingId of listingIds) {
+      try {
+        const listing = await Listing.findById(listingId);
+        if (!listing) continue;
+
+        const beforeState = { status: listing.status };
+        listing.status = ListingStatus.APPROVED;
+        listing.publishedAt = new Date();
+        listing.expiresAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
+        await listing.save();
+
+        await ListingModeration.findOneAndUpdate(
+          { listingId: listing._id },
+          {
+            assignedAdminId: req.admin._id,
+            assignedAdminName: req.admin.name,
+            status: "completed",
+            reviewNotes: reason || "Bulk approved by moderator"
+          },
+          { upsert: true }
+        );
+
+        await AuditLog.create({
+          actorAdminId: req.admin._id,
+          actorName: req.admin.name,
+          actorRole: req.admin.role,
+          action: "LISTING_APPROVE",
+          targetType: "Listing",
+          targetId: listing._id.toString(),
+          reason: reason || "Bulk approved by moderator",
+          before: beforeState,
+          after: { status: listing.status },
+          ipAddress: req.ip,
+          userAgent: req.get("user-agent")
+        });
+
+        if (listing.sellerId) {
+          await Notification.create({
+            userId: listing.sellerId,
+            type: "listing_moderation",
+            title: `Listing Approved: ${listing.title}`,
+            body: `Your listing "${listing.title}" has been approved and is now live on omeetso!`,
+            link: `/product/${listing._id}`,
+            thumbnail: listing.images?.[0]
+          }).catch(() => { });
+        }
+
+        approvedIds.push(listing._id.toString());
+      } catch (err) {
+        console.error(`Error bulk approving listing ${listingId}:`, err);
+      }
+    }
+
+    invalidateListingsCache();
+
+    res.status(200).json({
+      success: true,
+      data: {
+        approvedCount: approvedIds.length,
+        approvedIds
+      }
+    });
+  } catch (error) {
+    next(error);
+  }
+}
+

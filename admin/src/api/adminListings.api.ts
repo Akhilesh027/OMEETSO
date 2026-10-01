@@ -106,6 +106,34 @@ export async function approveListingApi(listingId: string, reason?: string): Pro
   return { success: true };
 }
 
+export async function bulkApproveListingsApi(listingIds: string[], reason?: string): Promise<{ success: boolean; data?: any; error?: string }> {
+  try {
+    const res = await resilientFetch(`${API_BASE}/bulk-approve`, {
+      method: "POST",
+      body: JSON.stringify({ listingIds, reason: reason || "Bulk approved by moderator" })
+    });
+
+    if (res) {
+      const json = await res.json();
+      if (json.success) {
+        listingIds.forEach((id) => MockDataService.updateListingStatus(id, "active", reason));
+        return { success: true, data: json.data };
+      }
+    }
+  } catch (error) {
+    // fallback
+  }
+
+  // Fallback: approve sequentially if bulk endpoint isn't reached
+  try {
+    await Promise.all(listingIds.map((id) => approveListingApi(id, reason)));
+    return { success: true, data: { approvedCount: listingIds.length } };
+  } catch (err: any) {
+    return { success: false, error: err?.message || "Failed to bulk approve listings" };
+  }
+}
+
+
 export async function rejectListingApi(listingId: string, reason: string): Promise<{ success: boolean; data?: any; error?: string }> {
   try {
     const res = await resilientFetch(`${API_BASE}/${listingId}/reject`, {

@@ -13,9 +13,17 @@ import {
   Clock,
   CheckCircle2,
   Sparkles,
-  Image as ImageIcon
+  Image as ImageIcon,
+  Link as LinkIcon,
+  Layers,
+  Star,
+  Plus,
+  Check,
+  ExternalLink,
+  ArrowUpRight,
+  Maximize2,
 } from "lucide-react";
-import { uploadCategoryImageApi } from "@/api/adminCategories.api";
+import { uploadCategoryImageApi, uploadBlogImageApi } from "@/api/adminCategories.api";
 
 export interface BlogItem {
   id?: string;
@@ -25,6 +33,7 @@ export interface BlogItem {
   excerpt: string;
   content: string;
   coverImage?: string;
+  galleryImages?: string[];
   category: string;
   tags: string[];
   author: {
@@ -34,8 +43,11 @@ export interface BlogItem {
     bio?: string;
   };
   readTime?: string;
-  status: "DRAFT" | "PUBLISHED" | "SCHEDULED" | "ARCHIVED";
+  status: "DRAFT" | "PUBLISHED" | "SCHEDULED" | "ARCHIVED" | "BLOCKED";
   isFeatured: boolean;
+  isBlocked?: boolean;
+  blockedAt?: string;
+  blockReason?: string;
   viewsCount?: number;
   likesCount?: number;
   seo?: {
@@ -47,6 +59,54 @@ export interface BlogItem {
   publishedAt?: string;
   createdAt?: string;
 }
+
+export const MARKETPLACE_STOCK_PRESETS = [
+  {
+    category: "Buying & Selling",
+    items: [
+      { label: "Marketplace Shoppers", url: "https://images.unsplash.com/photo-1555421689-491a97ff2040?w=1200" },
+      { label: "Handshake & Verified Deal", url: "https://images.unsplash.com/photo-1556742049-0a67c5574f73?w=1200" },
+      { label: "Local Pickup & Courier", url: "https://images.unsplash.com/photo-1586528116311-ad8dd3c8310d?w=1200" },
+      { label: "Instant Digital Payments", url: "https://images.unsplash.com/photo-1559526324-4b87b5e36e44?w=1200" }
+    ]
+  },
+  {
+    category: "Tech & Mobiles",
+    items: [
+      { label: "Smartphones & Gadgets", url: "https://images.unsplash.com/photo-1511707171634-5f897ff02aa9?w=1200" },
+      { label: "Laptops & Workspace", url: "https://images.unsplash.com/photo-1496181133206-80ce9b88a853?w=1200" },
+      { label: "Wireless Audio & Gear", url: "https://images.unsplash.com/photo-1505740420928-5e560c06d30e?w=1200" },
+      { label: "Camera & Tech Review", url: "https://images.unsplash.com/photo-1516035069371-29a1b244cc32?w=1200" }
+    ]
+  },
+  {
+    category: "Vehicles & Bikes",
+    items: [
+      { label: "Pre-Owned Cars Check", url: "https://images.unsplash.com/photo-1503376780353-7e6692767b70?w=1200" },
+      { label: "Two-Wheeler & Scooters", url: "https://images.unsplash.com/photo-1558981403-c5f9899a28bc?w=1200" },
+      { label: "Electric Vehicle (EV)", url: "https://images.unsplash.com/photo-1593941707882-a5bba14938c7?w=1200" },
+      { label: "Mechanical Inspection", url: "https://images.unsplash.com/photo-1486006920555-c77dce18193b?w=1200" }
+    ]
+  },
+  {
+    category: "Home & Furniture",
+    items: [
+      { label: "Modern Living Furniture", url: "https://images.unsplash.com/photo-1555041469-a586c61ea9bc?w=1200" },
+      { label: "Rental House & Apartments", url: "https://images.unsplash.com/photo-1502672260266-1c1ef2d93688?w=1200" },
+      { label: "Home Office Setup", url: "https://images.unsplash.com/photo-1586023492125-27b2c045efd7?w=1200" },
+      { label: "Home Appliances", url: "https://images.unsplash.com/photo-1556911220-e15b29be8c8f?w=1200" }
+    ]
+  },
+  {
+    category: "Safety & Scams",
+    items: [
+      { label: "Verified Buyer Shield", url: "https://images.unsplash.com/photo-1563986768609-322da13575f3?w=1200" },
+      { label: "Cyber & Payment Protection", url: "https://images.unsplash.com/photo-1614064641938-3bbee52942c7?w=1200" },
+      { label: "OTP & Mobile Safety", url: "https://images.unsplash.com/photo-1563013544-824ae1b704d3?w=1200" },
+      { label: "Safe In-Person Meetup", url: "https://images.unsplash.com/photo-1517048676732-d65bc937f952?w=1200" }
+    ]
+  }
+];
 
 interface BlogEditorModalProps {
   isOpen: boolean;
@@ -93,6 +153,7 @@ export const BlogEditorModal: React.FC<BlogEditorModalProps> = ({
     excerpt: "",
     content: "",
     coverImage: "",
+    galleryImages: [],
     category: "Buying Guides",
     tags: [],
     author: {
@@ -119,23 +180,149 @@ export const BlogEditorModal: React.FC<BlogEditorModalProps> = ({
   const [errorMsg, setErrorMsg] = useState("");
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
+  // Multiple Image Upload Options state
+  const [imageUploadTab, setImageUploadTab] = useState<"file" | "url" | "stock">("file");
+  const [urlInput, setUrlInput] = useState("");
+  const [selectedStockCategory, setSelectedStockCategory] = useState<string>("Buying & Selling");
+  const [previewImageModal, setPreviewImageModal] = useState<string | null>(null);
+  const [isDragOver, setIsDragOver] = useState(false);
+
+  // Handle multi-file image upload directly to Cloudinary
+  const handleMultipleFilesUpload = async (files: FileList | File[]) => {
+    const fileArray = Array.from(files).filter((f) => f.type.startsWith("image/"));
+    if (fileArray.length === 0) return;
+
     setIsUploadingImage(true);
     setErrorMsg("");
+
     try {
-      const res = await uploadCategoryImageApi(file);
-      if (res.success && res.url) {
-        setFormData((prev) => ({ ...prev, coverImage: res.url }));
-      } else {
-        setErrorMsg(res.error || "Failed to upload image");
+      const uploadedUrls: string[] = [];
+      for (const file of fileArray) {
+        const res = await uploadBlogImageApi(file, "blogs");
+        if (res.success && res.url) {
+          uploadedUrls.push(res.url);
+        }
+      }
+
+      if (uploadedUrls.length > 0) {
+        setFormData((prev) => {
+          const currentGallery = Array.isArray(prev.galleryImages) ? prev.galleryImages : [];
+          const updatedGallery = Array.from(new Set([...currentGallery, ...uploadedUrls]));
+          const updatedCover = prev.coverImage || uploadedUrls[0];
+          return {
+            ...prev,
+            coverImage: updatedCover,
+            galleryImages: updatedGallery
+          };
+        });
       }
     } catch (err: any) {
-      setErrorMsg(err.message || "Failed to upload image");
+      setErrorMsg(err.message || "Failed to process images");
     } finally {
       setIsUploadingImage(false);
     }
+  };
+
+  const handleFileInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files.length > 0) {
+      handleMultipleFilesUpload(e.target.files);
+    }
+  };
+
+  const handleAddUrlImage = async () => {
+    if (!urlInput.trim()) return;
+    const urls = urlInput
+      .split(/[\n,]+/)
+      .map((u) => u.trim())
+      .filter((u) => u.startsWith("http://") || u.startsWith("https://") || u.startsWith("data:image"));
+
+    if (urls.length === 0) {
+      setErrorMsg("Please enter valid image URL(s) starting with http:// or https://");
+      return;
+    }
+
+    setIsUploadingImage(true);
+    setErrorMsg("");
+
+    try {
+      // Upload / convert external URLs to Cloudinary (mirroring listing upload pipeline)
+      const convertedUrls = await Promise.all(
+        urls.map(async (u) => {
+          const res = await uploadBlogImageApi(u, "blogs");
+          return res.success && res.url ? res.url : u;
+        })
+      );
+
+      setFormData((prev) => {
+        const currentGallery = Array.isArray(prev.galleryImages) ? prev.galleryImages : [];
+        const updatedGallery = Array.from(new Set([...currentGallery, ...convertedUrls]));
+        return {
+          ...prev,
+          coverImage: prev.coverImage || convertedUrls[0],
+          galleryImages: updatedGallery
+        };
+      });
+
+      setUrlInput("");
+      setErrorMsg("");
+    } catch (err: any) {
+      setErrorMsg(err.message || "Failed to convert URL image to Cloudinary");
+    } finally {
+      setIsUploadingImage(false);
+    }
+  };
+
+  const handleSelectStockImage = async (url: string) => {
+    setIsUploadingImage(true);
+    let finalUrl = url;
+    try {
+      const res = await uploadBlogImageApi(url, "blogs");
+      if (res.success && res.url) {
+        finalUrl = res.url;
+      }
+    } catch {
+      // Fallback to stock preset URL
+    } finally {
+      setIsUploadingImage(false);
+    }
+
+    setFormData((prev) => {
+      const currentGallery = Array.isArray(prev.galleryImages) ? prev.galleryImages : [];
+      const updatedGallery = Array.from(new Set([...currentGallery, finalUrl]));
+      return {
+        ...prev,
+        coverImage: prev.coverImage || finalUrl,
+        galleryImages: updatedGallery
+      };
+    });
+  };
+
+  const handleSetCoverImage = (url: string) => {
+    setFormData((prev) => ({ ...prev, coverImage: url }));
+  };
+
+  const handleRemoveGalleryImage = (urlToRemove: string) => {
+    setFormData((prev) => {
+      const currentGallery = Array.isArray(prev.galleryImages) ? prev.galleryImages : [];
+      const updatedGallery = currentGallery.filter((u) => u !== urlToRemove);
+      let updatedCover = prev.coverImage;
+      if (updatedCover === urlToRemove) {
+        updatedCover = updatedGallery[0] || "";
+      }
+      return {
+        ...prev,
+        coverImage: updatedCover,
+        galleryImages: updatedGallery
+      };
+    });
+  };
+
+  const handleInsertImageIntoContent = (imageUrl: string, altText: string = "Article Image") => {
+    const mdSnippet = `\n\n![${altText}](${imageUrl})\n\n`;
+    setFormData((prev) => ({
+      ...prev,
+      content: (prev.content || "") + mdSnippet
+    }));
   };
 
   useEffect(() => {
@@ -268,8 +455,32 @@ export const BlogEditorModal: React.FC<BlogEditorModalProps> = ({
     setIsSubmitting(true);
     setErrorMsg("");
     try {
+      // Ensure all images are converted to Cloudinary before saving (mirroring listing upload pipeline)
+      let finalCover = formData.coverImage;
+      if (finalCover && (finalCover.startsWith("data:") || !finalCover.includes("res.cloudinary.com"))) {
+        const up = await uploadBlogImageApi(finalCover, "blogs");
+        if (up.success && up.url) {
+          finalCover = up.url;
+        }
+      }
+
+      let finalGallery: string[] = [];
+      if (Array.isArray(formData.galleryImages) && formData.galleryImages.length > 0) {
+        finalGallery = await Promise.all(
+          formData.galleryImages.map(async (img) => {
+            if (img.startsWith("data:") || !img.includes("res.cloudinary.com")) {
+              const up = await uploadBlogImageApi(img, "blogs");
+              return up.success && up.url ? up.url : img;
+            }
+            return img;
+          })
+        );
+      }
+
       const payload: Partial<BlogItem> = {
         ...formData,
+        coverImage: finalCover,
+        galleryImages: finalGallery,
         status: finalStatus,
         scheduledAt: finalStatus === "SCHEDULED" ? new Date(scheduledDateTime).toISOString() : undefined,
         tags: tagsInput.split(",").map((t) => t.trim()).filter(Boolean)
@@ -397,82 +608,334 @@ export const BlogEditorModal: React.FC<BlogEditorModalProps> = ({
                 </div>
               </div>
 
-              {/* Cover Banner Image Upload Section */}
-              <div>
-                <label className="block text-xs font-bold text-slate-700 mb-1.5">
-                  Cover Banner Image *
-                </label>
-                <div className="rounded-2xl border border-admin-border bg-slate-50/80 p-4 space-y-3 shadow-xs">
-                  <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2.5">
-                    <input
-                      type="file"
-                      ref={fileInputRef}
-                      onChange={handleImageUpload}
-                      accept="image/*"
-                      className="hidden"
-                    />
+              {/* Multiple Image Upload Options & Media Gallery */}
+              <div className="space-y-3">
+                <div className="flex items-center justify-between">
+                  <label className="block text-xs font-bold text-slate-700">
+                    Article Images & Cover Banner *
+                  </label>
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-[11px] font-bold text-slate-500">
+                      {Array.isArray(formData.galleryImages) ? formData.galleryImages.length : 0} Images Attached
+                    </span>
+                    {formData.coverImage && (
+                      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-amber-50 text-amber-700 border border-amber-200/80 text-[10px] font-black">
+                        <Star className="h-3 w-3 fill-amber-500 text-amber-500" /> Cover Set
+                      </span>
+                    )}
+                  </div>
+                </div>
+
+                <div className="rounded-2xl border border-admin-border bg-slate-50/90 p-4 space-y-4 shadow-xs">
+                  {/* Upload Method Switcher Tabs */}
+                  <div className="flex flex-wrap items-center gap-1.5 p-1 bg-white rounded-xl border border-admin-border shadow-xs">
+                    <button
+                      type="button"
+                      onClick={() => setImageUploadTab("file")}
+                      className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                        imageUploadTab === "file"
+                          ? "bg-admin-indigo text-white shadow-xs"
+                          : "text-slate-600 hover:text-slate-900 hover:bg-slate-100"
+                      }`}
+                    >
+                      <Upload className="h-3.5 w-3.5" />
+                      <span>Option 1: Device Upload (Multiple Files)</span>
+                    </button>
 
                     <button
                       type="button"
-                      onClick={() => fileInputRef.current?.click()}
-                      disabled={isUploadingImage}
-                      className="h-11 px-4 rounded-xl bg-white border border-dashed border-admin-indigo hover:border-admin-indigo/80 text-admin-indigo hover:bg-indigo-50/40 flex items-center justify-center gap-2 text-xs font-bold transition shadow-xs cursor-pointer shrink-0"
+                      onClick={() => setImageUploadTab("url")}
+                      className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                        imageUploadTab === "url"
+                          ? "bg-admin-indigo text-white shadow-xs"
+                          : "text-slate-600 hover:text-slate-900 hover:bg-slate-100"
+                      }`}
                     >
-                      <Upload className="h-4 w-4 text-admin-indigo" />
-                      <span>{isUploadingImage ? "Uploading..." : "Upload Image File"}</span>
+                      <LinkIcon className="h-3.5 w-3.5" />
+                      <span>Option 2: Image URL(s)</span>
                     </button>
 
-                    <div className="relative flex-1">
-                      <input
-                        type="text"
-                        placeholder="Or paste external image URL (https://...)"
-                        value={formData.coverImage || ""}
-                        onChange={(e) => setFormData({ ...formData, coverImage: e.target.value })}
-                        className="w-full h-11 rounded-xl border border-admin-border bg-white px-3.5 text-xs font-medium text-admin-text outline-none focus:border-admin-indigo focus:ring-2 focus:ring-admin-indigo/15 transition shadow-xs"
-                      />
-                    </div>
-
-                    {formData.coverImage && (
-                      <button
-                        type="button"
-                        onClick={() => setFormData({ ...formData, coverImage: "" })}
-                        className="h-11 px-3.5 rounded-xl border border-rose-200 bg-white hover:bg-rose-50 text-rose-600 text-xs font-bold flex items-center gap-1.5 transition shrink-0 cursor-pointer shadow-xs"
-                        title="Remove Cover Image"
-                      >
-                        <Trash2 className="h-3.5 w-3.5" />
-                        <span>Clear</span>
-                      </button>
-                    )}
+                    <button
+                      type="button"
+                      onClick={() => setImageUploadTab("stock")}
+                      className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                        imageUploadTab === "stock"
+                          ? "bg-admin-indigo text-white shadow-xs"
+                          : "text-slate-600 hover:text-slate-900 hover:bg-slate-100"
+                      }`}
+                    >
+                      <Layers className="h-3.5 w-3.5" />
+                      <span>Option 3: Marketplace Presets</span>
+                    </button>
                   </div>
 
-                  {formData.coverImage ? (
-                    <div className="relative h-44 w-full rounded-xl overflow-hidden border border-admin-border bg-white shadow-xs">
-                      <img
-                        src={formData.coverImage}
-                        alt="Cover Preview"
-                        className="w-full h-full object-cover"
-                      />
-                      <div className="absolute top-2.5 left-2.5 px-2.5 py-1 rounded-lg bg-black/60 backdrop-blur-md text-[10px] font-black uppercase tracking-wider text-white">
-                        Cover Banner Preview
-                      </div>
-                      <button
-                        type="button"
-                        onClick={() => fileInputRef.current?.click()}
-                        className="absolute bottom-2.5 right-2.5 px-3 py-1.5 rounded-lg bg-white/95 hover:bg-white text-admin-indigo text-xs font-bold shadow-md transition cursor-pointer"
-                      >
-                        Change Image
-                      </button>
-                    </div>
-                  ) : (
+                  {/* TAB 1: DEVICE MULTI-FILE UPLOAD & DRAG DROP */}
+                  {imageUploadTab === "file" && (
                     <div
-                      onClick={() => fileInputRef.current?.click()}
-                      className="border border-dashed border-slate-300 rounded-xl p-5 text-center bg-white/60 hover:bg-white transition cursor-pointer"
+                      onDragOver={(e) => {
+                        e.preventDefault();
+                        setIsDragOver(true);
+                      }}
+                      onDragLeave={(e) => {
+                        e.preventDefault();
+                        setIsDragOver(false);
+                      }}
+                      onDrop={(e) => {
+                        e.preventDefault();
+                        setIsDragOver(false);
+                        if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+                          handleMultipleFilesUpload(e.dataTransfer.files);
+                        }
+                      }}
+                      className={`relative border-2 border-dashed rounded-2xl p-6 text-center transition-all ${
+                        isDragOver
+                          ? "border-admin-indigo bg-indigo-50/50 scale-[1.01]"
+                          : "border-slate-300 hover:border-slate-400 bg-white"
+                      }`}
                     >
-                      <ImageIcon className="h-6 w-6 text-slate-400 mx-auto mb-1" />
-                      <p className="text-xs font-bold text-slate-600">No banner selected</p>
-                      <p className="text-[11px] text-slate-400">Click to upload JPG, PNG, or WEBP cover image</p>
+                      <input
+                        type="file"
+                        ref={fileInputRef}
+                        onChange={handleFileInputChange}
+                        accept="image/*"
+                        multiple
+                        className="hidden"
+                      />
+
+                      <div className="flex flex-col items-center justify-center space-y-2">
+                        <div className="grid h-12 w-12 place-items-center rounded-2xl bg-indigo-50 text-admin-indigo mb-1">
+                          <Upload className="h-6 w-6" />
+                        </div>
+                        <div>
+                          <p className="text-xs font-bold text-slate-800">
+                            Drag & drop multiple image files here, or{" "}
+                            <button
+                              type="button"
+                              onClick={() => fileInputRef.current?.click()}
+                              disabled={isUploadingImage}
+                              className="text-admin-indigo underline hover:text-indigo-700 cursor-pointer font-extrabold"
+                            >
+                              browse computer
+                            </button>
+                          </p>
+                          <p className="text-[11px] text-slate-500 mt-0.5">
+                            Supports multi-select JPG, PNG, WEBP, and GIF files simultaneously
+                          </p>
+                        </div>
+
+                        <button
+                          type="button"
+                          onClick={() => fileInputRef.current?.click()}
+                          disabled={isUploadingImage}
+                          className="mt-2 inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-admin-indigo text-white text-xs font-bold shadow-sm hover:bg-indigo-700 transition cursor-pointer"
+                        >
+                          <Plus className="h-4 w-4" />
+                          <span>{isUploadingImage ? "Processing Images..." : "Choose Multiple Images"}</span>
+                        </button>
+                      </div>
                     </div>
                   )}
+
+                  {/* TAB 2: DIRECT IMAGE URL */}
+                  {imageUploadTab === "url" && (
+                    <div className="rounded-2xl border border-admin-border bg-white p-4 space-y-3">
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs font-bold text-slate-700">Paste Image URLs</span>
+                        <span className="text-[11px] text-slate-400">Separate multiple URLs by newline or comma</span>
+                      </div>
+                      <div className="flex flex-col sm:flex-row gap-2">
+                        <textarea
+                          rows={2}
+                          placeholder="https://images.unsplash.com/...&#10;https://example.com/photo2.jpg"
+                          value={urlInput}
+                          onChange={(e) => setUrlInput(e.target.value)}
+                          className="flex-1 rounded-xl border border-admin-border bg-slate-50 p-2.5 text-xs font-medium text-admin-text outline-none focus:border-admin-indigo focus:ring-2 focus:ring-admin-indigo/15"
+                        />
+                        <button
+                          type="button"
+                          onClick={handleAddUrlImage}
+                          className="self-stretch sm:self-auto px-5 py-2.5 rounded-xl bg-admin-indigo text-white text-xs font-bold hover:bg-indigo-700 transition cursor-pointer flex items-center justify-center gap-1.5"
+                        >
+                          <Plus className="h-4 w-4" />
+                          <span>Add to Gallery</span>
+                        </button>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* TAB 3: MARKETPLACE STOCK PRESETS */}
+                  {imageUploadTab === "stock" && (
+                    <div className="rounded-2xl border border-admin-border bg-white p-4 space-y-3">
+                      <div className="flex flex-wrap items-center gap-1.5 pb-2 border-b border-slate-100">
+                        {MARKETPLACE_STOCK_PRESETS.map((p) => (
+                          <button
+                            key={p.category}
+                            type="button"
+                            onClick={() => setSelectedStockCategory(p.category)}
+                            className={`px-3 py-1 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                              selectedStockCategory === p.category
+                                ? "bg-slate-900 text-white shadow-xs"
+                                : "bg-slate-100 text-slate-600 hover:bg-slate-200"
+                            }`}
+                          >
+                            {p.category}
+                          </button>
+                        ))}
+                      </div>
+
+                      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
+                        {MARKETPLACE_STOCK_PRESETS.find((p) => p.category === selectedStockCategory)?.items.map((stock) => {
+                          const isAlreadyAdded = Array.isArray(formData.galleryImages) && formData.galleryImages.includes(stock.url);
+                          return (
+                            <div
+                              key={stock.url}
+                              className="group relative rounded-xl overflow-hidden border border-slate-200 bg-slate-100 aspect-video flex flex-col justify-end shadow-xs hover:shadow-md transition"
+                            >
+                              <img
+                                src={stock.url}
+                                alt={stock.label}
+                                className="absolute inset-0 w-full h-full object-cover group-hover:scale-105 transition duration-300"
+                              />
+                              <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent" />
+                              <div className="relative p-2 flex items-center justify-between text-white">
+                                <span className="text-[10px] font-bold truncate max-w-[70%]">{stock.label}</span>
+                                <button
+                                  type="button"
+                                  onClick={() => handleSelectStockImage(stock.url)}
+                                  className={`p-1 rounded-md text-[10px] font-black transition cursor-pointer flex items-center gap-1 ${
+                                    isAlreadyAdded
+                                      ? "bg-emerald-600 text-white"
+                                      : "bg-white/90 hover:bg-white text-slate-900"
+                                  }`}
+                                  title="Add to Blog Media"
+                                >
+                                  {isAlreadyAdded ? <Check className="h-3 w-3" /> : <Plus className="h-3 w-3" />}
+                                </button>
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* GALLERY & MEDIA ASSETS MANAGER */}
+                  <div className="space-y-2 pt-2 border-t border-slate-200/80">
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs font-bold text-slate-800 flex items-center gap-1.5">
+                        <span>Attached Blog Images & Media</span>
+                        <span className="px-2 py-0.5 rounded-full bg-slate-200 text-slate-700 text-[10px] font-extrabold">
+                          {Array.isArray(formData.galleryImages) ? formData.galleryImages.length : 0}
+                        </span>
+                      </span>
+
+                      {Array.isArray(formData.galleryImages) && formData.galleryImages.length > 0 && (
+                        <button
+                          type="button"
+                          onClick={() => setFormData((prev) => ({ ...prev, coverImage: "", galleryImages: [] }))}
+                          className="text-[11px] font-bold text-rose-600 hover:text-rose-700 cursor-pointer"
+                        >
+                          Clear All Images
+                        </button>
+                      )}
+                    </div>
+
+                    {Array.isArray(formData.galleryImages) && formData.galleryImages.length > 0 ? (
+                      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                        {formData.galleryImages.map((imgUrl, idx) => {
+                          const isCover = formData.coverImage === imgUrl;
+                          return (
+                            <div
+                              key={`${imgUrl}-${idx}`}
+                              className={`group relative rounded-xl overflow-hidden border transition shadow-xs ${
+                                isCover
+                                  ? "border-amber-400 ring-2 ring-amber-300/60 bg-amber-50/20"
+                                  : "border-slate-200 bg-white"
+                              }`}
+                            >
+                              <div className="relative aspect-video w-full overflow-hidden bg-slate-100">
+                                <img
+                                  src={imgUrl}
+                                  alt={`Attachment ${idx + 1}`}
+                                  className="w-full h-full object-cover group-hover:scale-105 transition duration-300"
+                                />
+
+                                {isCover && (
+                                  <div className="absolute top-1.5 left-1.5 px-2 py-0.5 rounded-md bg-amber-500 text-white text-[10px] font-black uppercase tracking-wider flex items-center gap-1 shadow-xs">
+                                    <Star className="h-3 w-3 fill-white" />
+                                    <span>Cover</span>
+                                  </div>
+                                )}
+
+                                {(imgUrl.includes("res.cloudinary.com") || imgUrl.includes("cloudinary.com")) && (
+                                  <div className="absolute bottom-1.5 left-1.5 px-1.5 py-0.5 rounded bg-sky-600/90 text-white text-[9px] font-black backdrop-blur-xs flex items-center gap-1 shadow-xs">
+                                    <Sparkles className="h-2.5 w-2.5" />
+                                    <span>Cloudinary</span>
+                                  </div>
+                                )}
+
+                                <button
+                                  type="button"
+                                  onClick={() => setPreviewImageModal(imgUrl)}
+                                  className="absolute top-1.5 right-1.5 p-1 rounded-md bg-black/60 hover:bg-black/80 text-white opacity-0 group-hover:opacity-100 transition cursor-pointer"
+                                  title="Enlarge Preview"
+                                >
+                                  <Maximize2 className="h-3 w-3" />
+                                </button>
+                              </div>
+
+                              <div className="p-2 space-y-1.5 bg-white">
+                                <div className="flex items-center justify-between gap-1">
+                                  {!isCover ? (
+                                    <button
+                                      type="button"
+                                      onClick={() => handleSetCoverImage(imgUrl)}
+                                      className="flex-1 py-1 px-1.5 rounded-lg bg-slate-100 hover:bg-amber-50 hover:text-amber-700 text-slate-700 text-[10px] font-bold flex items-center justify-center gap-1 transition cursor-pointer"
+                                      title="Set this image as the main banner"
+                                    >
+                                      <Star className="h-3 w-3" />
+                                      <span>Make Cover</span>
+                                    </button>
+                                  ) : (
+                                    <span className="flex-1 py-1 px-1.5 text-center text-[10px] font-bold text-amber-700 bg-amber-50 rounded-lg">
+                                      Active Cover
+                                    </span>
+                                  )}
+
+                                  <button
+                                    type="button"
+                                    onClick={() => handleInsertImageIntoContent(imgUrl, `Illustration ${idx + 1}`)}
+                                    className="py-1 px-2 rounded-lg bg-indigo-50 hover:bg-indigo-100 text-admin-indigo text-[10px] font-bold flex items-center justify-center gap-1 transition cursor-pointer"
+                                    title="Insert this image into article markdown"
+                                  >
+                                    <Plus className="h-3 w-3" />
+                                    <span>Insert</span>
+                                  </button>
+
+                                  <button
+                                    type="button"
+                                    onClick={() => handleRemoveGalleryImage(imgUrl)}
+                                    className="p-1 rounded-lg text-rose-500 hover:bg-rose-50 transition cursor-pointer"
+                                    title="Remove Image"
+                                  >
+                                    <Trash2 className="h-3.5 w-3.5" />
+                                  </button>
+                                </div>
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    ) : (
+                      <div className="border border-dashed border-slate-300 rounded-xl p-5 text-center bg-white">
+                        <ImageIcon className="h-6 w-6 text-slate-400 mx-auto mb-1" />
+                        <p className="text-xs font-bold text-slate-700">No images added to this article yet</p>
+                        <p className="text-[11px] text-slate-400">
+                          Use the tabs above to upload files, paste URLs, or pick marketplace stock photos
+                        </p>
+                      </div>
+                    )}
+                  </div>
                 </div>
               </div>
 
@@ -751,6 +1214,45 @@ export const BlogEditorModal: React.FC<BlogEditorModalProps> = ({
         </div>
 
       </div>
+
+      {/* Enlarged Image Preview Modal */}
+      {previewImageModal && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
+          <div className="relative max-w-3xl w-full bg-white rounded-2xl overflow-hidden shadow-2xl animate-in fade-in-50">
+            <div className="flex items-center justify-between p-3.5 border-b border-slate-100 bg-slate-50">
+              <span className="text-xs font-bold text-slate-700">Full Image Preview</span>
+              <button
+                type="button"
+                onClick={() => setPreviewImageModal(null)}
+                className="p-1 rounded-lg text-slate-500 hover:bg-slate-200 transition cursor-pointer"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+            <div className="p-3 bg-slate-950 flex items-center justify-center max-h-[75vh]">
+              <img
+                src={previewImageModal}
+                alt="Enlarged Preview"
+                className="max-h-[70vh] w-auto max-w-full object-contain rounded-lg"
+              />
+            </div>
+            <div className="p-3 bg-white flex justify-between items-center text-xs gap-3">
+              <span className="text-slate-500 truncate text-[11px] font-mono">{previewImageModal}</span>
+              <button
+                type="button"
+                onClick={() => {
+                  handleSetCoverImage(previewImageModal);
+                  setPreviewImageModal(null);
+                }}
+                className="px-3.5 py-1.5 rounded-xl bg-amber-500 hover:bg-amber-600 text-white font-bold transition shadow-xs cursor-pointer flex items-center gap-1.5 shrink-0"
+              >
+                <Star className="h-3.5 w-3.5 fill-white" />
+                <span>Set as Cover Banner</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

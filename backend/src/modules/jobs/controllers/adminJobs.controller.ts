@@ -257,3 +257,70 @@ export async function getEmployerModerationHistory(req: Request, res: Response, 
     next(err);
   }
 }
+
+export async function bulkApproveJobs(req: Request, res: Response, next: NextFunction): Promise<void> {
+  try {
+    const { jobIds, reason } = req.body;
+    if (!Array.isArray(jobIds) || jobIds.length === 0) {
+      res.status(400).json({ success: false, error: { message: "jobIds array is required" } });
+      return;
+    }
+
+    const validIds = jobIds
+      .map((id: any) => String(id))
+      .filter((id: string) => mongoose.Types.ObjectId.isValid(id));
+
+    if (validIds.length === 0) {
+      res.status(400).json({ success: false, error: { message: "No valid job IDs provided" } });
+      return;
+    }
+
+    // Find jobs before update so we can notify employers
+    const jobs = await Job.find({ _id: { $in: validIds } }).lean();
+
+    // Update status to APPROVED
+    const result = await Job.updateMany(
+      { _id: { $in: validIds } },
+      {
+        $set: {
+          status: "APPROVED",
+          rejectionReason: undefined,
+          updatedAt: new Date()
+        }
+      }
+    );
+
+    invalidateJobsCache();
+
+    // Dispatch notifications to employers
+    const notificationsToCreate: any[] = [];
+    jobs.forEach((job) => {
+      if (job.employerId) {
+        notificationsToCreate.push({
+          userId: job.employerId,
+          type: "listing_moderation",
+          title: `Job Approved: "${job.title}"`,
+          body: reason || `Your job posting "${job.title}" has been approved by admin and is now live.`,
+          link: `/my/employer/jobs`,
+        });
+      }
+    });
+
+    if (notificationsToCreate.length > 0) {
+      await Notification.insertMany(notificationsToCreate).catch(() => {});
+    }
+
+    res.status(200).json({
+      success: true,
+      message: `Successfully approved ${result.modifiedCount || validIds.length} job(s)`,
+      data: {
+        matchedCount: result.matchedCount,
+        modifiedCount: result.modifiedCount,
+        approvedIds: validIds
+      }
+    });
+  } catch (err) {
+    next(err);
+  }
+}
+

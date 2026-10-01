@@ -563,7 +563,7 @@ export function WebsiteHeader() {
                 onFocus={() => setSearchFocused(true)}
                 placeholder="Search cars, mobiles…"
                 className="min-w-0 flex-1 bg-transparent text-xs outline-none placeholder:text-muted-foreground"
-                aria-label="Search Omeetso"
+                aria-label="Search omeetso"
               />
               {q && (
                 <button

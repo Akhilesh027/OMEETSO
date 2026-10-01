@@ -7,6 +7,7 @@ import {
   getAdminJobCategories,
   upsertAdminJobCategory,
   getEmployerModerationHistory,
+  bulkApproveJobs,
 } from "../controllers/adminJobs.controller";
 
 export const adminJobsRouter = Router();
@@ -14,6 +15,7 @@ export const adminJobsRouter = Router();
 adminJobsRouter.use(authenticateAdmin);
 
 adminJobsRouter.get("/", getAdminJobs);
+adminJobsRouter.post("/bulk-approve", bulkApproveJobs);
 adminJobsRouter.patch("/:id/status", updateAdminJobStatus);
 adminJobsRouter.delete("/:id", deleteAdminJob);
 adminJobsRouter.get("/categories", getAdminJobCategories);

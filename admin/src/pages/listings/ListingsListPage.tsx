@@ -8,6 +8,7 @@ import {
   Package,
   Clock,
   CheckCircle2,
+  CheckCheck,
   XCircle,
   AlertCircle,
   Edit3,
@@ -22,6 +23,7 @@ import {
   MapPin,
   Tag,
   Zap,
+  Loader2,
 } from "lucide-react";
 import { useToast } from "@/contexts/ToastContext";
 
@@ -29,6 +31,7 @@ import {
   getAdminListingsQueueApi,
   approveListingApi,
   rejectListingApi,
+  bulkApproveListingsApi,
   updateListingStatusApi,
   createAdminListingApi,
   updateAdminListingApi,
@@ -52,6 +55,10 @@ export default function ListingsListPage() {
   >("all");
   const [viewMode, setViewMode] = useState<"table" | "grid">("table");
   const [searchTerm, setSearchTerm] = useState("");
+
+  // Selection & Bulk Actions state
+  const [selectedListingIds, setSelectedListingIds] = useState<string[]>([]);
+  const [isBulkApproving, setIsBulkApproving] = useState(false);
 
   // Modals state
   const [selectedListing, setSelectedListing] = useState<Listing | null>(null);
@@ -127,6 +134,57 @@ export default function ListingsListPage() {
 
     return true;
   });
+
+  const isAllSelected =
+    filteredListings.length > 0 &&
+    filteredListings.every((l) => selectedListingIds.includes(l.id));
+
+  const isSomeSelected =
+    filteredListings.some((l) => selectedListingIds.includes(l.id)) && !isAllSelected;
+
+  const toggleSelectAll = () => {
+    if (isAllSelected) {
+      const currentFilteredIds = new Set(filteredListings.map((l) => l.id));
+      setSelectedListingIds((prev) => prev.filter((id) => !currentFilteredIds.has(id)));
+    } else {
+      const merged = new Set([...selectedListingIds, ...filteredListings.map((l) => l.id)]);
+      setSelectedListingIds(Array.from(merged));
+    }
+  };
+
+  const toggleSelectListing = (id: string, e?: React.MouseEvent) => {
+    if (e) e.stopPropagation();
+    setSelectedListingIds((prev) =>
+      prev.includes(id) ? prev.filter((item) => item !== id) : [...prev, id]
+    );
+  };
+
+  const handleBulkApprove = async () => {
+    if (selectedListingIds.length === 0) return;
+    const count = selectedListingIds.length;
+    if (!window.confirm(`Are you sure you want to approve ${count} selected listing${count > 1 ? "s" : ""}?`)) {
+      return;
+    }
+
+    setIsBulkApproving(true);
+    try {
+      const res = await bulkApproveListingsApi(selectedListingIds, "Bulk approved by admin");
+      if (res.success) {
+        showSuccess(
+          "Listings Approved",
+          `Successfully approved ${count} listing${count > 1 ? "s" : ""}.`
+        );
+        setSelectedListingIds([]);
+        await loadListings();
+      } else {
+        showError("Bulk Approval Failed", res.error || "Unable to bulk approve listings.");
+      }
+    } catch (err: any) {
+      showError("Error", err?.message || "Failed to process bulk approval.");
+    } finally {
+      setIsBulkApproving(false);
+    }
+  };
 
   const handleStatusChange = async (listingId: string, status: Listing["status"], reason?: string) => {
     try {
@@ -256,12 +314,71 @@ export default function ListingsListPage() {
           </div>
         </div>
 
+        {/* Bulk Action Bar */}
+        {selectedListingIds.length > 0 && (
+          <div className="flex flex-wrap items-center justify-between gap-3 p-3.5 bg-gradient-to-r from-emerald-50 via-teal-50 to-indigo-50 border border-emerald-200/80 rounded-xl shadow-xs transition-all animate-in fade-in-50">
+            <div className="flex items-center space-x-3">
+              <span className="flex items-center justify-center w-7 h-7 bg-emerald-600 text-white rounded-lg text-xs font-bold shadow-xs">
+                {selectedListingIds.length}
+              </span>
+              <div>
+                <p className="text-xs font-bold text-slate-800">
+                  {selectedListingIds.length} listing{selectedListingIds.length > 1 ? "s" : ""} selected
+                </p>
+                <p className="text-[11px] text-slate-500">
+                  Choose an action to apply across all selected listings
+                </p>
+              </div>
+            </div>
+
+            <div className="flex items-center space-x-2">
+              <button
+                type="button"
+                onClick={() => setSelectedListingIds([])}
+                className="px-3 py-1.5 text-xs font-semibold text-slate-600 hover:text-slate-900 hover:bg-white/80 rounded-lg transition-colors cursor-pointer"
+              >
+                Clear Selection
+              </button>
+              <button
+                type="button"
+                onClick={handleBulkApprove}
+                disabled={isBulkApproving}
+                className="inline-flex items-center space-x-2 px-4 py-2 text-xs font-bold text-white bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 disabled:opacity-50 rounded-xl shadow-sm hover:shadow transition-all cursor-pointer"
+              >
+                {isBulkApproving ? (
+                  <>
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                    <span>Approving...</span>
+                  </>
+                ) : (
+                  <>
+                    <CheckCheck className="w-4 h-4" />
+                    <span>Bulk Approve ({selectedListingIds.length})</span>
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+        )}
+
         {/* View render */}
         {viewMode === "table" ? (
           <div className="overflow-x-auto">
             <table className="w-full text-left text-xs">
               <thead className="bg-[#F5F7FC] text-[#64748B] font-bold uppercase text-[10px] border-b border-[#E2E8F0]">
                 <tr>
+                  <th className="p-3 w-10 text-center">
+                    <input
+                      type="checkbox"
+                      checked={isAllSelected}
+                      ref={(el) => {
+                        if (el) el.indeterminate = isSomeSelected;
+                      }}
+                      onChange={toggleSelectAll}
+                      className="w-4 h-4 rounded border-slate-300 text-[#3547D4] focus:ring-[#3547D4] cursor-pointer"
+                      title={isAllSelected ? "Deselect all" : "Select all"}
+                    />
+                  </th>
                   <th className="p-3">Product / Title</th>
                   <th className="p-3">Price</th>
                   <th className="p-3">Category</th>
@@ -274,157 +391,198 @@ export default function ListingsListPage() {
               <tbody className="divide-y divide-[#E2E8F0]">
                 {filteredListings.length === 0 ? (
                   <tr>
-                    <td colSpan={7} className="p-8 text-center text-slate-400">
+                    <td colSpan={8} className="p-8 text-center text-slate-400">
                       No matching listings found.
                     </td>
                   </tr>
                 ) : (
-                  filteredListings.map((l) => (
-                    <tr
-                      key={l.id}
-                      onClick={() => navigate(`/admin/listings/${l.id}`)}
-                      className="hover:bg-slate-50 transition-colors cursor-pointer"
-                    >
-                      <td className="p-3">
-                        <div className="flex items-center space-x-3">
-                          <img
-                            src={(l.images && l.images[0]) || "https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=100"}
-                            alt={l.title}
-                            className="w-10 h-10 rounded-xl object-cover border border-slate-200 shrink-0"
-                          />
-                          <div>
-                            <div className="font-bold text-[#111827] line-clamp-1">{l.title}</div>
-                            <div className="text-[10px] text-slate-400 font-mono">ID: {l.id}</div>
-                          </div>
-                        </div>
-                      </td>
-                      <td className="p-3 font-bold text-[#3547D4] text-xs">
-                        ₹{(l?.priceInPaise ? l.priceInPaise / 100 : (l?.price ?? 0)).toLocaleString("en-IN")}
-                      </td>
-                      <td className="p-3 capitalize font-medium text-slate-600">{l.categoryId}</td>
-                      <td className="p-3 font-medium text-[#111827]">{l.sellerName}</td>
-                      <td className="p-3 text-slate-500">{l.location?.city || "Hyderabad"}</td>
-                      <td className="p-3">
-                        <span
-                          className={`px-2.5 py-0.5 text-[10px] font-bold rounded-full capitalize ${l.status === "active"
-                            ? "bg-emerald-100 text-[#16A36A]"
-                            : l.status === "pending_review"
-                              ? "bg-amber-100 text-amber-900"
-                              : l.status === "reported"
-                                ? "bg-red-100 text-[#DC3545]"
-                                : "bg-slate-100 text-slate-600"
-                            }`}
+                  filteredListings.map((l) => {
+                    const isSelected = selectedListingIds.includes(l.id);
+                    return (
+                      <tr
+                        key={l.id}
+                        onClick={() => navigate(`/admin/listings/${l.id}`)}
+                        className={`transition-colors cursor-pointer ${isSelected ? "bg-indigo-50/70 hover:bg-indigo-100/60" : "hover:bg-slate-50"
+                          }`}
+                      >
+                        <td
+                          className="p-3 w-10 text-center"
+                          onClick={(e) => e.stopPropagation()}
                         >
-                          {l.status.replace("_", " ")}
-                        </span>
-                      </td>
-                      <td className="p-3 text-right">
-                        <div className="flex items-center justify-end space-x-1.5">
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              navigate(`/admin/listings/${l.id}`);
-                            }}
-                            className="inline-flex items-center space-x-1 px-2.5 py-1.5 text-xs font-bold bg-indigo-50 text-[#3547D4] hover:bg-[#3547D4] hover:text-white rounded-xl transition-colors border border-indigo-200"
-                            title="View Full Listing Details"
+                          <input
+                            type="checkbox"
+                            checked={isSelected}
+                            onChange={(e) => toggleSelectListing(l.id, e)}
+                            className="w-4 h-4 rounded border-slate-300 text-[#3547D4] focus:ring-[#3547D4] cursor-pointer"
+                          />
+                        </td>
+                        <td className="p-3">
+                          <div className="flex items-center space-x-3">
+                            <img
+                              src={(l.images && l.images[0]) || "https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=100"}
+                              alt={l.title}
+                              className="w-10 h-10 rounded-xl object-cover border border-slate-200 shrink-0"
+                            />
+                            <div>
+                              <div className="font-bold text-[#111827] line-clamp-1">{l.title}</div>
+                              <div className="text-[10px] text-slate-400 font-mono">ID: {l.id}</div>
+                            </div>
+                          </div>
+                        </td>
+                        <td className="p-3 font-bold text-[#3547D4] text-xs">
+                          ₹{(l?.priceInPaise ? l.priceInPaise / 100 : (l?.price ?? 0)).toLocaleString("en-IN")}
+                        </td>
+                        <td className="p-3 capitalize font-medium text-slate-600">{l.categoryId}</td>
+                        <td className="p-3 font-medium text-[#111827]">{l.sellerName}</td>
+                        <td className="p-3 text-slate-500">{l.location?.city || "Hyderabad"}</td>
+                        <td className="p-3">
+                          <span
+                            className={`px-2.5 py-0.5 text-[10px] font-bold rounded-full capitalize ${l.status === "active"
+                              ? "bg-emerald-100 text-[#16A36A]"
+                              : l.status === "pending_review"
+                                ? "bg-amber-100 text-amber-900"
+                                : l.status === "reported"
+                                  ? "bg-red-100 text-[#DC3545]"
+                                  : "bg-slate-100 text-slate-600"
+                              }`}
                           >
-                            <Eye className="w-3.5 h-3.5" />
-                            <span>View Details</span>
-                          </button>
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              setSelectedListing(l);
-                              setIsInspectorOpen(true);
-                            }}
-                            className="p-1.5 text-slate-500 hover:text-[#3547D4] hover:bg-slate-100 rounded-lg"
-                            title="Quick Moderation Review"
-                          >
-                            <Eye className="w-4 h-4" />
-                          </button>
-                          <button
-                            onClick={() => {
-                              setSelectedListing(l);
-                              setIsBoostOpen(true);
-                            }}
-                            className="p-1.5 text-amber-600 hover:text-amber-800 hover:bg-amber-50 rounded-lg"
-                            title="Boost as Ad Campaign"
-                          >
-                            <Zap className="w-4 h-4" />
-                          </button>
-                          <button
-                            onClick={() => {
-                              setSelectedListing(l);
-                              setFormData(l);
-                              setIsEditOpen(true);
-                            }}
-                            className="p-1.5 text-slate-500 hover:text-[#3547D4] hover:bg-slate-100 rounded-lg"
-                            title="Edit Listing"
-                          >
-                            <Edit3 className="w-4 h-4" />
-                          </button>
-                          <button
-                            onClick={() => handleDeleteListing(l.id)}
-                            className="p-1.5 text-rose-500 hover:text-rose-700 hover:bg-rose-50 dark:text-rose-400 dark:hover:text-rose-300 dark:hover:bg-rose-950/40 rounded-lg transition-colors inline-flex items-center justify-center"
-                            title="Delete Listing"
-                          >
-                            <Trash2 className="w-4 h-4" />
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
-                  ))
+                            {l.status.replace("_", " ")}
+                          </span>
+                        </td>
+                        <td className="p-3 text-right">
+                          <div className="flex items-center justify-end space-x-1.5">
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                navigate(`/admin/listings/${l.id}`);
+                              }}
+                              className="inline-flex items-center space-x-1 px-2.5 py-1.5 text-xs font-bold bg-indigo-50 text-[#3547D4] hover:bg-[#3547D4] hover:text-white rounded-xl transition-colors border border-indigo-200"
+                              title="View Full Listing Details"
+                            >
+                              <Eye className="w-3.5 h-3.5" />
+                              <span>View Details</span>
+                            </button>
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setSelectedListing(l);
+                                setIsInspectorOpen(true);
+                              }}
+                              className="p-1.5 text-slate-500 hover:text-[#3547D4] hover:bg-slate-100 rounded-lg"
+                              title="Quick Moderation Review"
+                            >
+                              <Eye className="w-4 h-4" />
+                            </button>
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setSelectedListing(l);
+                                setIsBoostOpen(true);
+                              }}
+                              className="p-1.5 text-amber-600 hover:text-amber-800 hover:bg-amber-50 rounded-lg"
+                              title="Boost as Ad Campaign"
+                            >
+                              <Zap className="w-4 h-4" />
+                            </button>
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setSelectedListing(l);
+                                setFormData(l);
+                                setIsEditOpen(true);
+                              }}
+                              className="p-1.5 text-slate-500 hover:text-[#3547D4] hover:bg-slate-100 rounded-lg"
+                              title="Edit Listing"
+                            >
+                              <Edit3 className="w-4 h-4" />
+                            </button>
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleDeleteListing(l.id);
+                              }}
+                              className="p-1.5 text-rose-500 hover:text-rose-700 hover:bg-rose-50 dark:text-rose-400 dark:hover:text-rose-300 dark:hover:bg-rose-950/40 rounded-lg transition-colors inline-flex items-center justify-center"
+                              title="Delete Listing"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })
                 )}
               </tbody>
             </table>
           </div>
         ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-            {filteredListings.map((l) => (
-              <div key={l.id} className="bg-slate-50 rounded-2xl border border-[#E2E8F0] overflow-hidden p-3 space-y-2">
-                <img
-                  src={(l.images && l.images[0]) || "https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=400"}
-                  alt={l.title}
-                  className="w-full h-36 object-cover rounded-xl border border-slate-200"
-                />
-                <div className="flex items-center justify-between">
-                  <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500">{l.categoryId}</span>
-                  <span className="text-xs font-extrabold text-[#3547D4]">₹{((l.priceInPaise || 0) / 100).toLocaleString("en-IN")}</span>
-                </div>
-                <h4 className="text-xs font-bold text-[#111827] line-clamp-1">{l.title}</h4>
-                <div className="text-[11px] text-[#64748B]">Seller: {l.sellerName}</div>
-                <div className="pt-2 flex items-center justify-between border-t border-slate-200">
-                  <button
-                    onClick={() => {
-                      setSelectedListing(l);
-                      setIsInspectorOpen(true);
-                    }}
-                    className="px-3 py-1 text-xs font-bold bg-[#3547D4] text-white rounded-lg hover:bg-[#111E4D]"
+            {filteredListings.map((l) => {
+              const isSelected = selectedListingIds.includes(l.id);
+              return (
+                <div
+                  key={l.id}
+                  className={`relative bg-slate-50 rounded-2xl border transition-all overflow-hidden p-3 space-y-2 ${isSelected
+                      ? "border-indigo-500 ring-2 ring-indigo-200 bg-indigo-50/20"
+                      : "border-[#E2E8F0]"
+                    }`}
+                >
+                  {/* Select Checkbox on Card */}
+                  <div
+                    onClick={(e) => e.stopPropagation()}
+                    className="absolute top-4 left-4 z-10 bg-white/95 backdrop-blur-md p-1.5 rounded-lg shadow-sm border border-slate-200 hover:bg-white"
                   >
-                    Inspect Queue
-                  </button>
-                  <div className="flex items-center space-x-1">
+                    <input
+                      type="checkbox"
+                      checked={isSelected}
+                      onChange={(e) => toggleSelectListing(l.id, e)}
+                      className="w-4 h-4 rounded border-slate-300 text-[#3547D4] focus:ring-[#3547D4] cursor-pointer block"
+                    />
+                  </div>
+                  <img
+                    src={(l.images && l.images[0]) || "https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=400"}
+                    alt={l.title}
+                    className="w-full h-36 object-cover rounded-xl border border-slate-200"
+                  />
+                  <div className="flex items-center justify-between">
+                    <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500">{l.categoryId}</span>
+                    <span className="text-xs font-extrabold text-[#3547D4]">₹{((l.priceInPaise || 0) / 100).toLocaleString("en-IN")}</span>
+                  </div>
+                  <h4 className="text-xs font-bold text-[#111827] line-clamp-1">{l.title}</h4>
+                  <div className="text-[11px] text-[#64748B]">Seller: {l.sellerName}</div>
+                  <div className="pt-2 flex items-center justify-between border-t border-slate-200">
                     <button
                       onClick={() => {
                         setSelectedListing(l);
-                        setIsBoostOpen(true);
+                        setIsInspectorOpen(true);
                       }}
-                      className="p-1.5 text-amber-600 hover:bg-amber-100 rounded-lg transition-colors"
-                      title="Boost Listing"
+                      className="px-3 py-1 text-xs font-bold bg-[#3547D4] text-white rounded-lg hover:bg-[#111E4D]"
                     >
-                      <Zap className="w-4 h-4" />
+                      Inspect Queue
                     </button>
-                    <button
-                      onClick={() => handleDeleteListing(l.id)}
-                      className="p-1.5 text-rose-500 hover:text-rose-700 hover:bg-rose-50 rounded-lg transition-colors inline-flex items-center justify-center"
-                      title="Delete Listing"
-                    >
-                      <Trash2 className="w-4 h-4" />
-                    </button>
+                    <div className="flex items-center space-x-1">
+                      <button
+                        onClick={() => {
+                          setSelectedListing(l);
+                          setIsBoostOpen(true);
+                        }}
+                        className="p-1.5 text-amber-600 hover:bg-amber-100 rounded-lg transition-colors"
+                        title="Boost Listing"
+                      >
+                        <Zap className="w-4 h-4" />
+                      </button>
+                      <button
+                        onClick={() => handleDeleteListing(l.id)}
+                        className="p-1.5 text-rose-500 hover:text-rose-700 hover:bg-rose-50 rounded-lg transition-colors inline-flex items-center justify-center"
+                        title="Delete Listing"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    </div>
                   </div>
                 </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         )}
       </div>
@@ -473,8 +631,8 @@ export default function ListingsListPage() {
                       type="button"
                       onClick={() => setChangeNotes(preset)}
                       className={`px-2 py-1 text-[11px] rounded-lg border transition-colors ${changeNotes === preset
-                          ? "bg-amber-100 border-amber-400 text-amber-900 font-bold"
-                          : "bg-slate-50 border-slate-200 text-slate-700 hover:bg-slate-100"
+                        ? "bg-amber-100 border-amber-400 text-amber-900 font-bold"
+                        : "bg-slate-50 border-slate-200 text-slate-700 hover:bg-slate-100"
                         }`}
                     >
                       {preset}

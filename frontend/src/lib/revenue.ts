@@ -190,7 +190,7 @@ export const BANNER_PACKAGES: BoostPackage[] = [
     name: "💼 Jobs Portal Banner (14 Days)",
     duration: 14,
     price: 699,
-    benefits: ["Top billboard on Omeetso Local Jobs portal", "Direct Call & WhatsApp Applications", "Estimated 25,000+ Candidates"],
+    benefits: ["Top billboard on omeetso Local Jobs portal", "Direct Call & WhatsApp Applications", "Estimated 25,000+ Candidates"],
     visibilityMultiplier: "11×",
     placements: ["CATEGORY_HERO"],
     compatibility: ["CATEGORY_HERO"],
@@ -514,7 +514,7 @@ export function endCampaign(id: string) {
   upsertCampaign({ ...c, status: "completed" });
   if (refund > 0) {
     addCredit({ id: newId("CR"), amount: refund, source: "Campaign end refund", expiresAt: Date.now() + 90 * 86400000, eligibleFor: ["boost", "ad", "store_promotion"] });
-    recordTxn({ id: newId("TXN"), type: "refund", direction: "credit", amount: refund, status: "successful", createdAt: Date.now(), title: `Refund — ${c.name}`, campaignId: c.id, paymentMethod: "Omeetso Wallet" });
+    recordTxn({ id: newId("TXN"), type: "refund", direction: "credit", amount: refund, status: "successful", createdAt: Date.now(), title: `Refund — ${c.name}`, campaignId: c.id, paymentMethod: "omeetso Wallet" });
   }
   return { refund };
 }
@@ -555,7 +555,7 @@ export function debitWallet(amount: number, meta: { title: string; type: WalletT
     id: newId("TXN"), type: meta.type, direction: "debit", amount,
     status: "successful", createdAt: Date.now(),
     title: meta.title, campaignId: meta.campaignId, promotionId: meta.promotionId,
-    paymentMethod: meta.paymentMethod ?? "Omeetso Wallet", paymentId: newId("PAY"),
+    paymentMethod: meta.paymentMethod ?? "omeetso Wallet", paymentId: newId("PAY"),
   });
 }
 

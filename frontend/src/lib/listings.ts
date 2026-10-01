@@ -244,7 +244,7 @@ export async function fetchLivePublicListings(params?: {
           specs: item.specs || {},
           contactPref: "call_and_chat" as ContactPref,
           bestContactTime: "anytime" as BestContactTime,
-          sellerName: item.sellerName || item.businessName || "Omeetso Seller",
+          sellerName: item.sellerName || item.businessName || "omeetso Seller",
           sellerOwnerName: item.sellerOwnerName,
           businessName: item.businessName || item.storeName,
           storeName: item.storeName,
@@ -323,7 +323,7 @@ export async function fetchLiveUserListings(forceRefresh = false): Promise<Listi
             specs: item.specs || {},
             contactPref: "call_and_chat" as ContactPref,
             bestContactTime: "anytime" as BestContactTime,
-            sellerName: item.sellerName || "Omeetso Seller",
+            sellerName: item.sellerName || "omeetso Seller",
             sellerId: item.sellerId?._id?.toString() || item.sellerId?.toString() || item.sellerId || uid || "",
             status: isMarkedSold ? ("sold" as ListingStatus) : ((item.status?.toLowerCase() || "active") as ListingStatus),
             createdAt: new Date(item.createdAt || item.publishedAt || Date.now()).getTime(),
@@ -392,7 +392,7 @@ export async function fetchLiveListingById(id: string): Promise<Listing | null> 
         specs: item.specs || {},
         contactPref: (item.contactPref || "call_and_chat") as ContactPref,
         bestContactTime: "anytime" as BestContactTime,
-        sellerName: item.sellerName || item.seller?.name || "Omeetso Seller",
+        sellerName: item.sellerName || item.seller?.name || "omeetso Seller",
         seller: item.seller,
         status: (item.status?.toLowerCase() || "active") as ListingStatus,
         method: item.method || (item.id?.startsWith("Q-") || item.id?.includes("quick") ? "quick" : "detailed"),
@@ -637,7 +637,7 @@ export function getSellerPrefs(): SellerPrefs {
   }
   const pref = read<SellerPrefs>(LS.sellerPrefs, {});
   return {
-    name: pref.name || user?.profile?.name || (user?.phone ? `User (${user.phone})` : "Omeetso Seller"),
+    name: pref.name || user?.profile?.name || (user?.phone ? `User (${user.phone})` : "omeetso Seller"),
     phone: pref.phone || user?.phone || "",
     type: pref.type || user?.accountType || "individual"
   };
@@ -708,7 +708,7 @@ const seedListings = (): Listing[] => [
       reason: "The listing image contains a visible phone number.",
       section: "Photos",
       correction: "Remove contact information from the image and upload a clean product photograph.",
-      policyRef: "Omeetso Listing Policy §4.2 — No contact info in media",
+      policyRef: "omeetso Listing Policy §4.2 — No contact info in media",
       date: now - 2 * day,
     },
     method: "detailed",

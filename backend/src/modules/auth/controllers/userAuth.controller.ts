@@ -15,8 +15,29 @@ import { env } from "../../../config/env";
 import { AuthenticatedUserRequest } from "../../../middleware/authenticateUser";
 import { sendOtpSms } from "../services/sms.service";
 import { sendUserWelcomeEmail, sendAdminAlertEmail } from "../services/email.service";
+import { VerificationRequest } from "../../verification/models/VerificationRequest";
 
 const USER_REFRESH_COOKIE = "omeetso_user_refresh";
+
+export function formatAuthUser(user: any) {
+  const isEmailVerified = Boolean(user.emailVerified || user.verificationSummary?.emailVerified);
+  return {
+    id: user._id.toString(),
+    _id: user._id.toString(),
+    phone: user.phone,
+    email: user.email,
+    emailVerified: isEmailVerified,
+    accountType: user.accountType,
+    status: user.status,
+    profile: user.profile,
+    verificationSummary: {
+      mobileVerified: Boolean(user.verificationSummary?.mobileVerified ?? true),
+      emailVerified: isEmailVerified,
+      identityVerified: Boolean(user.verificationSummary?.identityVerified),
+      businessVerified: Boolean(user.verificationSummary?.businessVerified)
+    }
+  };
+}
 
 export async function requestOtp(req: Request, res: Response, next: NextFunction): Promise<void> {
   try {
@@ -202,15 +223,7 @@ export async function verifyOtp(req: Request, res: Response, next: NextFunction)
       data: {
         accessToken,
         isNewUser,
-        user: {
-          id: user._id.toString(),
-          phone: user.phone,
-          email: user.email,
-          accountType: user.accountType,
-          status: user.status,
-          profile: user.profile,
-          verificationSummary: user.verificationSummary
-        }
+        user: formatAuthUser(user)
       }
     });
   } catch (error) {
@@ -286,15 +299,7 @@ export async function refreshUserSession(req: Request, res: Response, next: Next
       success: true,
       data: {
         accessToken: newAccessToken,
-        user: {
-          id: user._id.toString(),
-          phone: user.phone,
-          email: user.email,
-          accountType: user.accountType,
-          status: user.status,
-          profile: user.profile,
-          verificationSummary: user.verificationSummary
-        }
+        user: formatAuthUser(user)
       }
     });
   } catch (error) {
@@ -340,15 +345,7 @@ export async function getUserSession(req: AuthenticatedUserRequest, res: Respons
     const u = req.user;
     res.status(200).json({
       success: true,
-      data: {
-        id: u._id.toString(),
-        phone: u.phone,
-        email: u.email,
-        accountType: u.accountType,
-        status: u.status,
-        profile: u.profile,
-        verificationSummary: u.verificationSummary
-      }
+      data: formatAuthUser(u)
     });
   } catch (error) {
     next(error);
@@ -541,15 +538,7 @@ export async function registerUser(req: Request, res: Response, next: NextFuncti
       data: {
         accessToken,
         isNewUser: true,
-        user: {
-          id: user._id.toString(),
-          phone: user.phone,
-          email: user.email,
-          accountType: user.accountType,
-          status: user.status,
-          profile: user.profile,
-          verificationSummary: user.verificationSummary
-        }
+        user: formatAuthUser(user)
       }
     });
   } catch (error) {
@@ -609,6 +598,30 @@ export async function loginUserDirect(req: Request, res: Response, next: NextFun
       }
     }
 
+    // Ensure email verification consistency
+    if (user.emailVerified || user.verificationSummary?.emailVerified) {
+      if (!user.emailVerified || !user.verificationSummary?.emailVerified) {
+        user.emailVerified = true;
+        if (!user.verificationSummary) {
+          user.verificationSummary = { identityVerified: false, mobileVerified: true, emailVerified: true, businessVerified: false };
+        } else {
+          user.verificationSummary.emailVerified = true;
+        }
+        await user.save();
+      }
+    } else if (user.email) {
+      const hasApprovedEmailVerif = await VerificationRequest.exists({ userId: user._id, type: "email", status: "approved" });
+      if (hasApprovedEmailVerif) {
+        user.emailVerified = true;
+        if (!user.verificationSummary) {
+          user.verificationSummary = { identityVerified: false, mobileVerified: true, emailVerified: true, businessVerified: false };
+        } else {
+          user.verificationSummary.emailVerified = true;
+        }
+        await user.save();
+      }
+    }
+
     // Revoke prior active sessions
     await UserSession.updateMany(
       { userId: user._id, isRevoked: false },
@@ -642,15 +655,7 @@ export async function loginUserDirect(req: Request, res: Response, next: NextFun
       success: true,
       data: {
         accessToken,
-        user: {
-          id: user._id.toString(),
-          phone: user.phone,
-          email: user.email,
-          accountType: user.accountType,
-          status: user.status,
-          profile: user.profile,
-          verificationSummary: user.verificationSummary
-        }
+        user: formatAuthUser(user)
       }
     });
   } catch (error) {
@@ -789,15 +794,7 @@ export async function resetUserPin(req: Request, res: Response, next: NextFuncti
       message: "PIN updated successfully! You are now signed in.",
       data: {
         accessToken,
-        user: {
-          id: user._id.toString(),
-          phone: user.phone,
-          email: user.email,
-          accountType: user.accountType,
-          status: user.status,
-          profile: user.profile,
-          verificationSummary: user.verificationSummary
-        }
+        user: formatAuthUser(user)
       }
     });
   } catch (error) {
@@ -881,16 +878,7 @@ export async function loginWithGoogle(req: Request, res: Response, next: NextFun
       data: {
         accessToken,
         refreshToken: rawRefreshToken,
-        user: {
-          id: user._id.toString(),
-          _id: user._id.toString(),
-          phone: user.phone,
-          email: user.email,
-          accountType: user.accountType,
-          status: user.status,
-          profile: user.profile,
-          verificationSummary: user.verificationSummary
-        }
+        user: formatAuthUser(user)
       }
     });
   } catch (error) {

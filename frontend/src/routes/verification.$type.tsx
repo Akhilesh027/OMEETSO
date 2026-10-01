@@ -201,19 +201,40 @@ function EmailVerify({ v, email }: { v: any; email: string }) {
     setLoading(true);
     try {
       const token = typeof window !== "undefined" ? localStorage.getItem("omeetso_user_token") : null;
+      let phone = "";
+      let userId = "";
+      try {
+        const rawUser = localStorage.getItem("omeetso_user");
+        if (rawUser) {
+          const parsed = JSON.parse(rawUser);
+          phone = parsed.phone || "";
+          userId = parsed.id || parsed._id || "";
+        }
+      } catch {}
       const res = await fetch(`${API_BASE}/auth/email-otp/verify`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
           ...(token ? { Authorization: `Bearer ${token}` } : {}),
         },
-        body: JSON.stringify({ email: addr, code: otp }),
+        body: JSON.stringify({ email: addr, code: otp, phone, userId }),
       });
       const data = await res.json();
       setLoading(false);
       if (res.ok && data.success) {
         setVerification("email", { status: "verified", verifiedViaOtp: true, submittedAt: Date.now() });
         setProfile({ email: addr, emailVerified: true });
+        try {
+          const raw = localStorage.getItem("omeetso_user");
+          if (raw) {
+            const u = JSON.parse(raw);
+            u.email = addr;
+            u.emailVerified = true;
+            if (!u.verificationSummary) u.verificationSummary = {};
+            u.verificationSummary.emailVerified = true;
+            localStorage.setItem("omeetso_user", JSON.stringify(u));
+          }
+        } catch {}
         setStep("verified");
         toast.success("Email address verified! (+15 Trust Points awarded)");
         setTimeout(() => {
@@ -228,6 +249,17 @@ function EmailVerify({ v, email }: { v: any; email: string }) {
       if (otp === "5678" || otp.length === 4) {
         setVerification("email", { status: "verified", verifiedViaOtp: true, submittedAt: Date.now() });
         setProfile({ email: addr, emailVerified: true });
+        try {
+          const raw = localStorage.getItem("omeetso_user");
+          if (raw) {
+            const u = JSON.parse(raw);
+            u.email = addr;
+            u.emailVerified = true;
+            if (!u.verificationSummary) u.verificationSummary = {};
+            u.verificationSummary.emailVerified = true;
+            localStorage.setItem("omeetso_user", JSON.stringify(u));
+          }
+        } catch {}
         setStep("verified");
         toast.success("Email address verified! (+15 Trust Points awarded)");
         setTimeout(() => {

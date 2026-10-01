@@ -7,7 +7,8 @@ import {
   createAdminListing,
   updateAdminListing,
   deleteAdminListing,
-  updateAdminListingStatus
+  updateAdminListingStatus,
+  bulkApproveListings
 } from "../controllers/adminListings.controller";
 import { authenticateAdmin } from "../../../middleware/authenticateAdmin";
 import { requirePermission } from "../../../middleware/requirePermission";
@@ -15,6 +16,7 @@ import { requirePermission } from "../../../middleware/requirePermission";
 export const adminListingsRouter = Router();
 
 adminListingsRouter.get("/", authenticateAdmin, requirePermission("listings.view"), getAdminListings);
+adminListingsRouter.post("/bulk-approve", authenticateAdmin, requirePermission("listings.approve"), bulkApproveListings);
 adminListingsRouter.get("/:listingId", authenticateAdmin, requirePermission("listings.view"), getAdminListingById);
 adminListingsRouter.post("/", authenticateAdmin, requirePermission("listings.manage"), createAdminListing);
 adminListingsRouter.patch("/:listingId/approve", authenticateAdmin, requirePermission("listings.approve"), approveListing);
