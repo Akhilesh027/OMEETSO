@@ -1,0 +1,10 @@
+User-agent: *
+Allow: /
+Disallow: /account/
+Disallow: /chat/
+Disallow: /chats
+Disallow: /billing
+Disallow: /invoices
+Disallow: /wallet
+
+Sitemap: https://omeetso.in/sitemap.xml

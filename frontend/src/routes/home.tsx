@@ -815,6 +815,9 @@ function Home() {
 
         <LocationTopBar area={loc?.area} pincode={loc?.pincode} />
 
+        {/* Mobile accessible H1 heading for crawlers and screen readers */}
+        <h1 className="sr-only md:hidden">omeetso — Buy Nearby. Sell Quickly. Hyperlocal Marketplace</h1>
+
         {/* Desktop hero */}
         <section className="hidden md:block">
           <div className="mx-auto max-w-[1440px] px-6 pt-3">

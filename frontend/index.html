@@ -17,10 +17,20 @@
   <title>omeetso — Buy Nearby. Sell Quickly.</title>
   <meta name="description"
     content="omeetso is a hyperlocal marketplace to discover products, sellers and stores near you. Buy nearby, sell quickly." />
+  <meta name="keywords"
+    content="omeetso, buy nearby, sell quickly, hyperlocal marketplace, local stores, verified sellers, buy and sell, near me deals, local classifieds, neighborhood shopping" />
+  <meta name="robots" content="index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1" />
+  <meta name="author" content="omeetso" />
+  <link rel="canonical" href="https://omeetso.in/" />
+
+  <!-- OpenGraph / Social Media -->
   <meta property="og:site_name" content="omeetso" />
+  <meta property="og:url" content="https://omeetso.in/" />
   <meta property="og:title" content="omeetso — Buy Nearby. Sell Quickly." />
-  <meta property="og:description" content="Discover products, sellers and stores near you." />
+  <meta property="og:description"
+    content="omeetso is a hyperlocal marketplace to discover products, sellers and stores near you. Buy nearby, sell quickly." />
   <meta property="og:type" content="website" />
+  <meta property="og:locale" content="en_US" />
   <meta property="og:image"
     content="https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=1200&h=630&fit=crop&q=85" />
   <meta property="og:image:secure_url"
@@ -32,7 +42,16 @@
     href="https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=1200&h=630&fit=crop&q=85" />
   <meta itemprop="image"
     content="https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=1200&h=630&fit=crop&q=85" />
+
+  <!-- Twitter Meta Tags -->
   <meta name="twitter:card" content="summary_large_image" />
+  <meta name="twitter:url" content="https://omeetso.in/" />
+  <meta name="twitter:title" content="omeetso — Buy Nearby. Sell Quickly." />
+  <meta name="twitter:description"
+    content="omeetso is a hyperlocal marketplace to discover products, sellers and stores near you. Buy nearby, sell quickly." />
+  <meta name="twitter:image"
+    content="https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=1200&h=630&fit=crop&q=85" />
+
   <meta name="mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
@@ -41,12 +60,59 @@
   <link rel="shortcut icon" type="image/png" href="/iconpng.png" />
   <link rel="apple-touch-icon" sizes="180x180" href="/iconpng.png" />
   <link rel="manifest" href="/manifest.webmanifest" />
+
+  <!-- Preconnect & Fonts -->
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link rel="stylesheet" href="https://fonts.cdnfonts.com/css/glacial-indifference-2" />
+  <link rel="stylesheet" href="https://fonts.cdnfonts.com/css/glacial-indifference-2" media="print" onload="this.media='all'" />
+  <noscript>
+    <link rel="stylesheet" href="https://fonts.cdnfonts.com/css/glacial-indifference-2" />
+  </noscript>
   <link rel="stylesheet"
     href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:ital,wght@0,300;0,400;0,500;0,600;0,700;0,800;1,400;1,600&family=Urbanist:ital,wght@0,400;0,500;0,600;0,700;0,800;0,900;1,500;1,700&display=swap" />
-  <script src="https://checkout.razorpay.com/v1/checkout.js"></script>
+
+  <!-- Deferred payment gateway -->
+  <script defer src="https://checkout.razorpay.com/v1/checkout.js"></script>
+
+  <!-- Schema.org JSON-LD Structured Data for Rich Snippets & SearchAction -->
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@graph": [
+      {
+        "@type": "Organization",
+        "@id": "https://omeetso.in/#organization",
+        "name": "omeetso",
+        "url": "https://omeetso.in",
+        "logo": {
+          "@type": "ImageObject",
+          "url": "https://omeetso.in/iconpng.png",
+          "caption": "omeetso Logo"
+        },
+        "description": "Hyperlocal marketplace to discover products, sellers and stores near you. Buy nearby, sell quickly.",
+        "sameAs": []
+      },
+      {
+        "@type": "WebSite",
+        "@id": "https://omeetso.in/#website",
+        "url": "https://omeetso.in",
+        "name": "omeetso",
+        "description": "Buy Nearby. Sell Quickly. Discover local products, stores, and verified sellers.",
+        "publisher": {
+          "@id": "https://omeetso.in/#organization"
+        },
+        "potentialAction": {
+          "@type": "SearchAction",
+          "target": {
+            "@type": "EntryPoint",
+            "urlTemplate": "https://omeetso.in/search?q={search_term_string}"
+          },
+          "query-input": "required name=search_term_string"
+        }
+      }
+    ]
+  }
+  </script>
 </head>
 
 <body>
@@ -466,7 +532,81 @@
     });
   </script>
 
-  <div id="root"></div>
+  <!-- Root container with semantic crawler fallback (Instantly replaced when React mounts) -->
+  <div id="root">
+    <header style="max-width:1200px;margin:0 auto;padding:24px 16px;">
+      <h1>omeetso — Hyperlocal Marketplace | Buy Nearby, Sell Quickly</h1>
+      <p>omeetso is a hyperlocal marketplace to discover products, sellers and stores near you. Buy nearby, sell quickly with zero commission.</p>
+      <nav aria-label="Main Navigation">
+        <ul style="display:flex;flex-wrap:wrap;gap:12px;list-style:none;padding:0;">
+          <li><a href="/home">Home Deals</a></li>
+          <li><a href="/categories">All Categories</a></li>
+          <li><a href="/stores">Browse Stores</a></li>
+          <li><a href="/results">Browse Deals & Listings</a></li>
+          <li><a href="/sell">Sell on omeetso</a></li>
+          <li><a href="/jobs">Local Jobs</a></li>
+          <li><a href="/services">Neighborhood Services</a></li>
+          <li><a href="/blogs">Shopping Guides & Blogs</a></li>
+          <li><a href="/about">About Us</a></li>
+          <li><a href="/contact">Customer Support</a></li>
+        </ul>
+      </nav>
+    </header>
+
+    <main style="max-width:1200px;margin:0 auto;padding:16px;">
+      <section>
+        <h2>Discover Verified Local Stores & Community Sellers</h2>
+        <p>Explore trusted neighborhood businesses, fresh deals, electronics, vehicles, and lifestyle goods near your pincode.</p>
+        <ul style="display:flex;flex-wrap:wrap;gap:10px;list-style:none;padding:0;">
+          <li><a href="/stores">View Approved Local Stores</a></li>
+          <li><a href="/results?category=electronics">Electronics, Mobiles & Laptops</a></li>
+          <li><a href="/results?category=vehicles">Cars, Bikes & Scooters</a></li>
+          <li><a href="/results?category=furniture">Home Furniture & Appliances</a></li>
+          <li><a href="/results?category=fashion">Fashion & Clothing</a></li>
+        </ul>
+      </section>
+
+      <section style="margin-top:24px;">
+        <h2>Sell Quickly with 0% Middleman Commission</h2>
+        <p>List pre-owned or brand new products in seconds. Direct communication with verified buyers via instant chat.</p>
+        <p><a href="/sell">Start Selling on omeetso Now &rarr;</a></p>
+      </section>
+
+      <section style="margin-top:24px;">
+        <h2>Explore Neighborhood Jobs & Local Services</h2>
+        <p>Find local work, hire vetted professionals, and connect safely with local service providers.</p>
+        <p>
+          <a href="/jobs">Explore Local Jobs</a> &bull;
+          <a href="/services">Find Local Services</a> &bull;
+          <a href="/safety">Trust & Safety Guidelines</a>
+        </p>
+      </section>
+    </main>
+
+    <footer style="max-width:1200px;margin:32px auto 0;padding:24px 16px;border-top:1px solid #e2e8f0;">
+      <p>&copy; 2026 omeetso. All rights reserved. Buy Nearby, Sell Quickly.</p>
+      <nav aria-label="Footer Links">
+        <a href="/terms">Terms of Service</a> &bull;
+        <a href="/privacy">Privacy Policy</a> &bull;
+        <a href="/advertising-policy">Advertising Policy</a> &bull;
+        <a href="/community-guidelines">Community Guidelines</a>
+      </nav>
+    </footer>
+  </div>
+
+  <noscript>
+    <div style="padding:24px;text-align:center;background:#f8fafc;color:#1e293b;font-family:sans-serif;">
+      <h2>JavaScript is required for the full omeetso interactive app</h2>
+      <p>Please enable JavaScript to search items, chat directly with sellers, and view interactive maps.</p>
+      <p>
+        <a href="/home">Home Deals</a> |
+        <a href="/categories">Browse Categories</a> |
+        <a href="/stores">Browse Stores</a> |
+        <a href="/contact">Contact Support</a>
+      </p>
+    </div>
+  </noscript>
+
   <script type="module" src="/src/main.tsx"></script>
 </body>
 
