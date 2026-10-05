@@ -1,5 +1,7 @@
 import tls from "tls";
 import net from "net";
+import fs from "fs";
+import path from "path";
 import { env } from "../../../config/env";
 
 export interface SendEmailOptions {
@@ -7,6 +9,65 @@ export interface SendEmailOptions {
   subject: string;
   html: string;
   text?: string;
+}
+
+export const OMEETSO_LOGO_URL = "https://omeetso.in/logo.png";
+export const OMEETSO_LOGO_CID = "cid:omeetso-logo";
+
+let cachedLogoBase64 = "";
+
+/**
+ * Wraps a Base64 string into 76-character lines in compliance with RFC 2045 MIME specifications.
+ */
+function wrapBase64(b64: string, maxLineLength = 76): string {
+  const lines: string[] = [];
+  for (let i = 0; i < b64.length; i += maxLineLength) {
+    lines.push(b64.slice(i, i + maxLineLength));
+  }
+  return lines.join("\r\n");
+}
+
+/**
+ * Loads and caches the official Omeetso logo in Base64 format from local assets or remote fallback.
+ */
+export async function getOmeetsoLogoBase64(): Promise<string> {
+  if (cachedLogoBase64) return cachedLogoBase64;
+
+  const candidatePaths = [
+    path.resolve(__dirname, "../../../../../frontend/public/logo.png"),
+    path.resolve(__dirname, "../../../../frontend/public/logo.png"),
+    path.resolve(process.cwd(), "../frontend/public/logo.png"),
+    path.resolve(process.cwd(), "frontend/public/logo.png"),
+    path.resolve(process.cwd(), "public/logo.png"),
+    path.resolve(__dirname, "assets/logo.png"),
+    path.resolve(__dirname, "../assets/logo.png")
+  ];
+
+  for (const p of candidatePaths) {
+    try {
+      if (fs.existsSync(p)) {
+        const buf = fs.readFileSync(p);
+        if (buf && buf.length > 0) {
+          cachedLogoBase64 = buf.toString("base64");
+          return cachedLogoBase64;
+        }
+      }
+    } catch {}
+  }
+
+  // Network fallback if running in a decoupled container environment
+  try {
+    const res = await fetch("https://omeetso.in/logo.png");
+    if (res.ok) {
+      const arrayBuf = await res.arrayBuffer();
+      cachedLogoBase64 = Buffer.from(arrayBuf).toString("base64");
+      return cachedLogoBase64;
+    }
+  } catch (err: any) {
+    console.warn("[Email] Warning: Unable to fetch remote logo for inline CID attachment:", err?.message || err);
+  }
+
+  return "";
 }
 
 /**
@@ -23,7 +84,8 @@ async function sendViaSmtpSocket(
   to: string,
   subject: string,
   html: string,
-  authMethod: "LOGIN" | "PLAIN" = "LOGIN"
+  authMethod: "LOGIN" | "PLAIN" = "LOGIN",
+  inlineLogoBase64?: string
 ): Promise<{ success: boolean; messageId?: string; error?: string }> {
   return new Promise((resolve) => {
     let resolved = false;
@@ -192,19 +254,56 @@ async function sendViaSmtpSocket(
               const messageId = `<${Date.now()}.${Math.random().toString(36).slice(2)}@omeetso.in>`;
               const dateStr = new Date().toUTCString();
 
-              const headers = [
-                `From: "${fromName}" <${from}>`,
-                `To: <${to}>`,
-                `Subject: =?UTF-8?B?${Buffer.from(subject).toString("base64")}?=`,
-                `Date: ${dateStr}`,
-                `Message-ID: ${messageId}`,
-                `MIME-Version: 1.0`,
-                `Content-Type: text/html; charset=UTF-8`,
-                `Content-Transfer-Encoding: 8bit`,
-                `X-Mailer: Omeetso Platform Mailer 1.0`
-              ].join("\r\n");
+              let rawMail = "";
+              if (inlineLogoBase64 && html.includes("cid:omeetso-logo")) {
+                const boundary = `----=_Part_${Date.now()}_${Math.random().toString(36).slice(2)}`;
+                const headers = [
+                  `From: "${fromName}" <${from}>`,
+                  `To: <${to}>`,
+                  `Subject: =?UTF-8?B?${Buffer.from(subject).toString("base64")}?=`,
+                  `Date: ${dateStr}`,
+                  `Message-ID: ${messageId}`,
+                  `MIME-Version: 1.0`,
+                  `Content-Type: multipart/related; boundary="${boundary}"`,
+                  `X-Mailer: Omeetso Platform Mailer 1.0`
+                ].join("\r\n");
 
-              const rawMail = `${headers}\r\n\r\n${html}\r\n.\r\n`;
+                const mimeBody = [
+                  `--${boundary}`,
+                  `Content-Type: text/html; charset=UTF-8`,
+                  `Content-Transfer-Encoding: 8bit`,
+                  ``,
+                  html,
+                  ``,
+                  `--${boundary}`,
+                  `Content-Type: image/png; name="logo.png"`,
+                  `Content-Transfer-Encoding: base64`,
+                  `Content-ID: <omeetso-logo>`,
+                  `Content-Disposition: inline; filename="logo.png"`,
+                  ``,
+                  wrapBase64(inlineLogoBase64),
+                  ``,
+                  `--${boundary}--`
+                ].join("\r\n");
+
+                rawMail = `${headers}\r\n\r\n${mimeBody}\r\n.\r\n`;
+              } else {
+                const fallbackHtml = html.replace(/cid:omeetso-logo/g, OMEETSO_LOGO_URL);
+                const headers = [
+                  `From: "${fromName}" <${from}>`,
+                  `To: <${to}>`,
+                  `Subject: =?UTF-8?B?${Buffer.from(subject).toString("base64")}?=`,
+                  `Date: ${dateStr}`,
+                  `Message-ID: ${messageId}`,
+                  `MIME-Version: 1.0`,
+                  `Content-Type: text/html; charset=UTF-8`,
+                  `Content-Transfer-Encoding: 8bit`,
+                  `X-Mailer: Omeetso Platform Mailer 1.0`
+                ].join("\r\n");
+
+                rawMail = `${headers}\r\n\r\n${fallbackHtml}\r\n.\r\n`;
+              }
+
               socket.write(rawMail);
             } else {
               clearTimeout(timeoutTimer);
@@ -282,6 +381,8 @@ export async function dispatchEmail(options: SendEmailOptions): Promise<{ succes
 
   let lastError = "No hosts attempted";
 
+  const logoBase64 = await getOmeetsoLogoBase64();
+
   for (const candidate of hostCandidates) {
     for (const authMethod of ["PLAIN", "LOGIN"] as const) {
       const result = await sendViaSmtpSocket(
@@ -294,7 +395,8 @@ export async function dispatchEmail(options: SendEmailOptions): Promise<{ succes
         options.to,
         options.subject,
         options.html,
-        authMethod
+        authMethod,
+        logoBase64
       );
 
       if (result.success) {
@@ -309,6 +411,113 @@ export async function dispatchEmail(options: SendEmailOptions): Promise<{ succes
   return { success: false, error: lastError };
 }
 
+const OMEETSO_LOGO_URL = "https://omeetso.in/logo.png";
+
+/**
+ * Renders a standardized, responsive email header with the official Omeetso logo
+ */
+function renderEmailHeader(options: {
+  portalUrl: string;
+  badgeText?: string;
+  badgeBg?: string;
+  badgeBorder?: string;
+  badgeColor?: string;
+  subtitle?: string;
+  isAdmin?: boolean;
+}): string {
+  const badgeHtml = options.badgeText
+    ? `
+      <div style="margin-top: 14px;">
+        <span style="display: inline-block; padding: 5px 14px; background-color: ${options.badgeBg || "#eff6ff"}; border: 1px solid ${options.badgeBorder || "#bfdbfe"}; border-radius: 9999px; font-size: 11px; font-weight: 700; color: ${options.badgeColor || "#1d4ed8"}; text-transform: uppercase; letter-spacing: 0.6px;">
+          ${options.badgeText}
+        </span>
+      </div>
+    `
+    : "";
+
+  return `
+    <table role="presentation" border="0" cellpadding="0" cellspacing="0" width="100%" style="background-color: #ffffff; border-bottom: 1px solid #f1f5f9; padding: 30px 24px 22px 24px;">
+      <tr>
+        <td align="center">
+          <table role="presentation" border="0" cellpadding="0" cellspacing="0">
+            <tr>
+              <td align="center" style="vertical-align: middle;">
+                <a href="${options.portalUrl}" target="_blank" style="text-decoration: none; display: inline-block;">
+                  <img src="${OMEETSO_LOGO_CID}" alt="Omeetso" width="155" style="display: block; width: 155px; max-width: 155px; height: auto; border: 0; outline: none; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; font-size: 22px; font-weight: 900; color: #1e3a8a;" />
+                </a>
+              </td>
+              ${
+                options.isAdmin
+                  ? `<td style="vertical-align: middle; padding-left: 12px; border-left: 2px solid #e2e8f0;">
+                      <span style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; font-size: 11px; font-weight: 800; color: #475569; letter-spacing: 1px; text-transform: uppercase;">ADMIN DISPATCH</span>
+                    </td>`
+                  : ""
+              }
+            </tr>
+          </table>
+          ${badgeHtml}
+        </td>
+      </tr>
+    </table>
+  `;
+}
+
+/**
+ * Renders a standardized, compliant email footer with correct legal entity details and links
+ */
+function renderEmailFooter(options: {
+  portalUrl: string;
+  securityNote?: string;
+  recipientEmail?: string;
+  isAdmin?: boolean;
+}): string {
+  const currentYear = new Date().getFullYear();
+
+  const securityNoteHtml = options.securityNote
+    ? `<p style="margin: 0 0 14px 0; font-size: 11px; line-height: 1.5; color: #64748b;">${options.securityNote}</p>`
+    : "";
+
+  return `
+    <table role="presentation" border="0" cellpadding="0" cellspacing="0" width="100%" style="background-color: #f8fafc; border-top: 1px solid #e2e8f0; padding: 28px 24px;">
+      <tr>
+        <td align="center" style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; font-size: 12px; line-height: 1.6; color: #64748b;">
+          <p style="margin: 0 0 10px 0; font-weight: 700; color: #1e293b; font-size: 13px;">
+            Omeetso • India's Hyperlocal Marketplace
+          </p>
+          <p style="margin: 0 0 14px 0; font-size: 12px;">
+            <a href="${options.portalUrl}" style="color: #2563eb; text-decoration: none; font-weight: 600;">Home</a>
+            &nbsp;&nbsp;•&nbsp;&nbsp;
+            <a href="${options.portalUrl}/help" style="color: #2563eb; text-decoration: none; font-weight: 600;">Help Centre</a>
+            &nbsp;&nbsp;•&nbsp;&nbsp;
+            <a href="${options.portalUrl}/safety" style="color: #2563eb; text-decoration: none; font-weight: 600;">Safety Centre</a>
+            &nbsp;&nbsp;•&nbsp;&nbsp;
+            <a href="${options.portalUrl}/terms" style="color: #2563eb; text-decoration: none; font-weight: 600;">Terms</a>
+            &nbsp;&nbsp;•&nbsp;&nbsp;
+            <a href="${options.portalUrl}/privacy" style="color: #2563eb; text-decoration: none; font-weight: 600;">Privacy</a>
+            &nbsp;&nbsp;•&nbsp;&nbsp;
+            <a href="${options.portalUrl}/contact" style="color: #2563eb; text-decoration: none; font-weight: 600;">Contact</a>
+          </p>
+
+          ${securityNoteHtml}
+
+          <p style="margin: 8px 0 4px 0; font-size: 11px; color: #94a3b8;">
+            Operated by <strong>DIGITALNESS INDUSTRIES LLP</strong> • Uppal, Hyderabad, Telangana, India
+          </p>
+          <p style="margin: 0 0 4px 0; font-size: 11px; color: #94a3b8;">
+            Support: <a href="mailto:info@omeetso.in" style="color: #64748b; text-decoration: underline;">info@omeetso.in</a> &nbsp;|&nbsp; Web: <a href="${options.portalUrl}" style="color: #64748b; text-decoration: underline;">omeetso.in</a>
+          </p>
+          <p style="margin: 8px 0 0 0; font-size: 11px; color: #94a3b8;">
+            © ${currentYear} DIGITALNESS INDUSTRIES LLP. All rights reserved.
+          </p>
+          <p style="margin: 4px 0 0 0; font-size: 11px; color: #94a3b8; font-weight: 500;">
+            Made with ❤️ in India
+          </p>
+        </td>
+      </tr>
+    </table>
+  `;
+}
+
 /**
  * Dispatches a styled Verification OTP email to the recipient
  */
@@ -317,6 +526,20 @@ export async function sendVerificationOtpEmail(
   otpCode: string
 ): Promise<{ success: boolean; messageId?: string; error?: string }> {
   const subject = `${otpCode} is your Omeetso Email Verification Code`;
+  const portalUrl = (env.CLIENT_USER_URL || "https://omeetso.in").replace(/\/$/, "");
+
+  const headerHtml = renderEmailHeader({
+    portalUrl,
+    badgeText: "🛡️ Shield Trust Verification",
+    badgeBg: "#eff6ff",
+    badgeBorder: "#bfdbfe",
+    badgeColor: "#1d4ed8"
+  });
+
+  const footerHtml = renderEmailFooter({
+    portalUrl,
+    securityNote: "You received this email because an email verification request was initiated for your Omeetso profile. Never share your OTP with anyone, including Omeetso staff."
+  });
 
   const html = `
 <!DOCTYPE html>
@@ -325,57 +548,63 @@ export async function sendVerificationOtpEmail(
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Omeetso Email Verification</title>
-  <style>
-    body { margin: 0; padding: 0; background-color: #0b0f19; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; color: #f8fafc; }
-    .wrapper { width: 100%; max-width: 560px; margin: 30px auto; background: #0f172a; border-radius: 24px; overflow: hidden; border: 1px solid #1e293b; box-shadow: 0 20px 40px rgba(0,0,0,0.5); }
-    .header { padding: 32px 32px 20px 32px; text-align: center; background: linear-gradient(135deg, #1e1b4b 0%, #0f172a 100%); border-bottom: 1px solid #1e293b; }
-    .brand { font-size: 26px; font-weight: 900; letter-spacing: -0.5px; color: #ffffff; text-decoration: none; }
-    .brand span { color: #f97316; }
-    .badge { display: inline-block; margin-top: 12px; padding: 6px 14px; background: rgba(99, 102, 241, 0.15); border: 1px solid rgba(99, 102, 241, 0.3); border-radius: 9999px; font-size: 11px; font-weight: 700; color: #818cf8; text-transform: uppercase; letter-spacing: 0.5px; }
-    .content { padding: 36px 32px; text-align: center; }
-    h1 { font-size: 20px; font-weight: 800; color: #ffffff; margin: 0 0 10px 0; }
-    p { font-size: 14px; color: #94a3b8; line-height: 1.6; margin: 0 0 24px 0; }
-    .otp-box { margin: 28px auto; padding: 20px 24px; background: #0b0f19; border: 2px dashed #4f46e5; border-radius: 18px; max-width: 280px; text-align: center; }
-    .otp-label { font-size: 11px; font-weight: 700; color: #94a3b8; text-transform: uppercase; letter-spacing: 1.5px; margin-bottom: 8px; }
-    .otp-code { font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace; font-size: 38px; font-weight: 900; letter-spacing: 8px; color: #38bdf8; margin: 0; }
-    .points-tag { display: inline-flex; align-items: center; gap: 6px; padding: 8px 16px; background: rgba(16, 185, 129, 0.15); border: 1px solid rgba(16, 185, 129, 0.3); border-radius: 12px; color: #34d399; font-size: 12px; font-weight: 700; margin-bottom: 24px; }
-    .alert { padding: 14px 18px; background: rgba(245, 158, 11, 0.1); border-left: 4px solid #f59e0b; border-radius: 8px; text-align: left; font-size: 12px; color: #fbbf24; margin-bottom: 28px; line-height: 1.5; }
-    .footer { padding: 24px 32px; background: #0b0f19; border-top: 1px solid #1e293b; text-align: center; font-size: 11px; color: #64748b; }
-    .footer p { margin: 4px 0; color: #64748b; font-size: 11px; }
-  </style>
 </head>
-<body>
-  <div class="wrapper">
-    <div class="header">
-      <div class="brand">OMEET<span>SO</span></div>
-      <div class="badge">Shield Trust Verification</div>
-    </div>
-    <div class="content">
-      <h1>Verify Your Email Address</h1>
-      <p>Enter the one-time verification code below to verify your email address and increase your seller credibility rating.</p>
-      
-      <div class="otp-box">
-        <div class="otp-label">Verification Code</div>
-        <div class="otp-code">${otpCode}</div>
-      </div>
+<body style="margin: 0; padding: 0; background-color: #f1f5f9; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; color: #0f172a; -webkit-font-smoothing: antialiased;">
+  <table role="presentation" border="0" cellpadding="0" cellspacing="0" width="100%" style="background-color: #f1f5f9; padding: 30px 12px;">
+    <tr>
+      <td align="center">
+        <table role="presentation" border="0" cellpadding="0" cellspacing="0" width="100%" style="max-width: 560px; background-color: #ffffff; border-radius: 20px; overflow: hidden; border: 1px solid #e2e8f0; box-shadow: 0 10px 30px rgba(0,0,0,0.06);">
+          <tr>
+            <td>
+              ${headerHtml}
 
-      <div class="points-tag">
-        ✓ +15 Trust Points will be awarded to your profile
-      </div>
+              <!-- Main Content -->
+              <table role="presentation" border="0" cellpadding="0" cellspacing="0" width="100%" style="padding: 34px 32px 30px 32px;">
+                <tr>
+                  <td align="center">
+                    <h1 style="font-size: 22px; font-weight: 800; color: #0f172a; margin: 0 0 10px 0; line-height: 1.3;">
+                      Verify Your Email Address
+                    </h1>
+                    <p style="font-size: 14px; color: #475569; line-height: 1.6; margin: 0 0 24px 0; max-width: 440px;">
+                      Enter the one-time verification code below to verify your email address and increase your seller credibility rating.
+                    </p>
 
-      <div class="alert">
-        ⏱️ This code is valid for <strong>10 minutes</strong>. For your security, never share this OTP with anyone, including Omeetso representatives.
-      </div>
+                    <!-- OTP Code Box -->
+                    <div style="margin: 20px auto 22px auto; padding: 20px 24px; background-color: #eff6ff; border: 2px dashed #3b82f6; border-radius: 16px; max-width: 290px; text-align: center;">
+                      <div style="font-size: 11px; font-weight: 800; color: #2563eb; text-transform: uppercase; letter-spacing: 1.5px; margin-bottom: 6px;">
+                        VERIFICATION CODE
+                      </div>
+                      <div style="font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace; font-size: 38px; font-weight: 900; letter-spacing: 8px; color: #1d4ed8; margin: 0; line-height: 1.2;">
+                        ${otpCode}
+                      </div>
+                    </div>
 
-      <p style="font-size: 12px; color: #64748b; margin-bottom: 0;">
-        If you did not initiate this verification request, please ignore this email or contact support at <a href="mailto:info@omeetso.in" style="color: #818cf8; text-decoration: none;">info@omeetso.in</a>.
-      </p>
-    </div>
-    <div class="footer">
-      <p>© ${new Date().getFullYear()} Omeetso Technologies Pvt. Ltd. All rights reserved.</p>
-      <p>You received this email because an account verification request was submitted on Omeetso.</p>
-    </div>
-  </div>
+                    <!-- Trust Points Tag -->
+                    <div style="margin-bottom: 24px;">
+                      <span style="display: inline-block; padding: 8px 18px; background-color: #ecfdf5; border: 1px solid #a7f3d0; border-radius: 12px; color: #065f46; font-size: 13px; font-weight: 700;">
+                        ✓ +15 Trust Points will be awarded to your profile
+                      </span>
+                    </div>
+
+                    <!-- Alert Notice -->
+                    <div style="padding: 14px 18px; background-color: #fffbeb; border-left: 4px solid #f59e0b; border-radius: 8px; text-align: left; font-size: 13px; color: #92400e; margin-bottom: 26px; line-height: 1.5;">
+                      ⏱️ This code is valid for <strong>10 minutes</strong>. For your security, never share this OTP with anyone, including Omeetso representatives.
+                    </div>
+
+                    <p style="font-size: 12px; color: #94a3b8; line-height: 1.5; margin: 0;">
+                      If you did not initiate this verification request, please ignore this email or contact support at <a href="mailto:info@omeetso.in" style="color: #2563eb; text-decoration: none; font-weight: 600;">info@omeetso.in</a>.
+                    </p>
+                  </td>
+                </tr>
+              </table>
+
+              ${footerHtml}
+            </td>
+          </tr>
+        </table>
+      </td>
+    </tr>
+  </table>
 </body>
 </html>
   `;
@@ -392,7 +621,20 @@ export async function sendUserWelcomeEmail(
 ): Promise<{ success: boolean; messageId?: string; error?: string }> {
   const displayName = userName && userName.trim() ? userName.trim() : "Valued Member";
   const subject = `Welcome to Omeetso, ${displayName}! 🎉`;
-  const portalUrl = env.CLIENT_USER_URL || "https://omeetso.in";
+  const portalUrl = (env.CLIENT_USER_URL || "https://omeetso.in").replace(/\/$/, "");
+
+  const headerHtml = renderEmailHeader({
+    portalUrl,
+    badgeText: "👋 Welcome to Neighborhood Commerce",
+    badgeBg: "#f0fdf4",
+    badgeBorder: "#bbf7d0",
+    badgeColor: "#15803d"
+  });
+
+  const footerHtml = renderEmailFooter({
+    portalUrl,
+    securityNote: "You received this email because you recently registered an account on Omeetso. Have questions? Our support team is here to help at info@omeetso.in."
+  });
 
   const html = `
 <!DOCTYPE html>
@@ -401,69 +643,120 @@ export async function sendUserWelcomeEmail(
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Welcome to Omeetso</title>
-  <style>
-    body { margin: 0; padding: 0; background-color: #0b0f19; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; color: #f8fafc; }
-    .wrapper { width: 100%; max-width: 600px; margin: 30px auto; background: #0f172a; border-radius: 24px; overflow: hidden; border: 1px solid #1e293b; box-shadow: 0 20px 40px rgba(0,0,0,0.5); }
-    .header { padding: 36px 32px 24px 32px; text-align: center; background: linear-gradient(135deg, #1e1b4b 0%, #0f172a 100%); border-bottom: 1px solid #1e293b; }
-    .brand { font-size: 28px; font-weight: 900; letter-spacing: -0.5px; color: #ffffff; text-decoration: none; }
-    .brand span { color: #f97316; }
-    .badge { display: inline-block; margin-top: 12px; padding: 6px 16px; background: rgba(99, 102, 241, 0.15); border: 1px solid rgba(99, 102, 241, 0.3); border-radius: 9999px; font-size: 11px; font-weight: 700; color: #818cf8; text-transform: uppercase; letter-spacing: 0.5px; }
-    .content { padding: 36px 32px; }
-    h1 { font-size: 22px; font-weight: 800; color: #ffffff; margin: 0 0 12px 0; text-align: center; }
-    .subtitle { font-size: 14px; color: #94a3b8; line-height: 1.6; margin: 0 0 28px 0; text-align: center; }
-    .features-grid { margin: 24px 0; display: table; width: 100%; }
-    .feature-card { background: #131d36; border: 1px solid #1e293b; border-radius: 16px; padding: 18px 20px; margin-bottom: 14px; }
-    .feature-title { font-size: 14px; font-weight: 700; color: #38bdf8; margin-bottom: 6px; }
-    .feature-desc { font-size: 12px; color: #94a3b8; line-height: 1.5; margin: 0; }
-    .btn-container { text-align: center; margin: 36px 0 20px 0; }
-    .btn { display: inline-block; padding: 14px 36px; background: linear-gradient(135deg, #6366f1 0%, #4f46e5 100%); color: #ffffff; text-decoration: none; font-size: 14px; font-weight: 800; border-radius: 14px; box-shadow: 0 10px 25px rgba(79, 70, 229, 0.4); }
-    .footer { padding: 24px 32px; background: #0b0f19; border-top: 1px solid #1e293b; text-align: center; font-size: 11px; color: #64748b; }
-    .footer p { margin: 4px 0; color: #64748b; font-size: 11px; }
-  </style>
 </head>
-<body>
-  <div class="wrapper">
-    <div class="header">
-      <div class="brand">OMEET<span>SO</span></div>
-      <div class="badge">Welcome to Neighborhood Commerce</div>
-    </div>
-    <div class="content">
-      <h1>Welcome to Omeetso, ${displayName}! 🎉</h1>
-      <p class="subtitle">
-        We're thrilled to have you! Omeetso connects you with verified neighbors, local businesses, job opportunities, and professional services right in your locality.
-      </p>
+<body style="margin: 0; padding: 0; background-color: #f1f5f9; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; color: #0f172a; -webkit-font-smoothing: antialiased;">
+  <table role="presentation" border="0" cellpadding="0" cellspacing="0" width="100%" style="background-color: #f1f5f9; padding: 30px 12px;">
+    <tr>
+      <td align="center">
+        <table role="presentation" border="0" cellpadding="0" cellspacing="0" width="100%" style="max-width: 600px; background-color: #ffffff; border-radius: 20px; overflow: hidden; border: 1px solid #e2e8f0; box-shadow: 0 10px 30px rgba(0,0,0,0.06);">
+          <tr>
+            <td>
+              ${headerHtml}
 
-      <div class="features-grid">
-        <div class="feature-card">
-          <div class="feature-title">🛍️ Buy & Sell Nearby with Zero Commission</div>
-          <p class="feature-desc">List electronics, vehicles, furniture, and fashion. Connect directly with authentic local buyers via call or WhatsApp.</p>
-        </div>
+              <!-- Content Body -->
+              <table role="presentation" border="0" cellpadding="0" cellspacing="0" width="100%" style="padding: 34px 32px 28px 32px;">
+                <tr>
+                  <td>
+                    <h1 style="font-size: 22px; font-weight: 800; color: #0f172a; margin: 0 0 10px 0; text-align: center; line-height: 1.3;">
+                      Welcome to Omeetso, ${displayName}! 🎉
+                    </h1>
+                    <p style="font-size: 14px; color: #475569; line-height: 1.6; margin: 0 0 28px 0; text-align: center;">
+                      We're thrilled to have you! Omeetso connects you with verified neighbors, local businesses, job opportunities, and professional services right in your locality with <strong>0% commission</strong>.
+                    </p>
 
-        <div class="feature-card">
-          <div class="feature-title">💼 Local Jobs & Hiring</div>
-          <p class="feature-desc">Discover nearby job openings or hire skilled local candidates across office, retail, tech, and skilled trades.</p>
-        </div>
+                    <!-- Features -->
+                    <table role="presentation" border="0" cellpadding="0" cellspacing="0" width="100%">
+                      <tr>
+                        <td style="padding-bottom: 12px;">
+                          <table role="presentation" border="0" cellpadding="0" cellspacing="0" width="100%" style="background-color: #f8fafc; border: 1px solid #e2e8f0; border-radius: 14px; padding: 16px 18px;">
+                            <tr>
+                              <td style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">
+                                <div style="font-size: 14px; font-weight: 700; color: #1e40af; margin-bottom: 4px;">
+                                  🛍️ Buy & Sell Nearby with Zero Commission
+                                </div>
+                                <div style="font-size: 13px; color: #475569; line-height: 1.5;">
+                                  List electronics, vehicles, furniture, and fashion. Connect directly with authentic local buyers via call or WhatsApp.
+                                </div>
+                              </td>
+                            </tr>
+                          </table>
+                        </td>
+                      </tr>
 
-        <div class="feature-card">
-          <div class="feature-title">🏢 Neighborhood Stores & Services</div>
-          <p class="feature-desc">Browse local retail stores, home repair experts, beauty salons, tutors, and professional home services with customer reviews.</p>
-        </div>
+                      <tr>
+                        <td style="padding-bottom: 12px;">
+                          <table role="presentation" border="0" cellpadding="0" cellspacing="0" width="100%" style="background-color: #f8fafc; border: 1px solid #e2e8f0; border-radius: 14px; padding: 16px 18px;">
+                            <tr>
+                              <td style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">
+                                <div style="font-size: 14px; font-weight: 700; color: #7c3aed; margin-bottom: 4px;">
+                                  💼 Local Jobs & Hiring
+                                </div>
+                                <div style="font-size: 13px; color: #475569; line-height: 1.5;">
+                                  Discover nearby job openings or hire skilled local candidates across office, retail, tech, and skilled trades.
+                                </div>
+                              </td>
+                            </tr>
+                          </table>
+                        </td>
+                      </tr>
 
-        <div class="feature-card">
-          <div class="feature-title">🛡️ Shield Trust Verification</div>
-          <p class="feature-desc">Verify your email and government ID to earn verified badges, unlock extra trust points, and stand out in search results.</p>
-        </div>
-      </div>
+                      <tr>
+                        <td style="padding-bottom: 12px;">
+                          <table role="presentation" border="0" cellpadding="0" cellspacing="0" width="100%" style="background-color: #f8fafc; border: 1px solid #e2e8f0; border-radius: 14px; padding: 16px 18px;">
+                            <tr>
+                              <td style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">
+                                <div style="font-size: 14px; font-weight: 700; color: #c2410c; margin-bottom: 4px;">
+                                  🏢 Neighborhood Stores & Services
+                                </div>
+                                <div style="font-size: 13px; color: #475569; line-height: 1.5;">
+                                  Browse local retail stores, home repair experts, beauty salons, tutors, and professional home services with customer reviews.
+                                </div>
+                              </td>
+                            </tr>
+                          </table>
+                        </td>
+                      </tr>
 
-      <div class="btn-container">
-        <a href="${portalUrl}" class="btn" target="_blank">Start Exploring Omeetso &rarr;</a>
-      </div>
-    </div>
-    <div class="footer">
-      <p>© ${new Date().getFullYear()} Omeetso Technologies Pvt. Ltd. All rights reserved.</p>
-      <p>Have questions? Reach our support team at <a href="mailto:info@omeetso.in" style="color: #818cf8; text-decoration: none;">info@omeetso.in</a>.</p>
-    </div>
-  </div>
+                      <tr>
+                        <td style="padding-bottom: 12px;">
+                          <table role="presentation" border="0" cellpadding="0" cellspacing="0" width="100%" style="background-color: #f8fafc; border: 1px solid #e2e8f0; border-radius: 14px; padding: 16px 18px;">
+                            <tr>
+                              <td style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;">
+                                <div style="font-size: 14px; font-weight: 700; color: #047857; margin-bottom: 4px;">
+                                  🛡️ Shield Trust Verification
+                                </div>
+                                <div style="font-size: 13px; color: #475569; line-height: 1.5;">
+                                  Verify your email and government ID to earn verified badges, unlock extra trust points, and stand out in search results.
+                                </div>
+                              </td>
+                            </tr>
+                          </table>
+                        </td>
+                      </tr>
+                    </table>
+
+                    <!-- CTA Button -->
+                    <table role="presentation" border="0" cellpadding="0" cellspacing="0" width="100%" style="margin: 28px 0 12px 0;">
+                      <tr>
+                        <td align="center">
+                          <a href="${portalUrl}" target="_blank" style="display: inline-block; padding: 14px 34px; background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%); color: #ffffff; text-decoration: none; font-size: 14px; font-weight: 700; border-radius: 12px; box-shadow: 0 4px 14px rgba(37, 99, 235, 0.35);">
+                            Start Exploring Omeetso &rarr;
+                          </a>
+                        </td>
+                      </tr>
+                    </table>
+
+                  </td>
+                </tr>
+              </table>
+
+              ${footerHtml}
+            </td>
+          </tr>
+        </table>
+      </td>
+    </tr>
+  </table>
 </body>
 </html>
   `;
@@ -481,41 +774,65 @@ export interface AdminAlertOptions {
 }
 
 /**
- * Dispatches an instant administrator alert email to akhileshreddy027@gmail.com
+ * Dispatches an instant administrator alert email to configured admin address
  * for critical events (new listings, jobs, businesses, services, new users).
  */
 export async function sendAdminAlertEmail(
   options: AdminAlertOptions
 ): Promise<{ success: boolean; messageId?: string; error?: string }> {
   const adminEmail = (env.ADMIN_NOTIFICATION_EMAIL || "akhileshreddy027@gmail.com").trim();
+  const portalUrl = (env.CLIENT_USER_URL || "https://omeetso.in").replace(/\/$/, "");
 
   const eventBadgeMap: Record<AdminAlertOptions["eventType"], { label: string; bg: string; border: string; color: string; icon: string }> = {
-    listing_created: { label: "NEW LISTING SUBMITTED", bg: "rgba(56, 189, 248, 0.15)", border: "rgba(56, 189, 248, 0.3)", color: "#38bdf8", icon: "🛍️" },
-    job_posted: { label: "NEW JOB POSTED", bg: "rgba(168, 85, 247, 0.15)", border: "rgba(168, 85, 247, 0.3)", color: "#c084fc", icon: "💼" },
-    business_registered: { label: "NEW BUSINESS REGISTERED", bg: "rgba(249, 115, 22, 0.15)", border: "rgba(249, 115, 22, 0.3)", color: "#fb923c", icon: "🏢" },
-    service_registered: { label: "NEW SERVICE CREATED", bg: "rgba(16, 185, 129, 0.15)", border: "rgba(16, 185, 129, 0.3)", color: "#34d399", icon: "🛠️" },
-    user_registered: { label: "NEW USER REGISTERED", bg: "rgba(99, 102, 241, 0.15)", border: "rgba(99, 102, 241, 0.3)", color: "#818cf8", icon: "👤" }
+    listing_created: { label: "NEW LISTING SUBMITTED", bg: "#f0f9ff", border: "#bae6fd", color: "#0284c7", icon: "🛍️" },
+    job_posted: { label: "NEW JOB POSTED", bg: "#faf5ff", border: "#e9d5ff", color: "#9333ea", icon: "💼" },
+    business_registered: { label: "NEW BUSINESS REGISTERED", bg: "#fff7ed", border: "#fed7aa", color: "#ea580c", icon: "🏢" },
+    service_registered: { label: "NEW SERVICE CREATED", bg: "#f0fdf4", border: "#bbf7d0", color: "#16a34a", icon: "🛠️" },
+    user_registered: { label: "NEW USER REGISTERED", bg: "#eef2ff", border: "#c7d2fe", color: "#4f46e5", icon: "👤" }
   };
 
-  const badge = eventBadgeMap[options.eventType] || { label: "SYSTEM ALERT", bg: "rgba(99, 102, 241, 0.15)", border: "rgba(99, 102, 241, 0.3)", color: "#818cf8", icon: "🔔" };
+  const badge = eventBadgeMap[options.eventType] || { label: "SYSTEM ALERT", bg: "#eff6ff", border: "#bfdbfe", color: "#2563eb", icon: "🔔" };
   const subject = `[Omeetso Admin] ${badge.icon} ${options.title}`;
 
   const detailRows = Object.entries(options.details)
     .filter(([_, val]) => val !== undefined && val !== null && val !== "")
-    .map(([key, val]) => `
-      <tr>
-        <td style="padding: 10px 14px; border-bottom: 1px solid #1e293b; color: #94a3b8; font-size: 12px; font-weight: 600; text-transform: capitalize; width: 38%;">${key.replace(/([A-Z])/g, " $1").trim()}</td>
-        <td style="padding: 10px 14px; border-bottom: 1px solid #1e293b; color: #f8fafc; font-size: 13px; font-weight: 700;">${String(val)}</td>
+    .map(([key, val], idx) => `
+      <tr style="background-color: ${idx % 2 === 0 ? "#ffffff" : "#f8fafc"};">
+        <td style="padding: 11px 16px; border-bottom: 1px solid #e2e8f0; color: #64748b; font-size: 12px; font-weight: 600; text-transform: capitalize; width: 38%; vertical-align: top;">
+          ${key.replace(/([A-Z])/g, " $1").trim()}
+        </td>
+        <td style="padding: 11px 16px; border-bottom: 1px solid #e2e8f0; color: #0f172a; font-size: 13px; font-weight: 700; word-break: break-word;">
+          ${String(val)}
+        </td>
       </tr>
     `).join("");
 
   const actionButton = options.link ? `
-    <div style="text-align: center; margin: 32px 0 16px 0;">
-      <a href="${options.link}" style="display: inline-block; padding: 12px 28px; background: linear-gradient(135deg, #6366f1 0%, #4f46e5 100%); color: #ffffff; text-decoration: none; font-size: 13px; font-weight: 800; border-radius: 12px; box-shadow: 0 6px 20px rgba(79, 70, 229, 0.35);" target="_blank">
-        ${options.actionText || "View in Admin Dashboard &rarr;"}
-      </a>
-    </div>
+    <table role="presentation" border="0" cellpadding="0" cellspacing="0" width="100%" style="margin: 28px 0 10px 0;">
+      <tr>
+        <td align="center">
+          <a href="${options.link}" style="display: inline-block; padding: 12px 28px; background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%); color: #ffffff; text-decoration: none; font-size: 13px; font-weight: 800; border-radius: 10px; box-shadow: 0 4px 12px rgba(37, 99, 235, 0.3);" target="_blank">
+            ${options.actionText || "View in Admin Dashboard &rarr;"}
+          </a>
+        </td>
+      </tr>
+    </table>
   ` : "";
+
+  const headerHtml = renderEmailHeader({
+    portalUrl,
+    badgeText: `${badge.icon} ${badge.label}`,
+    badgeBg: badge.bg,
+    badgeBorder: badge.border,
+    badgeColor: badge.color,
+    isAdmin: true
+  });
+
+  const footerHtml = renderEmailFooter({
+    portalUrl,
+    securityNote: `Automated internal admin alert dispatched to ${adminEmail}. Generated by Omeetso backend event dispatcher.`,
+    isAdmin: true
+  });
 
   const html = `
 <!DOCTYPE html>
@@ -524,45 +841,46 @@ export async function sendAdminAlertEmail(
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>${options.title}</title>
-  <style>
-    body { margin: 0; padding: 0; background-color: #0b0f19; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; color: #f8fafc; }
-    .wrapper { width: 100%; max-width: 600px; margin: 30px auto; background: #0f172a; border-radius: 24px; overflow: hidden; border: 1px solid #1e293b; box-shadow: 0 20px 40px rgba(0,0,0,0.5); }
-    .header { padding: 28px 32px 20px 32px; text-align: center; background: linear-gradient(135deg, #1e1b4b 0%, #0f172a 100%); border-bottom: 1px solid #1e293b; }
-    .brand { font-size: 24px; font-weight: 900; letter-spacing: -0.5px; color: #ffffff; text-decoration: none; }
-    .brand span { color: #f97316; }
-    .badge { display: inline-block; margin-top: 10px; padding: 6px 14px; background: ${badge.bg}; border: 1px solid ${badge.border}; border-radius: 9999px; font-size: 11px; font-weight: 800; color: ${badge.color}; text-transform: uppercase; letter-spacing: 0.8px; }
-    .content { padding: 32px; }
-    h1 { font-size: 18px; font-weight: 800; color: #ffffff; margin: 0 0 10px 0; }
-    .summary { font-size: 13px; color: #94a3b8; line-height: 1.6; margin: 0 0 24px 0; }
-    .table-box { background: #0b0f19; border: 1px solid #1e293b; border-radius: 16px; overflow: hidden; }
-    table { width: 100%; border-collapse: collapse; }
-    .footer { padding: 20px 32px; background: #0b0f19; border-top: 1px solid #1e293b; text-align: center; font-size: 11px; color: #64748b; }
-  </style>
 </head>
-<body>
-  <div class="wrapper">
-    <div class="header">
-      <div class="brand">OMEET<span>SO</span> <span style="font-size: 13px; font-weight: 600; color: #94a3b8; margin-left: 8px;">ADMIN DISPATCH</span></div>
-      <div class="badge">${badge.icon} ${badge.label}</div>
-    </div>
-    <div class="content">
-      <h1>${options.title}</h1>
-      <p class="summary">${options.summary}</p>
+<body style="margin: 0; padding: 0; background-color: #f1f5f9; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; color: #0f172a; -webkit-font-smoothing: antialiased;">
+  <table role="presentation" border="0" cellpadding="0" cellspacing="0" width="100%" style="background-color: #f1f5f9; padding: 30px 12px;">
+    <tr>
+      <td align="center">
+        <table role="presentation" border="0" cellpadding="0" cellspacing="0" width="100%" style="max-width: 600px; background-color: #ffffff; border-radius: 20px; overflow: hidden; border: 1px solid #e2e8f0; box-shadow: 0 10px 30px rgba(0,0,0,0.06);">
+          <tr>
+            <td>
+              ${headerHtml}
 
-      <div class="table-box">
-        <table>
-          <tbody>
-            ${detailRows}
-          </tbody>
+              <!-- Content Body -->
+              <table role="presentation" border="0" cellpadding="0" cellspacing="0" width="100%" style="padding: 30px 28px;">
+                <tr>
+                  <td>
+                    <h1 style="font-size: 18px; font-weight: 800; color: #0f172a; margin: 0 0 8px 0; line-height: 1.4;">
+                      ${options.title}
+                    </h1>
+                    <p style="font-size: 13px; color: #475569; line-height: 1.6; margin: 0 0 22px 0;">
+                      ${options.summary}
+                    </p>
+
+                    <!-- Details Table -->
+                    <table role="presentation" border="0" cellpadding="0" cellspacing="0" width="100%" style="border-collapse: collapse; border: 1px solid #e2e8f0; border-radius: 12px; overflow: hidden;">
+                      <tbody>
+                        ${detailRows}
+                      </tbody>
+                    </table>
+
+                    ${actionButton}
+                  </td>
+                </tr>
+              </table>
+
+              ${footerHtml}
+            </td>
+          </tr>
         </table>
-      </div>
-
-      ${actionButton}
-    </div>
-    <div class="footer">
-      <p>© ${new Date().getFullYear()} Omeetso Internal Admin Alerts • Recipient: ${adminEmail}</p>
-    </div>
-  </div>
+      </td>
+    </tr>
+  </table>
 </body>
 </html>
   `;
@@ -578,6 +896,13 @@ export async function verifySmtpConnection(): Promise<boolean> {
   const port = Number(env.SMTP_PORT) || 465;
   const user = env.SMTP_USER || "info@omeetso.in";
   const pass = env.SMTP_PASS || "";
+
+  // Warm up official logo Base64 cache for inline CID embedding
+  getOmeetsoLogoBase64().then((b64) => {
+    if (b64) {
+      console.log(`[Email] ✅ Official Omeetso logo cached for inline CID embedding (${Math.round(b64.length / 1024)} KB Base64)`);
+    }
+  }).catch(() => {});
 
   if (!user || !pass) {
     console.warn(`[Email/SMTP] ⚠️ SMTP user or password is not configured in .env`);
