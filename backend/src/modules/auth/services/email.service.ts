@@ -411,8 +411,6 @@ export async function dispatchEmail(options: SendEmailOptions): Promise<{ succes
   return { success: false, error: lastError };
 }
 
-const OMEETSO_LOGO_URL = "https://omeetso.in/logo.png";
-
 /**
  * Renders a standardized, responsive email header with the official Omeetso logo
  */
