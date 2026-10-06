@@ -76,6 +76,19 @@ export async function getAdPlacementsApi(): Promise<{
   }
 }
 
+export async function getAdSettingsApi(): Promise<{
+  success: boolean;
+  data?: { googleAdsEnabled: boolean; googleClientId: string; googleTestMode: boolean };
+  error?: string;
+}> {
+  try {
+    const res = await fetch(`${API_BASE}/ad-settings`);
+    return await res.json();
+  } catch {
+    return { success: false, error: "Failed to fetch ad settings" };
+  }
+}
+
 function extractErrorMessage(data: any, fallback: string): string {
   if (!data) return fallback;
   if (typeof data.error === "string") return data.error;

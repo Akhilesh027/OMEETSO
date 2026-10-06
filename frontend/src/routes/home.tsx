@@ -12,6 +12,7 @@ import {
   SecondaryBannerAd, QuickDealsBanner, AdErrorFallback,
   UNIFIED_DEFAULT_BANNER, DEFAULT_NATIVE_AD, DEFAULT_ROTATING_BANNERS
 } from "@/components/omeetso/AdBanner";
+import { InFeedGoogleAd } from "@/components/omeetso/InFeedGoogleAd";
 import { SafetyCard } from "@/components/omeetso/SafetyCard";
 import { CATEGORIES, PRODUCTS, STORES, getAd, formatINR } from "@/lib/mock";
 import { getRecentlyViewed } from "@/lib/saved";
@@ -24,12 +25,32 @@ import { API_BASE } from "@/config/api";
 export const Route = createFileRoute("/home")({
   head: () => ({
     meta: [
-      { title: "omeetso — Discover nearby deals" },
-      { name: "description", content: "Browse products near you, discover local stores and connect with trusted sellers on omeetso." },
-      { property: "og:title", content: "omeetso — Discover nearby deals" },
-      { property: "og:description", content: "Nearby products, verified sellers, local stores." },
+      { title: "omeetso — Hyperlocal Marketplace | Buy, Sell & Deals Nearby" },
+      {
+        name: "description",
+        content:
+          "Browse nearby products, discover verified local stores, buy & sell pre-owned items, find neighborhood jobs and services on omeetso with zero commission.",
+      },
+      {
+        name: "keywords",
+        content:
+          "omeetso, buy nearby, sell quickly, hyperlocal marketplace, local stores, verified sellers, buy and sell, near me deals, local classifieds, neighborhood shopping, used mobiles, cars, bikes, furniture, local jobs",
+      },
+      { property: "og:title", content: "omeetso — Hyperlocal Marketplace | Buy, Sell & Deals Nearby" },
+      {
+        property: "og:description",
+        content:
+          "Browse nearby products, discover verified local stores, buy & sell pre-owned items, find neighborhood jobs and services on omeetso with zero commission.",
+      },
       { property: "og:type", content: "website" },
-      { name: "twitter:card", content: "summary" },
+      { property: "og:url", content: "https://omeetso.in/home" },
+      { name: "twitter:card", content: "summary_large_image" },
+      { name: "twitter:title", content: "omeetso — Hyperlocal Marketplace | Buy, Sell & Deals Nearby" },
+      {
+        name: "twitter:description",
+        content:
+          "Browse nearby products, discover verified local stores, buy & sell pre-owned items, find neighborhood jobs and services on omeetso with zero commission.",
+      },
     ],
   }),
   component: Home,
@@ -1308,7 +1329,15 @@ function Home() {
                   {recommended.slice(0, 6).map((p) => (
                     <ProductCard key={p.id} p={p} onPreview={setPreviewProduct} />
                   ))}
-                  <NativeAdCard ad={liveNativeAds[0] || DEFAULT_NATIVE_AD} />
+                  {liveNativeAds.length > 0 ? (
+                    <NativeAdCard ad={liveNativeAds[0]} />
+                  ) : (
+                    <InFeedGoogleAd
+                      slotId="5566778899"
+                      title="Curated Recommendations"
+                      description="Featured partner deals & gadgets curated for your area."
+                    />
+                  )}
                   {recommended.slice(6).map((p) => (
                     <ProductCard key={p.id} p={p} onPreview={setPreviewProduct} />
                   ))}
@@ -1328,13 +1357,21 @@ function Home() {
             </section>
           )}
 
-          {/* Recently added */}
+          {/* Recently added — with In-Feed Google Ad interleaved */}
           {recentlyAdded.length > 0 && (
             <>
               <section>
                 <h2 className="mb-3 text-base font-bold md:text-xl text-navy">Recently added</h2>
                 <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 sm:gap-6">
-                  {recentlyAdded.map((p) => (
+                  {recentlyAdded.slice(0, 4).map((p) => (
+                    <ProductCard key={p.id} p={p} onPreview={setPreviewProduct} />
+                  ))}
+                  <InFeedGoogleAd
+                    slotId="6677889900"
+                    title="Verified Local Partner Offer"
+                    description="Explore trending electronics, home upgrades and verified services."
+                  />
+                  {recentlyAdded.slice(4).map((p) => (
                     <ProductCard key={p.id} p={p} onPreview={setPreviewProduct} />
                   ))}
                 </div>

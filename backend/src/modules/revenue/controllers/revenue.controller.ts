@@ -9,6 +9,7 @@ import { AdCampaign } from "../models/AdCampaign";
 import { Listing } from "../../listings/models/Listing";
 import { MediaAsset } from "../models/MediaAsset";
 import { AdAnalytics } from "../models/AdAnalytics";
+import { GlobalAdSetting } from "../models/GlobalAdSetting";
 import { AuthenticatedUserRequest } from "../../../middleware/authenticateUser";
 import { AuthenticatedAdminRequest } from "../../../middleware/authenticateAdmin";
 
@@ -862,6 +863,179 @@ export async function getAdPlacements(req: Request, res: Response, Next: NextFun
         position: "Listing Card Glow Border",
         description: "Golden illuminated card border with subtle gradient glow effect making listings stand out in browsing feeds.",
         device: "Web & Mobile App"
+      },
+      // 📱 Product Detail Page Placements
+      {
+        placementId: "PRODUCT_DETAIL_SIDEBAR_MIDDLE",
+        name: "Product Detail - Right Sidebar Middle Deal",
+        campaignTypes: ["BANNER_AD"],
+        aspectRatio: "3:1",
+        minimumWidth: 400,
+        minimumHeight: 120,
+        maximumFileSizeBytes: 1048576,
+        maximumActiveSlots: 5,
+        active: true,
+        page: "Product Detail Page",
+        route: "/product/:id",
+        position: "Right Sidebar between Seller Profile & Quick Action Card",
+        description: "Desktop sidebar middle partner deal banner visible immediately as buyers view price and seller details.",
+        device: "Desktop Web",
+        networkProvider: "GOOGLE_ADSENSE",
+        googleSlotId: "4455667795",
+        adFormat: "horizontal"
+      },
+      {
+        placementId: "PRODUCT_DETAIL_SIDEBAR_RAIL",
+        name: "Product Detail - Desktop Sticky Lower Rail",
+        campaignTypes: ["BANNER_AD"],
+        aspectRatio: "1:1",
+        minimumWidth: 300,
+        minimumHeight: 250,
+        maximumFileSizeBytes: 2097152,
+        maximumActiveSlots: 5,
+        active: true,
+        page: "Product Detail Page",
+        route: "/product/:id",
+        position: "Right Sidebar sticky lower rail below Safety Card",
+        description: "High-viewability sticky rail ad that stays in the user viewport as they scroll through photos and specs.",
+        device: "Desktop Web",
+        networkProvider: "GOOGLE_ADSENSE",
+        googleSlotId: "4455667791",
+        adFormat: "rectangle"
+      },
+      {
+        placementId: "PRODUCT_DETAIL_MID_CONTENT",
+        name: "Product Detail - In-Article Mid-Content",
+        campaignTypes: ["BANNER_AD"],
+        aspectRatio: "3:1",
+        minimumWidth: 728,
+        minimumHeight: 90,
+        maximumFileSizeBytes: 2097152,
+        maximumActiveSlots: 5,
+        active: true,
+        page: "Product Detail Page",
+        route: "/product/:id",
+        position: "Left Column below Product Description",
+        description: "Natural reading break banner placed immediately beneath the product description and specifications table.",
+        device: "Web & Mobile App",
+        networkProvider: "GOOGLE_ADSENSE",
+        googleSlotId: "4455667792",
+        adFormat: "horizontal"
+      },
+      {
+        placementId: "PRODUCT_DETAIL_CONTEXTUAL_MREC",
+        name: "Product Detail - Contextual Accessories MREC",
+        campaignTypes: ["BANNER_AD"],
+        aspectRatio: "1:1",
+        minimumWidth: 300,
+        minimumHeight: 250,
+        maximumFileSizeBytes: 2097152,
+        maximumActiveSlots: 5,
+        active: true,
+        page: "Product Detail Page",
+        route: "/product/:id",
+        position: "Left Column between Seller Overview & Safety Guide",
+        description: "Contextual unit for related accessories, transport services, insurance, and local merchant offers matching the item.",
+        device: "Web & Mobile App",
+        networkProvider: "GOOGLE_ADSENSE",
+        googleSlotId: "4455667788",
+        adFormat: "rectangle"
+      },
+      {
+        placementId: "PRODUCT_DETAIL_SIMILAR_INFEED",
+        name: "Product Detail - Similar Items In-Feed Card",
+        campaignTypes: ["LISTING_BOOST"],
+        aspectRatio: "CARD",
+        minimumWidth: 600,
+        minimumHeight: 400,
+        maximumFileSizeBytes: 2097152,
+        maximumActiveSlots: 5,
+        active: true,
+        page: "Product Detail Page",
+        route: "/product/:id",
+        position: "Similar Products Grid Position #3",
+        description: "Native sponsored card blended seamlessly alongside alternative and similar listings.",
+        device: "Web & Mobile App",
+        networkProvider: "GOOGLE_ADSENSE",
+        googleSlotId: "4455667793",
+        adFormat: "in-feed"
+      },
+      {
+        placementId: "PRODUCT_DETAIL_BOTTOM_BILLBOARD",
+        name: "Product Detail - Bottom Marketplace Billboard",
+        campaignTypes: ["BANNER_AD"],
+        aspectRatio: "3:1",
+        minimumWidth: 728,
+        minimumHeight: 90,
+        maximumFileSizeBytes: 2097152,
+        maximumActiveSlots: 5,
+        active: true,
+        page: "Product Detail Page",
+        route: "/product/:id",
+        position: "Footer of Product Listing page below Similar Items",
+        description: "Wide horizontal banner capturing users who scroll through the full product page without making an inquiry.",
+        device: "Web & Mobile App",
+        networkProvider: "GOOGLE_ADSENSE",
+        googleSlotId: "4455667794",
+        adFormat: "horizontal"
+      },
+      // 📲 Global & Search Placements
+      {
+        placementId: "GLOBAL_MOBILE_STICKY_ANCHOR",
+        name: "Global Mobile Sticky Bottom Anchor Banner",
+        campaignTypes: ["BANNER_AD"],
+        aspectRatio: "6:1",
+        minimumWidth: 320,
+        minimumHeight: 50,
+        maximumFileSizeBytes: 524288,
+        maximumActiveSlots: 5,
+        active: true,
+        page: "Universal Mobile Screens",
+        route: "/*",
+        position: "Fixed Docked Screen Bottom on Mobile",
+        description: "High-CTR Google Anchor unit docked to the bottom of mobile screens with smooth collapse controls.",
+        device: "Mobile Only",
+        networkProvider: "GOOGLE_ADSENSE",
+        googleSlotId: "4455667790",
+        adFormat: "horizontal"
+      },
+      {
+        placementId: "SEARCH_DESKTOP_SKYSCRAPER",
+        name: "Search Results Desktop Skyscraper",
+        campaignTypes: ["BANNER_AD"],
+        aspectRatio: "1:2",
+        minimumWidth: 300,
+        minimumHeight: 600,
+        maximumFileSizeBytes: 2097152,
+        maximumActiveSlots: 5,
+        active: true,
+        page: "Search Results",
+        route: "/results",
+        position: "Right Rail Filter Sidebar on Desktop",
+        description: "Vertical half-page skyscraper display ad pinned on desktop search and filter view.",
+        device: "Desktop Web",
+        networkProvider: "GOOGLE_ADSENSE",
+        googleSlotId: "1122334455",
+        adFormat: "vertical"
+      },
+      {
+        placementId: "CATEGORY_DESKTOP_SIDEBAR",
+        name: "Category Browse Desktop Sidebar",
+        campaignTypes: ["BANNER_AD"],
+        aspectRatio: "1:1",
+        minimumWidth: 300,
+        minimumHeight: 250,
+        maximumFileSizeBytes: 2097152,
+        maximumActiveSlots: 5,
+        active: true,
+        page: "Category Browse",
+        route: "/category/all",
+        position: "Category Filter Sidebar on Desktop",
+        description: "Contextual square/rectangle display banner pinned in category filter rails.",
+        device: "Desktop Web",
+        networkProvider: "GOOGLE_ADSENSE",
+        googleSlotId: "3344556677",
+        adFormat: "rectangle"
       }
     ];
 
@@ -891,7 +1065,10 @@ export async function getAdPlacements(req: Request, res: Response, Next: NextFun
               route: dp.route,
               position: dp.position,
               description: dp.description,
-              device: dp.device
+              device: dp.device,
+              networkProvider: (dp as any).networkProvider || "HYBRID",
+              googleSlotId: (dp as any).googleSlotId || "",
+              adFormat: (dp as any).adFormat || "auto"
             },
             $setOnInsert: {
               active: dp.active
@@ -950,6 +1127,9 @@ export async function getAdPlacements(req: Request, res: Response, Next: NextFun
         device: (p as any).device || "Web & Mobile App",
         baseCPM: (p as any).baseCPM || 100,
         baseDailyRate: (p as any).baseDailyRate || 299,
+        networkProvider: (p as any).networkProvider || (p.googleSlotId ? "GOOGLE_ADSENSE" : "DIRECT_ADVERTISER"),
+        googleSlotId: (p as any).googleSlotId || "",
+        adFormat: (p as any).adFormat || "auto",
         startingPrice,
         pricingPlans: matchingPlans.map((mp) => ({
           id: mp._id.toString(),
@@ -1027,7 +1207,12 @@ export async function createAdPlacement(req: Request, res: Response, Next: NextF
       route: route || "/",
       position: position || "Section Placement",
       description: description || "",
-      device: device || "Web & Mobile App"
+      device: device || "Web & Mobile App",
+      networkProvider: req.body.networkProvider || "HYBRID",
+      googleSlotId: (req.body.googleSlotId || "").trim(),
+      adFormat: req.body.adFormat || "auto",
+      baseCPM: req.body.baseCPM ? Number(req.body.baseCPM) : 100,
+      baseDailyRate: req.body.baseDailyRate ? Number(req.body.baseDailyRate) : 299
     });
 
     res.status(201).json({ success: true, data: newPlacement });
@@ -1083,6 +1268,11 @@ export async function updateAdPlacement(req: Request, res: Response, next: NextF
     if (position !== undefined) updateFields.position = position;
     if (device !== undefined) updateFields.device = device;
     if (cpmInPaise !== undefined) updateFields.cpmInPaise = Number(cpmInPaise);
+    if (req.body.networkProvider !== undefined) updateFields.networkProvider = req.body.networkProvider;
+    if (req.body.googleSlotId !== undefined) updateFields.googleSlotId = req.body.googleSlotId;
+    if (req.body.adFormat !== undefined) updateFields.adFormat = req.body.adFormat;
+    if (req.body.baseCPM !== undefined) updateFields.baseCPM = Number(req.body.baseCPM);
+    if (req.body.baseDailyRate !== undefined) updateFields.baseDailyRate = Number(req.body.baseDailyRate);
 
     const updated = await AdPlacement.findByIdAndUpdate(id, { $set: updateFields }, { new: true });
     if (!updated) {
@@ -1851,3 +2041,54 @@ export async function getAdminRevenueAnalytics(req: AuthenticatedAdminRequest, r
     next(error);
   }
 }
+
+export async function getAdSettings(req: Request, res: Response, next: NextFunction): Promise<void> {
+  try {
+    let setting = await GlobalAdSetting.findOne();
+    if (!setting) {
+      setting = await GlobalAdSetting.create({
+        googleAdsEnabled: true,
+        googleClientId: "ca-pub-18494959839",
+        googleTestMode: false
+      });
+    }
+    res.status(200).json({
+      success: true,
+      data: {
+        googleAdsEnabled: setting.googleAdsEnabled,
+        googleClientId: setting.googleClientId,
+        googleTestMode: setting.googleTestMode,
+        updatedAt: setting.updatedAt
+      }
+    });
+  } catch (error) {
+    next(error);
+  }
+}
+
+export async function updateAdSettings(req: Request, res: Response, next: NextFunction): Promise<void> {
+  try {
+    const { googleAdsEnabled, googleClientId, googleTestMode } = req.body;
+    let setting = await GlobalAdSetting.findOne();
+    if (!setting) {
+      setting = new GlobalAdSetting();
+    }
+    if (googleAdsEnabled !== undefined) setting.googleAdsEnabled = Boolean(googleAdsEnabled);
+    if (googleClientId !== undefined) setting.googleClientId = String(googleClientId).trim();
+    if (googleTestMode !== undefined) setting.googleTestMode = Boolean(googleTestMode);
+
+    await setting.save();
+    res.status(200).json({
+      success: true,
+      data: {
+        googleAdsEnabled: setting.googleAdsEnabled,
+        googleClientId: setting.googleClientId,
+        googleTestMode: setting.googleTestMode,
+        updatedAt: setting.updatedAt
+      }
+    });
+  } catch (error) {
+    next(error);
+  }
+}
+

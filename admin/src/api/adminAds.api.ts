@@ -5,6 +5,8 @@ const API_BASE = `${ROOT_API_BASE}/admin/ad-campaigns`;
 const PLACEMENTS_API = `${ROOT_API_BASE}/admin/ad-placements`;
 const PUBLIC_PLACEMENTS_API = `${ROOT_API_BASE}/ad-placements`;
 const PRODUCTS_API = `${ROOT_API_BASE}/admin/ad-products`;
+const AD_SETTINGS_API = `${ROOT_API_BASE}/admin/ad-settings`;
+const PUBLIC_AD_SETTINGS_API = `${ROOT_API_BASE}/ad-settings`;
 
 function getHeaders(): Record<string, string> {
   const token = AdminAuthService.getAccessToken();
@@ -300,4 +302,51 @@ export async function toggleAdminAdProductStatusApi(productId: string): Promise<
     return { success: false, error: "Network error: Unable to toggle pricing plan status" };
   }
 }
+
+export async function getAdminAdSettingsApi(): Promise<{
+  success: boolean;
+  data?: { googleAdsEnabled: boolean; googleClientId: string; googleTestMode: boolean };
+  error?: string;
+}> {
+  try {
+    const res = await fetch(PUBLIC_AD_SETTINGS_API, {
+      headers: getHeaders(),
+      credentials: "include"
+    });
+    const json = await res.json();
+    if (!res.ok || !json.success) {
+      return { success: false, error: json.error?.message || "Failed to fetch ad settings" };
+    }
+    return { success: true, data: json.data };
+  } catch (error) {
+    return { success: false, error: "Network error: Unable to fetch ad settings" };
+  }
+}
+
+export async function updateAdminAdSettingsApi(settings: {
+  googleAdsEnabled?: boolean;
+  googleClientId?: string;
+  googleTestMode?: boolean;
+}): Promise<{
+  success: boolean;
+  data?: any;
+  error?: string;
+}> {
+  try {
+    const res = await fetch(AD_SETTINGS_API, {
+      method: "PUT",
+      headers: getHeaders(),
+      credentials: "include",
+      body: JSON.stringify(settings)
+    });
+    const json = await res.json();
+    if (!res.ok || !json.success) {
+      return { success: false, error: json.error?.message || "Failed to update ad settings" };
+    }
+    return { success: true, data: json.data };
+  } catch (error) {
+    return { success: false, error: "Network error: Unable to update ad settings" };
+  }
+}
+
 

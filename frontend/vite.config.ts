@@ -52,7 +52,7 @@ export default defineConfig({
   },
   build: {
     target: "es2020",
-    minify: "esbuild",
+    minify: "oxc",
     cssMinify: true,
     sourcemap: false,
     chunkSizeWarningLimit: 1200,

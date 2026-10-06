@@ -81,6 +81,9 @@ import {
   History,
   Wrench,
   Key,
+  Globe,
+  Layers,
+  Target,
 } from "lucide-react";
 
 const ICON_MAP: Record<string, React.FC<{ className?: string }>> = {
@@ -155,6 +158,9 @@ const ICON_MAP: Record<string, React.FC<{ className?: string }>> = {
   Wrench,
   Tool: Wrench,
   Key,
+  Globe,
+  Layers,
+  Target,
 };
 
 interface AdminSidebarProps {

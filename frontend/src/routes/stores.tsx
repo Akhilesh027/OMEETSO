@@ -7,6 +7,8 @@ import { LocationModal } from "@/components/omeetso/LocationModal";
 import { getPublicStoresApi } from "@/api/stores.api";
 import { serveAdsApi } from "@/api/adCampaigns.api";
 import { UNIFIED_DEFAULT_BANNER } from "@/components/omeetso/AdBanner";
+import { GoogleAdSlot } from "@/components/omeetso/GoogleAdSlot";
+import { InFeedGoogleAd } from "@/components/omeetso/InFeedGoogleAd";
 import { resolveCityFromLocation } from "@/lib/location";
 import { DEFAULT_SAMPLE_STORES, matchStoreLocation } from "@/lib/sampleStores";
 import {
@@ -346,6 +348,16 @@ function Stores() {
                   <StoreIcon className="h-4 w-4" /> Open Your Store
                 </Link>
               </div>
+
+              {/* 🎯 Desktop Sidebar Google AdSense Unit */}
+              <div className="pt-2">
+                <GoogleAdSlot
+                  slotId="3344556680"
+                  format="vertical"
+                  title="Featured Local Businesses"
+                  fallbackLabel="Explore verified merchant products, electronics and local offers."
+                />
+              </div>
             </aside>
 
             {/* Right Main Content */}
@@ -520,9 +532,20 @@ function Stores() {
                 </div>
               ) : (
                 <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-5">
-                  {filteredStores.map((s) => (
-                    <StoreCard key={s.id} s={s} />
-                  ))}
+                  {filteredStores.flatMap((s, i) => {
+                    const items = [<StoreCard key={s.id} s={s} />];
+                    if ((i + 1) % 6 === 0) {
+                      items.push(
+                        <InFeedGoogleAd
+                          key={`google-infeed-store-${i}`}
+                          slotId={`3344556681-${i}`}
+                          title="Featured Business Deals"
+                          description="Discover verified retail stores and manufacturer discounts."
+                        />
+                      );
+                    }
+                    return items;
+                  })}
                 </div>
               )}
 

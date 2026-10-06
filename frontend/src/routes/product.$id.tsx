@@ -18,6 +18,8 @@ import { MobileFrame } from "@/components/omeetso/MobileFrame";
 import { ProductCard } from "@/components/omeetso/ProductCard";
 import { SellerSummary } from "@/components/omeetso/SellerSummary";
 import { ContextualAd } from "@/components/omeetso/AdBanner";
+import { GoogleAdSlot } from "@/components/omeetso/GoogleAdSlot";
+import { InFeedGoogleAd } from "@/components/omeetso/InFeedGoogleAd";
 import { SafetyCard } from "@/components/omeetso/SafetyCard";
 import { MakeOfferSheet } from "@/components/omeetso/chat/MakeOfferSheet";
 import { isGuest } from "@/lib/chat";
@@ -757,6 +759,16 @@ function ProductPage() {
             <FormattedDescription text={product.description} />
           </div>
 
+          {/* 🎯 Placement: In-Article Mid-Content Display Unit */}
+          <div className="my-2">
+            <GoogleAdSlot
+              slotId="4455667792"
+              format="horizontal"
+              title="Featured Partner Offers"
+              fallbackLabel={`Verified deals & services in ${(product as any).city || "your area"}`}
+            />
+          </div>
+
           {/* Seller */}
           <div>
             <h3 className="mb-2 text-xs font-bold uppercase tracking-wider text-muted-foreground">Seller Overview</h3>
@@ -765,6 +777,16 @@ function ProductPage() {
 
           {/* Contextual ad */}
           <ContextualAd ad={contextualAd} />
+
+          {/* 🎯 Google Contextual Display Unit (300x250 Medium Rectangle) */}
+          <div className="my-2">
+            <GoogleAdSlot
+              slotId="4455667788"
+              format="rectangle"
+              title="Recommended Accessories & Services"
+              fallbackLabel={`Sponsored partner offers matching ${product.title || "this listing"}`}
+            />
+          </div>
 
           <SafetyCard />
 
@@ -776,15 +798,31 @@ function ProductPage() {
             <Flag className="h-3.5 w-3.5" /> Report this listing
           </button>
 
-          {/* Similar */}
+          {/* Similar Products with 🎯 In-Feed Native Google Ad */}
           {similar.length > 0 && (
             <div>
               <h3 className="mb-3 text-sm font-bold text-foreground">Similar Products</h3>
               <div className="grid grid-cols-2 gap-3">
-                {similar.map((p) => <ProductCard key={p.id} p={p} />)}
+                {similar.slice(0, 2).map((p) => <ProductCard key={p.id} p={p} />)}
+                <InFeedGoogleAd
+                  slotId="4455667793"
+                  title="Sponsored Deals & Related Finds"
+                  description={`Popular deals matching ${product.category || "marketplace listings"} in your area.`}
+                />
+                {similar.slice(2).map((p) => <ProductCard key={p.id} p={p} />)}
               </div>
             </div>
           )}
+
+          {/* 🎯 Placement: Marketplace Deals Billboard */}
+          <div className="my-3">
+            <GoogleAdSlot
+              slotId="4455667794"
+              format="horizontal"
+              title="Trending Marketplace Deals"
+              fallbackLabel={`Sponsored offers matching ${product.category || "this product"}`}
+            />
+          </div>
         </div>
         </div>{/* end left column */}
 
@@ -792,6 +830,16 @@ function ProductPage() {
         <aside className="hidden md:block">
           <div className="sticky top-24 space-y-4">
             <SellerSummary seller={seller} otherListings={otherListings} />
+
+            {/* 🎯 Placement: Middle Right Sidebar Ad */}
+            <div>
+              <GoogleAdSlot
+                slotId="4455667795"
+                format="horizontal"
+                title="Featured Partner Deal"
+                fallbackLabel={`Exclusive partner offers for ${product.category || "buyers"}`}
+              />
+            </div>
 
             {/* Quick Action Card */}
             <div className="space-y-3.5 rounded-3xl border border-border bg-card p-5 shadow-xs">
@@ -879,6 +927,16 @@ function ProductPage() {
               <div className="mt-3 rounded-2xl bg-blue-500/5 border border-blue-500/20 p-3 text-[11px] font-medium text-blue-800 dark:text-blue-300">
                 🛡️ Safety Shield: Meet in a public place, inspect the item thoroughly, and verify before making payment.
               </div>
+            </div>
+
+            {/* 🎯 Placement: Desktop Sticky Rail Unit (300x250 Medium Rectangle / Skyscraper) */}
+            <div className="pt-1">
+              <GoogleAdSlot
+                slotId="4455667791"
+                format="rectangle"
+                title="Sponsored Services & Deals"
+                fallbackLabel={`Verified local offers matching ${product.category || "this product"}`}
+              />
             </div>
           </div>
         </aside>

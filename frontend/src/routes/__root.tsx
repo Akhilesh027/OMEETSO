@@ -5,6 +5,7 @@ import { useEffect } from "react";
 import { reportLovableError } from "../lib/lovable-error-reporting";
 import { WebsiteHeader } from "../components/omeetso/WebsiteHeader";
 import { WebsiteFooter } from "../components/omeetso/WebsiteFooter";
+import { MobileStickyAnchorAd } from "../components/omeetso/MobileStickyAnchorAd";
 import { ChatProvider } from "../contexts/ChatProvider";
 
 function NotFoundComponent() {
@@ -58,6 +59,7 @@ function RootComponent() {
       <WebsiteHeader />
       <Outlet />
       <WebsiteFooter />
+      <MobileStickyAnchorAd />
     </ChatProvider>
   );
 }

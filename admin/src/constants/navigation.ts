@@ -107,6 +107,9 @@ export const NAV: NavGroup[] = [
     icon: Megaphone,
     items: [
       { label: "Advertisements & Media Workspace", to: "/admin/ads", perms: ["ads.view"] },
+      { label: "Google Ads Placements", to: "/admin/ads/placements/google", perms: ["ads.view"] },
+      { label: "Omeetso Ads Placements", to: "/admin/ads/placements/omeetso", perms: ["ads.view"] },
+      { label: "All Placements Inventory", to: "/admin/promotions/placements", perms: ["ads.view"] },
     ],
   },
   {

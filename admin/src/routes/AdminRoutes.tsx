@@ -199,6 +199,9 @@ export default function AdminRoutes() {
             <Route path="/admin/ads/paused" element={<AdsOverviewPage />} />
             <Route path="/admin/ads/rejected" element={<AdsOverviewPage />} />
             <Route path="/admin/ads/completed" element={<AdsOverviewPage />} />
+            <Route path="/admin/ads/placements" element={<AdPlacementsPage />} />
+            <Route path="/admin/ads/placements/google" element={<AdPlacementsPage initialTab="GOOGLE" />} />
+            <Route path="/admin/ads/placements/omeetso" element={<AdPlacementsPage initialTab="OMEETSO" />} />
             <Route path="/admin/ads/placements/website" element={<AdPlacementsPage />} />
             <Route path="/admin/ads/placements/app" element={<AdPlacementsPage />} />
             <Route path="/admin/ads/placements/create" element={<AdPlacementsPage />} />

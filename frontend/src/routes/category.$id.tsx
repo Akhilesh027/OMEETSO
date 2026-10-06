@@ -10,6 +10,8 @@ import { StoreCard } from "@/components/omeetso/StoreCard";
 import { SortSheet } from "@/components/omeetso/SortSheet";
 import { FilterChip } from "@/components/omeetso/FilterChip";
 import { HeroAd, UNIFIED_DEFAULT_BANNER, DEFAULT_SPONSORED_LISTING, getCategoryDefaultBanner } from "@/components/omeetso/AdBanner";
+import { GoogleAdSlot } from "@/components/omeetso/GoogleAdSlot";
+import { InFeedGoogleAd } from "@/components/omeetso/InFeedGoogleAd";
 import { SafetyCard } from "@/components/omeetso/SafetyCard";
 import { EmptyState } from "@/components/omeetso/EmptyState";
 import { InfinityLoader } from "@/components/omeetso/InfinityLoader";
@@ -736,6 +738,16 @@ function CategoryPage() {
               >
                 <X className="h-4 w-4" /> Clear All Filters
               </button>
+
+              {/* 🎯 Desktop Sidebar Google AdSense Unit */}
+              <div className="pt-2">
+                <GoogleAdSlot
+                  slotId="3344556678"
+                  format="vertical"
+                  title={`Featured in ${category.name}`}
+                  fallbackLabel="Explore curated local partner offers and accessories."
+                />
+              </div>
             </div>
           </aside>
 
@@ -867,24 +879,36 @@ function interleaveAds(products: Product[], sponsoredAd: any, mode: "grid" | "li
       );
 
       if ((i + 1) % 6 === 0) {
-        nodes.push(
-          <ProductCard
-            key={`sponsored-ad-repeat-${i}`}
-            p={{
-              ...sponsoredAd,
-              id: `${sponsoredAd.id}-rep-${i}`,
-              sponsored: true,
-              verified: true,
-            }}
-            variant={mode === "list" ? "list" : "grid"}
-          />
-        );
+        if ((i + 1) % 12 === 0) {
+          nodes.push(
+            <InFeedGoogleAd
+              key={`google-infeed-cat-${i}`}
+              slotId={`8899001122-cat-${i}`}
+              title="Trending Category Offer"
+              description="Sponsored deals curated for category shoppers."
+            />
+          );
+        } else {
+          nodes.push(
+            <ProductCard
+              key={`sponsored-ad-repeat-${i}`}
+              p={{
+                ...sponsoredAd,
+                id: `${sponsoredAd.id}-rep-${i}`,
+                sponsored: true,
+                verified: true,
+              }}
+              variant={mode === "list" ? "list" : "grid"}
+            />
+          );
+        }
       }
     });
     return nodes;
   }
 
-  products.forEach((p) => {
+  // When no 1st-party direct sponsored ad is booked, fall back to Google In-Feed Ads every 6 items
+  products.forEach((p, i) => {
     nodes.push(
       mode === "list" ? (
         <ProductCard key={p.id} p={p} variant="list" />
@@ -892,6 +916,17 @@ function interleaveAds(products: Product[], sponsoredAd: any, mode: "grid" | "li
         <ProductCard key={p.id} p={p} />
       )
     );
+
+    if ((i + 1) % 6 === 0) {
+      nodes.push(
+        <InFeedGoogleAd
+          key={`google-infeed-cat-${i}`}
+          slotId={`8899001122-cat-${i}`}
+          title="Recommended Nearby Deal"
+          description="Sponsored partner recommendation matching your search."
+        />
+      );
+    }
   });
   return nodes;
 }

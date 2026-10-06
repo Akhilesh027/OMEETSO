@@ -12,6 +12,7 @@ import { DEFAULT_SAMPLE_STORES } from "@/lib/sampleStores";
 import { useEffect, useState } from "react";
 import { startConversationApi } from "@/api/chat.api";
 import { serveAdsApi } from "@/api/adCampaigns.api";
+import { GoogleAdSlot } from "@/components/omeetso/GoogleAdSlot";
 import { toast } from "sonner";
 
 import { ReviewModal } from "@/components/omeetso/chat/ReviewModal";
@@ -736,6 +737,16 @@ function StorePage() {
                     </div>
                   </div>
                 )}
+              </div>
+
+              {/* 🎯 Store Profile Partner Display Unit */}
+              <div className="pt-4">
+                <GoogleAdSlot
+                  slotId="5566778811"
+                  format="horizontal"
+                  title="Sponsored Recommendations"
+                  fallbackLabel="Explore curated local electronics, accessories and service partners."
+                />
               </div>
 
             </main>

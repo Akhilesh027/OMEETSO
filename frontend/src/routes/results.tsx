@@ -11,6 +11,8 @@ import { fetchLiveCategories, getCachedCategories, type LiveCategory } from "@/l
 import { calculateDistanceBetweenLocations, resolveCityFromLocation } from "@/lib/location";
 import { EmptyState } from "@/components/omeetso/EmptyState";
 import { DEFAULT_SPONSORED_LISTING } from "@/components/omeetso/AdBanner";
+import { GoogleAdSlot } from "@/components/omeetso/GoogleAdSlot";
+import { InFeedGoogleAd } from "@/components/omeetso/InFeedGoogleAd";
 import { preventNonNumericKeyDown, sanitizeNumericInput } from "@/lib/utils";
 
 type S = {
@@ -588,18 +590,38 @@ function Results() {
               >
                 <X className="h-4 w-4" /> Clear All Filters
               </button>
+
+              {/* 🎯 Desktop Sidebar Google AdSense Unit */}
+              <div className="pt-2">
+                <GoogleAdSlot
+                  slotId="3344556677"
+                  format="vertical"
+                  title="Sponsored Partner Offers"
+                  fallbackLabel="Explore curated local products, gadgets and verified services."
+                />
+              </div>
             </div>
           </aside>
 
           {/* ── RESULTS GRID ── */}
           <div>
             {filtered.length === 0 ? (
-              <EmptyState
-                title="No results found"
-                body="Try clearing active filters or searching for something else."
-                ctaLabel="Clear all filters"
-                onCta={resetAllFilters}
-              />
+              <div className="space-y-6">
+                <EmptyState
+                  title="No results found"
+                  body="Try clearing active filters or searching for something else."
+                  ctaLabel="Clear all filters"
+                  onCta={resetAllFilters}
+                />
+                <div className="max-w-md mx-auto">
+                  <GoogleAdSlot
+                    slotId="9988776655"
+                    format="horizontal"
+                    title="Popular Deals & Stores Near You"
+                    fallbackLabel="Discover alternative local listings & verified partner offers."
+                  />
+                </div>
+              </div>
             ) : view === "list" ? (
               <div className="space-y-3">
                 {interleaveAds(filtered, liveSponsoredAd, "list")}
@@ -633,18 +655,30 @@ function interleaveAds(products: Product[], sponsoredAd: any, mode: "grid" | "li
         : <ProductCard key={p.id} p={p} />
     );
 
-    if ((i + 1) % 6 === 0 && sponsoredAd) {
-      nodes.push(
-        <ProductCard
-          key={`sponsored-ad-${i}`}
-          p={{
-            ...sponsoredAd,
-            id: sponsoredAd.id,
-            sponsored: true
-          }}
-          variant={mode === "list" ? "list" : "grid"}
-        />
-      );
+    // 🎯 Every 6 items: Show 1st-party direct sponsored listing if booked, otherwise fall back to Google In-Feed Ad
+    if ((i + 1) % 6 === 0) {
+      if (sponsoredAd && (i + 1) % 12 !== 0) {
+        nodes.push(
+          <ProductCard
+            key={`sponsored-ad-${i}`}
+            p={{
+              ...sponsoredAd,
+              id: sponsoredAd.id,
+              sponsored: true
+            }}
+            variant={mode === "list" ? "list" : "grid"}
+          />
+        );
+      } else {
+        nodes.push(
+          <InFeedGoogleAd
+            key={`google-infeed-${i}`}
+            slotId={`8899001122-${i}`}
+            title="Featured Local Partner Deal"
+            description="Sponsored recommendation matching your current browsing interest."
+          />
+        );
+      }
     }
   });
   return nodes;

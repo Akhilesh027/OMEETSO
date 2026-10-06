@@ -22,7 +22,9 @@ import {
   trackAdImpression,
   trackAdClick,
   getCampaignAnalytics,
-  getAdminRevenueAnalytics
+  getAdminRevenueAnalytics,
+  getAdSettings,
+  updateAdSettings
 } from "../controllers/revenue.controller";
 import { createRazorpayOrder, verifyRazorpayPayment } from "../controllers/razorpay.controller";
 import { authenticateUser } from "../../../middleware/authenticateUser";
@@ -40,6 +42,7 @@ revenueRouter.post("/wallet/create-order", authenticateUser, createRazorpayOrder
 revenueRouter.post("/wallet/verify-payment", authenticateUser, verifyRazorpayPayment);
 revenueRouter.get("/ad-products", getAdProducts);
 revenueRouter.get("/ad-placements", getAdPlacements);
+revenueRouter.get("/ad-settings", getAdSettings);
 revenueRouter.get("/ads/serve", serveAds);
 revenueRouter.post("/ads/track-impression", trackAdImpression);
 revenueRouter.post("/ads/track-click", trackAdClick);
@@ -64,4 +67,6 @@ revenueRouter.post("/admin/ad-placements", authenticateAdmin, createAdPlacement)
 revenueRouter.put("/admin/ad-placements/:id", authenticateAdmin, updateAdPlacement);
 revenueRouter.patch("/admin/ad-placements/:id", authenticateAdmin, updateAdPlacement);
 revenueRouter.delete("/admin/ad-placements/:id", authenticateAdmin, deleteAdPlacement);
+revenueRouter.put("/admin/ad-settings", authenticateAdmin, updateAdSettings);
+revenueRouter.patch("/admin/ad-settings", authenticateAdmin, updateAdSettings);
 revenueRouter.get("/admin/revenue/analytics", authenticateAdmin, requirePermission("ads.view"), getAdminRevenueAnalytics);

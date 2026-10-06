@@ -4,6 +4,36 @@ import { MobileFrame } from "@/components/omeetso/MobileFrame";
 import { WifiOff, ServerCrash, DownloadCloud, RefreshCw, MapPin, Store, Home, Package, Tag, MessageCircle } from "lucide-react";
 
 export const Route = createFileRoute("/")({
+  head: () => ({
+    meta: [
+      { title: "omeetso — Hyperlocal Marketplace | Buy, Sell & Jobs Nearby" },
+      {
+        name: "description",
+        content:
+          "omeetso is India's hyperlocal marketplace. Discover verified local stores, buy & sell pre-owned items, find neighborhood jobs and services near you with 0% fee.",
+      },
+      {
+        name: "keywords",
+        content:
+          "omeetso, buy nearby, sell quickly, hyperlocal marketplace, local stores, verified sellers, buy and sell, near me deals, local classifieds, neighborhood shopping, used mobiles, second hand cars, bikes, furniture, local jobs, zero commission",
+      },
+      { property: "og:title", content: "omeetso — Hyperlocal Marketplace | Buy, Sell & Jobs Nearby" },
+      {
+        property: "og:description",
+        content:
+          "Discover verified local stores, buy & sell pre-owned items, find neighborhood jobs and services near you with 0% middleman commission.",
+      },
+      { property: "og:type", content: "website" },
+      { property: "og:url", content: "https://omeetso.in/" },
+      { name: "twitter:card", content: "summary_large_image" },
+      { name: "twitter:title", content: "omeetso — Hyperlocal Marketplace | Buy, Sell & Jobs Nearby" },
+      {
+        name: "twitter:description",
+        content:
+          "Discover verified local stores, buy & sell pre-owned items, find neighborhood jobs and services near you with 0% middleman commission.",
+      },
+    ],
+  }),
   component: Splash,
   validateSearch: (s: Record<string, unknown>) => ({
     state: (s.state as SplashState | undefined) ?? undefined,

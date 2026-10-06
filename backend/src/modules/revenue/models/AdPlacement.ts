@@ -18,6 +18,9 @@ export interface IAdPlacement extends Document {
   device?: string;
   baseCPM?: number;
   baseDailyRate?: number;
+  networkProvider?: "GOOGLE_ADSENSE" | "DIRECT_ADVERTISER" | "HYBRID";
+  googleSlotId?: string;
+  adFormat?: string;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -39,7 +42,10 @@ const AdPlacementSchema = new Schema<IAdPlacement>(
     position: { type: String },
     device: { type: String, default: "Web & Mobile App" },
     baseCPM: { type: Number, default: 100 },
-    baseDailyRate: { type: Number, default: 299 }
+    baseDailyRate: { type: Number, default: 299 },
+    networkProvider: { type: String, enum: ["GOOGLE_ADSENSE", "DIRECT_ADVERTISER", "HYBRID"], default: "HYBRID" },
+    googleSlotId: { type: String, default: "" },
+    adFormat: { type: String, default: "auto" }
   },
   { timestamps: true }
 );

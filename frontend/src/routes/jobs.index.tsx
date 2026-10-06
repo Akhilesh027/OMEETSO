@@ -10,6 +10,8 @@ import { JobCard } from "@/components/omeetso/jobs/JobCard";
 import { SortSheet } from "@/components/omeetso/SortSheet";
 import { FilterChip } from "@/components/omeetso/FilterChip";
 import { HeroAd, UNIFIED_DEFAULT_BANNER } from "@/components/omeetso/AdBanner";
+import { GoogleAdSlot } from "@/components/omeetso/GoogleAdSlot";
+import { InFeedGoogleAd } from "@/components/omeetso/InFeedGoogleAd";
 import { SafetyCard } from "@/components/omeetso/SafetyCard";
 import { EmptyState } from "@/components/omeetso/EmptyState";
 import { InfinityLoader } from "@/components/omeetso/InfinityLoader";
@@ -659,6 +661,16 @@ function JobsPage() {
               >
                 <X className="h-4 w-4" /> Clear All Filters
               </button>
+
+              {/* 🎯 Desktop Sidebar Google AdSense Unit */}
+              <div className="pt-2">
+                <GoogleAdSlot
+                  slotId="3344556679"
+                  format="vertical"
+                  title="Featured Career Partners"
+                  fallbackLabel="Explore professional courses, resume builders & interview prep."
+                />
+              </div>
             </div>
           </aside>
 
@@ -740,15 +752,37 @@ function JobsPage() {
                   </div>
                 ) : view === "list" ? (
                   <div className="space-y-3 w-full">
-                    {filteredJobs.map((job) => (
-                      <JobCard key={job.id} job={job} variant="list" />
-                    ))}
+                    {filteredJobs.flatMap((job, i) => {
+                      const items = [<JobCard key={job.id} job={job} variant="list" />];
+                      if ((i + 1) % 6 === 0) {
+                        items.push(
+                          <InFeedGoogleAd
+                            key={`google-infeed-jobs-${i}`}
+                            slotId={`2233445566-${i}`}
+                            title="Career Growth & Training Programs"
+                            description="Sponsored skill courses, resume certifications and hiring platforms."
+                          />
+                        );
+                      }
+                      return items;
+                    })}
                   </div>
                 ) : (
                   <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-5 w-full">
-                    {filteredJobs.map((job) => (
-                      <JobCard key={job.id} job={job} variant="grid" />
-                    ))}
+                    {filteredJobs.flatMap((job, i) => {
+                      const items = [<JobCard key={job.id} job={job} variant="grid" />];
+                      if ((i + 1) % 6 === 0) {
+                        items.push(
+                          <InFeedGoogleAd
+                            key={`google-infeed-jobs-${i}`}
+                            slotId={`2233445566-${i}`}
+                            title="Career Growth & Training Programs"
+                            description="Sponsored skill courses, resume certifications and hiring platforms."
+                          />
+                        );
+                      }
+                      return items;
+                    })}
                   </div>
                 )}
 

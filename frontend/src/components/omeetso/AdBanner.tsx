@@ -507,11 +507,6 @@ export function HeroAd({ ad, ads, maxAds = 5 }: { ad?: any; ads?: any[]; maxAds?
         <div className="flex items-center justify-between gap-2 pointer-events-auto">
           <div className="flex items-center gap-2">
             <AdLabel tone="dark" />
-            {adList.length > 1 && (
-              <span className="px-2 py-0.5 rounded-full bg-amber-500/90 text-slate-950 text-[10px] font-black uppercase tracking-wider shadow">
-                Ad {currentIndex + 1} of {adList.length} • Rotates 5s
-              </span>
-            )}
           </div>
           <div className="flex items-center gap-1">
             <InfoWhySeeing />
@@ -856,11 +851,6 @@ export function SecondaryBannerAd({
         <div className="flex items-center justify-between gap-2 pointer-events-auto">
           <div className="flex items-center gap-2">
             <AdLabel tone="dark" />
-            {adList.length > 1 && (
-              <span className="px-2 py-0.5 rounded-full bg-amber-500/90 text-slate-950 text-[10px] font-black uppercase tracking-wider shadow">
-                Ad {currentIndex + 1} of {adList.length} • Rotates 5s
-              </span>
-            )}
           </div>
           <div className="flex items-center gap-1">
             <InfoWhySeeing />

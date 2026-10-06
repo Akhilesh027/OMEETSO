@@ -14,6 +14,7 @@ import { MobileFrame } from "@/components/omeetso/MobileFrame";
 import { BackBar } from "@/components/omeetso/TopBar";
 import { fetchBlogBySlug, likeBlog, BlogArticle } from "@/api/blogs.api";
 import { ShareBlogModal } from "@/components/omeetso/ShareBlogModal";
+import { GoogleAdSlot } from "@/components/omeetso/GoogleAdSlot";
 import { toast } from "sonner";
 
 export const Route = createFileRoute("/blog/$slug")({
@@ -282,6 +283,16 @@ function BlogDetailPage() {
                 ))}
               </div>
             )}
+          </div>
+
+          {/* 🎯 In-Article Google AdSense Unit */}
+          <div className="py-2">
+            <GoogleAdSlot
+              slotId="6677881122"
+              format="horizontal"
+              title="Sponsored Partner Content"
+              fallbackLabel="Recommended marketplace insights, verified products & services."
+            />
           </div>
 
           {/* Article Photo Gallery (Multiple Images) */}

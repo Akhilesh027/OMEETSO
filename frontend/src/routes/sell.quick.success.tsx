@@ -3,6 +3,7 @@ import { MobileFrame } from "@/components/omeetso/MobileFrame";
 import { BottomNav } from "@/components/omeetso/BottomNav";
 import { getListing, formatDate } from "@/lib/listings";
 import { CheckCircle2, Share2, Plus, FileEdit, Sparkles, ArrowRight, Package } from "lucide-react";
+import { GoogleAdSlot } from "@/components/omeetso/GoogleAdSlot";
 import { toast } from "sonner";
 
 export const Route = createFileRoute("/sell/quick/success")({
@@ -91,6 +92,16 @@ function Success() {
             <p className="mt-1 text-center text-[11px] text-muted-foreground">
               Promotion options will be available once your listing is approved.
             </p>
+
+            {/* 🎯 Post-Submission Partner Offers */}
+            <div className="pt-2">
+              <GoogleAdSlot
+                slotId="7788990011"
+                format="rectangle"
+                title="Useful Services for Sellers"
+                fallbackLabel="Packaging materials, courier pickups & home relocation."
+              />
+            </div>
           </div>
         </div>
         <BottomNav />

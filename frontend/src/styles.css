@@ -1,14 +1,12 @@
-@import url("https://fonts.cdnfonts.com/css/glacial-indifference-2");
-@import url("https://fonts.cdnfonts.com/css/glacial-indifference");
 @import url("https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:ital,wght@0,300;0,400;0,500;0,600;0,700;0,800;1,400;1,600&family=Urbanist:ital,wght@0,400;0,500;0,600;0,700;0,800;0,900;1,500;1,700&display=swap");
 @import "tailwindcss" source(none);
 @source "../src";
 @import "tw-animate-css";
 
-/* Local Glacial Indifference font-face declarations */
+/* Glacial Indifference font-face declarations with zero external CSS blocking */
 @font-face {
   font-family: "Glacial Indifference";
-  src: local("Glacial Indifference Regular"), local("GlacialIndifference-Regular");
+  src: local("Glacial Indifference Regular"), local("GlacialIndifference-Regular"), url("https://fonts.cdnfonts.com/s/31913/GlacialIndifference-Regular.woff") format("woff");
   font-weight: 400;
   font-style: normal;
   font-display: swap;
@@ -16,7 +14,7 @@
 
 @font-face {
   font-family: "Glacial Indifference";
-  src: local("Glacial Indifference Bold"), local("GlacialIndifference-Bold");
+  src: local("Glacial Indifference Bold"), local("GlacialIndifference-Bold"), url("https://fonts.cdnfonts.com/s/31913/GlacialIndifference-Bold.woff") format("woff");
   font-weight: 700;
   font-style: normal;
   font-display: swap;
