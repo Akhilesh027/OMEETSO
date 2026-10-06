@@ -174,6 +174,10 @@ export function listListings(): Listing[] {
 
 const publicListingsMemoryCache: Map<string, { data: Listing[]; expiresAt: number }> = new Map();
 
+export function invalidatePublicListingsCache(): void {
+  publicListingsMemoryCache.clear();
+}
+
 export async function fetchLivePublicListings(params?: {
   area?: string;
   city?: string;
@@ -424,6 +428,7 @@ export function getListing(id: string): Listing | undefined {
 }
 export function upsertListing(l: Listing) {
   invalidateUserListingsCache();
+  invalidatePublicListingsCache();
   const key = getUserListingsStorageKey();
   const all = read<Listing[]>(key, []);
   const i = all.findIndex((x) => x.id === l.id);
@@ -436,6 +441,7 @@ export function upsertListing(l: Listing) {
 }
 export function deleteListing(id: string) {
   invalidateUserListingsCache();
+  invalidatePublicListingsCache();
   const key = getUserListingsStorageKey();
   write(key, read<Listing[]>(key, []).filter((l) => l.id !== id));
 }

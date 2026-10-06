@@ -197,25 +197,33 @@ function CategoryPage() {
 
     const [lRes, sRes] = await Promise.all([
       getPublicListingsApi({
-        search: category.name,
         category: category.id,
         city: activeCity,
       }),
       getPublicStoresApi()
     ]);
 
+    let rawListings = (lRes.success && Array.isArray(lRes.data)) ? lRes.data : [];
+    // If no listings in the specific city, fetch all listings for this category as fallback
+    if (rawListings.length === 0) {
+      const fallbackRes = await getPublicListingsApi({ category: category.id });
+      if (fallbackRes.success && Array.isArray(fallbackRes.data)) {
+        rawListings = fallbackRes.data;
+      }
+    }
+
     setLoading(false);
 
-    if (lRes.success && Array.isArray(lRes.data)) {
-      const targetCat = category.id.toLowerCase();
+    if (rawListings.length > 0) {
+      const targetCat = category.id.toLowerCase().replace(/_/g, "-");
       const targetName = category.name.toLowerCase();
 
-      const matchingListings = lRes.data.filter((item: any) => {
-        const cId = (item.categoryId || item.category || "").toLowerCase();
+      const matchingListings = rawListings.filter((item: any) => {
+        const cId = (item.categoryId || item.category || "").toLowerCase().replace(/_/g, "-");
         return cId === targetCat || cId.includes(targetCat) || targetName.includes(cId);
       });
 
-      const finalCatListings = matchingListings.length > 0 ? matchingListings : lRes.data;
+      const finalCatListings = matchingListings.length > 0 ? matchingListings : rawListings;
       const mappedP = finalCatListings.map((item: any) => {
         const calculatedDist = calculateDistanceBetweenLocations(
           activeLoc ? { area: activeLoc.area, pincode: activeLoc.pincode, city: activeCity } : undefined,
@@ -382,22 +390,6 @@ function CategoryPage() {
     const max = search.maxP ? Number(search.maxP) : undefined;
     if (min !== undefined) list = list.filter((p) => p.price >= min);
     if (max !== undefined) list = list.filter((p) => p.price <= max);
-
-    // Location-based filtering — strictly filter for user's area / pincode / city
-    if (activeLoc?.area || activeLoc?.pincode) {
-      const targetArea = (activeLoc.area || "").toLowerCase();
-      const targetPin = (activeLoc.pincode || "").toLowerCase();
-      const targetCity = (activeLoc.city || "").toLowerCase();
-      const areaTerms = targetArea.split(/[,\s]+/).filter((t: string) => t.length >= 3);
-
-      list = list.filter((p: any) => {
-        const pText = `${p.location || ""} ${p.area || ""} ${p.city || ""} ${p.pincode || ""}`.toLowerCase();
-        const pinMatch = targetPin && (pText.includes(targetPin) || (p.pincode && p.pincode.toString() === targetPin));
-        const areaMatch = areaTerms.some((term: string) => pText.includes(term));
-        const cityMatch = targetCity && targetCity.length >= 3 && pText.includes(targetCity);
-        return Boolean(pinMatch || areaMatch || cityMatch);
-      });
-    }
 
     const userPin = String(activeLoc?.pincode || "").trim();
     const userArea = (activeLoc?.area || "").toLowerCase();

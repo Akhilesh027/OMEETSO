@@ -118,5 +118,8 @@ const AdCampaignSchema = new Schema<IAdCampaign>(
 );
 
 AdCampaignSchema.index({ status: 1, reviewDeadlineAt: 1 });
+AdCampaignSchema.index({ status: 1, placementIds: 1, endAt: 1 });
+AdCampaignSchema.index({ placementIds: 1, status: 1 });
+AdCampaignSchema.index({ advertiserUserId: 1, createdAt: -1 });
 
 export const AdCampaign = mongoose.model<IAdCampaign>("AdCampaign", AdCampaignSchema);

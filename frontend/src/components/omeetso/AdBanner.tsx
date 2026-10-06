@@ -452,12 +452,21 @@ export function HeroAd({ ad, ads, maxAds = 5 }: { ad?: any; ads?: any[]; maxAds?
   useEffect(() => {
     if (adList.length <= 1) return;
 
+    // Preload rotating ad banner images so transition is instant with 0 flicker
+    adList.forEach((a) => {
+      const src = a?.image || a?.imageUrl || a?.creative?.imageUrl;
+      if (src && typeof Image !== "undefined") {
+        const pre = new Image();
+        pre.src = src;
+      }
+    });
+
     const timer = setInterval(() => {
       setCurrentIndex((prev) => (prev + 1) % adList.length);
     }, 5000);
 
     return () => clearInterval(timer);
-  }, [adList.length]);
+  }, [adList]);
 
   const currentAd = adList[currentIndex] || adList[0];
 
@@ -490,6 +499,8 @@ export function HeroAd({ ad, ads, maxAds = 5 }: { ad?: any; ads?: any[]; maxAds?
               key={adId + currentIndex}
               src={image}
               alt={headline}
+              loading="eager"
+              decoding="async"
               onError={(e) => {
                 // Fall back if blob: or original URL fails to load
                 (e.target as HTMLImageElement).src = "https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=1200";

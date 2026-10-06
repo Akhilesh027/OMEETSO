@@ -73,6 +73,7 @@ export const LOCAL_GPS_COORDINATES: GeoCoordinateItem[] = [
   { area: "Secunderabad", city: "Hyderabad", state: "Telangana", pincode: "500003", lat: 17.4399, lng: 78.4983 },
   { area: "Tarnaka", city: "Hyderabad", state: "Telangana", pincode: "500017", lat: 17.4285, lng: 78.5312 },
   { area: "Uppal", city: "Hyderabad", state: "Telangana", pincode: "500039", lat: 17.4018, lng: 78.5602 },
+  { area: "Ghatkesar", city: "Hyderabad", state: "Telangana", pincode: "500098", lat: 17.4475, lng: 78.6833 },
   { area: "Nagole", city: "Hyderabad", state: "Telangana", pincode: "500068", lat: 17.3768, lng: 78.5583 },
   { area: "LB Nagar", city: "Hyderabad", state: "Telangana", pincode: "500074", lat: 17.3457, lng: 78.5522 },
   { area: "Dilsukhnagar", city: "Hyderabad", state: "Telangana", pincode: "500035", lat: 17.3688, lng: 78.5247 },
@@ -137,6 +138,7 @@ export const KNOWN_PINCODE_MAP: Record<string, { area: string; city: string; sta
   "500034": { area: "Banjara Hills", city: "Hyderabad", state: "Telangana" },
   "500033": { area: "Jubilee Hills", city: "Hyderabad", state: "Telangana" },
   "500039": { area: "Uppal", city: "Hyderabad", state: "Telangana" },
+  "500098": { area: "Ghatkesar", city: "Hyderabad", state: "Telangana" },
   "500068": { area: "Nagole", city: "Hyderabad", state: "Telangana" },
   "500074": { area: "LB Nagar", city: "Hyderabad", state: "Telangana" },
   "500003": { area: "Secunderabad", city: "Hyderabad", state: "Telangana" },
@@ -552,7 +554,7 @@ export function resolveCityFromLocation(loc?: { area?: string; city?: string; pi
   const text = `${loc.city || ""} ${loc.area || ""} ${loc.pincode || ""}`.toLowerCase();
 
   if (
-    /hyderabad|hyd|secunderabad|cyberabad|kompally|bowenpally|jeedimetla|medchal|shamshabad|trimulgherry|madhapur|gachibowli|hitec|kukatpally|ameerpet|kondapur|banjara|jubilee|uppal|nagole|lb nagar|begumpet|somajiguda|punjagutta|himayatnagar|mehdipatnam|abids|charminar|ecil|malkajgiri|alwal|sainikpuri|dilsukhnagar|kothapet|vidyanagar|kachiguda|miyapur|nizampet|chanda nagar|lingampally|manikonda|narsingi|tellapur|peerzadiguda|karmanghat|vanasthalipuram|balanagar|quthbullapur|sanathnagar|sr nagar|500\d{3}|501\d{3}|502\d{3}/i.test(
+    /hyderabad|hyd|secunderabad|cyberabad|ghatkesar|kompally|bowenpally|jeedimetla|medchal|shamshabad|trimulgherry|madhapur|gachibowli|hitec|kukatpally|ameerpet|kondapur|banjara|jubilee|uppal|nagole|lb nagar|begumpet|somajiguda|punjagutta|himayatnagar|mehdipatnam|abids|charminar|ecil|malkajgiri|alwal|sainikpuri|dilsukhnagar|kothapet|vidyanagar|kachiguda|miyapur|nizampet|chanda nagar|lingampally|manikonda|narsingi|tellapur|peerzadiguda|karmanghat|vanasthalipuram|balanagar|quthbullapur|sanathnagar|sr nagar|500\d{3}|501\d{3}|502\d{3}/i.test(
       text
     )
   ) {

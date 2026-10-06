@@ -720,15 +720,9 @@ function Home() {
             targetUrl: ad.destinationUrl || "/"
           }));
           setLiveShowcaseDeals(showcaseMapped);
-        } else {
-          setLiveHeroAds([]);
-          setLiveShowcaseDeals([]);
         }
       })
-      .catch(() => {
-        setLiveHeroAds([]);
-        setLiveShowcaseDeals([]);
-      });
+      .catch(() => { });
 
     serveAdsApi("FEED_NATIVE", loc?.pincode, loc?.area, activeCity)
       .then((res) => {

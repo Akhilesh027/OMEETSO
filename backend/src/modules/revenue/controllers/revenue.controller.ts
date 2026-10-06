@@ -1657,6 +1657,8 @@ export async function approveAdminAdCampaign(req: AuthenticatedAdminRequest, res
     campaign.endAt = new Date(now.getTime() + durationDays * 24 * 60 * 60 * 1000);
     await campaign.save();
 
+    invalidateServeAdsCache();
+
     res.status(200).json({
       success: true,
       data: {
@@ -1707,6 +1709,8 @@ export async function rejectAdminAdCampaign(req: AuthenticatedAdminRequest, res:
     campaign.reviewedByAdminId = req.admin._id;
     await campaign.save();
 
+    invalidateServeAdsCache();
+
     res.status(200).json({
       success: true,
       data: {
@@ -1720,11 +1724,42 @@ export async function rejectAdminAdCampaign(req: AuthenticatedAdminRequest, res:
   }
 }
 
+// ── In-Memory Fast Cache for Ad Serving ──
+interface ServeAdsCacheEntry {
+  data: any[];
+  expiresAt: number;
+}
+const serveAdsMemoryCache = new Map<string, ServeAdsCacheEntry>();
+const ADS_CACHE_TTL_MS = 60 * 1000; // 60 seconds TTL
+
+export function invalidateServeAdsCache(): void {
+  serveAdsMemoryCache.clear();
+}
+
 // ── Live Ad Serving Engine ──
 
 export async function serveAds(req: Request, res: Response, next: NextFunction): Promise<void> {
   try {
     const { placement, categoryId, pincode, area, city } = req.query;
+
+    // Fast In-Memory Cache Lookup (Sub-Millisecond Response)
+    const normPlacement = String(placement || "ALL").toUpperCase().trim();
+    const normCategory = String(categoryId || "ALL").toLowerCase().trim();
+    const normCity = String(city || "ALL").toLowerCase().trim();
+    const normArea = String(area || "ALL").toLowerCase().trim();
+    const normPin = String(pincode || "ALL").replace(/\D/g, "").trim();
+    const cacheKey = `${normPlacement}::${normCategory}::${normCity}::${normArea}::${normPin}`;
+
+    const cached = serveAdsMemoryCache.get(cacheKey);
+    if (cached && cached.expiresAt > Date.now()) {
+      res.setHeader("X-Cache", "HIT");
+      res.status(200).json({
+        success: true,
+        data: cached.data
+      });
+      return;
+    }
+
     const now = new Date();
 
     const query: Record<string, any> = {
@@ -1745,16 +1780,18 @@ export async function serveAds(req: Request, res: Response, next: NextFunction):
       } else if (pStr === "STORE_BANNER" || pStr === "STORE_PROMOTION") {
         query.placementIds = { $in: ["STORE_BANNER", "STORE_PROMOTION", "store_banner", "store_promotion", pStr] };
       } else {
-        query.placementIds = { $in: [pStr, String(placement), new RegExp(`^${pStr}$`, "i")] };
+        query.placementIds = { $in: [pStr, String(placement), pStr.toLowerCase()] };
       }
     }
 
     const activeCampaigns = await AdCampaign.find(query)
+      .select("_id campaignType targetType listingId storeId placementIds bannerUrl targeting audience endAt updatedAt createdAt")
       .populate("listingId", "title priceInPaise images city area pincode categoryId condition storeId")
       .populate("storeId", "name cover logo area city pincode primaryCategory")
       .populate("advertiserUserId", "profile.city profile.area profile.pincode")
       .sort({ updatedAt: -1, createdAt: -1 })
       .limit(50)
+      .maxTimeMS(4000)
       .lean();
 
     // Client user category and location parameters
@@ -1917,6 +1954,22 @@ export async function serveAds(req: Request, res: Response, next: NextFunction):
       };
     });
 
+    // Cache computed served ads for fast instant repeated requests
+    serveAdsMemoryCache.set(cacheKey, {
+      data: servedAds,
+      expiresAt: Date.now() + ADS_CACHE_TTL_MS
+    });
+
+    if (serveAdsMemoryCache.size > 500) {
+      const nowTs = Date.now();
+      for (const [k, v] of serveAdsMemoryCache.entries()) {
+        if (v.expiresAt <= nowTs) {
+          serveAdsMemoryCache.delete(k);
+        }
+      }
+    }
+
+    res.setHeader("X-Cache", "MISS");
     res.status(200).json({
       success: true,
       data: servedAds

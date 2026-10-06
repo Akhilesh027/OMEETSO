@@ -56,9 +56,16 @@ export async function createListing(req: AuthenticatedUserRequest, res: Response
     const contactNumber = sellerPhone || whatsappPhone || (req.user as any)?.profile?.phone || (req.user as any)?.phone || "";
 
     const userProfile = (req.user as any)?.profile || {};
-    const safeCity = (city && String(city).trim()) || userProfile.city || "Hyderabad";
+    let safeCity = (city && String(city).trim()) || userProfile.city || "Hyderabad";
     const safeArea = (area && String(area).trim()) || userProfile.area || "Madhapur";
     const safePincode = (pincode && String(pincode).trim()) || userProfile.pincode || "500081";
+
+    // Auto-normalize satellite suburbs to parent metro city if postal division matches
+    if (/^(500|501|502)\d{3}$/.test(safePincode) && /^(ghatkesar|secunderabad|medchal|shamshabad|cyberabad)$/i.test(safeCity)) {
+      safeCity = "Hyderabad";
+    } else if (/^560\d{3}$/.test(safePincode) && /^(whitefield|electronic city|yelahanka|hsr)$/i.test(safeCity)) {
+      safeCity = "Bangalore";
+    }
     const safeCategory = (categoryId && String(categoryId).trim()) || "mobiles";
     const safeSubcategory = (subcategoryId && String(subcategoryId).trim()) || safeCategory;
     const safeCondition = (condition && String(condition).trim()) || "good";
@@ -257,17 +264,50 @@ export async function getPublicListings(req: Request, res: Response, next: NextF
     }
     if (req.query.condition) query.condition = req.query.condition;
 
-    // Direct City-based Filtering (indexed exact and anchored regex fallback)
+    // Direct City-based Filtering (indexed exact, anchored regex, and metropolitan postal division fallback)
     const cityParam = (req.query.city as string)?.split(",")[0]?.trim();
     if (cityParam && cityParam.toLowerCase() !== "all") {
       const escapedCity = escapeRegex(cityParam);
-      andConditions.push({
-        $or: [
-          { city: { $in: [cityParam, cityParam.toLowerCase(), cityParam.toUpperCase()] } },
-          { city: new RegExp(`^${escapedCity}$`, "i") },
-          { area: new RegExp(`^${escapedCity}$`, "i") }
-        ]
-      });
+      const orClauses: any[] = [
+        { city: { $in: [cityParam, cityParam.toLowerCase(), cityParam.toUpperCase()] } },
+        { city: new RegExp(`^${escapedCity}$`, "i") },
+        { area: new RegExp(`^${escapedCity}$`, "i") }
+      ];
+
+      const lowerCity = cityParam.toLowerCase();
+      if (/hyderabad|hyd|secunderabad|cyberabad/i.test(lowerCity)) {
+        orClauses.push(
+          { city: /hyderabad|secunderabad|cyberabad|ghatkesar|medchal|shamshabad/i },
+          { area: /hyderabad|secunderabad|cyberabad|ghatkesar|medchal|shamshabad/i },
+          { pincode: /^(500|501|502)\d{3}$/ }
+        );
+      } else if (/bangalore|bengaluru/i.test(lowerCity)) {
+        orClauses.push(
+          { city: /bangalore|bengaluru/i },
+          { area: /bangalore|bengaluru/i },
+          { pincode: /^560\d{3}$/ }
+        );
+      } else if (/mumbai|bombay|thane/i.test(lowerCity)) {
+        orClauses.push(
+          { city: /mumbai|thane|navi mumbai/i },
+          { area: /mumbai|thane|navi mumbai/i },
+          { pincode: /^400\d{3}$/ }
+        );
+      } else if (/delhi|new delhi/i.test(lowerCity)) {
+        orClauses.push(
+          { city: /delhi|new delhi|ncr/i },
+          { area: /delhi|new delhi|ncr/i },
+          { pincode: /^110\d{3}$/ }
+        );
+      } else if (/ghatkesar/i.test(lowerCity)) {
+        orClauses.push(
+          { city: /hyderabad|secunderabad|ghatkesar/i },
+          { area: /ghatkesar/i },
+          { pincode: /^(500098|500\d{3})$/ }
+        );
+      }
+
+      andConditions.push({ $or: orClauses });
     }
 
     if (andConditions.length > 0) {

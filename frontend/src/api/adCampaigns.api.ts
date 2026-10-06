@@ -159,6 +159,18 @@ export async function submitAdCampaignApi(campaignId: string): Promise<{
   }
 }
 
+interface ServedAdCacheEntry {
+  data: ServedAdItem[];
+  expiresAt: number;
+}
+const servedAdsClientCache = new Map<string, ServedAdCacheEntry>();
+const inFlightAdRequests = new Map<string, Promise<{ success: boolean; data?: ServedAdItem[]; error?: string }>>();
+const CLIENT_ADS_CACHE_TTL_MS = 60 * 1000; // 60s in-memory client cache
+
+export function clearServedAdsClientCache(): void {
+  servedAdsClientCache.clear();
+}
+
 export async function serveAdsApi(
   placement?: string,
   pincode?: string,
@@ -170,22 +182,69 @@ export async function serveAdsApi(
   data?: ServedAdItem[];
   error?: string;
 }> {
-  try {
-    const params = new URLSearchParams();
-    if (placement) params.set("placement", placement);
-    if (pincode) params.set("pincode", pincode);
-    if (area) params.set("area", area);
-    if (city) params.set("city", city);
-    if (categoryId) params.set("categoryId", categoryId);
-    const query = params.toString() ? `?${params.toString()}` : "";
-    let res = await fetch(`${API_BASE}/revenue/ads/serve${query}`);
-    if (!res.ok) {
-      res = await fetch(`${API_BASE}/ads/serve${query}`);
-    }
-    return await res.json();
-  } catch {
-    return { success: false, error: "Failed to load served ads" };
+  const normPlacement = String(placement || "ALL").toUpperCase().trim();
+  const normPin = String(pincode || "ALL").replace(/\D/g, "").trim();
+  const normArea = String(area || "ALL").toLowerCase().trim();
+  const normCity = String(city || "ALL").toLowerCase().trim();
+  const normCat = String(categoryId || "ALL").toLowerCase().trim();
+  const cacheKey = `${normPlacement}::${normPin}::${normArea}::${normCity}::${normCat}`;
+
+  // 1. Instant Cache Hit (0ms)
+  const cached = servedAdsClientCache.get(cacheKey);
+  if (cached && cached.expiresAt > Date.now()) {
+    return { success: true, data: cached.data };
   }
+
+  // 2. In-flight Request Deduplication
+  const existingInFlight = inFlightAdRequests.get(cacheKey);
+  if (existingInFlight) {
+    return existingInFlight;
+  }
+
+  const fetchPromise = (async () => {
+    try {
+      const params = new URLSearchParams();
+      if (placement) params.set("placement", placement);
+      if (pincode) params.set("pincode", pincode);
+      if (area) params.set("area", area);
+      if (city) params.set("city", city);
+      if (categoryId) params.set("categoryId", categoryId);
+      const query = params.toString() ? `?${params.toString()}` : "";
+
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 4000);
+
+      const res = await fetch(`${API_BASE}/revenue/ads/serve${query}`, {
+        signal: controller.signal,
+        headers: { Accept: "application/json" }
+      });
+      clearTimeout(timeoutId);
+
+      if (!res.ok) {
+        return { success: false, error: `Ad server responded with status ${res.status}` };
+      }
+
+      const json = await res.json();
+      if (json && json.success && Array.isArray(json.data)) {
+        servedAdsClientCache.set(cacheKey, {
+          data: json.data,
+          expiresAt: Date.now() + CLIENT_ADS_CACHE_TTL_MS
+        });
+        return { success: true, data: json.data };
+      }
+      return json;
+    } catch (err: any) {
+      if (err?.name === "AbortError") {
+        return { success: false, error: "Ad request timed out" };
+      }
+      return { success: false, error: "Failed to load served ads" };
+    } finally {
+      inFlightAdRequests.delete(cacheKey);
+    }
+  })();
+
+  inFlightAdRequests.set(cacheKey, fetchPromise);
+  return fetchPromise;
 }
 
 export async function getMyWalletApi(): Promise<{
