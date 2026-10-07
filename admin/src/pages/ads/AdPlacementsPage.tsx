@@ -168,8 +168,8 @@ const PRESET_PLACEMENTS = [
     description: "Wide horizontal banner capturing users who scroll through the full product page without making an inquiry.",
     device: "Web & Mobile App",
     networkProvider: "GOOGLE_ADSENSE",
-    googleSlotId: "4455667794",
-    adFormat: "horizontal",
+    googleSlotId: "8655998566",
+    adFormat: "autorelaxed",
     active: true,
   },
   // 📲 Global & Search Placements (Google AdSense)
@@ -355,7 +355,7 @@ export default function AdPlacementsPage({ initialTab }: AdPlacementsPageProps) 
     () => localStorage.getItem("admin_google_adsense_enabled") !== "false"
   );
   const [googleClientId, setGoogleClientId] = useState(
-    () => localStorage.getItem("admin_google_adsense_client_id") || "ca-pub-18494959839"
+    () => localStorage.getItem("admin_google_adsense_client_id") || "ca-pub-9364802349808108"
   );
   const [isTestMode, setIsTestMode] = useState(
     () => localStorage.getItem("admin_google_adsense_test_mode") !== "false"

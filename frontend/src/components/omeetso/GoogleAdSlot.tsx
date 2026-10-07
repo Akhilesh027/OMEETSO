@@ -10,7 +10,7 @@ declare global {
 
 export interface GoogleAdSlotProps {
   slotId?: string;
-  format?: "auto" | "rectangle" | "horizontal" | "vertical" | "in-feed";
+  format?: "auto" | "rectangle" | "horizontal" | "vertical" | "in-feed" | "autorelaxed";
   responsive?: boolean;
   className?: string;
   style?: React.CSSProperties;
@@ -18,8 +18,8 @@ export interface GoogleAdSlotProps {
   title?: string;
 }
 
-const DEFAULT_CLIENT_ID = import.meta.env.VITE_GOOGLE_ADSENSE_CLIENT_ID || "ca-pub-0000000000000000";
-const IS_TEST_MODE = import.meta.env.VITE_GOOGLE_ADSENSE_TEST_MODE === "true" || DEFAULT_CLIENT_ID.includes("00000000");
+const DEFAULT_CLIENT_ID = import.meta.env.VITE_GOOGLE_ADSENSE_CLIENT_ID || "ca-pub-9364802349808108";
+const IS_TEST_MODE = import.meta.env.VITE_GOOGLE_ADSENSE_TEST_MODE === "true";
 
 let isScriptLoaded = false;
 
@@ -151,19 +151,80 @@ export function GoogleAdSlot({
 
     loadGoogleAdSenseScript(DEFAULT_CLIENT_ID);
 
-    // Guard against React 19 double-invocations in StrictMode
     if (pushedRef.current) return;
 
-    try {
-      if (adRef.current && adRef.current.innerHTML.trim() === "") {
-        (window.adsbygoogle = window.adsbygoogle || []).push({});
+    let isCancelled = false;
+    let resizeObserver: ResizeObserver | null = null;
+    let retryTimer: ReturnType<typeof setTimeout> | null = null;
+
+    const executePush = () => {
+      if (isCancelled || pushedRef.current) return;
+      const el = adRef.current;
+      if (!el) return;
+
+      // If Google already processed this ins element, do not push again
+      if (el.getAttribute("data-adsbygoogle-status") || el.children.length > 0) {
         pushedRef.current = true;
         setAdLoaded(true);
+        return;
       }
-    } catch (err) {
-      console.warn("AdSense push error:", err);
-      setAdError(true);
+
+      // Check available width to prevent "No slot size for availableWidth=0" error
+      const width = el.offsetWidth || el.clientWidth;
+      if (width <= 0) {
+        // Element not yet laid out; wait for next frame or resize observer
+        return;
+      }
+
+      try {
+        pushedRef.current = true;
+        (window.adsbygoogle = window.adsbygoogle || []).push({});
+        setAdLoaded(true);
+      } catch (err: any) {
+        const msg = String(err?.message || err);
+        if (msg.includes("already have ads in them")) {
+          // Benign error caused by AdSense already capturing this slot
+          pushedRef.current = true;
+          setAdLoaded(true);
+          return;
+        }
+        if (msg.includes("availableWidth=0")) {
+          // Layout wasn't ready yet, reset flag so observer can retry
+          pushedRef.current = false;
+          return;
+        }
+        console.warn("AdSense notice:", err);
+      }
+    };
+
+    const el = adRef.current;
+    if (el) {
+      const currentWidth = el.offsetWidth || el.clientWidth;
+      if (currentWidth > 0) {
+        // Tiny microtask delay to allow CSS grid/flex settling
+        retryTimer = setTimeout(executePush, 50);
+      } else if (typeof ResizeObserver !== "undefined") {
+        resizeObserver = new ResizeObserver((entries) => {
+          for (const entry of entries) {
+            if (entry.contentRect.width > 0) {
+              executePush();
+              if (pushedRef.current && resizeObserver) {
+                resizeObserver.disconnect();
+              }
+            }
+          }
+        });
+        resizeObserver.observe(el);
+      } else {
+        retryTimer = setTimeout(executePush, 200);
+      }
     }
+
+    return () => {
+      isCancelled = true;
+      if (resizeObserver) resizeObserver.disconnect();
+      if (retryTimer) clearTimeout(retryTimer);
+    };
   }, [slotId, isVisible]);
 
   // Dimension presets by format
@@ -172,13 +233,15 @@ export function GoogleAdSlot({
       case "rectangle":
         return { minHeight: "250px", width: "100%", maxWidth: "336px" };
       case "horizontal":
-        return { minHeight: "90px", width: "100%" };
+        return { minHeight: "90px", width: "100%", minWidth: "250px" };
       case "vertical":
         return { minHeight: "600px", width: "100%", maxWidth: "300px" };
       case "in-feed":
-        return { minHeight: "280px", width: "100%" };
+        return { minHeight: "280px", width: "100%", minWidth: "250px" };
+      case "autorelaxed":
+        return { minHeight: "280px", width: "100%", minWidth: "250px" };
       default:
-        return { minHeight: "100px", width: "100%" };
+        return { minHeight: "100px", width: "100%", minWidth: "250px" };
     }
   };
 
@@ -224,22 +287,34 @@ export function GoogleAdSlot({
   }
 
   if (adError) {
-    return null; // Gracefully collapse if blocked or errored
+    if (import.meta.env.DEV) {
+      return (
+        <div className={`rounded-2xl border border-dashed border-amber-500/40 bg-amber-500/10 p-3 text-center text-xs text-amber-700 dark:text-amber-300 my-2 ${className}`}>
+          <p className="font-bold flex items-center justify-center gap-1.5">
+            ⚠️ AdSense Unit (Slot {slotId}) Blocked
+          </p>
+          <p className="text-[11px] opacity-85 mt-0.5">
+            Your browser extension (AdBlock, uBlock, Brave Shields) blocked Google AdSense. Pause it on localhost to test live ads.
+          </p>
+        </div>
+      );
+    }
+    return null; // Gracefully collapse if blocked or errored in production
   }
 
   return (
     <div
-      className={`google-ad-container relative overflow-hidden text-center transition-all ${className}`}
+      className={`google-ad-container relative overflow-hidden text-center transition-all w-full ${className}`}
       style={{ ...getFormatStyles(), ...style }}
     >
       <ins
         ref={adRef}
         className="adsbygoogle"
-        style={{ display: "block", ...getFormatStyles(), ...style }}
+        style={{ display: "block", width: "100%", ...getFormatStyles(), ...style }}
         data-ad-client={DEFAULT_CLIENT_ID}
         data-ad-slot={slotId}
-        data-ad-format={responsive ? "auto" : undefined}
-        data-full-width-responsive={responsive ? "true" : "false"}
+        data-ad-format={format === "autorelaxed" ? "autorelaxed" : (responsive ? "auto" : undefined)}
+        data-full-width-responsive={format === "autorelaxed" ? undefined : (responsive ? "true" : "false")}
       />
     </div>
   );

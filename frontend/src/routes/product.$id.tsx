@@ -814,13 +814,13 @@ function ProductPage() {
             </div>
           )}
 
-          {/* 🎯 Placement: Marketplace Deals Billboard */}
-          <div className="my-3">
+          {/* 🎯 Placement: Marketplace Deals Multiplex Grid */}
+          <div className="my-4">
             <GoogleAdSlot
-              slotId="4455667794"
-              format="horizontal"
-              title="Trending Marketplace Deals"
-              fallbackLabel={`Sponsored offers matching ${product.category || "this product"}`}
+              slotId="8655998566"
+              format="autorelaxed"
+              title="Trending Deals & Related Recommendations"
+              fallbackLabel={`Sponsored recommendations matching ${product.category || "this product"}`}
             />
           </div>
         </div>

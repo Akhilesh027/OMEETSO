@@ -1319,7 +1319,7 @@ function Home() {
                   <div className="h-5 w-1.5 rounded-full bg-primary" />
                   <h2 className="text-base sm:text-xl font-extrabold text-foreground">Recommended For You</h2>
                 </div>
-                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 sm:gap-6">
+                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 sm:gap-6 items-stretch">
                   {recommended.slice(0, 6).map((p) => (
                     <ProductCard key={p.id} p={p} onPreview={setPreviewProduct} />
                   ))}
@@ -1356,7 +1356,7 @@ function Home() {
             <>
               <section>
                 <h2 className="mb-3 text-base font-bold md:text-xl text-navy">Recently added</h2>
-                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 sm:gap-6">
+                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 sm:gap-6 items-stretch">
                   {recentlyAdded.slice(0, 4).map((p) => (
                     <ProductCard key={p.id} p={p} onPreview={setPreviewProduct} />
                   ))}

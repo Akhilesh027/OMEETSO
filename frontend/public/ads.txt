@@ -1,3 +1,2 @@
 # Omeetso Authorized Digital Sellers (ads.txt)
-# Replace pub-0000000000000000 with your real AdSense Publisher ID once active
-google.com, pub-0000000000000000, DIRECT, f08c47fec0942fa0
+google.com, pub-9364802349808108, DIRECT, f08c47fec0942fa0

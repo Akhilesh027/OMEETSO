@@ -173,15 +173,15 @@ export function ProductCard({
   }
 
   return (
-    <div className="group relative block rounded-3xl border border-border/80 bg-card p-3 sm:p-4 hover:border-primary/50 hover:shadow-2xl hover:-translate-y-1.5 transition-all duration-300">
-      <Link to="/product/$id" params={{ id: p.id }} className="block">
-        <div className="relative overflow-hidden rounded-2xl bg-surface">
+    <div className="group relative flex flex-col h-full rounded-3xl border border-border/80 bg-card p-3 sm:p-4 hover:border-primary/50 hover:shadow-xl transition-all duration-300">
+      <Link to="/product/$id" params={{ id: p.id }} className="block shrink-0">
+        <div className="relative overflow-hidden rounded-2xl bg-surface aspect-[4/3] sm:aspect-[16/11] w-full">
           <img
             src={imgSrc}
             alt={p.title}
             loading="lazy"
             onError={(e) => { (e.target as HTMLImageElement).src = fallbackImg; }}
-            className="aspect-[4/3] sm:aspect-[16/11] h-40 sm:h-48 w-full object-cover group-hover:scale-108 transition-transform duration-500 ease-out"
+            className="h-full w-full object-cover group-hover:scale-105 transition-transform duration-500 ease-out"
           />
           <div className="absolute right-2.5 top-2.5 flex items-center gap-1.5 z-10">
             <SaveButton id={p.id} />
@@ -209,35 +209,40 @@ export function ProductCard({
         </div>
       </Link>
 
-      <div className="px-1 pt-3">
-        <div className="flex items-center justify-between gap-2">
+      <div className="px-1 pt-3 flex-1 flex flex-col justify-between min-h-0">
+        <div>
+          <div className="flex items-center justify-between gap-2">
+            <Link to="/product/$id" params={{ id: p.id }}>
+              <p className={cn("text-xl sm:text-2xl font-black text-slate-900 dark:text-white leading-none hover:text-slate-700 dark:hover:text-slate-300 transition-colors")}>
+                {formatINR(p.price)}
+              </p>
+            </Link>
+            {p.negotiable ? (
+              <span className="rounded-full bg-amber-500/10 border border-amber-500/30 px-2.5 py-0.5 text-[11px] font-extrabold text-amber-600 shrink-0">
+                Negotiable
+              </span>
+            ) : (
+              <span className="rounded-full bg-surface-2 px-2.5 py-0.5 text-[11px] font-bold text-muted-foreground shrink-0">
+                Fixed Price
+              </span>
+            )}
+          </div>
           <Link to="/product/$id" params={{ id: p.id }}>
-            <p className={cn("text-xl sm:text-2xl font-black text-slate-900 dark:text-white leading-none hover:text-slate-700 dark:hover:text-slate-300 transition-colors")}>
-              {formatINR(p.price)}
+            <p className="mt-2 line-clamp-2 h-9 sm:h-10 text-xs sm:text-sm font-extrabold text-foreground group-hover:text-primary transition-colors leading-snug">
+              {p.title}
             </p>
           </Link>
-          {p.negotiable ? (
-            <span className="rounded-full bg-amber-500/10 border border-amber-500/30 px-2.5 py-0.5 text-[11px] font-extrabold text-amber-600 shrink-0">
-              Negotiable
-            </span>
-          ) : (
-            <span className="rounded-full bg-surface-2 px-2.5 py-0.5 text-[11px] font-bold text-muted-foreground shrink-0">
-              Fixed Price
-            </span>
-          )}
+          <div className="h-5 mt-1">
+            {Boolean(p.businessName || p.storeName) ? (
+              <p className="text-[11px] font-bold text-indigo-600 dark:text-indigo-400 flex items-center gap-1 truncate">
+                <StoreIcon className="h-3 w-3 shrink-0" />
+                <span className="truncate">{p.businessName || p.storeName}</span>
+              </p>
+            ) : null}
+          </div>
         </div>
-        <Link to="/product/$id" params={{ id: p.id }}>
-          <p className="mt-2 line-clamp-2 min-h-[2.5rem] text-xs sm:text-sm font-extrabold text-foreground group-hover:text-primary transition-colors leading-snug">
-            {p.title}
-          </p>
-        </Link>
-        {Boolean(p.businessName || p.storeName) && (
-          <p className="mt-1.5 text-[11px] font-bold text-indigo-600 dark:text-indigo-400 flex items-center gap-1 truncate">
-            <StoreIcon className="h-3 w-3 shrink-0" />
-            <span className="truncate">{p.businessName || p.storeName}</span>
-          </p>
-        )}
-        <div className="mt-3 flex items-center justify-between text-xs text-muted-foreground pt-2 border-t border-border/60">
+
+        <div className="mt-auto pt-2.5 flex items-center justify-between text-xs text-muted-foreground border-t border-border/60">
           <span className="truncate flex items-center gap-1 font-medium">
             <MapPin className="h-3.5 w-3.5 text-primary/80 shrink-0" />
             {p.area || "Nearby"}{p.distanceKm ? ` · ${p.distanceKm} km` : ""}

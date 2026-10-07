@@ -976,8 +976,8 @@ export async function getAdPlacements(req: Request, res: Response, Next: NextFun
         description: "Wide horizontal banner capturing users who scroll through the full product page without making an inquiry.",
         device: "Web & Mobile App",
         networkProvider: "GOOGLE_ADSENSE",
-        googleSlotId: "4455667794",
-        adFormat: "horizontal"
+        googleSlotId: "8655998566",
+        adFormat: "autorelaxed"
       },
       // 📲 Global & Search Placements
       {
@@ -2101,7 +2101,7 @@ export async function getAdSettings(req: Request, res: Response, next: NextFunct
     if (!setting) {
       setting = await GlobalAdSetting.create({
         googleAdsEnabled: true,
-        googleClientId: "ca-pub-18494959839",
+        googleClientId: "ca-pub-9364802349808108",
         googleTestMode: false
       });
     }
