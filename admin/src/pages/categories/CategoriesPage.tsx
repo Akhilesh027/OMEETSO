@@ -310,7 +310,7 @@ export default function CategoriesPage() {
       coverImage: "",
       coverImageUrl: ""
     }));
-    showToast("info", "Cover image removed");
+    showToast("success", "Cover image removed");
   };
 
   const handleAddSubcategory = () => {
