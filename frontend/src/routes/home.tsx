@@ -107,7 +107,7 @@ function HeroProductShowcase({ items, products }: { items?: any[]; products?: an
         const effectiveTitle = matchedProduct?.title || item.title;
         const effectivePrice = matchedProduct?.price ? Number(matchedProduct.price) : (item.price ? Number(item.price) : 0);
         const effectiveOrigPrice = matchedProduct?.originalPrice ? Number(matchedProduct.originalPrice) : (item.originalPrice ? Number(item.originalPrice) : (effectivePrice ? Math.round(effectivePrice * 1.18) : 0));
-        const effectiveImage = matchedProduct?.image || (Array.isArray(matchedProduct?.images) && matchedProduct.images[0]) || item.image || (Array.isArray(item.images) && item.images[0]) || "https://images.unsplash.com/photo-1526738549149-8e07eca6c147?w=400";
+        const effectiveImage = matchedProduct?.image || (Array.isArray(matchedProduct?.images) && matchedProduct.images[0]) || item.image || (Array.isArray(item.images) && item.images[0]) || "https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=400";
         const effectiveSeller = matchedProduct?.sellerName || item.sellerName || "Verified Local Seller";
         const effectiveInitials = (effectiveSeller || "VS").slice(0, 2).toUpperCase();
 
@@ -141,7 +141,7 @@ function HeroProductShowcase({ items, products }: { items?: any[]; products?: an
   }, [displayItems.length]);
 
   if (displayItems.length === 0) {
-    return ( 
+    return (
       <div className="relative mx-auto w-full max-w-[480px] flex flex-col justify-between py-1">
         <div className="rounded-3xl bg-slate-900/80 backdrop-blur-2xl border border-white/15 p-6 text-white space-y-4 shadow-2xl">
           <div className="flex items-center justify-between">
@@ -214,7 +214,7 @@ function HeroProductShowcase({ items, products }: { items?: any[]; products?: an
                     src={item.image}
                     alt={item.title}
                     className="h-22 w-22 rounded-2xl object-cover border border-white/20 shrink-0 shadow-xl group-hover:scale-105 transition-transform"
-                    onError={(e) => { (e.target as HTMLImageElement).src = "https://images.unsplash.com/photo-1526738549149-8e07eca6c147?w=400"; }}
+                    onError={(e) => { (e.target as HTMLImageElement).src = "https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=400"; }}
                   />
                   <div className="min-w-0 flex-1 space-y-1">
                     <div className="flex items-center justify-between">
@@ -287,7 +287,7 @@ function HeroProductShowcase({ items, products }: { items?: any[]; products?: an
                     src={item.image}
                     alt={item.title}
                     className="h-12 w-12 rounded-xl object-cover border border-white/20 shrink-0"
-                    onError={(e) => { (e.target as HTMLImageElement).src = "https://images.unsplash.com/photo-1526738549149-8e07eca6c147?w=400"; }}
+                    onError={(e) => { (e.target as HTMLImageElement).src = "https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=400"; }}
                   />
                   <div className="min-w-0 flex-1">
                     <div className="flex items-center justify-between">
@@ -317,7 +317,7 @@ function HeroProductShowcase({ items, products }: { items?: any[]; products?: an
                     src={item.image}
                     alt={item.title}
                     className="h-12 w-12 rounded-xl object-cover border border-white/15 shrink-0"
-                    onError={(e) => { (e.target as HTMLImageElement).src = "https://images.unsplash.com/photo-1526738549149-8e07eca6c147?w=400"; }}
+                    onError={(e) => { (e.target as HTMLImageElement).src = "https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=400"; }}
                   />
                   <div className="min-w-0 flex-1">
                     <div className="flex items-center justify-between">
@@ -347,7 +347,7 @@ function HeroProductShowcase({ items, products }: { items?: any[]; products?: an
                     src={item.image}
                     alt={item.title}
                     className="h-10 w-10 rounded-lg object-cover border border-white/15 shrink-0"
-                    onError={(e) => { (e.target as HTMLImageElement).src = "https://images.unsplash.com/photo-1526738549149-8e07eca6c147?w=400"; }}
+                    onError={(e) => { (e.target as HTMLImageElement).src = "https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=400"; }}
                   />
                   <div className="min-w-0 flex-1">
                     <h6 className="text-[11px] font-bold text-white truncate">{item.title}</h6>
@@ -369,7 +369,7 @@ function HeroProductShowcase({ items, products }: { items?: any[]; products?: an
                   src={item.image}
                   alt={item.title}
                   className="h-10 w-10 rounded-lg object-cover border border-white/15 shrink-0"
-                  onError={(e) => { (e.target as HTMLImageElement).src = "https://images.unsplash.com/photo-1526738549149-8e07eca6c147?w=400"; }}
+                  onError={(e) => { (e.target as HTMLImageElement).src = "https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=400"; }}
                 />
                 <div className="min-w-0 flex-1">
                   <h6 className="text-[11px] font-bold text-white truncate">{item.title}</h6>
@@ -590,7 +590,7 @@ function Home() {
               pincode: item.pincode || "",
               distanceKm: calculatedDist,
               postedAgo: "Just now",
-              image: item.images?.[0] || item.image || "https://images.unsplash.com/photo-1526738549149-8e07eca6c147?w=400",
+              image: item.images?.[0] || item.image || "https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=400",
               images: item.images,
               sellerName: item.businessName || item.storeName || item.sellerName || "Verified Local Seller",
               sellerOwnerName: item.sellerOwnerName,
@@ -601,9 +601,7 @@ function Home() {
               rating: item.rating || 0,
               reviewCount: item.reviewCount || 0,
               description: item.description,
-              method: item.method || (item.quickSale || item.isQuickSell || item.id?.startsWith("Q-") || item.id?.includes("quick") ? "quick" : "detailed"),
-              quickSale: item.method === "quick" || Boolean(item.quickSale || item.isQuickSell),
-              isQuickSell: item.method === "quick" || Boolean(item.quickSale || item.isQuickSell),
+              method: item.method || (item.id?.startsWith("Q-") || item.id?.includes("quick") ? "quick" : "detailed"),
               createdAt: item.createdAt,
               publishedAt: item.publishedAt,
             };
@@ -697,48 +695,30 @@ function Home() {
           const showcaseItems = json.data.filter((b: any) => b.type === "hero_showcase" && b.isActive !== false);
           setLiveShowcaseDeals(showcaseItems.length > 0 ? showcaseItems : []);
 
-          const heroBanners = json.data.filter((b: any) => b.isActive !== false).map((b: any) => {
-            const defaultCta = b.targetUrl?.includes("sell") || b.targetUrl?.includes("post")
-              ? "Post Free Ad"
-              : b.targetUrl?.includes("store")
-              ? "Explore Stores"
-              : b.targetUrl?.includes("services")
-              ? "Book Service"
-              : "Explore Now";
-            return {
-              id: b.id || b.bannerId,
-              headline: b.title,
-              body: b.subtitle || "Exclusive Local Deals & Verified Listings",
-              tag: b.tag || "⚡ Featured Deal",
-              cta: b.ctaText || (b.cta && !b.cta.includes("🛠️") && !b.cta.includes("⚡") ? b.cta : defaultCta),
-              destinationUrl: b.targetUrl || "/results",
-              image: b.image,
-              advertiser: b.sellerName || "Verified Local Partner"
-            };
-          });
+          const heroBanners = json.data.filter((b: any) => b.isActive !== false).map((b: any) => ({
+            id: b.id || b.bannerId,
+            headline: b.title,
+            body: b.subtitle || b.tag || "Featured Deal",
+            cta: b.tag || "Explore Now",
+            destinationUrl: b.targetUrl || "/results",
+            image: b.image,
+            advertiser: b.sellerName || "Verified Local Partner"
+          }));
           if (heroBanners.length > 0) {
             setLiveHeroAds(heroBanners);
           }
 
           const middleItems = json.data
             .filter((b: any) => (b.type === "category_strip" || b.type === "quick_deal" || b.type === "hero_banner") && b.isActive !== false)
-            .map((b: any) => {
-              const defaultCta = b.targetUrl?.includes("sell") || b.targetUrl?.includes("post")
-                ? "Post Free Ad"
-                : b.targetUrl?.includes("store")
-                ? "Visit Stores"
-                : "Claim Deal";
-              return {
-                id: b.id || b.bannerId,
-                headline: b.title,
-                body: b.subtitle || "Exclusive Hyperlocal Offer",
-                tag: b.tag || "⚡ Verified Partner",
-                cta: b.ctaText || (b.cta && !b.cta.includes("🛠️") && !b.cta.includes("⚡") ? b.cta : defaultCta),
-                destinationUrl: b.targetUrl || "/results",
-                image: b.image,
-                advertiser: b.sellerName || "omeetso Partner"
-              };
-            });
+            .map((b: any) => ({
+              id: b.id || b.bannerId,
+              headline: b.title,
+              body: b.subtitle || b.tag || "Exclusive Hyperlocal Offer",
+              cta: b.tag || "Claim Deal",
+              destinationUrl: b.targetUrl || "/results",
+              image: b.image,
+              advertiser: b.sellerName || "omeetso Partner"
+            }));
           if (middleItems.length > 0) {
             setLiveMiddleBanners(middleItems);
           }
@@ -770,7 +750,6 @@ function Home() {
             placement: "HOMEPAGE_HERO",
             headline: ad.headline || ad.title || ad.creative?.title || "Sponsored Highlight",
             body: ad.body || ad.description || (ad.creative?.priceInPaise ? formatINR(ad.creative.priceInPaise / 100) : "Verified Local Sponsor"),
-            tag: ad.tag || "⚡ Sponsored Highlight",
             cta: ad.cta || "View Details",
             destinationUrl: ad.destinationUrl || ad.creative?.destinationUrl || "/",
             image: ad.image || ad.imageUrl || ad.creative?.imageUrl,
@@ -1129,15 +1108,13 @@ function Home() {
                   ).map((sub) => {
                     const isJobs = selectedCatId?.toLowerCase() === "jobs";
                     const isServices = selectedCatId?.toLowerCase() === "services";
-                    const to = isJobs ? "/jobs" : isServices ? "/services" : "/category/$id";
-                    const params = !isJobs && !isServices ? { id: selectedCatId } : undefined;
-                    const searchParams = { sub };
+                    const to = isJobs ? "/jobs" : isServices ? "/services" : "/results";
+                    const searchParams = isJobs || isServices ? { sub } : { category: selectedCatId, subcategory: sub };
 
                     return (
                       <Link
                         key={sub}
                         to={to as any}
-                        params={params as any}
                         search={searchParams as any}
                         className="rounded-full bg-card border border-border/80 px-3 py-1 text-xs font-semibold text-foreground hover:border-primary hover:text-primary hover:shadow-xs transition-all"
                       >
@@ -1194,6 +1171,7 @@ function Home() {
                   ))}
                 </CarouselRow>
               </section>
+              <SecondaryBannerAd ads={getBannerSlotAds(1, 5)} maxAds={5} />
             </>
           )}
 
@@ -1233,6 +1211,7 @@ function Home() {
                   ))}
                 </CarouselRow>
               </section>
+              <SecondaryBannerAd ads={getBannerSlotAds(2, 5)} maxAds={5} />
             </>
           )}
 
@@ -1272,11 +1251,14 @@ function Home() {
                   ))}
                 </CarouselRow>
               </section>
+              <SecondaryBannerAd ads={getBannerSlotAds(3, 5)} maxAds={5} />
             </>
           )}
 
-          {/* Secondary banner anchoring category discovery */}
-          <SecondaryBannerAd ads={getBannerSlotAds(1, 5)} maxAds={5} />
+          {/* When none of the 3 category sections have products, show only ONE clean middle banner */}
+          {carProducts.length === 0 && bikeProducts.length === 0 && electronicProducts.length === 0 && (
+            <SecondaryBannerAd ads={getBannerSlotAds(1, 5)} maxAds={5} />
+          )}
 
           {/* Nearby carousel */}
           {nearby.length > 0 && (
@@ -1296,6 +1278,7 @@ function Home() {
                   {nearby.map((p) => <ProductCard key={p.id} p={p} variant="compact" />)}
                 </CarouselRow>
               </section>
+              <SecondaryBannerAd ads={getBannerSlotAds(2, 5)} maxAds={5} />
             </>
           )}
 
@@ -1373,35 +1356,38 @@ function Home() {
                   ))}
                 </div>
               </section>
-              <SecondaryBannerAd ads={getBannerSlotAds(2, 5)} maxAds={5} />
+              <SecondaryBannerAd ads={getBannerSlotAds(3, 5)} maxAds={5} />
             </>
           )}
 
           {/* Recommended grid — with native ad after 6 organic items */}
           {recommended.length > 0 && (
-            <section>
-              <div className="mb-4 flex items-center gap-2">
-                <div className="h-5 w-1.5 rounded-full bg-primary" />
-                <h2 className="text-base sm:text-xl font-extrabold text-foreground">Recommended For You</h2>
-              </div>
-              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 sm:gap-6 items-stretch">
-                {recommended.slice(0, 6).map((p) => (
-                  <ProductCard key={p.id} p={p} onPreview={setPreviewProduct} />
-                ))}
-                {liveNativeAds.length > 0 ? (
-                  <NativeAdCard ad={liveNativeAds[0]} />
-                ) : (
-                  <InFeedGoogleAd
-                    slotId="5566778899"
-                    title="Curated Recommendations"
-                    description="Featured partner deals & gadgets curated for your area."
-                  />
-                )}
-                {recommended.slice(6).map((p) => (
-                  <ProductCard key={p.id} p={p} onPreview={setPreviewProduct} />
-                ))}
-              </div>
-            </section>
+            <>
+              <section>
+                <div className="mb-4 flex items-center gap-2">
+                  <div className="h-5 w-1.5 rounded-full bg-primary" />
+                  <h2 className="text-base sm:text-xl font-extrabold text-foreground">Recommended For You</h2>
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 sm:gap-6 items-stretch">
+                  {recommended.slice(0, 6).map((p) => (
+                    <ProductCard key={p.id} p={p} onPreview={setPreviewProduct} />
+                  ))}
+                  {liveNativeAds.length > 0 ? (
+                    <NativeAdCard ad={liveNativeAds[0]} />
+                  ) : (
+                    <InFeedGoogleAd
+                      slotId="5566778899"
+                      title="Curated Recommendations"
+                      description="Featured partner deals & gadgets curated for your area."
+                    />
+                  )}
+                  {recommended.slice(6).map((p) => (
+                    <ProductCard key={p.id} p={p} onPreview={setPreviewProduct} />
+                  ))}
+                </div>
+              </section>
+              <SecondaryBannerAd ads={getBannerSlotAds(4, 5)} maxAds={5} />
+            </>
           )}
 
           {/* Deals near you — horizontal */}
@@ -1433,7 +1419,7 @@ function Home() {
                   ))}
                 </div>
               </section>
-              <SecondaryBannerAd ads={getBannerSlotAds(3, 5)} maxAds={5} />
+              <SecondaryBannerAd ads={getBannerSlotAds(5, 5)} maxAds={5} />
             </>
           )}
 
