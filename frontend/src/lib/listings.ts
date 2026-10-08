@@ -73,6 +73,8 @@ export type Listing = {
   editHistory?: { at: number; note: string }[];
   boost?: { active: boolean; expiresAt?: number };
   method?: "quick" | "detailed";
+  quickSale?: boolean;
+  isQuickSell?: boolean;
   storeId?: string;
   storeMeta?: {
     sku?: string;
@@ -221,7 +223,7 @@ export async function fetchLivePublicListings(params?: {
       const mapped: Listing[] = json.data.map((item: any) => {
         const validImages = Array.isArray(item.images) && item.images.length > 0 && !item.images[0].startsWith("blob:")
           ? item.images
-          : ["https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=400"];
+          : ["https://images.unsplash.com/photo-1526738549149-8e07eca6c147?w=400"];
 
         return {
           id: item.id || item._id,
@@ -256,6 +258,9 @@ export async function fetchLivePublicListings(params?: {
           rating: item.rating || 0,
           reviewCount: item.reviewCount || 0,
           status: (item.status?.toLowerCase() || "active") as ListingStatus,
+          method: item.method || (item.quickSale || item.isQuickSell || item.id?.startsWith("Q-") || item.id?.includes("quick") ? "quick" : "detailed"),
+          quickSale: item.method === "quick" || Boolean(item.quickSale || item.isQuickSell),
+          isQuickSell: item.method === "quick" || Boolean(item.quickSale || item.isQuickSell),
           createdAt: new Date(item.createdAt || item.publishedAt || Date.now()).getTime(),
           updatedAt: new Date(item.createdAt || item.publishedAt || Date.now()).getTime()
         };
@@ -302,7 +307,7 @@ export async function fetchLiveUserListings(forceRefresh = false): Promise<Listi
         const remoteMapped: Listing[] = json.data.map((item: any) => {
           const validImages = Array.isArray(item.images) && item.images.length > 0 && !item.images[0].startsWith("blob:")
             ? item.images
-            : ["https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=400"];
+            : ["https://images.unsplash.com/photo-1526738549149-8e07eca6c147?w=400"];
 
           const itemId = item.id || item._id;
           const isMarkedSold = item.status === "SOLD" || item.status === "sold" || soldIds.includes(itemId) || soldIds.includes(item._id);
@@ -330,6 +335,9 @@ export async function fetchLiveUserListings(forceRefresh = false): Promise<Listi
             sellerName: item.sellerName || "omeetso Seller",
             sellerId: item.sellerId?._id?.toString() || item.sellerId?.toString() || item.sellerId || uid || "",
             status: isMarkedSold ? ("sold" as ListingStatus) : ((item.status?.toLowerCase() || "active") as ListingStatus),
+            method: item.method || (item.quickSale || item.isQuickSell || itemId?.startsWith("Q-") || itemId?.includes("quick") ? "quick" : "detailed"),
+            quickSale: item.method === "quick" || Boolean(item.quickSale || item.isQuickSell),
+            isQuickSell: item.method === "quick" || Boolean(item.quickSale || item.isQuickSell),
             createdAt: new Date(item.createdAt || item.publishedAt || Date.now()).getTime(),
             updatedAt: new Date(item.createdAt || item.publishedAt || Date.now()).getTime()
           };
@@ -399,7 +407,9 @@ export async function fetchLiveListingById(id: string): Promise<Listing | null> 
         sellerName: item.sellerName || item.seller?.name || "omeetso Seller",
         seller: item.seller,
         status: (item.status?.toLowerCase() || "active") as ListingStatus,
-        method: item.method || (item.id?.startsWith("Q-") || item.id?.includes("quick") ? "quick" : "detailed"),
+        method: item.method || (item.quickSale || item.isQuickSell || item.id?.startsWith("Q-") || item.id?.includes("quick") ? "quick" : "detailed"),
+        quickSale: item.method === "quick" || Boolean(item.quickSale || item.isQuickSell),
+        isQuickSell: item.method === "quick" || Boolean(item.quickSale || item.isQuickSell),
         createdAt: new Date(item.createdAt || item.publishedAt || Date.now()).getTime(),
         updatedAt: new Date(item.createdAt || item.publishedAt || Date.now()).getTime()
       } as any;

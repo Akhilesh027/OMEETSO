@@ -35,9 +35,9 @@ function RegisterPage() {
   const [name, setName] = useState("");
   const [phone, setPhone] = useState("");
   const [email, setEmail] = useState("");
-  const [pincode, setPincode] = useState("500081");
+  const [pincode, setPincode] = useState("");
   const [city, setCity] = useState("Hyderabad");
-  const [area, setArea] = useState("Madhapur");
+  const [area, setArea] = useState("");
   const [lang, setLang] = useState("en");
   const [accountType, setAccountType] = useState<AccountType>("individual");
   const [gender, setGender] = useState<"male" | "female" | "other">("male");
@@ -73,7 +73,6 @@ function RegisterPage() {
     const loc = (() => {
       try { return JSON.parse(localStorage.getItem("omeetso_location") || "{}"); } catch { return {}; }
     })();
-    if (loc.pincode) setPincode(loc.pincode);
     if (loc.area) setCity(loc.area);
     const l = localStorage.getItem("omeetso_language");
     if (l) setLang(l);
@@ -497,7 +496,7 @@ function RegisterPage() {
                         inputMode="numeric"
                         maxLength={6}
                         required
-                        placeholder="500081"
+                        placeholder="Enter 6-digit PIN code"
                         value={pincode}
                         onChange={(e) => setPincode(e.target.value.replace(/\D/g, "").slice(0, 6))}
                         className="w-full bg-transparent text-sm font-bold text-foreground outline-none font-mono"

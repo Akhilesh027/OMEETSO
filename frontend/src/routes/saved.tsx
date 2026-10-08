@@ -43,7 +43,7 @@ function SavedPage() {
           title: item.title,
           price: item.price || (item.priceInPaise ? item.priceInPaise / 100 : 0),
           originalPrice: Math.round((item.price || (item.priceInPaise ? item.priceInPaise / 100 : 0)) * 1.15),
-          image: item.coverUrl || (Array.isArray(item.images) && item.images[0]) || "https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=400",
+          image: item.coverUrl || (Array.isArray(item.images) && item.images[0]) || "https://images.unsplash.com/photo-1526738549149-8e07eca6c147?w=400",
           location: `${item.area || "Madhapur"}, ${item.city || "Hyderabad"}`,
           time: "Saved",
           category: item.category || "General",

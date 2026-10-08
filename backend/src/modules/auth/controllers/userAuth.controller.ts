@@ -174,8 +174,8 @@ export async function verifyOtp(req: Request, res: Response, next: NextFunction)
         profile: {
           name: `User ${normalizedPhone.slice(-4)}`,
           city: "Hyderabad",
-          pincode: "500081",
-          area: "Madhapur",
+          pincode: "",
+          area: "",
           language: "en",
           memberSince: new Date()
         },
@@ -462,8 +462,8 @@ export async function registerUser(req: Request, res: Response, next: NextFuncti
         profile: {
           name: name.trim(),
           city: city ? city.trim() : "Hyderabad",
-          pincode: pincode ? pincode.trim() : "500081",
-          area: area ? area.trim() : "Madhapur",
+          pincode: pincode ? pincode.trim() : "",
+          area: area ? area.trim() : "",
           avatar: avatar || undefined,
           language: language || "en",
           memberSince: new Date()
@@ -828,8 +828,8 @@ export async function loginWithGoogle(req: Request, res: Response, next: NextFun
           name: safeName,
           avatar: avatar || "",
           city: "Hyderabad",
-          pincode: "500081",
-          area: "Madhapur",
+          pincode: "",
+          area: "",
           language: "en",
           memberSince: new Date()
         },

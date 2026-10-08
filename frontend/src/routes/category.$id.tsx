@@ -17,7 +17,7 @@ import { EmptyState } from "@/components/omeetso/EmptyState";
 import { InfinityLoader } from "@/components/omeetso/InfinityLoader";
 import { serveAdsApi } from "@/api/adCampaigns.api";
 import { fetchLiveListingById } from "@/lib/listings";
-import { fetchLiveCategories, getCachedCategories, type LiveCategory } from "@/lib/categories";
+import { fetchLiveCategories, getCachedCategories, resolveElectronicsSubcategory, type LiveCategory } from "@/lib/categories";
 import { calculateDistanceBetweenLocations, resolveCityFromLocation } from "@/lib/location";
 import { getPublicListingsApi } from "@/api/listings.api";
 import { getPublicStoresApi } from "@/api/stores.api";
@@ -54,16 +54,51 @@ export const Route = createFileRoute("/category/$id")({
     hasVideo: typeof s.hasVideo === "string" ? s.hasVideo : undefined,
   }),
   loader: ({ params, location }) => {
-    const catId = (params.id || "").toLowerCase();
-    if (catId === "jobs") {
+    const rawId = (params.id || "").toLowerCase();
+    if (rawId === "jobs") {
       throw redirect({ to: "/jobs", search: location.search as any });
     }
-    if (catId === "services") {
+    if (rawId === "services") {
       throw redirect({ to: "/services", search: location.search as any });
     }
-    if (catId === "appliances" || catId === "home_appliances") {
-      throw redirect({ to: "/category/$id", params: { id: "home-appliances" }, search: location.search as any });
+
+    // Mapping for common aliases and subcategories directly accessed via URL
+    const ALIAS_REDIRECTS: Record<string, { cat: string; sub?: string }> = {
+      "womens-clothing": { cat: "fashion", sub: "Women’s Clothing" },
+      "women-clothing": { cat: "fashion", sub: "Women’s Clothing" },
+      "women": { cat: "fashion", sub: "Women’s Clothing" },
+      "mens-clothing": { cat: "fashion", sub: "Men’s Clothing" },
+      "men-clothing": { cat: "fashion", sub: "Men’s Clothing" },
+      "men": { cat: "fashion", sub: "Men’s Clothing" },
+      "clothing": { cat: "fashion" },
+      "clothes": { cat: "fashion" },
+      "ethnic-wear": { cat: "fashion", sub: "Ethnic Wear" },
+      "western-wear": { cat: "fashion", sub: "Western Wear" },
+      "appliances": { cat: "home-appliances" },
+      "home_appliances": { cat: "home-appliances" },
+      "homeappliances": { cat: "home-appliances" },
+      "smartphones": { cat: "mobiles" },
+      "mobile": { cat: "mobiles" },
+      "phones": { cat: "mobiles" },
+      "laptops": { cat: "electronics", sub: "Laptops & Notebooks" },
+      "computers": { cat: "electronics", sub: "Desktop Computers" },
+      "two-wheelers": { cat: "bikes" },
+      "scooters": { cat: "bikes", sub: "Scooter" },
+      "motorcycles": { cat: "bikes" },
+      "four-wheelers": { cat: "cars" },
+      "commercial": { cat: "commercial-vehicles" },
+      "trucks": { cat: "commercial-vehicles" }
+    };
+
+    if (ALIAS_REDIRECTS[rawId]) {
+      const target = ALIAS_REDIRECTS[rawId];
+      throw redirect({
+        to: "/category/$id",
+        params: { id: target.cat },
+        search: { ...(location.search as any), ...(target.sub ? { sub: target.sub } : {}) }
+      });
     }
+
     const c = getCategory(params.id);
     if (!c) throw notFound();
     return { category: c };
@@ -89,6 +124,15 @@ const CONDITIONS = [
   { id: "good", label: "Good" },
   { id: "fair", label: "Fair" },
 ];
+
+function normalizeSubcategoryStr(str?: string): string {
+  return (str || "")
+    .toLowerCase()
+    .replace(/['’]/g, "'")
+    .replace(/[\-_]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
 
 function CategoryPage() {
   const { category } = Route.useLoaderData();
@@ -235,10 +279,12 @@ function CategoryPage() {
           title: item.title,
           price: item.priceInPaise ? Math.round(item.priceInPaise / 100) : item.price || 0,
           priceInPaise: item.priceInPaise,
-          image: item.images?.[0] || item.image || "https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=800",
+          image: item.images?.[0] || item.image || "https://images.unsplash.com/photo-1526738549149-8e07eca6c147?w=800",
           images: item.images,
           category: (item.categoryId || item.category || category.id).toLowerCase(),
-          subcategory: item.subcategoryId || item.subcategory || "General",
+          subcategory: (item.categoryId || item.category || category.id).toLowerCase() === "electronics"
+            ? resolveElectronicsSubcategory(item.subcategoryId || item.subcategory, item.title, item.specs)
+            : (item.subcategoryId || item.subcategory || "General"),
           condition: item.condition || "good",
           area: item.area || item.location || "",
           city: item.city || "",
@@ -334,24 +380,132 @@ function CategoryPage() {
       price: item.price,
       negotiable: item.negotiable,
       category: item.category,
-      subcategory: item.subcategory,
+      subcategory: (item.category || category.id).toLowerCase() === "electronics"
+        ? resolveElectronicsSubcategory(item.subcategory, item.title, item.specs)
+        : (item.subcategory || "General"),
       condition: item.condition || "good",
       area: item.area || "Hitec City",
       distanceKm: 2,
       postedAgo: "Recently",
       verified: false,
       sellerId: "me",
-      image: item.images?.[item.cover || 0] || item.images?.[0] || "https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=400",
+      image: item.images?.[item.cover || 0] || item.images?.[0] || "https://images.unsplash.com/photo-1526738549149-8e07eca6c147?w=400",
       images: item.images,
       specs: item.specs || {},
       description: item.description,
-      method: item.method || (item.id?.startsWith("Q-") || item.id?.includes("quick") ? "quick" : "detailed"),
+      method: item.method || (item.quickSale || item.isQuickSell || item.id?.startsWith("Q-") || item.id?.includes("quick") ? "quick" : "detailed"),
+      quickSale: item.method === "quick" || Boolean(item.quickSale || item.isQuickSell),
+      isQuickSell: item.method === "quick" || Boolean(item.quickSale || item.isQuickSell),
     }));
 
     let list = [...localItems, ...liveProducts];
 
     const q = search.q?.toLowerCase() ?? "";
-    if (search.sub) list = list.filter((p) => (p.subcategory || "").toLowerCase() === search.sub?.toLowerCase());
+    if (search.sub) {
+      const targetSubNorm = normalizeSubcategoryStr(search.sub);
+      list = list.filter((p) => {
+        const pSubNorm = normalizeSubcategoryStr(p.subcategory || "");
+        if (pSubNorm === targetSubNorm) return true;
+        if (pSubNorm.includes(targetSubNorm) || targetSubNorm.includes(pSubNorm)) return true;
+
+        const titleLower = (p.title || "").toLowerCase();
+        const descLower = (p.description || "").toLowerCase();
+        const pSpecs = (p as any).specs || {};
+        const gender = String(pSpecs["Gender / Target"] || pSpecs["Gender"] || "").toLowerCase();
+        const itemType = String(pSpecs["Item Type"] || "").toLowerCase();
+
+        // Electronics subcategory expansion
+        if (targetSubNorm.includes("gaming") || targetSubNorm.includes("console") || targetSubNorm.includes("ps5") || targetSubNorm.includes("xbox")) {
+          if (
+            pSubNorm.includes("gaming") || pSubNorm.includes("console") ||
+            titleLower.includes("playstation") || titleLower.includes("ps5") || titleLower.includes("ps4") || titleLower.includes("xbox") || titleLower.includes("dualsense") || titleLower.includes("nintendo") ||
+            descLower.includes("ps5") || descLower.includes("playstation")
+          ) {
+            return true;
+          }
+        } else if (targetSubNorm.includes("laptop") || targetSubNorm.includes("notebook")) {
+          if (
+            pSubNorm.includes("laptop") || pSubNorm.includes("notebook") ||
+            titleLower.includes("macbook") || titleLower.includes("thinkpad") || titleLower.includes("laptop") || titleLower.includes("notebook") || titleLower.includes("chromebook") ||
+            descLower.includes("laptop") || descLower.includes("macbook")
+          ) {
+            return true;
+          }
+        } else if (targetSubNorm.includes("desktop") || targetSubNorm.includes("computer")) {
+          if (
+            pSubNorm.includes("desktop") || pSubNorm.includes("computer") || pSubNorm.includes("pc") ||
+            titleLower.includes("imac") || titleLower.includes("desktop") || titleLower.includes("mac mini") || titleLower.includes("assembled pc")
+          ) {
+            return true;
+          }
+        } else if (targetSubNorm.includes("camera") || targetSubNorm.includes("dslr")) {
+          if (
+            pSubNorm.includes("camera") || pSubNorm.includes("dslr") ||
+            titleLower.includes("dslr") || titleLower.includes("camera") || titleLower.includes("canon") || titleLower.includes("nikon") || titleLower.includes("gopro")
+          ) {
+            return true;
+          }
+        } else if (targetSubNorm.includes("audio") || targetSubNorm.includes("headphone")) {
+          if (
+            pSubNorm.includes("audio") || pSubNorm.includes("headphone") || pSubNorm.includes("speaker") ||
+            titleLower.includes("headphone") || titleLower.includes("earphone") || titleLower.includes("airpod") || titleLower.includes("speaker") || titleLower.includes("soundbar")
+          ) {
+            return true;
+          }
+        } else if (targetSubNorm.includes("watch") || targetSubNorm.includes("wearable")) {
+          if (
+            pSubNorm.includes("watch") || pSubNorm.includes("wearable") ||
+            titleLower.includes("smartwatch") || titleLower.includes("smart watch") || titleLower.includes("apple watch") || titleLower.includes("galaxy watch")
+          ) {
+            return true;
+          }
+        } else if (targetSubNorm.includes("accessory") || targetSubNorm.includes("monitor")) {
+          if (
+            pSubNorm.includes("monitor") || pSubNorm.includes("accessory") ||
+            titleLower.includes("monitor") || titleLower.includes("keyboard") || titleLower.includes("mouse") || titleLower.includes("graphic card")
+          ) {
+            return true;
+          }
+        }
+
+        // Women's clothing / fashion category mapping (e.g. Women's Kurti, Saree, Lehengas, Dresses, Tops)
+        if (targetSubNorm.includes("women")) {
+          if (
+            gender.includes("women") ||
+            titleLower.includes("women") ||
+            titleLower.includes("kurti") ||
+            titleLower.includes("kurtis") ||
+            titleLower.includes("saree") ||
+            titleLower.includes("dress") ||
+            titleLower.includes("lehenga") ||
+            pSubNorm.includes("ethnic") ||
+            pSubNorm.includes("kurti") ||
+            itemType.includes("dress") ||
+            descLower.includes("kurti")
+          ) {
+            return true;
+          }
+        }
+
+        // Men's clothing / fashion category mapping
+        if (targetSubNorm.includes("men") && !targetSubNorm.includes("women")) {
+          if (
+            gender.includes("men") ||
+            /\bmen\b|\bmens\b|shirt|t-shirt|trouser|kurta/i.test(titleLower)
+          ) {
+            return true;
+          }
+        }
+
+        // General keyword mapping from target subcategory (e.g. "Footwear", "Watches", "Laptops")
+        const keywords = targetSubNorm.split(" ").filter((k) => k.length > 3 && k !== "clothing" && k !== "wear");
+        if (keywords.length > 0 && keywords.some((k) => titleLower.includes(k) || pSubNorm.includes(k) || itemType.includes(k))) {
+          return true;
+        }
+
+        return false;
+      });
+    }
     if (search.cond) list = list.filter((p) => (p.condition || "").toLowerCase() === search.cond?.toLowerCase());
 
     if (q) {
@@ -371,13 +525,12 @@ function CategoryPage() {
 
     if (search.quickSale === "1") {
       list = list.filter((p) =>
-        (p as any).method !== "detailed" &&
+        (p as any).method === "quick" ||
+        (p as any).quickSale ||
+        (p as any).isQuickSell ||
         (
-          (p as any).method === "quick" ||
-          (p as any).quickSale ||
-          (p as any).isQuickSell ||
-          p.id.startsWith("Q-") ||
-          p.id.includes("quick")
+          (p as any).method !== "detailed" &&
+          (p.id?.startsWith("Q-") || p.id?.includes("quick"))
         )
       );
     }
@@ -646,7 +799,7 @@ function CategoryPage() {
                 <div>
                   <label className="block text-xs font-bold text-muted-foreground mb-1.5 uppercase tracking-wide">Subcategory</label>
                   <select
-                    value={search.sub ?? ""}
+                    value={subs.find((s) => search.sub && normalizeSubcategoryStr(search.sub) === normalizeSubcategoryStr(s)) ?? ""}
                     onChange={(e) => nav({ search: (p: S) => ({ ...p, sub: e.target.value || undefined }) })}
                     className="w-full h-11 rounded-2xl border border-border bg-background px-3 text-xs font-bold text-foreground outline-none focus:border-indigo-brand"
                   >
@@ -754,15 +907,18 @@ function CategoryPage() {
                 >
                   All {category.name}
                 </button>
-                {subs.map((s) => (
-                  <button
-                    key={s}
-                    onClick={() => nav({ search: (p: S) => ({ ...p, sub: search.sub === s ? undefined : s }) })}
-                    className={"shrink-0 rounded-full border px-3.5 py-1.5 text-xs font-bold transition-all " + (search.sub === s ? "border-primary bg-primary text-primary-foreground shadow-sm" : "border-border bg-card text-foreground hover:bg-secondary")}
-                  >
-                    {s}
-                  </button>
-                ))}
+                {subs.map((s) => {
+                  const isSelected = Boolean(search.sub && normalizeSubcategoryStr(search.sub) === normalizeSubcategoryStr(s));
+                  return (
+                    <button
+                      key={s}
+                      onClick={() => nav({ search: (p: S) => ({ ...p, sub: isSelected ? undefined : s }) })}
+                      className={"shrink-0 rounded-full border px-3.5 py-1.5 text-xs font-bold transition-all " + (isSelected ? "border-primary bg-primary text-primary-foreground shadow-sm" : "border-border bg-card text-foreground hover:bg-secondary")}
+                    >
+                      {s}
+                    </button>
+                  );
+                })}
               </div>
             )}
 

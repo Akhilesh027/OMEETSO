@@ -439,7 +439,7 @@ export const getProduct = (id: string) => {
   if (live) {
     const mainImg = Array.isArray(live.images) && live.images.length > 0 && !live.images[0].startsWith("blob:")
       ? live.images[0]
-      : "https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=400";
+      : "https://images.unsplash.com/photo-1526738549149-8e07eca6c147?w=400";
 
     return {
       id: live.id,

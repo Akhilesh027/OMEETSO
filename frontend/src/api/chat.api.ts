@@ -1,14 +1,56 @@
-import { getUserAccessToken } from "./auth.api";
+import { getUserAccessToken, refreshUserSession } from "./auth.api";
 import { API_BASE as ROOT_API } from "@/config/api";
 
 const API_BASE = `${ROOT_API}/chat`;
 
-function getAuthHeaders(): Record<string, string> {
+async function fetchWithChatAuth(endpoint: string, options: RequestInit = {}): Promise<any> {
   const token = getUserAccessToken() || (typeof localStorage !== "undefined" ? localStorage.getItem("omeetso_user_token") || localStorage.getItem("omeetso_auth_token") : "") || "";
-  return {
+
+  const headers: Record<string, string> = {
     "Content-Type": "application/json",
-    Authorization: `Bearer ${token}`,
+    ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    ...((options.headers as Record<string, string>) || {}),
   };
+
+  let res = await fetch(endpoint, {
+    ...options,
+    headers,
+    credentials: "include",
+  });
+
+  let json: any = null;
+  try {
+    json = await res.json();
+  } catch {
+    json = null;
+  }
+
+  // If token expired (401 or TOKEN_EXPIRED code), attempt session refresh and retry once
+  if (
+    res.status === 401 ||
+    (json && json.error?.code === "TOKEN_EXPIRED") ||
+    (json && json.error?.message?.toLowerCase().includes("token expired"))
+  ) {
+    const refreshRes = await refreshUserSession();
+    if (refreshRes.success && refreshRes.data?.accessToken) {
+      const newHeaders: Record<string, string> = {
+        ...headers,
+        Authorization: `Bearer ${refreshRes.data.accessToken}`,
+      };
+      const retryRes = await fetch(endpoint, {
+        ...options,
+        headers: newHeaders,
+        credentials: "include",
+      });
+      try {
+        return await retryRes.json();
+      } catch {
+        return { success: false, error: { message: "Invalid server response" } };
+      }
+    }
+  }
+
+  return json || { success: res.ok };
 }
 
 // ─── Conversations ───────────────────────────────────────
@@ -33,14 +75,21 @@ export interface ConversationItem {
 export async function startConversationApi(
   contextType: "LISTING" | "STORE" | "JOB" | "SERVICE",
   contextId: string,
-  recipientId?: string
+  recipientId?: string,
+  metadata?: { title?: string; image?: string; priceInPaise?: number }
 ): Promise<{ success: boolean; data?: any; error?: any }> {
-  const res = await fetch(`${API_BASE}/conversations`, {
+  return fetchWithChatAuth(`${API_BASE}/conversations`, {
     method: "POST",
-    headers: getAuthHeaders(),
-    body: JSON.stringify({ contextType, contextId, recipientId }),
+    body: JSON.stringify({
+      contextType,
+      contextId,
+      recipientId,
+      title: metadata?.title,
+      image: metadata?.image,
+      priceInPaise: metadata?.priceInPaise,
+      metadata,
+    }),
   });
-  return res.json();
 }
 
 export async function getConversationsApi(): Promise<{
@@ -48,10 +97,7 @@ export async function getConversationsApi(): Promise<{
   data?: ConversationItem[];
   error?: any;
 }> {
-  const res = await fetch(`${API_BASE}/conversations`, {
-    headers: getAuthHeaders(),
-  });
-  return res.json();
+  return fetchWithChatAuth(`${API_BASE}/conversations`);
 }
 
 export async function getConversationByIdApi(conversationId: string): Promise<{
@@ -59,10 +105,7 @@ export async function getConversationByIdApi(conversationId: string): Promise<{
   data?: ConversationItem;
   error?: any;
 }> {
-  const res = await fetch(`${API_BASE}/conversations/${conversationId}`, {
-    headers: getAuthHeaders(),
-  });
-  return res.json();
+  return fetchWithChatAuth(`${API_BASE}/conversations/${conversationId}`);
 }
 
 export async function markConversationReadApi(conversationId: string): Promise<{
@@ -70,11 +113,9 @@ export async function markConversationReadApi(conversationId: string): Promise<{
   data?: any;
   error?: any;
 }> {
-  const res = await fetch(`${API_BASE}/conversations/${conversationId}/read`, {
+  return fetchWithChatAuth(`${API_BASE}/conversations/${conversationId}/read`, {
     method: "POST",
-    headers: getAuthHeaders(),
   });
-  return res.json();
 }
 
 // ─── Messages ────────────────────────────────────────────
@@ -112,11 +153,7 @@ export async function getMessagesApi(
   const params = new URLSearchParams({ limit: String(limit) });
   if (before) params.set("before", before);
 
-  const res = await fetch(
-    `${API_BASE}/conversations/${conversationId}/messages?${params}`,
-    { headers: getAuthHeaders() }
-  );
-  return res.json();
+  return fetchWithChatAuth(`${API_BASE}/conversations/${conversationId}/messages?${params}`);
 }
 
 export async function sendMessageApi(
@@ -126,15 +163,10 @@ export async function sendMessageApi(
   type: "TEXT" | "IMAGE" = "TEXT",
   imageUrl?: string
 ): Promise<{ success: boolean; data?: MessageItem }> {
-  const res = await fetch(
-    `${API_BASE}/conversations/${conversationId}/messages`,
-    {
-      method: "POST",
-      headers: getAuthHeaders(),
-      body: JSON.stringify({ clientMessageId, type, text, imageUrl }),
-    }
-  );
-  return res.json();
+  return fetchWithChatAuth(`${API_BASE}/conversations/${conversationId}/messages`, {
+    method: "POST",
+    body: JSON.stringify({ clientMessageId, type, text, imageUrl }),
+  });
 }
 
 // ─── Offers ──────────────────────────────────────────────
@@ -143,33 +175,23 @@ export async function createOfferApi(
   conversationId: string,
   amountInPaise: number,
   messageText?: string
-): Promise<{ success: boolean; data?: any }> {
-  const res = await fetch(
-    `${API_BASE}/conversations/${conversationId}/offers`,
-    {
-      method: "POST",
-      headers: getAuthHeaders(),
-      body: JSON.stringify({ amountInPaise, messageText }),
-    }
-  );
-  return res.json();
+): Promise<{ success: boolean; data?: any; error?: any }> {
+  return fetchWithChatAuth(`${API_BASE}/conversations/${conversationId}/offers`, {
+    method: "POST",
+    body: JSON.stringify({ amountInPaise, messageText }),
+  });
 }
 
 export async function getOfferByIdApi(offerId: string): Promise<{ success: boolean; data?: any; error?: any }> {
-  const res = await fetch(`${API_BASE}/offers/${offerId}`, {
-    headers: getAuthHeaders(),
-  });
-  return res.json();
+  return fetchWithChatAuth(`${API_BASE}/offers/${offerId}`);
 }
 
 export async function updateOfferStatusApi(
   offerId: string,
   action: "ACCEPT" | "DECLINE" | "CANCEL"
-): Promise<{ success: boolean; data?: any }> {
-  const res = await fetch(`${API_BASE}/offers/${offerId}/status`, {
+): Promise<{ success: boolean; data?: any; error?: any }> {
+  return fetchWithChatAuth(`${API_BASE}/offers/${offerId}/status`, {
     method: "PATCH",
-    headers: getAuthHeaders(),
     body: JSON.stringify({ action }),
   });
-  return res.json();
 }

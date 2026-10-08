@@ -17,73 +17,25 @@ import { listListings } from "@/lib/listings";
 import { getCleanAvatar, MALE_AVATAR_DATA_URI } from "@/lib/avatarSvgs";
 
 export const Route = createFileRoute("/seller/$id")({
-  loader: async ({ params }) => {
+  loader: ({ params }) => {
     const cleanId = (params.id || "").trim();
-    try {
-      if (cleanId) {
-        const res = await fetch(`${API_BASE}/users/${cleanId}/public`);
-        if (res.ok) {
-          const json = await res.json();
-          if (json.success && json.data) {
-            return {
-              seller: {
-                id: json.data.id || json.data._id || cleanId,
-                name: json.data.name || "Omeetso Seller",
-                businessName: json.data.businessName,
-                avatar: json.data.avatar,
-                type: json.data.businessEnabled || json.data.accountType === "business" ? "business" : "individual",
-                rating: json.data.rating || 0,
-                reviews: json.data.reviewCount || json.data.reviews || 0,
-                area: json.data.area || json.data.city || "Hyderabad",
-                city: json.data.city || "Hyderabad",
-                responseTime: json.data.responseTime || "Within 1 hour",
-                responseRate: json.data.responseRate || "98%",
-                verified: json.data.verification?.verified ?? json.data.verificationSummary?.identityVerified ?? true,
-                memberSince: json.data.memberSince || (json.data.createdAt ? new Date(json.data.createdAt).getFullYear().toString() : "2024"),
-                about: json.data.bio || "Trusted Omeetso verified seller."
-              }
-            };
-          }
-        }
-      }
-    } catch { }
-
     const mock = cleanId ? getSeller(cleanId) : null;
-    if (mock) {
-      return {
-        seller: {
-          id: mock.id || cleanId || "u_seller",
-          name: mock.name || "Verified Seller",
-          businessName: (mock as any).businessName,
-          avatar: mock.avatar,
-          type: mock.type || "individual",
-          rating: mock.rating || 0,
-          reviews: mock.reviews || 0,
-          area: mock.area || "Hyderabad",
-          city: (mock as any).city || "Hyderabad",
-          responseTime: mock.responseTime || "Within 1 hour",
-          responseRate: mock.responseRate || "98%",
-          verified: mock.verified ?? true,
-          memberSince: mock.memberSince || "2024",
-          about: mock.about || "Trusted Omeetso verified seller."
-        }
-      };
-    }
-
     return {
       seller: {
-        id: cleanId || "u_seller",
-        name: "Verified Seller",
-        type: "individual",
-        rating: 0,
-        reviews: 0,
-        area: "Hyderabad",
-        city: "Hyderabad",
-        responseTime: "Within 1 hour",
-        responseRate: "98%",
-        verified: true,
-        memberSince: "2024",
-        about: "Trusted Omeetso verified seller."
+        id: mock?.id || cleanId || "u_seller",
+        name: mock?.name || "Verified Seller",
+        businessName: (mock as any)?.businessName,
+        avatar: mock?.avatar,
+        type: mock?.type || "individual",
+        rating: mock?.rating || 0,
+        reviews: mock?.reviews || 0,
+        area: mock?.area || "Hyderabad",
+        city: (mock as any)?.city || "Hyderabad",
+        responseTime: mock?.responseTime || "Within 1 hour",
+        responseRate: mock?.responseRate || "98%",
+        verified: mock?.verified ?? true,
+        memberSince: mock?.memberSince || "2024",
+        about: mock?.about || "Trusted Omeetso verified seller."
       }
     };
   },
@@ -152,6 +104,7 @@ function SellerPage() {
 
   const [seller, setSeller] = useState<any>(() => loaderData?.seller || fallbackSeller);
   const [sellerListings, setSellerListings] = useState<any[]>([]);
+  const [loadingListings, setLoadingListings] = useState(true);
   const nav = useNavigate();
   const [following, setFollowing] = useState(() => isFollowingSeller(seller?.id || id));
   const [blocked, setBlocked] = useState(false);
@@ -194,6 +147,7 @@ function SellerPage() {
       })
       .catch(() => { });
 
+    setLoadingListings(true);
     fetch(`${API_BASE}/listings?sellerId=${id}`)
       .then((res) => {
         if (!res.ok) return null;
@@ -211,7 +165,7 @@ function SellerPage() {
             title: item.title || "Product Listing",
             price: item.price || (item.priceInPaise ? item.priceInPaise / 100 : 0),
             originalPrice: Math.round((item.price || (item.priceInPaise ? item.priceInPaise / 100 : 0)) * 1.15),
-            image: item.coverUrl || (Array.isArray(item.images) && item.images[0]) || "https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=400",
+            image: item.coverUrl || (Array.isArray(item.images) && item.images[0]) || "https://images.unsplash.com/photo-1526738549149-8e07eca6c147?w=400",
             location: item.area ? `${item.area}, ${item.city || "Hyderabad"}` : (item.city || "Hyderabad"),
             area: item.area || item.city || "Hyderabad",
             distanceKm: 1.5,
@@ -238,7 +192,7 @@ function SellerPage() {
                 title: l.title || "Product Listing",
                 price: l.price || 0,
                 originalPrice: Math.round((l.price || 0) * 1.15),
-                image: (Array.isArray(l.images) && l.images[0]) || l.image || "https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=400",
+                image: (Array.isArray(l.images) && l.images[0]) || l.image || "https://images.unsplash.com/photo-1526738549149-8e07eca6c147?w=400",
                 location: l.area ? `${l.area}, ${l.city || "Hyderabad"}` : (l.city || "Hyderabad"),
                 area: l.area || l.city || "Hyderabad",
                 distanceKm: 1.5,
@@ -256,6 +210,9 @@ function SellerPage() {
       .catch(() => {
         const mockListings = productsBySeller(id);
         setSellerListings(mockListings);
+      })
+      .finally(() => {
+        setLoadingListings(false);
       });
   }, [id]);
 
@@ -458,7 +415,17 @@ function SellerPage() {
 
         <div className="mt-6 px-4 md:mx-auto md:max-w-[1440px] md:px-6 md:pb-16">
           <h3 className="mb-3 text-sm font-extrabold md:text-lg">Listings from {currentSeller.name}</h3>
-          {active.length === 0 ? (
+          {loadingListings ? (
+            <div className="grid grid-cols-2 gap-3 md:grid-cols-4 md:gap-4 lg:grid-cols-5 animate-pulse">
+              {[1, 2, 3, 4].map((i) => (
+                <div key={i} className="rounded-2xl border border-border bg-card p-3 space-y-3">
+                  <div className="aspect-square w-full rounded-xl bg-muted" />
+                  <div className="h-4 w-3/4 rounded bg-muted" />
+                  <div className="h-3 w-1/2 rounded bg-muted" />
+                </div>
+              ))}
+            </div>
+          ) : active.length === 0 ? (
             <EmptyState title="No active listings" body="This seller has no active listings right now." />
           ) : (
             <div className="grid grid-cols-2 gap-3 md:grid-cols-4 md:gap-4 lg:grid-cols-5">

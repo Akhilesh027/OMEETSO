@@ -2,7 +2,7 @@ import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useState, useEffect } from "react";
 import { MobileFrame } from "@/components/omeetso/MobileFrame";
 import { BackBar } from "@/components/omeetso/TopBar";
-import { addSafetyReport, blockUser, SAFETY_CATEGORIES, type SafetyCategory } from "@/lib/account";
+import { addSafetyReport, blockUser, createTicket, SAFETY_CATEGORIES, type SafetyCategory } from "@/lib/account";
 import { formatPhoneDisplay, cleanPhoneInput } from "@/lib/utils";
 import { toast } from "sonner";
 import {
@@ -80,8 +80,12 @@ function ReportPage() {
   };
 
   const submit = async () => {
-    if (description.trim().length < 20) {
-      toast.error("Description must be at least 20 characters");
+    if (!description.trim()) {
+      toast.error("Please enter a description of what happened");
+      return;
+    }
+    if (description.trim().length < 5) {
+      toast.error("Description must be at least 5 characters");
       return;
     }
 
@@ -99,7 +103,7 @@ function ReportPage() {
         return;
       }
       if (contactPref === "call" && !reporterPhone.trim()) {
-        toast.error("Please enter your contact phone number");
+        toast.error("Please enter your contact phone number for callback");
         return;
       }
       if (reporterPhone.trim() && reporterPhone.replace(/\D/g, "").length < 10) {
@@ -117,25 +121,63 @@ function ReportPage() {
     try {
       const rec = addSafetyReport({
         category,
-        description,
-        relatedUser,
-        relatedListing,
-        relatedChat,
+        description: description.trim(),
+        relatedUser: relatedUser.trim() || undefined,
+        relatedListing: relatedListing.trim() || undefined,
+        relatedChat: relatedChat.trim() || undefined,
         attachments,
         contactPref,
-        reporterName: isAnonymous ? "Anonymous" : reporterName.trim(),
+        reporterName: isAnonymous ? "Anonymous" : reporterName.trim() || "Omeetso User",
         reporterEmail: isAnonymous ? undefined : reporterEmail.trim(),
         reporterPhone: isAnonymous ? undefined : reporterPhone.trim(),
         contactTimeSlot,
         isAnonymous,
       });
 
-      setSubmitted({
-        id: rec.id,
-        isAnonymous,
-        contactPref,
-      });
-      toast.success("Suspicious activity report submitted successfully");
+      const catLabel = SAFETY_CATEGORIES.find((c) => c.id === category)?.label || category;
+
+      if (contactPref === "in_app") {
+        const t = createTicket({
+          category: "Safety & Fraud",
+          subcategory: catLabel,
+          subject: `Safety Report: ${catLabel}`,
+          description: `[Incident Reference: ${rec.id}]\n\n${description.trim()}${
+            relatedUser ? `\nReported User: ${relatedUser}` : ""
+          }${relatedListing ? `\nRelated Listing: ${relatedListing}` : ""}${
+            relatedChat ? `\nRelated Chat: ${relatedChat}` : ""
+          }`,
+          attachments,
+          contactMethod: "in_app",
+          relatedListing: relatedListing.trim() || undefined,
+        });
+        toast.success("Report submitted! Redirecting to in-app support…");
+        nav({ to: "/support/$id", params: { id: t.id } });
+      } else if (contactPref === "email") {
+        toast.success("Report submitted! Opening email client…");
+        const mailSubject = encodeURIComponent(`[Omeetso Safety Report #${rec.id}] ${catLabel}`);
+        const mailBody = encodeURIComponent(
+          `Hello Omeetso Trust & Safety Team,\n\nI have submitted a suspicious activity report on Omeetso.\n\nIncident Reference: ${rec.id}\nCategory: ${catLabel}\nDescription:\n${description.trim()}\n${
+            relatedUser ? `Reported User: ${relatedUser}\n` : ""
+          }${relatedListing ? `Related Listing: ${relatedListing}\n` : ""}\nReporter: ${
+            isAnonymous ? "Anonymous" : reporterName.trim() || "User"
+          }\nContact Email: ${reporterEmail.trim() || "Provided via app"}\nPreferred Callback Window: ${contactTimeSlot}\n\nPlease follow up with me via email.\n\nThank you.`
+        );
+        window.location.href = `mailto:info@omeetso.in?subject=${mailSubject}&body=${mailBody}`;
+        setTimeout(() => {
+          nav({ to: "/contact" });
+        }, 400);
+      } else if (contactPref === "call") {
+        toast.success("Report submitted! Connecting to safety helpline…");
+        window.location.href = "tel:+919876543210";
+        setTimeout(() => {
+          nav({ to: "/contact" });
+        }, 400);
+      } else {
+        toast.success("Suspicious activity report submitted successfully");
+        nav({ to: "/safety" });
+      }
+    } catch (err: any) {
+      toast.error(err?.message || "Failed to submit report. Please try again.");
     } finally {
       setIsSubmitting(false);
     }
@@ -248,7 +290,7 @@ function ReportPage() {
               rows={4}
               value={description}
               onChange={(e) => setDescription(e.target.value)}
-              placeholder="Describe what happened in detail (minimum 20 characters)…"
+              placeholder="Describe what happened in detail…"
               className="w-full rounded-xl border border-border bg-background p-3 outline-none text-xs font-medium focus:border-primary transition leading-relaxed"
             />
             <label className="flex items-center gap-2.5 rounded-xl border-2 border-dashed border-border p-3 text-xs text-muted-foreground hover:bg-secondary/40 transition cursor-pointer">
@@ -431,19 +473,9 @@ function ReportPage() {
               </label>
             </div>
 
-            {/* Prominent Submit Button directly under Contact & Credential Preferences */}
-            <div className="pt-2">
-              <button
-                type="button"
-                onClick={submit}
-                disabled={isSubmitting}
-                className="w-full flex items-center justify-center gap-2 rounded-2xl bg-primary hover:bg-primary/90 text-primary-foreground font-bold py-3.5 px-5 shadow-md transition-all active:scale-[0.99] disabled:opacity-50"
-              >
-                <ShieldAlert className="h-4 w-4" />
-                <span>{isSubmitting ? "Submitting Report..." : "Submit Suspicious Activity Report"}</span>
-              </button>
-              <p className="text-[10px] text-center text-muted-foreground mt-2">
-                🔒 All reports are encrypted and reviewed by the Omeetso Trust & Safety team.
+            <div className="pt-1">
+              <p className="text-[10px] text-center text-muted-foreground">
+                🔒 All reports are encrypted and reviewed by the Omeetso Trust & Safety team within 24 hours.
               </p>
             </div>
           </div>

@@ -3,22 +3,23 @@ import { BottomSheet } from "@/components/omeetso/BottomSheet";
 import { formatINR, type Product } from "@/lib/mock";
 import { canMakeOffer, suggestedOffers } from "@/lib/chat";
 import { createOfferApi, startConversationApi } from "@/api/chat.api";
-import { getUserAccessToken } from "@/api/auth.api";
+import { getUserAccessToken, setUserAccessToken } from "@/api/auth.api";
 import { useChatContext } from "@/contexts/ChatProvider";
 import { AlertCircle, CheckCircle2, HandCoins, ShieldAlert, Sparkles } from "lucide-react";
 import { toast } from "sonner";
 import { useNavigate } from "@tanstack/react-router";
 
 export function MakeOfferSheet({
-  open, onClose, product, threadId,
+  open, onClose, product, threadId, initialAmount,
 }: {
   open: boolean;
   onClose: () => void;
   product: Product;
   threadId?: string;
+  initialAmount?: string;
 }) {
   const nav = useNavigate();
-  const [amount, setAmount] = useState("");
+  const [amount, setAmount] = useState(initialAmount || "");
   const [message, setMessage] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [warning, setWarning] = useState<string | null>(null);
@@ -54,11 +55,15 @@ export function MakeOfferSheet({
       let convId = threadId;
       if (!convId) {
         const targetListingId = product.id || (product as any)._id;
-        const targetSellerId = (product as any)?.sellerId || (product as any)?.seller?._id || (product as any)?.seller?.id;
+        const targetSellerId = (product as any)?.sellerId || (product as any)?.seller?._id || (product as any)?.seller?.id || "u_seller";
+        const priceInPaise = typeof product.price === "number" ? Math.round(product.price * 100) : 0;
+        const title = product.title;
+        const image = product.image || (Array.isArray(product.images) && product.images[0]);
         const startRes = await startConversationApi(
           "LISTING",
           targetListingId,
-          typeof targetSellerId === "string" && !targetSellerId.startsWith("u_") ? targetSellerId : undefined
+          targetSellerId,
+          { title, image, priceInPaise }
         );
         if (startRes.success && startRes.data?.id) {
           convId = startRes.data.id;
@@ -67,7 +72,20 @@ export function MakeOfferSheet({
           }
         } else {
           setSending(false);
-          return setError(startRes.error?.message || "Could not start chat conversation.");
+          const errMsg = startRes.error?.message || "Could not start chat conversation.";
+          if (
+            startRes.error?.code === "TOKEN_EXPIRED" ||
+            startRes.error?.code === "UNAUTHORIZED" ||
+            errMsg.toLowerCase().includes("token expired") ||
+            errMsg.toLowerCase().includes("invalid token")
+          ) {
+            setUserAccessToken(null);
+            toast.error("Your session has expired. Please sign in again.");
+            onClose();
+            nav({ to: "/login" });
+            return;
+          }
+          return setError(errMsg);
         }
       }
 
@@ -84,7 +102,20 @@ export function MakeOfferSheet({
           nav({ to: "/chat/$id", params: { id: convId! } });
         }, 800);
       } else {
-        setError(res.data?.message || "Failed to submit offer.");
+        const errMsg = res.error?.message || res.data?.message || "Failed to submit offer.";
+        if (
+          res.error?.code === "TOKEN_EXPIRED" ||
+          res.error?.code === "UNAUTHORIZED" ||
+          errMsg.toLowerCase().includes("token expired") ||
+          errMsg.toLowerCase().includes("invalid token")
+        ) {
+          setUserAccessToken(null);
+          toast.error("Your session has expired. Please sign in again.");
+          onClose();
+          nav({ to: "/login" });
+          return;
+        }
+        setError(errMsg);
       }
     } catch {
       setSending(false);
@@ -123,7 +154,7 @@ export function MakeOfferSheet({
       <div className="space-y-4 font-sans pt-1">
         {/* Product card summary */}
         {(() => {
-          const fallbackImg = "https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=400";
+          const fallbackImg = "https://images.unsplash.com/photo-1526738549149-8e07eca6c147?w=400";
           const imgSrc = product?.image || (product as any)?.coverUrl || (Array.isArray(product?.images) && product.images[0]) || fallbackImg;
           return (
             <div className="flex items-center gap-3.5 rounded-2xl border border-border bg-card p-3.5 shadow-sm">

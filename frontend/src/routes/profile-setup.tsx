@@ -53,11 +53,11 @@ function ProfileSetup() {
       if (u.profile?.businessName || u.businessName) setBusinessName(u.profile?.businessName || u.businessName);
       if (u.phone || u.mobile) setPhone(u.phone || u.mobile);
       if (u.email) setEmail(u.email);
+      if (u.profile?.pincode) setPincode(u.profile.pincode);
     } catch { }
     const loc = (() => {
       try { return JSON.parse(localStorage.getItem("omeetso_location") || "{}"); } catch { return {}; }
     })();
-    if (loc.pincode) setPincode(loc.pincode);
     if (loc.area) setCity(loc.area);
     const l = localStorage.getItem("omeetso_language");
     if (l) setLang(l);
@@ -266,7 +266,7 @@ function ProfileSetup() {
                   value={pincode}
                   onChange={(e) => setPincode(e.target.value.replace(/\D/g, "").slice(0, 6))}
                   inputMode="numeric"
-                  placeholder="500072"
+                  placeholder="Enter 6-digit PIN code"
                   className="w-full bg-transparent text-sm font-semibold outline-none placeholder:font-normal placeholder:text-muted-foreground"
                 />
               </Field>

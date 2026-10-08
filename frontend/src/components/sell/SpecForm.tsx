@@ -61,11 +61,15 @@ export function SpecForm({
                     if (isCustomBrand || brand === "Other") {
                       // switch to dropdown, clear to first option or empty
                       set(f.key, "");
-                      onChange({ ...values, [f.key]: "", Brand: "", "Brand / Manufacturer": "" });
+                      const next = { ...values, [f.key]: "", Brand: "" };
+                      delete next["Brand / Manufacturer"];
+                      onChange(next);
                     } else {
                       // switch to manual typing
                       set(f.key, brand || "");
-                      onChange({ ...values, [f.key]: brand || "", Brand: brand || "", "Brand / Manufacturer": brand || "" });
+                      const next = { ...values, [f.key]: brand || "", Brand: brand || "" };
+                      delete next["Brand / Manufacturer"];
+                      onChange(next);
                     }
                   }}
                   className="text-[11px] font-bold text-indigo-brand hover:underline cursor-pointer"
@@ -86,8 +90,8 @@ export function SpecForm({
                         ...values,
                         [f.key]: val,
                         Brand: val,
-                        "Brand / Manufacturer": val,
                       };
+                      delete nextValues["Brand / Manufacturer"];
                       onChange(nextValues);
                     }}
                     placeholder="Type brand or manufacturer name..."
@@ -110,13 +114,13 @@ export function SpecForm({
                       ...values,
                       [f.key]: val,
                       Brand: val,
-                      "Brand / Manufacturer": val,
                     };
+                    delete nextValues["Brand / Manufacturer"];
                     // Clear model if previous model is not valid for new brand
                     if (values["Model"] && values["Model"] !== "Other") {
                       const validForNewBrand = val && val !== "Other" ? getModelsForBrand(category, val) : [];
                       if (!validForNewBrand.includes(values["Model"])) {
-                        nextValues["Model"] = "";
+                        delete nextValues["Model"];
                       }
                     }
                     onChange(nextValues);

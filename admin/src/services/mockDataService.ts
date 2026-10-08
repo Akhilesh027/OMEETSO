@@ -175,7 +175,7 @@ export class MockDataService {
       title: listing.title || "Untitled Product Listing",
       priceInPaise: listing.priceInPaise || 100000,
       categoryId: listing.categoryId || "mobiles",
-      images: listing.images && listing.images.length > 0 ? listing.images : ["https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=400"],
+      images: listing.images && listing.images.length > 0 ? listing.images : ["https://images.unsplash.com/photo-1526738549149-8e07eca6c147?w=400"],
       sellerId: listing.sellerId || "u_ravi",
       sellerName: listing.sellerName || "Ravi Kumar",
       location: listing.location || { city: "Hyderabad", pincode: "500081", area: "Kondapur" },

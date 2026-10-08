@@ -587,7 +587,7 @@ export function BoostAdWizard({
               <div className="bg-card border border-primary/40 rounded-2xl p-3 shadow-sm flex gap-3.5 items-center">
                 <div className="relative h-20 w-24 rounded-xl overflow-hidden shrink-0 border border-border shadow-xs">
                   <img
-                    src={bannerUrl || listingImage || "https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=400"}
+                    src={bannerUrl || listingImage || "https://images.unsplash.com/photo-1526738549149-8e07eca6c147?w=400"}
                     alt="Listing Preview"
                     className="h-full w-full object-cover"
                   />

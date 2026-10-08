@@ -38,16 +38,6 @@ const CATEGORY_TINTS: Record<string, { bg: string; text: string; border: string;
 
 const DEFAULT_TINT = { bg: "bg-primary/10", text: "text-primary", border: "hover:border-primary/50", badgeBg: "bg-primary/15 text-primary" };
 
-const QUICK_FILTER_TAGS = [
-  { id: "all", label: "All Categories", icon: LayoutGrid },
-  { id: "mobiles", label: "Mobiles", icon: Smartphone },
-  { id: "cars", label: "Cars", icon: Car },
-  { id: "bikes", label: "Bikes", icon: Bike },
-  { id: "electronics", label: "Electronics", icon: Laptop },
-  { id: "furniture", label: "Furniture", icon: Sofa },
-  { id: "jobs", label: "Jobs", icon: Briefcase },
-];
-
 function CategoriesPage() {
   const nav = useNavigate();
   const [categories, setCategories] = useState<LiveCategory[]>(() => getCachedCategories());
@@ -86,6 +76,19 @@ function CategoriesPage() {
 
     return list;
   }, [categories, activeFilter, search]);
+
+  const allCategoryTags = useMemo(() => {
+    const allTag = { id: "all", label: "All Categories", icon: LayoutGrid };
+    const dynamicTags = categories.map((c) => {
+      const IconComp = (Icons as unknown as Record<string, React.ComponentType<{ className?: string }>>)[c.icon] ?? Icons.Package;
+      return {
+        id: c.id,
+        label: c.name,
+        icon: IconComp,
+      };
+    });
+    return [allTag, ...dynamicTags];
+  }, [categories]);
 
   const totalListings = useMemo(() => {
     return categories.reduce((sum, c) => sum + (c.count || 0), 0);
@@ -173,14 +176,14 @@ function CategoriesPage() {
 
           {/* Quick Filter Horizontal Scroll */}
           <div className="flex gap-2 overflow-x-auto no-scrollbar">
-            {QUICK_FILTER_TAGS.map((tag) => {
+            {allCategoryTags.map((tag) => {
               const TagIcon = tag.icon;
               return (
                 <button
                   key={tag.id}
-                  onClick={() => setActiveFilter(tag.id)}
+                  onClick={() => setActiveFilter(activeFilter === tag.id ? "all" : tag.id)}
                   className={cn(
-                    "shrink-0 inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-bold transition-all border",
+                    "shrink-0 inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-bold transition-all border cursor-pointer",
                     activeFilter === tag.id
                       ? "bg-primary text-primary-foreground border-primary shadow-xs"
                       : "bg-card text-foreground border-border hover:bg-secondary"
@@ -199,12 +202,12 @@ function CategoriesPage() {
 
           {/* Desktop Filter Pills */}
           <div className="hidden md:flex items-center gap-2 overflow-x-auto no-scrollbar pb-1 border-b border-border/60">
-            {QUICK_FILTER_TAGS.map((tag) => {
+            {allCategoryTags.map((tag) => {
               const TagIcon = tag.icon;
               return (
                 <button
                   key={tag.id}
-                  onClick={() => setActiveFilter(tag.id)}
+                  onClick={() => setActiveFilter(activeFilter === tag.id ? "all" : tag.id)}
                   className={cn(
                     "shrink-0 inline-flex items-center gap-2 rounded-2xl px-4 py-2 text-xs font-extrabold transition-all border cursor-pointer",
                     activeFilter === tag.id
@@ -244,6 +247,18 @@ function CategoriesPage() {
                   )}
                 >
                   <div className="space-y-4">
+                    {/* Category Cover Image Banner (if available) */}
+                    {(c.coverImage || c.imageUrl) && (
+                      <div className="relative -mx-5 -mt-5 h-28 overflow-hidden rounded-t-3xl border-b border-border/60 mb-1">
+                        <img
+                          src={c.coverImage || c.imageUrl}
+                          alt={c.name}
+                          className="h-full w-full object-cover group-hover:scale-105 transition-transform duration-500"
+                        />
+                        <div className="absolute inset-0 bg-gradient-to-t from-background/80 via-transparent to-transparent" />
+                      </div>
+                    )}
+
                     {/* Header: Icon, Name & Live Count */}
                     <div className="flex items-start justify-between gap-3">
                       <div className="flex items-center gap-3">
@@ -258,10 +273,6 @@ function CategoriesPage() {
                           >
                             {c.name}
                           </Link>
-                          <span className={cn("mt-1 inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-[10.5px] font-black", tint.badgeBg)}>
-                            <Flame className="h-3 w-3 fill-current" />
-                            {(c.count || 0).toLocaleString("en-IN")} Live Ads
-                          </span>
                         </div>
                       </div>
 
@@ -292,7 +303,7 @@ function CategoriesPage() {
                                 key={idx}
                                 to={c.id === "jobs" ? ("/jobs" as any) : c.id === "services" ? ("/services" as any) : "/category/$id"}
                                 params={c.id !== "jobs" && c.id !== "services" ? { id: c.id } : undefined}
-                                search={{ sub: subId.toLowerCase() } as never}
+                                search={{ sub: subName } as never}
                                 className="rounded-xl border border-border/60 bg-secondary/50 hover:bg-primary/10 hover:border-primary/40 hover:text-primary px-2.5 py-1 text-[11px] font-extrabold text-foreground transition-all"
                               >
                                 {subName}

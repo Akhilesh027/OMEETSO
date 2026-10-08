@@ -7,7 +7,7 @@ import { SortSheet } from "@/components/omeetso/SortSheet";
 import { FilterChip } from "@/components/omeetso/FilterChip";
 import { PRODUCTS, CATEGORIES as STATIC_CATEGORIES, SORT_OPTIONS, getAd, type Product } from "@/lib/mock";
 import { listListings, fetchLivePublicListings } from "@/lib/listings";
-import { fetchLiveCategories, getCachedCategories, type LiveCategory } from "@/lib/categories";
+import { fetchLiveCategories, getCachedCategories, resolveElectronicsSubcategory, type LiveCategory } from "@/lib/categories";
 import { calculateDistanceBetweenLocations, resolveCityFromLocation } from "@/lib/location";
 import { EmptyState } from "@/components/omeetso/EmptyState";
 import { DEFAULT_SPONSORED_LISTING } from "@/components/omeetso/AdBanner";
@@ -18,6 +18,9 @@ import { preventNonNumericKeyDown, sanitizeNumericInput } from "@/lib/utils";
 type S = {
   q?: string;
   cat?: string;
+  sub?: string;
+  category?: string;
+  subcategory?: string;
   cond?: string;
   sort?: string;
   view?: "grid" | "list";
@@ -31,7 +34,8 @@ type S = {
 export const Route = createFileRoute("/results")({
   validateSearch: (s: Record<string, unknown>): S => ({
     q: typeof s.q === "string" ? s.q : undefined,
-    cat: typeof s.cat === "string" ? s.cat : undefined,
+    cat: typeof s.cat === "string" ? s.cat : typeof s.category === "string" ? s.category : undefined,
+    sub: typeof s.sub === "string" ? s.sub : typeof s.subcategory === "string" ? s.subcategory : undefined,
     cond: typeof s.cond === "string" ? s.cond : undefined,
     sort: typeof s.sort === "string" ? s.sort : undefined,
     view: s.view === "list" ? "list" : "grid",
@@ -121,15 +125,15 @@ function Results() {
             title: item.title,
             price: item.priceInPaise ? item.priceInPaise / 100 : item.price || 0,
             negotiable: item.negotiable,
-            category: item.category || item.categoryId || "electronics",
-            subcategory: item.subcategory || item.subcategoryId || "electronics",
+            category: (item.category || item.categoryId || "electronics").toLowerCase(),
+            subcategory: resolveElectronicsSubcategory(item.subcategory || item.subcategoryId, item.title, item.specs),
             condition: item.condition || "good",
             area: item.area || item.location || "",
             city: item.city || activeCity,
             pincode: item.pincode || "",
             distanceKm: calculatedDist,
             postedAgo: "Just now",
-            image: item.images?.[0] || item.image || "https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=400",
+            image: item.images?.[0] || item.image || "https://images.unsplash.com/photo-1526738549149-8e07eca6c147?w=400",
             images: item.images,
             verified: true,
             sellerName: item.businessName || item.storeName || item.sellerName || "Verified Local Seller",
@@ -142,7 +146,9 @@ function Results() {
             reviewCount: item.reviewCount || 0,
             description: item.description,
             specs: item.specs || {},
-            method: item.method || (item.id?.startsWith("Q-") || item.id?.includes("quick") ? "quick" : "detailed"),
+            method: item.method || (item.quickSale || item.isQuickSell || item.id?.startsWith("Q-") || item.id?.includes("quick") ? "quick" : "detailed"),
+            quickSale: item.method === "quick" || Boolean(item.quickSale || item.isQuickSell),
+            isQuickSell: item.method === "quick" || Boolean(item.quickSale || item.isQuickSell),
             createdAt: item.createdAt,
             publishedAt: item.publishedAt,
           };
@@ -208,7 +214,7 @@ function Results() {
         }
       });
     });
-  }, [search.q, search.cat, activeLoc?.area, activeLoc?.pincode, activeLoc?.city]);
+  }, [search.q, search.cat, search.sub, activeLoc?.area, activeLoc?.pincode, activeLoc?.city]);
 
   const [minPInput, setMinPInput] = useState(search.minP ?? "");
   const [maxPInput, setMaxPInput] = useState(search.maxP ?? "");
@@ -228,6 +234,77 @@ function Results() {
         const pCat = (p.category || "").toLowerCase().replace(/_/g, "-");
         if (pCat === normCat) return true;
         if ((normCat === "appliances" || normCat === "home-appliances") && (pCat === "appliances" || pCat === "home-appliances")) {
+          return true;
+        }
+        return false;
+      });
+    }
+
+    if (search.sub) {
+      const targetSubNorm = search.sub.toLowerCase().replace(/['’]/g, "'").replace(/[\-_]/g, " ").trim();
+      list = list.filter((p) => {
+        const pSubNorm = (p.subcategory || "").toLowerCase().replace(/['’]/g, "'").replace(/[\-_]/g, " ").trim();
+        if (pSubNorm === targetSubNorm) return true;
+        if (pSubNorm.includes(targetSubNorm) || targetSubNorm.includes(pSubNorm)) return true;
+
+        const titleLower = (p.title || "").toLowerCase();
+        const descLower = (p.description || "").toLowerCase();
+
+        // Electronics subcategory expansion
+        if (targetSubNorm.includes("gaming") || targetSubNorm.includes("console") || targetSubNorm.includes("ps5") || targetSubNorm.includes("xbox")) {
+          if (
+            pSubNorm.includes("gaming") || pSubNorm.includes("console") ||
+            titleLower.includes("playstation") || titleLower.includes("ps5") || titleLower.includes("ps4") || titleLower.includes("xbox") || titleLower.includes("dualsense") || titleLower.includes("nintendo") ||
+            descLower.includes("ps5") || descLower.includes("playstation")
+          ) {
+            return true;
+          }
+        } else if (targetSubNorm.includes("laptop") || targetSubNorm.includes("notebook")) {
+          if (
+            pSubNorm.includes("laptop") || pSubNorm.includes("notebook") ||
+            titleLower.includes("macbook") || titleLower.includes("thinkpad") || titleLower.includes("laptop") || titleLower.includes("notebook") || titleLower.includes("chromebook") ||
+            descLower.includes("laptop") || descLower.includes("macbook")
+          ) {
+            return true;
+          }
+        } else if (targetSubNorm.includes("desktop") || targetSubNorm.includes("computer")) {
+          if (
+            pSubNorm.includes("desktop") || pSubNorm.includes("computer") || pSubNorm.includes("pc") ||
+            titleLower.includes("imac") || titleLower.includes("desktop") || titleLower.includes("mac mini") || titleLower.includes("assembled pc")
+          ) {
+            return true;
+          }
+        } else if (targetSubNorm.includes("camera") || targetSubNorm.includes("dslr")) {
+          if (
+            pSubNorm.includes("camera") || pSubNorm.includes("dslr") ||
+            titleLower.includes("dslr") || titleLower.includes("camera") || titleLower.includes("canon") || titleLower.includes("nikon") || titleLower.includes("gopro")
+          ) {
+            return true;
+          }
+        } else if (targetSubNorm.includes("audio") || targetSubNorm.includes("headphone")) {
+          if (
+            pSubNorm.includes("audio") || pSubNorm.includes("headphone") || pSubNorm.includes("speaker") ||
+            titleLower.includes("headphone") || titleLower.includes("earphone") || titleLower.includes("airpod") || titleLower.includes("speaker") || titleLower.includes("soundbar")
+          ) {
+            return true;
+          }
+        } else if (targetSubNorm.includes("watch") || targetSubNorm.includes("wearable")) {
+          if (
+            pSubNorm.includes("watch") || pSubNorm.includes("wearable") ||
+            titleLower.includes("smartwatch") || titleLower.includes("smart watch") || titleLower.includes("apple watch") || titleLower.includes("galaxy watch")
+          ) {
+            return true;
+          }
+        } else if (targetSubNorm.includes("accessory") || targetSubNorm.includes("monitor")) {
+          if (
+            pSubNorm.includes("monitor") || pSubNorm.includes("accessory") ||
+            titleLower.includes("monitor") || titleLower.includes("keyboard") || titleLower.includes("mouse") || titleLower.includes("graphic card")
+          ) {
+            return true;
+          }
+        }
+
+        if (targetSubNorm.includes("women") && (titleLower.includes("women") || titleLower.includes("kurti") || titleLower.includes("saree") || titleLower.includes("dress"))) {
           return true;
         }
         return false;
@@ -256,13 +333,12 @@ function Results() {
     }
     if (search.quickSale === "1") {
       list = list.filter((p) =>
-        (p as any).method !== "detailed" &&
+        (p as any).method === "quick" ||
+        (p as any).quickSale ||
+        (p as any).isQuickSell ||
         (
-          (p as any).method === "quick" ||
-          (p as any).quickSale ||
-          (p as any).isQuickSell ||
-          p.id.startsWith("Q-") ||
-          p.id.includes("quick")
+          (p as any).method !== "detailed" &&
+          (p.id?.startsWith("Q-") || p.id?.includes("quick"))
         )
       );
     }
@@ -308,7 +384,7 @@ function Results() {
         break;
     }
     return list;
-  }, [allProducts, q, search.cat, search.cond, search.sort, search.verified, search.minP, search.maxP, search.quickSale, activeLoc]);
+  }, [allProducts, q, search.cat, search.sub, search.cond, search.sort, search.verified, search.minP, search.maxP, search.quickSale, activeLoc]);
 
   const view = search.view ?? "grid";
   const sortLabel = SORT_OPTIONS.find((o) => o.id === (search.sort ?? "relevance"))?.label ?? "Relevance";

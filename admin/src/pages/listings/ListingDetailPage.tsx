@@ -117,6 +117,7 @@ export default function ListingDetailPage() {
                 id: item.id || item._id || listingId,
                 title: item.title || "Marketplace Listing",
                 price: item.price ?? (item.priceInPaise ? item.priceInPaise / 100 : 0),
+                priceInPaise: item.priceInPaise ?? (item.price ? Math.round(item.price * 100) : 0),
                 category: item.category || item.categoryId || "General",
                 subcategory: item.subcategory || item.subcategoryId || "",
                 condition: item.condition || "Used - Like New",
@@ -126,7 +127,7 @@ export default function ListingDetailPage() {
                 description: item.description || item.title || "",
                 images: Array.isArray(item.images) && item.images.length > 0
                   ? item.images
-                  : [item.image || "https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=400"],
+                  : [item.image || "https://images.unsplash.com/photo-1526738549149-8e07eca6c147?w=400"],
                 coverIndex: item.coverIndex || 0,
                 videoUrl: item.videoUrl || item.video || item.video_url || undefined,
                 video: item.video || item.videoUrl || item.video_url || undefined,
@@ -399,7 +400,7 @@ export default function ListingDetailPage() {
               <div>Product Title: <strong className="text-[#111827]">{listing.title}</strong></div>
               <div>Category: <strong className="text-[#111827]">{listing.category}</strong></div>
               <div>Description: <strong className="text-slate-700">{listing.description}</strong></div>
-              <div>Current Price: <strong className="text-[#16A36A]">₹{listing.price}</strong></div>
+              <div>Current Price: <strong className="text-[#16A36A]">₹{(listing?.price ?? (listing?.priceInPaise ? listing.priceInPaise / 100 : 0)).toLocaleString("en-IN")}</strong></div>
               <div>Negotiable: <strong className="text-emerald-600">{listing.negotiable !== false ? "Yes (Negotiable)" : "Fixed Price"}</strong></div>
               <div>Condition: <strong className="capitalize">{listing.condition || "Like New"}</strong></div>
               <div>Location Area: <strong>{listing.area || "Madhapur"}</strong></div>
@@ -499,7 +500,7 @@ export default function ListingDetailPage() {
                         src={imgUrl}
                         alt={`Product photo ${i + 1}`}
                         className="w-full h-32 object-cover rounded-lg"
-                        onError={(e) => { (e.target as HTMLImageElement).src = "https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=400"; }}
+                        onError={(e) => { (e.target as HTMLImageElement).src = "https://images.unsplash.com/photo-1526738549149-8e07eca6c147?w=400"; }}
                       />
                       <div className="flex items-center justify-between">
                         <span className="font-bold text-[10px] text-[#111827] truncate">
@@ -653,16 +654,50 @@ export default function ListingDetailPage() {
         {activeTab === "moderation" && (
           <div className="space-y-4">
             <h3 className="text-sm font-bold text-[#111827]">8. Moderation Checklist & Admin Actions</h3>
+
+            {/* Product Summary Card for Approval */}
+            <div className="p-4 bg-[#F5F7FC] rounded-xl border border-[#E2E8F0] flex flex-col sm:flex-row gap-4 items-start sm:items-center justify-between">
+              <div className="flex items-center space-x-3">
+                <img
+                  src={(listing.images && listing.images[0]) || "https://images.unsplash.com/photo-1526738549149-8e07eca6c147?w=120"}
+                  alt={listing.title}
+                  className="w-16 h-16 rounded-xl object-cover border border-slate-200 shrink-0"
+                />
+                <div>
+                  <h4 className="font-bold text-sm text-[#111827] line-clamp-1">{listing.title}</h4>
+                  <div className="text-[11px] text-slate-500">
+                    Category: <span className="font-semibold capitalize text-slate-700">{listing.category}</span> &nbsp;|&nbsp;
+                    Seller: <span className="font-semibold text-slate-700">{listing.sellerName}</span>
+                  </div>
+                  <div className="text-[11px] text-slate-500">
+                    Location: <span className="font-semibold text-slate-700">{listing.city || "Hyderabad"}</span> &nbsp;|&nbsp;
+                    Condition: <span className="font-semibold text-slate-700">{listing.condition || "Like New"}</span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Prominent Product Price Badge */}
+              <div className="bg-white p-3 rounded-xl border border-emerald-200 shadow-sm text-right min-w-[170px]">
+                <div className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Product Amount / Price</div>
+                <div className="text-xl font-black text-emerald-600">
+                  ₹{(listing?.price ?? (listing?.priceInPaise ? listing.priceInPaise / 100 : 0)).toLocaleString("en-IN")}
+                </div>
+                <div className="text-[10px] text-slate-400 font-medium">
+                  {listing.negotiable !== false ? "Negotiable Price" : "Fixed Price"}
+                </div>
+              </div>
+            </div>
+
             <div className="p-3 bg-emerald-50 border border-emerald-200 rounded-xl space-y-1 text-slate-700">
               <p>✓ Prohibited Keyword Filter Passed.</p>
               <p>✓ Duplicate Listing Algorithm Check Passed.</p>
               <p>✓ Price Anomaly Range Check Passed.</p>
             </div>
             <div className="flex items-center space-x-2 pt-2">
-              <button onClick={() => handleUpdateStatus("active")} className="px-4 py-2 bg-emerald-600 text-white font-bold rounded-xl">
+              <button onClick={() => handleUpdateStatus("active")} className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-xl shadow-sm transition-colors">
                 Approve & Publish Live
               </button>
-              <button onClick={() => handleUpdateStatus("rejected")} className="px-4 py-2 bg-[#DC3545] text-white font-bold rounded-xl">
+              <button onClick={() => handleUpdateStatus("rejected")} className="px-4 py-2 bg-[#DC3545] hover:bg-red-700 text-white font-bold rounded-xl shadow-sm transition-colors">
                 Reject & Notify Seller
               </button>
             </div>

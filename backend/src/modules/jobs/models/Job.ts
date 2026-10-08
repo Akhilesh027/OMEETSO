@@ -173,6 +173,7 @@ const JobSchema = new Schema<IJobListing>(
 );
 
 JobSchema.index({ status: 1, createdAt: -1 });
+JobSchema.index({ employerId: 1, createdAt: -1 });
 JobSchema.index({ "location.city": 1, status: 1 });
 JobSchema.index({ "location.area": 1, status: 1 });
 JobSchema.index({ title: "text", "jobDetails.description": 1 });

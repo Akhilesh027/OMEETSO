@@ -69,7 +69,7 @@ function GalleryPage() {
   const rawImages = (Array.isArray(product.images) && product.images.length > 0)
     ? product.images.filter(Boolean)
     : (product.image ? [product.image] : []);
-  const images = rawImages.length > 0 ? rawImages : ["https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=800"];
+  const images = rawImages.length > 0 ? rawImages : ["https://images.unsplash.com/photo-1526738549149-8e07eca6c147?w=800"];
 
   const mediaList = useMemo(() => {
     const list = images.map((img: string) => ({ type: "image" as const, url: img, thumbnail: img }));

@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { Search, X, Loader2, ArrowRight, ArrowLeft, CornerDownLeft, Shield } from "lucide-react";
 import { MOCK_SEARCH_INDEX, SearchResultItem } from "@/data/globalSearch";
 import { MockDataService } from "@/services/mockDataService";
+import { API_BASE } from "@/config/api";
 
 interface GlobalSearchModalProps {
   isOpen: boolean;
@@ -14,6 +15,9 @@ export const GlobalSearchModal: React.FC<GlobalSearchModalProps> = ({ isOpen, on
   const [results, setResults] = useState<SearchResultItem[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [selectedIndex, setSelectedIndex] = useState(0);
+  const [liveUsers, setLiveUsers] = useState<any[]>([]);
+  const [liveListings, setLiveListings] = useState<any[]>([]);
+  const [liveStores, setLiveStores] = useState<any[]>([]);
 
   const navigate = useNavigate();
   const inputRef = useRef<HTMLInputElement>(null);
@@ -21,6 +25,34 @@ export const GlobalSearchModal: React.FC<GlobalSearchModalProps> = ({ isOpen, on
   useEffect(() => {
     if (isOpen) {
       setTimeout(() => inputRef.current?.focus(), 50);
+
+      // Pre-fetch live data to ensure search returns real MongoDB entities
+      fetch(`${API_BASE}/users/admin/all`)
+        .then((r) => r.json())
+        .then((res) => {
+          if (res.success && Array.isArray(res.data)) {
+            setLiveUsers(res.data);
+          }
+        })
+        .catch(() => {});
+
+      fetch(`${API_BASE}/listings`)
+        .then((r) => r.json())
+        .then((res) => {
+          if (res.success && Array.isArray(res.data)) {
+            setLiveListings(res.data);
+          }
+        })
+        .catch(() => {});
+
+      fetch(`${API_BASE}/stores`)
+        .then((r) => r.json())
+        .then((res) => {
+          if (res.success && Array.isArray(res.data)) {
+            setLiveStores(res.data);
+          }
+        })
+        .catch(() => {});
     } else {
       setQuery("");
       setResults([]);
@@ -68,62 +100,104 @@ export const GlobalSearchModal: React.FC<GlobalSearchModalProps> = ({ isOpen, on
       const dynamicItems: SearchResultItem[] = [];
 
       try {
-        const users = MockDataService.getUsers() || [];
-        users.forEach((u) => {
+        // 1. Users Search (Live MongoDB + Mock)
+        const combinedUsers = [...liveUsers];
+        const mockUsers = MockDataService.getUsers() || [];
+        mockUsers.forEach((mu) => {
+          if (!combinedUsers.some((u) => u.id === mu.id || (u as any)._id === mu.id)) {
+            combinedUsers.push(mu);
+          }
+        });
+
+        combinedUsers.forEach((u) => {
+          const uId = String(u.id || (u as any)._id || "");
+          const uName = String(u.name || (u as any).profile?.name || "");
+          const uUsername = String((u as any).username || "");
+          const uMobile = String(u.mobile || (u as any).phone || "");
+          const uEmail = String(u.email || "");
+          const uCity = String(u.city || (u as any).profile?.city || "");
+
           if (
-            u.id.toLowerCase().includes(q) ||
-            u.name.toLowerCase().includes(q) ||
-            u.mobile.includes(q) ||
-            (u.email && u.email.toLowerCase().includes(q)) ||
-            u.city.toLowerCase().includes(q)
+            uId.toLowerCase().includes(q) ||
+            uName.toLowerCase().includes(q) ||
+            uUsername.toLowerCase().includes(q) ||
+            uMobile.toLowerCase().includes(q) ||
+            uEmail.toLowerCase().includes(q) ||
+            uCity.toLowerCase().includes(q)
           ) {
             dynamicItems.push({
-              id: u.id,
+              id: uId,
               category: "Users",
-              title: u.name,
-              subtitle: `ID: ${u.id} • ${u.mobile} • ${u.city}`,
-              badge: u.status,
-              route: `/admin/users/${u.id}`,
-              matches: [u.id, u.name, u.mobile, u.email || "", u.city]
+              title: uName || uUsername || `User (${uMobile})`,
+              subtitle: `ID: ${uId} • ${uMobile || "No Phone"} • ${uCity || "Hyderabad"}`,
+              badge: u.status || "active",
+              route: `/admin/users/${uId}`,
+              matches: [uId, uName, uUsername, uMobile, uEmail, uCity].filter(Boolean)
             });
           }
         });
 
-        const listings = MockDataService.getListings() || [];
-        listings.forEach((l) => {
+        // 2. Listings Search (Live MongoDB + Mock)
+        const combinedListings = [...liveListings];
+        const mockListings = MockDataService.getListings() || [];
+        mockListings.forEach((ml) => {
+          if (!combinedListings.some((l) => l.id === ml.id || (l as any)._id === ml.id)) {
+            combinedListings.push(ml);
+          }
+        });
+
+        combinedListings.forEach((l) => {
+          const lId = String(l.id || (l as any)._id || "");
+          const lTitle = String(l.title || "");
+          const lCat = String(l.category || l.categoryId || "");
+          const lSeller = String(l.sellerName || l.businessName || "");
+
           if (
-            l.id.toLowerCase().includes(q) ||
-            l.title.toLowerCase().includes(q) ||
-            (l.category && l.category.toLowerCase().includes(q)) ||
-            (l.sellerName && l.sellerName.toLowerCase().includes(q))
+            lId.toLowerCase().includes(q) ||
+            lTitle.toLowerCase().includes(q) ||
+            lCat.toLowerCase().includes(q) ||
+            lSeller.toLowerCase().includes(q)
           ) {
+            const priceVal = l.priceInPaise ? Math.round(l.priceInPaise / 100) : l.price || 0;
             dynamicItems.push({
-              id: l.id,
+              id: lId,
               category: "Listings",
-              title: l.title,
-              subtitle: `ID: ${l.id} • ₹${l.price} • Seller: ${l.sellerName}`,
-              badge: l.status,
-              route: `/admin/listings/${l.id}`,
-              matches: [l.id, l.title, l.category || "", l.sellerName || ""]
+              title: lTitle,
+              subtitle: `ID: ${lId} • ₹${priceVal} • Seller: ${lSeller || "Local Seller"}`,
+              badge: l.status || "active",
+              route: `/admin/listings/${lId}`,
+              matches: [lId, lTitle, lCat, lSeller].filter(Boolean)
             });
           }
         });
 
-        const stores = MockDataService.getStores() || [];
-        stores.forEach((s) => {
+        // 3. Stores Search (Live MongoDB + Mock)
+        const combinedStores = [...liveStores];
+        const mockStores = MockDataService.getStores() || [];
+        mockStores.forEach((ms) => {
+          if (!combinedStores.some((s) => s.id === ms.id || (s as any)._id === ms.id)) {
+            combinedStores.push(ms);
+          }
+        });
+
+        combinedStores.forEach((s) => {
+          const sId = String(s.id || (s as any)._id || "");
+          const sName = String(s.name || "");
+          const sOwner = String(s.ownerName || s.owner || "");
+
           if (
-            s.id.toLowerCase().includes(q) ||
-            s.name.toLowerCase().includes(q) ||
-            (s.ownerName && s.ownerName.toLowerCase().includes(q))
+            sId.toLowerCase().includes(q) ||
+            sName.toLowerCase().includes(q) ||
+            sOwner.toLowerCase().includes(q)
           ) {
             dynamicItems.push({
-              id: s.id,
+              id: sId,
               category: "Stores",
-              title: s.name,
-              subtitle: `ID: ${s.id} • Owner: ${s.ownerName}`,
-              badge: s.status,
-              route: `/admin/stores/${s.id}`,
-              matches: [s.id, s.name, s.ownerName || ""]
+              title: sName,
+              subtitle: `ID: ${sId} • Owner: ${sOwner || "Verified Owner"}`,
+              badge: s.status || "active",
+              route: `/admin/stores/${sId}`,
+              matches: [sId, sName, sOwner].filter(Boolean)
             });
           }
         });

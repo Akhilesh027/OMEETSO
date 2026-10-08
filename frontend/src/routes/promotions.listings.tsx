@@ -47,7 +47,7 @@ function SelectListing() {
             id: item.id || item._id,
             title: item.title,
             price: item.price || (item.priceInPaise ? item.priceInPaise / 100 : 0),
-            images: item.images || [item.coverUrl || "https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=400"],
+            images: item.images || [item.coverUrl || "https://images.unsplash.com/photo-1526738549149-8e07eca6c147?w=400"],
             cover: 0,
             area: item.area || "Madhapur",
             city: item.city || "Hyderabad",
@@ -142,7 +142,7 @@ function SelectListing() {
             />
           ) : (
             filtered.map((l) => {
-              const img = l.images?.[l.cover || 0] || l.images?.[0] || "https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=400";
+              const img = l.images?.[l.cover || 0] || l.images?.[0] || "https://images.unsplash.com/photo-1526738549149-8e07eca6c147?w=400";
               const isBoosted = l.boost?.active;
 
               return (

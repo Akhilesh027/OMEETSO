@@ -1,8 +1,15 @@
 import { Router } from "express";
-import { getProductOpenGraphPreview, getStoreOpenGraphPreview } from "../controllers/og.controller";
+import {
+  getProductOpenGraphPreview,
+  getStoreOpenGraphPreview,
+  getBlogOpenGraphPreview,
+  getBlogsIndexOpenGraphPreview
+} from "../controllers/og.controller";
 
 export const ogRouter = Router();
 
 ogRouter.get("/product/:id", getProductOpenGraphPreview);
 ogRouter.get("/listing/:id", getProductOpenGraphPreview);
 ogRouter.get("/store/:id", getStoreOpenGraphPreview);
+ogRouter.get("/blog/:slug", getBlogOpenGraphPreview);
+ogRouter.get("/blogs", getBlogsIndexOpenGraphPreview);

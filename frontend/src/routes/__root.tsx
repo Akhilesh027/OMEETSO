@@ -29,6 +29,12 @@ function ErrorComponent({ error, reset }: { error: Error; reset: () => void }) {
       <div className="max-w-md text-center">
         <h1 className="text-xl font-semibold">This page didn't load</h1>
         <p className="mt-2 text-sm text-muted-foreground">Something went wrong. Try again or head home.</p>
+        {import.meta.env.DEV && error && (
+          <div className="mt-4 p-3 bg-destructive/10 text-destructive text-xs text-left rounded-xl overflow-auto max-h-48 font-mono border border-destructive/20">
+            <strong>{error.name}: {error.message}</strong>
+            {error.stack && <pre className="mt-1 text-[10px] whitespace-pre-wrap">{error.stack}</pre>}
+          </div>
+        )}
         <div className="mt-6 flex justify-center gap-2">
           <button onClick={() => { router.invalidate(); reset(); }} className="rounded-full bg-navy px-5 py-2.5 text-sm font-semibold text-white">Try again</button>
           <a href="/home" className="rounded-full border border-border bg-card px-5 py-2.5 text-sm font-semibold">Home</a>

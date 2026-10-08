@@ -1,5 +1,5 @@
 import { Link } from "@tanstack/react-router";
-import { Eye, Heart, MessageCircle, Tag, MoreVertical, ImageOff } from "lucide-react";
+import { Eye, Heart, MessageCircle, Tag, MoreVertical, ImageOff, Zap } from "lucide-react";
 import { formatINR, timeAgo, type Listing } from "@/lib/listings";
 import { cn } from "@/lib/utils";
 import { StatusBadge } from "./StatusBadge";
@@ -14,6 +14,14 @@ export function ListingCard({
   className?: string;
 }) {
   const cover = l.images[l.cover] ?? l.images[0];
+  const isQuickSale = Boolean(
+    l.method === "quick" ||
+    (l as any).quickSale ||
+    (l as any).isQuickSell ||
+    l.id?.startsWith("Q-") ||
+    l.id?.includes("quick")
+  );
+
   return (
     <div
       className={cn(
@@ -24,16 +32,23 @@ export function ListingCard({
       <Link
         to="/listing/$id/manage"
         params={{ id: l.id }}
-        className="shrink-0 overflow-hidden rounded-xl bg-secondary"
+        className="shrink-0 overflow-hidden rounded-xl bg-secondary relative"
         aria-label={`Manage ${l.title}`}
       >
         {cover ? (
-          <img
-            src={cover}
-            alt={l.title}
-            className="h-20 w-20 rounded-xl object-cover transition-transform duration-300 group-hover:scale-105"
-            loading="lazy"
-          />
+          <div className="relative h-20 w-20">
+            <img
+              src={cover}
+              alt={l.title}
+              className="h-20 w-20 rounded-xl object-cover transition-transform duration-300 group-hover:scale-105"
+              loading="lazy"
+            />
+            {isQuickSale && (
+              <span className="absolute left-1 top-1 z-10 grid h-5 w-5 place-items-center rounded-full bg-amber-500 text-slate-950 shadow-sm" title="Quick Sale Deal">
+                <Zap className="h-3 w-3 fill-slate-950" />
+              </span>
+            )}
+          </div>
         ) : (
           <div className="grid h-20 w-20 place-items-center rounded-xl bg-secondary text-muted-foreground transition-transform duration-300 group-hover:scale-105">
             <ImageOff className="h-5 w-5" />
@@ -54,6 +69,11 @@ export function ListingCard({
         </div>
         <div className="mt-1 flex flex-wrap items-center gap-1.5">
           <StatusBadge status={l.status} />
+          {isQuickSale && (
+            <span className="inline-flex items-center gap-1 rounded-full bg-amber-500/15 border border-amber-500/35 px-2 py-0.5 text-[10px] font-black text-amber-700 dark:text-amber-300">
+              <Zap className="h-2.5 w-2.5 fill-amber-500 text-amber-500" /> Quick Sale
+            </span>
+          )}
           <span className="text-[11px] text-muted-foreground">
             {l.status === "under_review" ? `Submitted ${timeAgo(l.updatedAt)}` : `Posted ${timeAgo(l.createdAt)}`}
           </span>

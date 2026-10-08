@@ -8,11 +8,63 @@ import { AuditLog } from "../models/AuditLog";
 import { AuthenticatedAdminRequest } from "../../../middleware/authenticateAdmin";
 import { ListingStatus } from "../../../contracts";
 import { convertImagesToCloudinary, convertVideoToCloudinary } from "../../../utils/cloudinaryUpload";
+import { User } from "../../users/models/User";
+import { sendListingApprovedEmail } from "../../auth/services/email.service";
+import { env } from "../../../config/env";
 
 let listingsQueryCache: Record<string, { data: any[]; total: number; expiresAt: number }> = {};
 
 export function invalidateListingsCache(): void {
   listingsQueryCache = {};
+}
+
+/**
+ * Helper to dispatch both in-app notification and confirmation email to the seller when listing is approved
+ */
+async function notifyListingApproved(listing: any): Promise<void> {
+  try {
+    if (!listing.sellerId) return;
+
+    // 1. In-app notification
+    await Notification.create({
+      userId: listing.sellerId,
+      type: "listing_moderation",
+      title: `Listing Approved: ${listing.title}`,
+      body: `Your listing "${listing.title}" has been approved and is now live on Omeetso!`,
+      link: `/product/${listing._id}`,
+      thumbnail: listing.images?.[0]
+    }).catch(() => { });
+
+    // 2. Fetch seller details to dispatch confirmation email
+    const seller = await User.findById(listing.sellerId).lean();
+    const recipientEmail = seller?.email || (listing as any).email;
+
+    if (recipientEmail) {
+      const portalUrl = (env.CLIENT_USER_URL || "https://omeetso.in").replace(/\/$/, "");
+      const priceNum = listing.priceInPaise ? listing.priceInPaise / 100 : (listing.price || 0);
+      const formattedPrice = listing.free ? "Free" : `₹${Math.round(priceNum).toLocaleString("en-IN")}`;
+
+      const emailResult = await sendListingApprovedEmail({
+        toEmail: recipientEmail,
+        sellerName: seller?.profile?.name || seller?.profile?.businessName || "Seller",
+        listingTitle: listing.title,
+        listingPrice: formattedPrice,
+        listingUrl: `${portalUrl}/product/${listing._id}`,
+        listingCategory: listing.categoryId || listing.category || "General",
+        listingLocation: [listing.area, listing.city].filter(Boolean).join(", ") || "India",
+        imageUrl: Array.isArray(listing.images) && listing.images.length > 0 ? listing.images[0] : undefined
+      }).catch((err) => {
+        console.error(`[AdminListing] Failed to dispatch approval email to ${recipientEmail}:`, err);
+        return { success: false, error: err?.message };
+      });
+
+      console.log(`[AdminListing] Approval email dispatch to ${recipientEmail}:`, emailResult?.success ? "SUCCESS" : emailResult?.error || "FAILED");
+    } else {
+      console.log(`[AdminListing] Notice: Seller ${listing.sellerId} does not have an email address configured. Confirmation email skipped.`);
+    }
+  } catch (error) {
+    console.error("[AdminListing] Error in notifyListingApproved:", error);
+  }
 }
 
 export async function getAdminListings(req: AuthenticatedAdminRequest, res: Response, next: NextFunction): Promise<void> {
@@ -78,7 +130,7 @@ export async function getAdminListings(req: AuthenticatedAdminRequest, res: Resp
         subcategory: l.subcategoryId || l.categoryId || "General",
         method: l.method || "detailed",
         videoUrl: l.videoUrl || (l as any).video || undefined,
-        images: Array.isArray(l.images) && l.images.length > 0 ? l.images : ["https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=400"],
+        images: Array.isArray(l.images) && l.images.length > 0 ? l.images : ["https://images.unsplash.com/photo-1526738549149-8e07eca6c147?w=400"],
         coverIndex: l.coverIndex || 0,
         pincode: l.pincode || "500081",
         area: l.area || "Madhapur",
@@ -165,17 +217,8 @@ export async function approveListing(req: AuthenticatedAdminRequest, res: Respon
       userAgent: req.get("user-agent")
     });
 
-    // Notify the listing owner
-    if (listing.sellerId) {
-      await Notification.create({
-        userId: listing.sellerId,
-        type: "listing_moderation",
-        title: `Listing Approved: ${listing.title}`,
-        body: `Your listing "${listing.title}" has been approved and is now live on Omeetso!`,
-        link: `/product/${listing._id}`,
-        thumbnail: listing.images?.[0]
-      }).catch(() => { });
-    }
+    // Notify the listing owner via in-app notification & confirmation email
+    await notifyListingApproved(listing);
 
     invalidateListingsCache();
 
@@ -298,11 +341,9 @@ export async function createAdminListing(req: AuthenticatedAdminRequest, res: Re
 
     const computedPriceInPaise = priceInPaise ? Number(priceInPaise) : price ? Math.round(Number(price) * 100) : 0;
 
-    const rawImages = Array.isArray(images) && images.length > 0 ? images : ["https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=400"];
-    const [processedImages, processedVideo] = await Promise.all([
-      convertImagesToCloudinary(rawImages, "omeetso/listings"),
-      req.body.videoUrl ? convertVideoToCloudinary(req.body.videoUrl, "omeetso/listing_videos") : Promise.resolve(req.body.videoUrl)
-    ]);
+    const rawImages = Array.isArray(images) && images.length > 0 ? images : ["https://images.unsplash.com/photo-1526738549149-8e07eca6c147?w=400"];
+    const hasDataUriImages = rawImages.some((img: string) => typeof img === "string" && img.startsWith("data:"));
+    const hasDataUriVideo = typeof req.body.videoUrl === "string" && req.body.videoUrl.startsWith("data:");
 
     const listing = await Listing.create({
       sellerId: req.admin._id,
@@ -313,9 +354,9 @@ export async function createAdminListing(req: AuthenticatedAdminRequest, res: Re
       condition: condition || "like_new",
       categoryId: categoryId || "mobiles",
       subcategoryId: subcategoryId || categoryId || "smartphones",
-      images: processedImages,
+      images: rawImages,
       coverIndex: coverIndex || 0,
-      videoUrl: processedVideo,
+      videoUrl: req.body.videoUrl || undefined,
       city: city || "Hyderabad",
       area: area || "Madhapur",
       pincode: pincode || "500081",
@@ -324,6 +365,23 @@ export async function createAdminListing(req: AuthenticatedAdminRequest, res: Re
       publishedAt: new Date(),
       expiresAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000)
     });
+
+    if (hasDataUriImages || hasDataUriVideo) {
+      (async () => {
+        try {
+          const [processedImages, processedVideo] = await Promise.all([
+            hasDataUriImages ? convertImagesToCloudinary(rawImages, "omeetso/listings") : Promise.resolve(rawImages),
+            hasDataUriVideo ? convertVideoToCloudinary(req.body.videoUrl, "omeetso/listing_videos") : Promise.resolve(req.body.videoUrl)
+          ]);
+          await Listing.findByIdAndUpdate(listing._id, {
+            images: processedImages,
+            ...(processedVideo ? { videoUrl: processedVideo } : {})
+          });
+        } catch (uploadErr) {
+          console.warn("[AdminListing] Background Cloudinary upload error:", uploadErr);
+        }
+      })();
+    }
 
     await ListingModeration.create({
       listingId: listing._id,
@@ -501,32 +559,32 @@ export async function updateAdminListingStatus(req: AuthenticatedAdminRequest, r
     );
 
     if (listing.sellerId) {
-      let notifTitle = `Listing Status: ${listing.title}`;
-      let notifBody = reason || `Your listing status has been updated to ${targetStatus.toLowerCase().replace("_", " ")}.`;
-      let notifLink = `/product/${listing._id}`;
+      if (targetStatus === ListingStatus.APPROVED) {
+        await notifyListingApproved(listing);
+      } else {
+        let notifTitle = `Listing Status: ${listing.title}`;
+        let notifBody = reason || `Your listing status has been updated to ${targetStatus.toLowerCase().replace("_", " ")}.`;
+        let notifLink = `/product/${listing._id}`;
 
-      if (targetStatus === ListingStatus.CHANGES_REQUIRED) {
-        notifTitle = `Action Required: Photos/Details for "${listing.title}"`;
-        notifBody = reason || "Your product photos appear blurry, unclear, or require additional angle details. Please tap here to upload clearer images.";
-        notifLink = `/listing/${listing._id}/edit`;
-      } else if (targetStatus === ListingStatus.REJECTED) {
-        notifTitle = `Listing Moderation Update: ${listing.title}`;
-        notifBody = reason || "Your listing was not approved. Please review our product image and quality guidelines.";
-        notifLink = `/listing/${listing._id}/edit`;
-      } else if (targetStatus === ListingStatus.APPROVED) {
-        notifTitle = `Listing Approved: ${listing.title}`;
-        notifBody = `Your listing "${listing.title}" has been approved and is now active on Omeetso!`;
-        notifLink = `/product/${listing._id}`;
+        if (targetStatus === ListingStatus.CHANGES_REQUIRED) {
+          notifTitle = `Action Required: Photos/Details for "${listing.title}"`;
+          notifBody = reason || "Your product photos appear blurry, unclear, or require additional angle details. Please tap here to upload clearer images.";
+          notifLink = `/listing/${listing._id}/edit`;
+        } else if (targetStatus === ListingStatus.REJECTED) {
+          notifTitle = `Listing Moderation Update: ${listing.title}`;
+          notifBody = reason || "Your listing was not approved. Please review our product image and quality guidelines.";
+          notifLink = `/listing/${listing._id}/edit`;
+        }
+
+        await Notification.create({
+          userId: listing.sellerId,
+          type: "listing_moderation",
+          title: notifTitle,
+          body: notifBody,
+          link: notifLink,
+          thumbnail: listing.images?.[0]
+        }).catch(() => { });
       }
-
-      await Notification.create({
-        userId: listing.sellerId,
-        type: "listing_moderation",
-        title: notifTitle,
-        body: notifBody,
-        link: notifLink,
-        thumbnail: listing.images?.[0]
-      }).catch(() => { });
     }
 
     invalidateListingsCache();
@@ -689,14 +747,7 @@ export async function bulkApproveListings(req: AuthenticatedAdminRequest, res: R
         });
 
         if (listing.sellerId) {
-          await Notification.create({
-            userId: listing.sellerId,
-            type: "listing_moderation",
-            title: `Listing Approved: ${listing.title}`,
-            body: `Your listing "${listing.title}" has been approved and is now live on omeetso!`,
-            link: `/product/${listing._id}`,
-            thumbnail: listing.images?.[0]
-          }).catch(() => { });
+          await notifyListingApproved(listing);
         }
 
         approvedIds.push(listing._id.toString());

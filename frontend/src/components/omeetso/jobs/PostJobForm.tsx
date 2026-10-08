@@ -428,7 +428,7 @@ export function PostJobForm() {
         isUrgent: Boolean(formData.isUrgent),
         isFeatured: Boolean(formData.isFeatured),
         screeningQuestions: typeof formData.screeningQuestions === "string" ? formData.screeningQuestions.split("\n").map(q => q.trim()).filter(Boolean) : [],
-        status: "SUBMITTED"
+        status: "APPROVED"
       };
 
       const res = await fetch(`${API_BASE}/jobs`, {
@@ -442,11 +442,21 @@ export function PostJobForm() {
       const json = await res.json();
       setIsSubmitting(false);
 
+      let currentUserId = "me";
+      if (typeof window !== "undefined") {
+        try {
+          const u = JSON.parse(localStorage.getItem("omeetso_user") || "null");
+          if (u?._id || u?.id) currentUserId = u._id || u.id;
+        } catch {}
+      }
+
       if (json.success && json.data) {
         const createdId = json.data.id || json.data._id;
+        const realEmployerId = json.data.employerId || currentUserId || "me";
         createJobLocal({
           ...previewJobItem,
           id: createdId,
+          employerId: realEmployerId,
           status: "APPROVED",
           candidateCriteria: {
             ...previewJobItem.candidateCriteria,

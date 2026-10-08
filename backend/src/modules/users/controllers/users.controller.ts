@@ -249,8 +249,11 @@ export async function getAdminUsersList(req: Request, res: Response, next: NextF
 
       return {
         id: uId,
+        _id: uId,
+        username: (u as any).username || u.profile?.name || (u.phone ? `User (${u.phone})` : "Omeetso User"),
         name: u.profile?.name || (u.phone ? `User (${u.phone})` : "Omeetso User"),
-        mobile: u.phone,
+        mobile: u.phone || "",
+        phone: u.phone || "",
         email: u.email || "",
         accountType: u.accountType || "individual",
         status:

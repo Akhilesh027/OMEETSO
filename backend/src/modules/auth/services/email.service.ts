@@ -886,6 +886,154 @@ export async function sendAdminAlertEmail(
   return dispatchEmail({ to: adminEmail, subject, html });
 }
 
+export interface ListingApprovedEmailOptions {
+  toEmail: string;
+  sellerName?: string;
+  listingTitle: string;
+  listingPrice: string;
+  listingUrl: string;
+  listingCategory?: string;
+  listingLocation?: string;
+  imageUrl?: string;
+}
+
+/**
+ * Dispatches a branded listing approval confirmation email to the seller
+ * after a product listing has been approved by admin moderation.
+ */
+export async function sendListingApprovedEmail(
+  options: ListingApprovedEmailOptions
+): Promise<{ success: boolean; messageId?: string; error?: string }> {
+  const sellerDisplayName = options.sellerName && options.sellerName.trim() ? options.sellerName.trim() : "Valued Seller";
+  const subject = `🎉 Approved & Live: "${options.listingTitle}" is now active on Omeetso!`;
+  const portalUrl = (env.CLIENT_USER_URL || "https://omeetso.in").replace(/\/$/, "");
+
+  const headerHtml = renderEmailHeader({
+    portalUrl,
+    badgeText: "✅ Product Approved & Live",
+    badgeBg: "#f0fdf4",
+    badgeBorder: "#bbf7d0",
+    badgeColor: "#15803d"
+  });
+
+  const footerHtml = renderEmailFooter({
+    portalUrl,
+    securityNote: "You received this email confirmation because your product listing was reviewed and approved by Omeetso moderation. You can manage your listing anytime in your seller dashboard."
+  });
+
+  const imageHtml = options.imageUrl
+    ? `
+      <div style="margin-bottom: 22px; text-align: center;">
+        <img src="${options.imageUrl}" alt="${options.listingTitle}" style="max-width: 100%; max-height: 250px; border-radius: 14px; object-fit: cover; border: 1px solid #e2e8f0; box-shadow: 0 4px 12px rgba(0,0,0,0.06);" />
+      </div>
+    `
+    : "";
+
+  const html = `
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Your Listing is Approved!</title>
+</head>
+<body style="margin: 0; padding: 0; background-color: #f1f5f9; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; color: #0f172a; -webkit-font-smoothing: antialiased;">
+  <table role="presentation" border="0" cellpadding="0" cellspacing="0" width="100%" style="background-color: #f1f5f9; padding: 30px 12px;">
+    <tr>
+      <td align="center">
+        <table role="presentation" border="0" cellpadding="0" cellspacing="0" width="100%" style="max-width: 600px; background-color: #ffffff; border-radius: 20px; overflow: hidden; border: 1px solid #e2e8f0; box-shadow: 0 10px 30px rgba(0,0,0,0.06);">
+          <tr>
+            <td>
+              ${headerHtml}
+
+              <!-- Content Body -->
+              <table role="presentation" border="0" cellpadding="0" cellspacing="0" width="100%" style="padding: 34px 32px 28px 32px;">
+                <tr>
+                  <td>
+                    <h1 style="font-size: 22px; font-weight: 800; color: #0f172a; margin: 0 0 10px 0; text-align: center; line-height: 1.3;">
+                      Your Listing is Now Live! 🎉
+                    </h1>
+                    <p style="font-size: 14px; color: #475569; line-height: 1.6; margin: 0 0 24px 0; text-align: center;">
+                      Hello <strong>${sellerDisplayName}</strong>, great news! Your product listing has passed moderation checks and is now visible to buyers across your neighborhood on Omeetso.
+                    </p>
+
+                    ${imageHtml}
+
+                    <!-- Product Highlight Card -->
+                    <table role="presentation" border="0" cellpadding="0" cellspacing="0" width="100%" style="background-color: #f8fafc; border: 1px solid #e2e8f0; border-radius: 16px; padding: 20px 22px; margin-bottom: 24px;">
+                      <tr>
+                        <td>
+                          <div style="font-size: 11px; font-weight: 800; color: #16a34a; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 6px;">
+                            STATUS: ACTIVE & PUBLISHED
+                          </div>
+                          <div style="font-size: 17px; font-weight: 800; color: #0f172a; line-height: 1.4; margin-bottom: 8px;">
+                            ${options.listingTitle}
+                          </div>
+                          <div style="margin-bottom: 14px;">
+                            <span style="font-size: 24px; font-weight: 900; color: #15803d; letter-spacing: -0.5px;">
+                              ${options.listingPrice}
+                            </span>
+                          </div>
+
+                          <table role="presentation" border="0" cellpadding="0" cellspacing="0" width="100%" style="border-top: 1px solid #e2e8f0; padding-top: 12px; margin-top: 8px;">
+                            <tr>
+                              ${options.listingCategory ? `
+                              <td style="font-size: 12px; color: #64748b; padding-right: 12px;">
+                                <strong style="color: #334155;">Category:</strong> ${options.listingCategory}
+                              </td>
+                              ` : ""}
+                              ${options.listingLocation ? `
+                              <td style="font-size: 12px; color: #64748b;">
+                                <strong style="color: #334155;">Location:</strong> ${options.listingLocation}
+                              </td>
+                              ` : ""}
+                            </tr>
+                          </table>
+                        </td>
+                      </tr>
+                    </table>
+
+                    <!-- CTA Button -->
+                    <table role="presentation" border="0" cellpadding="0" cellspacing="0" width="100%" style="margin: 0 0 28px 0;">
+                      <tr>
+                        <td align="center">
+                          <a href="${options.listingUrl}" target="_blank" style="display: inline-block; padding: 14px 34px; background: linear-gradient(135deg, #16a34a 0%, #15803d 100%); color: #ffffff; text-decoration: none; font-size: 14px; font-weight: 700; border-radius: 12px; box-shadow: 0 4px 14px rgba(22, 163, 74, 0.35);">
+                            View Live Product &rarr;
+                          </a>
+                        </td>
+                      </tr>
+                    </table>
+
+                    <!-- Seller Tips Section -->
+                    <div style="background-color: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 14px; padding: 18px 20px;">
+                      <div style="font-size: 13px; font-weight: 800; color: #166534; margin-bottom: 10px;">
+                        💡 Tips to Sell Faster on Omeetso:
+                      </div>
+                      <ul style="margin: 0; padding-left: 18px; font-size: 12px; color: #374151; line-height: 1.8;">
+                        <li><strong>Fast Responses:</strong> Keep WhatsApp notifications on to respond promptly to potential buyers.</li>
+                        <li><strong>Share with Friends:</strong> Share your listing link in neighborhood WhatsApp groups or social networks.</li>
+                        <li><strong>Safe Transactions:</strong> Always prefer meeting in safe public spaces and verify payment before handover.</li>
+                      </ul>
+                    </div>
+
+                  </td>
+                </tr>
+              </table>
+
+              ${footerHtml}
+            </td>
+          </tr>
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>
+  `;
+
+  return dispatchEmail({ to: options.toEmail, subject, html });
+}
+
 /**
  * Verifies SMTP connection and authentication, printing the result to console.
  */

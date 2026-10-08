@@ -51,6 +51,10 @@ export function PostServiceForm() {
   const [title, setTitle] = useState("");
   const [serviceCategoryId, setServiceCategoryId] = useState(SERVICE_CATEGORIES[0].id);
   const [subcategoryId, setSubcategoryId] = useState(SERVICE_CATEGORIES[0].subcategories[0]?.name || "General");
+  const [isManualCategory, setIsManualCategory] = useState(false);
+  const [manualCategory, setManualCategory] = useState("");
+  const [isManualSubcategory, setIsManualSubcategory] = useState(false);
+  const [manualSubcategory, setManualSubcategory] = useState("");
   const [serviceType, setServiceType] = useState<"DOORSTEP" | "AT_CENTER" | "ONLINE" | "HYBRID">("DOORSTEP");
 
   // Pricing
@@ -60,12 +64,12 @@ export function PostServiceForm() {
   const [priceUnit, setPriceUnit] = useState<any>("per service");
   const [isNegotiable, setIsNegotiable] = useState(false);
 
-  // Location
-  const [area, setArea] = useState("Madhapur");
-  const [city, setCity] = useState("Hyderabad");
-  const [pincode, setPincode] = useState("500081");
+  // Location (Cleaned: no default/pre-filled values)
+  const [area, setArea] = useState("");
+  const [city, setCity] = useState("");
+  const [pincode, setPincode] = useState("");
   const [serviceRadiusKm, setServiceRadiusKm] = useState(25);
-  const [servesAreasInput, setServesAreasInput] = useState("Madhapur, Hitec City, Gachibowli, Kondapur, Jubilee Hills");
+  const [servesAreasInput, setServesAreasInput] = useState("");
 
   // Details
   const [description, setDescription] = useState("");
@@ -200,6 +204,12 @@ export function PostServiceForm() {
     if (!amount || Number(amount) <= 0) {
       missing.push("Valid Service Base Price (greater than ₹0)");
     }
+    if (isManualCategory && (!manualCategory.trim() || manualCategory.trim().length < 2)) {
+      missing.push("Custom Primary Category (minimum 2 characters)");
+    }
+    if (isManualSubcategory && (!manualSubcategory.trim() || manualSubcategory.trim().length < 2)) {
+      missing.push("Custom Subcategory Specialization (minimum 2 characters)");
+    }
     if (!city.trim()) {
       missing.push("City");
     }
@@ -250,6 +260,9 @@ export function PostServiceForm() {
         ? images[0]
         : "https://images.unsplash.com/photo-1581578731548-c64695cc6952?w=800&auto=format&fit=crop&q=80";
 
+      const finalCat = isManualCategory && manualCategory.trim() ? manualCategory.trim() : serviceCategoryId;
+      const finalSubcat = isManualSubcategory && manualSubcategory.trim() ? manualSubcategory.trim() : subcategoryId;
+
       const newService: ServiceItem = {
         id: `srv-${Date.now()}`,
         providerId: "user-provider-current",
@@ -261,8 +274,8 @@ export function PostServiceForm() {
         isVerifiedProvider: true,
         providerBadge: "Verified Service Pro",
         title: title.trim(),
-        serviceCategoryId,
-        subcategoryId,
+        serviceCategoryId: finalCat,
+        subcategoryId: finalSubcat,
         serviceType,
         pricing: {
           priceType,
@@ -371,41 +384,130 @@ export function PostServiceForm() {
           </h2>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div>
-              <label className="block text-xs font-bold text-foreground mb-1">Primary Category *</label>
-              <select
-                value={serviceCategoryId}
-                onChange={(e) => {
-                  const catId = e.target.value;
-                  setServiceCategoryId(catId);
-                  const found = SERVICE_CATEGORIES.find((c) => c.id === catId);
-                  if (found && found.subcategories.length > 0) {
-                    setSubcategoryId(found.subcategories[0].name);
-                  }
-                }}
-                className="w-full rounded-2xl border border-border bg-surface-1 px-4 py-2.5 text-xs text-foreground focus:border-primary focus:outline-none"
-              >
-                {SERVICE_CATEGORIES.map((cat) => (
-                  <option key={cat.id} value={cat.id}>
-                    {cat.name}
-                  </option>
-                ))}
-              </select>
+            {/* Primary Category (Dropdown or Manual Typing) */}
+            <div className="space-y-1.5">
+              <div className="flex items-center justify-between">
+                <label className="block text-xs font-bold text-foreground">Primary Category *</label>
+                <button
+                  type="button"
+                  onClick={() => setIsManualCategory(!isManualCategory)}
+                  className="text-[11px] font-bold text-primary hover:underline inline-flex items-center gap-1 cursor-pointer"
+                >
+                  {isManualCategory ? "← Choose from list" : "✍ Type custom category"}
+                </button>
+              </div>
+
+              {isManualCategory ? (
+                <div className="space-y-1">
+                  <input
+                    type="text"
+                    required
+                    value={manualCategory}
+                    onChange={(e) => setManualCategory(e.target.value)}
+                    placeholder="Enter custom category name (e.g. Solar & Energy, EV Charging...)"
+                    className="w-full rounded-2xl border border-primary/60 bg-surface-1 px-4 py-2.5 text-xs text-foreground font-semibold focus:border-primary focus:ring-1 focus:ring-primary focus:outline-none"
+                    autoFocus
+                  />
+                  <div className="flex items-center justify-between text-[10px] text-muted-foreground px-1">
+                    <span>Manual entry active</span>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setIsManualCategory(false);
+                        setManualCategory("");
+                      }}
+                      className="text-primary hover:underline font-bold"
+                    >
+                      Reset to list
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <select
+                  value={serviceCategoryId}
+                  onChange={(e) => {
+                    const catId = e.target.value;
+                    if (catId === "__MANUAL__") {
+                      setIsManualCategory(true);
+                      return;
+                    }
+                    setServiceCategoryId(catId);
+                    const found = SERVICE_CATEGORIES.find((c) => c.id === catId);
+                    if (found && found.subcategories.length > 0) {
+                      setSubcategoryId(found.subcategories[0].name);
+                    }
+                  }}
+                  className="w-full rounded-2xl border border-border bg-surface-1 px-4 py-2.5 text-xs text-foreground focus:border-primary focus:outline-none cursor-pointer"
+                >
+                  {SERVICE_CATEGORIES.map((cat) => (
+                    <option key={cat.id} value={cat.id}>
+                      {cat.name}
+                    </option>
+                  ))}
+                  <option value="__MANUAL__">✍ + Type Custom Category Manually...</option>
+                </select>
+              )}
             </div>
 
-            <div>
-              <label className="block text-xs font-bold text-foreground mb-1">Subcategory Specialization *</label>
-              <select
-                value={subcategoryId}
-                onChange={(e) => setSubcategoryId(e.target.value)}
-                className="w-full rounded-2xl border border-border bg-surface-1 px-4 py-2.5 text-xs text-foreground focus:border-primary focus:outline-none"
-              >
-                {activeCategory.subcategories.map((sub) => (
-                  <option key={sub.id} value={sub.name}>
-                    {sub.name}
-                  </option>
-                ))}
-              </select>
+            {/* Subcategory (Dropdown or Manual Typing) */}
+            <div className="space-y-1.5">
+              <div className="flex items-center justify-between">
+                <label className="block text-xs font-bold text-foreground">Subcategory Specialization *</label>
+                <button
+                  type="button"
+                  onClick={() => setIsManualSubcategory(!isManualSubcategory)}
+                  className="text-[11px] font-bold text-primary hover:underline inline-flex items-center gap-1 cursor-pointer"
+                >
+                  {isManualSubcategory ? "← Choose from list" : "✍ Type custom subcategory"}
+                </button>
+              </div>
+
+              {isManualSubcategory ? (
+                <div className="space-y-1">
+                  <input
+                    type="text"
+                    required
+                    value={manualSubcategory}
+                    onChange={(e) => setManualSubcategory(e.target.value)}
+                    placeholder="Enter custom subcategory (e.g. Inverter Repair, Rooftop Solar...)"
+                    className="w-full rounded-2xl border border-primary/60 bg-surface-1 px-4 py-2.5 text-xs text-foreground font-semibold focus:border-primary focus:ring-1 focus:ring-primary focus:outline-none"
+                    autoFocus
+                  />
+                  <div className="flex items-center justify-between text-[10px] text-muted-foreground px-1">
+                    <span>Manual entry active</span>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setIsManualSubcategory(false);
+                        setManualSubcategory("");
+                      }}
+                      className="text-primary hover:underline font-bold"
+                    >
+                      Reset to list
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <select
+                  value={subcategoryId}
+                  onChange={(e) => {
+                    const val = e.target.value;
+                    if (val === "__MANUAL__") {
+                      setIsManualSubcategory(true);
+                      return;
+                    }
+                    setSubcategoryId(val);
+                  }}
+                  className="w-full rounded-2xl border border-border bg-surface-1 px-4 py-2.5 text-xs text-foreground focus:border-primary focus:outline-none cursor-pointer"
+                >
+                  {activeCategory.subcategories.map((sub) => (
+                    <option key={sub.id} value={sub.name}>
+                      {sub.name}
+                    </option>
+                  ))}
+                  <option value="__MANUAL__">✍ + Type Custom Subcategory Manually...</option>
+                </select>
+              )}
             </div>
           </div>
 
@@ -915,7 +1017,7 @@ export function PostServiceForm() {
             <label className="block text-xs font-bold text-foreground mb-1">All Covered Localities (Comma separated)</label>
             <input
               type="text"
-              placeholder="e.g. Madhapur, Hitec City, Kondapur, Jubilee Hills, Gachibowli"
+              placeholder=""
               value={servesAreasInput}
               onChange={(e) => setServesAreasInput(e.target.value)}
               className="w-full rounded-2xl border border-border bg-surface-1 px-4 py-2.5 text-xs text-foreground focus:border-primary focus:outline-none"
@@ -1005,7 +1107,10 @@ export function PostServiceForm() {
                 <div className="min-w-0 flex-1">
                   <div className="flex items-center gap-1.5 flex-wrap mb-0.5">
                     <span className="text-[10px] font-black uppercase text-primary bg-primary/10 px-2 py-0.5 rounded-full">
-                      {activeCategory.name}
+                      {isManualCategory && manualCategory.trim() ? manualCategory.trim() : activeCategory.name}
+                    </span>
+                    <span className="text-[10px] font-bold text-slate-700 dark:text-slate-300 bg-surface-2 px-2 py-0.5 rounded-full">
+                      {isManualSubcategory && manualSubcategory.trim() ? manualSubcategory.trim() : subcategoryId}
                     </span>
                     <span className="text-[10px] font-bold text-emerald-600 bg-emerald-500/10 px-2 py-0.5 rounded-full">
                       {serviceType}
@@ -1038,7 +1143,7 @@ export function PostServiceForm() {
 
               <div className="text-[11px] text-muted-foreground flex items-center gap-1">
                 <MapPin className="h-3 w-3 text-primary shrink-0" />
-                <span>Coverage: {area}, {city} ({pincode})</span>
+                <span>Coverage: {[area, city, pincode].filter(Boolean).join(", ") || "Location specified"}</span>
               </div>
             </div>
 

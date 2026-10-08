@@ -46,17 +46,16 @@ export function ProductCard({
   onPreview?: (p: Product) => void;
 }) {
   const nav = useNavigate();
-  const fallbackImg = "https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=400";
+  const fallbackImg = "https://images.unsplash.com/photo-1526738549149-8e07eca6c147?w=400";
   const imgSrc = p.image || (p as any).coverUrl || (Array.isArray(p.images) && p.images[0]) || fallbackImg;
 
   const isQuickSale = Boolean(
-    (p as any).method !== "detailed" &&
+    (p as any).method === "quick" ||
+    (p as any).quickSale ||
+    (p as any).isQuickSell ||
     (
-      (p as any).method === "quick" ||
-      (p as any).quickSale ||
-      (p as any).isQuickSell ||
-      p.id.startsWith("Q-") ||
-      p.id.includes("quick")
+      (p as any).method !== "detailed" &&
+      (p.id?.startsWith("Q-") || p.id?.includes("quick"))
     )
   );
 
@@ -82,9 +81,9 @@ export function ProductCard({
             <button
               type="button"
               onClick={handleQuickSaleClick}
-              className="absolute left-2 top-2 z-10 inline-flex items-center gap-1 rounded-full bg-amber-500 text-slate-950 px-2 py-0.5 text-[9px] font-black shadow-sm"
+              className="absolute left-2 top-2 z-10 inline-flex items-center gap-1 rounded-full bg-gradient-to-r from-amber-400 to-amber-500 text-slate-950 px-2 py-0.5 text-[9px] font-black shadow-md border border-amber-300"
             >
-              <Zap className="h-2.5 w-2.5 fill-slate-950" /> Quick
+              <Zap className="h-2.5 w-2.5 fill-slate-950" /> Quick Sale
             </button>
           )}
           <StatusOverlay p={p} />
@@ -119,9 +118,9 @@ export function ProductCard({
             <button
               type="button"
               onClick={handleQuickSaleClick}
-              className="absolute left-1.5 top-1.5 z-10 inline-flex items-center gap-1 rounded-full bg-amber-500 text-slate-950 px-2 py-0.5 text-[9px] font-black shadow-sm"
+              className="absolute left-1.5 top-1.5 z-10 inline-flex items-center gap-1 rounded-full bg-gradient-to-r from-amber-400 to-amber-500 text-slate-950 px-2 py-0.5 text-[9px] font-black shadow-md border border-amber-300"
             >
-              <Zap className="h-2.5 w-2.5 fill-slate-950" /> Quick
+              <Zap className="h-2.5 w-2.5 fill-slate-950" /> Quick Sale
             </button>
           )}
           <StatusOverlay p={p} />
@@ -190,9 +189,9 @@ export function ProductCard({
             <button
               type="button"
               onClick={handleQuickSaleClick}
-              className="absolute left-2.5 top-2.5 z-10 inline-flex items-center gap-1 rounded-full bg-gradient-to-r from-amber-400 to-amber-500 text-slate-950 px-2.5 py-1 text-[10px] font-black shadow-md hover:scale-105 transition-transform"
+              className="absolute left-2.5 top-2.5 z-10 inline-flex items-center gap-1.5 rounded-full bg-gradient-to-r from-amber-400 to-amber-500 text-slate-950 px-2.5 py-1 text-[10px] font-black shadow-md border border-amber-300 hover:scale-105 transition-transform"
             >
-              <Zap className="h-3 w-3 fill-slate-950" /> Quick Deal
+              <Zap className="h-3 w-3 fill-slate-950" /> Quick Sale Deal
             </button>
           ) : p.sponsored ? (
             <span className="absolute left-2.5 top-2.5 inline-flex items-center gap-1 rounded-full bg-gradient-to-r from-indigo-600 to-blue-600 text-white px-2.5 py-1 text-[10px] font-black shadow-sm">

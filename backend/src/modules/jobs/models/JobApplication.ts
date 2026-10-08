@@ -62,6 +62,16 @@ export interface IJobApplication extends Document {
     linkedinUrl?: string;
     githubUrl?: string;
   };
+  jobSnapshot?: {
+    title: string;
+    companyName: string;
+    companyLogo?: string;
+    location?: any;
+    salary?: any;
+    jobType?: string;
+    workplaceType?: string;
+    status?: string;
+  };
   screeningAnswers: { question: string; answer: string }[];
   status: ApplicationStatus;
   interviewDetails?: {
@@ -84,6 +94,16 @@ const JobApplicationSchema = new Schema<IJobApplication>(
     jobId: { type: Schema.Types.ObjectId, ref: "Job", required: true, index: true },
     applicantId: { type: Schema.Types.ObjectId, ref: "User", required: true, index: true },
     employerId: { type: Schema.Types.ObjectId, ref: "User", required: true, index: true },
+    jobSnapshot: {
+      title: { type: String },
+      companyName: { type: String },
+      companyLogo: { type: String },
+      location: { type: Schema.Types.Mixed },
+      salary: { type: Schema.Types.Mixed },
+      jobType: { type: String },
+      workplaceType: { type: String },
+      status: { type: String }
+    },
     applicantProfileSnapshot: {
       name: { type: String, required: true },
       phone: { type: String, required: true },
@@ -147,6 +167,8 @@ const JobApplicationSchema = new Schema<IJobApplication>(
 );
 
 JobApplicationSchema.index({ jobId: 1, applicantId: 1 }, { unique: true });
+JobApplicationSchema.index({ jobId: 1, createdAt: -1 });
+JobApplicationSchema.index({ employerId: 1, createdAt: -1 });
 JobApplicationSchema.index({ applicantId: 1, status: 1 });
 JobApplicationSchema.index({ employerId: 1, status: 1 });
 

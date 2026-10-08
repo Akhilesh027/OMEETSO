@@ -46,7 +46,8 @@ import {
   Music,
   Utensils,
   ShieldCheck,
-  Power
+  Power,
+  Image as ImageIcon
 } from "lucide-react";
 
 export interface CategoryData {
@@ -57,6 +58,8 @@ export interface CategoryData {
   iconName: string;
   iconUrl?: string;
   imageUrl?: string;
+  coverImage?: string;
+  coverImageUrl?: string;
   subcategoriesLabel?: string;
   subcategories?: string[];
   filters?: string[];
@@ -151,6 +154,8 @@ export default function CategoriesPage() {
     iconName: string;
     iconUrl: string;
     imageUrl: string;
+    coverImage?: string;
+    coverImageUrl?: string;
     subcategoriesLabel: string;
     subcategories: string[];
     filters: string[];
@@ -162,6 +167,8 @@ export default function CategoriesPage() {
     iconName: "Layers",
     iconUrl: "",
     imageUrl: "",
+    coverImage: "",
+    coverImageUrl: "",
     subcategoriesLabel: "Subcategories",
     subcategories: [],
     filters: [],
@@ -225,6 +232,8 @@ export default function CategoriesPage() {
     loadCategoriesFromDb();
   }, []);
 
+  const [isUploadingCover, setIsUploadingCover] = useState(false);
+
   const openCreateModal = () => {
     setFormData({
       name: "",
@@ -233,6 +242,8 @@ export default function CategoriesPage() {
       iconName: "Layers",
       iconUrl: "",
       imageUrl: "",
+      coverImage: "",
+      coverImageUrl: "",
       subcategoriesLabel: "Subcategories",
       subcategories: ["General"],
       filters: ["Price", "Condition", "Location"],
@@ -246,13 +257,16 @@ export default function CategoriesPage() {
   const openEditModal = (cat: CategoryData, e?: React.MouseEvent) => {
     if (e) e.stopPropagation();
     setSelectedCategory(cat);
+    const cover = cat.coverImage || cat.imageUrl || cat.coverImageUrl || "";
     setFormData({
       name: cat.name || "",
       categoryId: cat.categoryId || cat.id || "",
       row: cat.row || 1,
       iconName: cat.iconName || "Layers",
       iconUrl: cat.iconUrl || "",
-      imageUrl: cat.imageUrl || "",
+      imageUrl: cover,
+      coverImage: cover,
+      coverImageUrl: cover,
       subcategoriesLabel: cat.subcategoriesLabel || "Subcategories",
       subcategories: [...(cat.subcategories || [])],
       filters: [...(cat.filters || [])],
@@ -273,13 +287,30 @@ export default function CategoriesPage() {
     const file = e.target.files?.[0];
     if (!file) return;
 
+    setIsUploadingCover(true);
     const res = await uploadCategoryImageApi(file);
+    setIsUploadingCover(false);
     if (res.success && res.url) {
-      setFormData((prev) => ({ ...prev, imageUrl: res.url! }));
-      showToast("success", "Category image uploaded");
+      setFormData((prev) => ({
+        ...prev,
+        imageUrl: res.url!,
+        coverImage: res.url!,
+        coverImageUrl: res.url!
+      }));
+      showToast("success", "Category cover image uploaded successfully");
     } else {
       showToast("error", res.error || "Failed to upload image");
     }
+  };
+
+  const handleRemoveCoverImage = () => {
+    setFormData((prev) => ({
+      ...prev,
+      imageUrl: "",
+      coverImage: "",
+      coverImageUrl: ""
+    }));
+    showToast("info", "Cover image removed");
   };
 
   const handleAddSubcategory = () => {
@@ -385,6 +416,7 @@ export default function CategoriesPage() {
   };
 
   const renderCategoryCard = (cat: CategoryData, index: number) => {
+    const coverUrl = cat.coverImage || cat.coverImageUrl || cat.imageUrl;
     return (
       <div
         key={cat.categoryId || cat.id}
@@ -392,13 +424,27 @@ export default function CategoriesPage() {
           setSelectedCategory(cat);
           setIsInspectorOpen(true);
         }}
-        className={`bg-white dark:bg-slate-800 p-4 rounded-2xl border transition-all cursor-pointer flex flex-col justify-between group space-y-3 relative overflow-hidden shadow-sm hover:shadow-md ${
+        className={`bg-white dark:bg-slate-800 rounded-2xl border transition-all cursor-pointer flex flex-col justify-between group relative overflow-hidden shadow-sm hover:shadow-md ${
           cat.isActive === false
             ? "border-amber-300 dark:border-amber-800/60 opacity-75"
             : "border-[#E2E8F0] dark:border-slate-700 hover:border-[#3547D4]"
         }`}
       >
-        <div className="flex items-start justify-between">
+        {coverUrl && (
+          <div className="h-24 w-full overflow-hidden relative border-b border-slate-100 dark:border-slate-700 bg-slate-100 dark:bg-slate-900 shrink-0">
+            <img
+              src={coverUrl}
+              alt={`${cat.name} cover`}
+              className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+            />
+            <div className="absolute inset-0 bg-gradient-to-t from-black/50 via-transparent to-transparent pointer-events-none" />
+            <span className="absolute bottom-1.5 right-2 text-[9px] bg-black/60 text-white px-2 py-0.5 rounded-full font-medium backdrop-blur-xs">
+              Cover Image
+            </span>
+          </div>
+        )}
+        <div className="p-4 space-y-3 flex flex-col justify-between flex-1">
+          <div className="flex items-start justify-between">
           <div className="flex items-center space-x-3">
             <div className="w-10 h-10 rounded-xl bg-indigo-50 dark:bg-indigo-900/30 text-[#3547D4] dark:text-indigo-400 group-hover:bg-[#3547D4] group-hover:text-white transition-colors flex items-center justify-center font-bold shrink-0 overflow-hidden">
               {renderCategoryIcon(cat, "w-5 h-5")}
@@ -457,6 +503,7 @@ export default function CategoriesPage() {
         <div className="pt-2 border-t border-[#E2E8F0] dark:border-slate-700 flex items-center justify-between text-xs font-bold text-[#3547D4] dark:text-indigo-400 group-hover:underline">
           <span>Inspect Rules & Fields</span>
           <ChevronRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
+        </div>
         </div>
       </div>
     );
@@ -726,67 +773,120 @@ export default function CategoriesPage() {
                 </div>
               </div>
 
-              {/* CUSTOM IMAGE / ICON UPLOAD OR URL */}
-              <div className="p-3 bg-slate-50 dark:bg-slate-900/60 border border-slate-200 dark:border-slate-700 rounded-xl space-y-3">
-                <h4 className="text-[11px] font-bold text-slate-800 dark:text-slate-200 flex items-center justify-between">
-                  <span>Custom Image Banner & Direct Icon URL</span>
-                  <span className="text-[10px] text-slate-400 font-normal">(Optional)</span>
-                </h4>
-
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              {/* CATEGORY COVER IMAGE (UPLOAD, REPLACE & REMOVE) */}
+              <div className="p-3.5 bg-slate-50 dark:bg-slate-900/60 border border-slate-200 dark:border-slate-700 rounded-xl space-y-3">
+                <div className="flex items-center justify-between">
                   <div>
-                    <label className="block text-[10px] font-semibold text-slate-600 dark:text-slate-400 mb-1">
-                      Upload Image Banner:
-                    </label>
-                    <input
-                      type="file"
-                      ref={fileInputRef}
-                      onChange={handleImageFileChange}
-                      accept="image/*"
-                      className="hidden"
-                    />
+                    <h4 className="text-[11px] font-bold text-slate-800 dark:text-slate-200">
+                      Category Cover Image
+                    </h4>
+                    <p className="text-[10px] text-slate-500 dark:text-slate-400">
+                      Upload, change, replace, or remove the cover image for this category.
+                    </p>
+                  </div>
+                  {(formData.coverImage || formData.imageUrl) && (
+                    <span className="text-[9px] font-bold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-300">
+                      Cover Active
+                    </span>
+                  )}
+                </div>
+
+                {/* Hidden File Input for Cover Image */}
+                <input
+                  type="file"
+                  ref={fileInputRef}
+                  onChange={handleImageFileChange}
+                  accept="image/*"
+                  className="hidden"
+                />
+
+                {/* Active Cover Preview & Actions */}
+                {(formData.coverImage || formData.imageUrl) ? (
+                  <div className="space-y-2">
+                    <div className="relative rounded-xl overflow-hidden border border-slate-200 dark:border-slate-700 h-28 bg-slate-100 dark:bg-slate-800 group">
+                      <img
+                        src={formData.coverImage || formData.imageUrl}
+                        alt="Category Cover"
+                        className="w-full h-full object-cover"
+                      />
+                      <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
+                        <button
+                          type="button"
+                          onClick={() => fileInputRef.current?.click()}
+                          disabled={isUploadingCover}
+                          className="px-3 py-1.5 bg-white text-slate-800 text-[11px] font-bold rounded-lg shadow hover:bg-slate-100 transition-colors inline-flex items-center gap-1.5"
+                        >
+                          <Upload className="w-3.5 h-3.5 text-[#3547D4]" />
+                          <span>{isUploadingCover ? "Uploading..." : "Replace Image"}</span>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={handleRemoveCoverImage}
+                          className="px-3 py-1.5 bg-rose-600 text-white text-[11px] font-bold rounded-lg shadow hover:bg-rose-700 transition-colors inline-flex items-center gap-1.5"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                          <span>Remove</span>
+                        </button>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center justify-between gap-2">
+                      <div className="flex items-center gap-2">
+                        <button
+                          type="button"
+                          onClick={() => fileInputRef.current?.click()}
+                          disabled={isUploadingCover}
+                          className="px-3 py-1.5 border border-slate-300 dark:border-slate-600 rounded-lg bg-white dark:bg-slate-800 hover:bg-slate-50 text-slate-700 dark:text-slate-300 text-xs font-semibold inline-flex items-center gap-1.5 transition-colors"
+                        >
+                          <Upload className="w-3.5 h-3.5 text-[#3547D4]" />
+                          <span>{isUploadingCover ? "Uploading..." : "Replace Cover Image"}</span>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={handleRemoveCoverImage}
+                          className="px-3 py-1.5 border border-rose-200 dark:border-rose-900/50 rounded-lg bg-rose-50 dark:bg-rose-950/30 text-rose-600 dark:text-rose-400 hover:bg-rose-100 text-xs font-semibold inline-flex items-center gap-1.5 transition-colors"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                          <span>Remove Cover Image</span>
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="space-y-3">
                     <button
                       type="button"
                       onClick={() => fileInputRef.current?.click()}
-                      className="w-full py-2 px-3 border border-dashed border-slate-300 dark:border-slate-600 rounded-xl bg-white dark:bg-slate-800 hover:bg-slate-50 text-slate-700 dark:text-slate-300 flex items-center justify-center space-x-2 text-xs font-semibold"
+                      disabled={isUploadingCover}
+                      className="w-full py-3 px-4 border-2 border-dashed border-indigo-200 dark:border-indigo-900/60 rounded-xl bg-indigo-50/40 dark:bg-indigo-950/20 hover:bg-indigo-50 text-indigo-700 dark:text-indigo-300 flex items-center justify-center space-x-2 text-xs font-bold transition-colors"
                     >
-                      <Upload className="w-3.5 h-3.5 text-[#3547D4]" />
-                      <span>Upload Banner File</span>
-                    </button>
-                  </div>
-
-                  <div>
-                    <label className="block text-[10px] font-semibold text-slate-600 dark:text-slate-400 mb-1">
-                      Or Banner Image URL:
-                    </label>
-                    <input
-                      type="text"
-                      value={formData.imageUrl}
-                      onChange={(e) => setFormData({ ...formData, imageUrl: e.target.value })}
-                      placeholder="https://images.unsplash.com/..."
-                      className="w-full px-3 py-1.5 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl focus:ring-2 focus:ring-[#3547D4] outline-none text-slate-900 dark:text-white"
-                    />
-                  </div>
-                </div>
-
-                {formData.imageUrl && (
-                  <div className="flex items-center space-x-3 p-2 bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700">
-                    <img src={formData.imageUrl} alt="Preview" className="w-12 h-12 object-cover rounded-lg" />
-                    <div className="flex-1 truncate">
-                      <span className="text-[10px] font-bold text-slate-500 block">Image Preview</span>
-                      <span className="text-[10px] text-slate-400 truncate block">{formData.imageUrl}</span>
-                    </div>
-                    <button
-                      type="button"
-                      onClick={() => setFormData({ ...formData, imageUrl: "" })}
-                      className="text-rose-500 hover:text-rose-700 hover:bg-rose-50 dark:hover:bg-rose-950/40 px-2 py-1 rounded-lg text-xs font-bold inline-flex items-center gap-1 transition-colors"
-                      title="Remove Image"
-                    >
-                      <Trash2 className="w-3.5 h-3.5" />
-                      <span>Remove</span>
+                      <Upload className="w-4 h-4 text-[#3547D4]" />
+                      <span>{isUploadingCover ? "Uploading Image..." : "Upload Cover Image (JPG, PNG, WebP)"}</span>
                     </button>
                   </div>
                 )}
+
+                {/* Direct Image URL input */}
+                <div>
+                  <label className="block text-[10px] font-semibold text-slate-600 dark:text-slate-400 mb-1">
+                    Or Enter Cover Image URL directly:
+                  </label>
+                  <input
+                    type="text"
+                    value={formData.coverImage || formData.imageUrl || ""}
+                    onChange={(e) => {
+                      const val = e.target.value;
+                      setFormData((prev) => ({
+                        ...prev,
+                        imageUrl: val,
+                        coverImage: val,
+                        coverImageUrl: val
+                      }));
+                    }}
+                    placeholder="https://images.unsplash.com/... or CDN link"
+                    className="w-full px-3 py-1.5 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl focus:ring-2 focus:ring-[#3547D4] outline-none text-slate-900 dark:text-white text-xs"
+                  />
+                </div>
               </div>
 
               {/* SUBCATEGORIES CHIPS EDITOR */}
@@ -1016,12 +1116,17 @@ export default function CategoriesPage() {
             </div>
 
             <div className="space-y-4 text-xs">
-              {/* BANNER / IMAGE PREVIEW */}
-              {selectedCategory.imageUrl && (
-                <div className="rounded-xl overflow-hidden border border-slate-200 dark:border-slate-700 h-32 relative">
-                  <img src={selectedCategory.imageUrl} alt={selectedCategory.name} className="w-full h-full object-cover" />
-                  <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent flex items-end p-3 text-white font-bold text-xs">
-                    Category Banner Image
+              {/* BANNER / COVER IMAGE PREVIEW */}
+              {(selectedCategory.coverImage || selectedCategory.coverImageUrl || selectedCategory.imageUrl) && (
+                <div className="rounded-xl overflow-hidden border border-slate-200 dark:border-slate-700 h-36 relative">
+                  <img
+                    src={selectedCategory.coverImage || selectedCategory.coverImageUrl || selectedCategory.imageUrl}
+                    alt={selectedCategory.name}
+                    className="w-full h-full object-cover"
+                  />
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/20 to-transparent flex items-end justify-between p-3 text-white">
+                    <span className="font-bold text-xs">Category Cover Image</span>
+                    <span className="text-[10px] bg-black/60 px-2 py-0.5 rounded-full backdrop-blur-xs">Active</span>
                   </div>
                 </div>
               )}

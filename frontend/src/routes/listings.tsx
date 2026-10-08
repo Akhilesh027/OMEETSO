@@ -253,8 +253,11 @@ function DraftPreview() {
           style={{ animationDelay: `${idx * 50}ms` }}
         >
           <p className="text-sm font-bold">{d.title ?? "Untitled draft"}</p>
-          <p className="text-[11px] text-muted-foreground">
-            {d.method === "detailed" ? "Detailed" : "Quick"} · edited {timeAgo(d.updatedAt)}
+          <p className="text-[11px] text-muted-foreground flex items-center gap-1.5 mt-0.5">
+            <span className={d.method === "detailed" ? "font-bold text-foreground" : "font-extrabold text-amber-600 dark:text-amber-400"}>
+              {d.method === "detailed" ? "Detailed" : "⚡ Quick Sale"}
+            </span>
+            <span>· edited {timeAgo(d.updatedAt)}</span>
           </p>
         </Link>
       ))}

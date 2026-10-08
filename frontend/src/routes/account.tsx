@@ -778,7 +778,7 @@ function EditProfileModal({ open, onClose, profile, onSaved }: { open: boolean; 
   const [email, setEmail] = useState(profile.email || "");
   const [city, setCity] = useState(profile.city || "Hyderabad");
   const [area, setArea] = useState(profile.area && profile.area !== "Madhapur" ? profile.area : "");
-  const [pincode, setPincode] = useState(profile.pincode || "500081");
+  const [pincode, setPincode] = useState(profile.pincode || "");
   const [bio, setBio] = useState(profile.bio || "");
   const [avatar, setAvatar] = useState(getCleanAvatar(profile.avatar, "male"));
   const [gender, setGender] = useState<"male" | "female" | "other">(
@@ -791,7 +791,7 @@ function EditProfileModal({ open, onClose, profile, onSaved }: { open: boolean; 
     setEmail(profile.email || "");
     setCity(profile.city || "Hyderabad");
     setArea(profile.area && profile.area !== "Madhapur" ? profile.area : "");
-    setPincode(profile.pincode || "500081");
+    setPincode(profile.pincode || "");
     setBio(profile.bio || "");
     const initialAvatar = getCleanAvatar(profile.avatar, "male");
     setAvatar(initialAvatar);

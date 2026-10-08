@@ -44,19 +44,47 @@ function NewTicket() {
 
   const submit = () => {
     if (busy) return;
-    if (!subject.trim()) { toast.error("Subject is required"); return; }
-    if (description.trim().length < 20) { toast.error("Description must be at least 20 characters"); return; }
+    if (!subject.trim()) { toast.error("Please enter a subject"); return; }
+    if (!description.trim()) { toast.error("Please describe what happened"); return; }
+    if (description.trim().length < 5) { toast.error("Description must be at least 5 characters"); return; }
     setBusy(true);
-    const t = createTicket({
-      category, subcategory, subject: subject.trim(), description: description.trim(),
-      attachments, contactMethod: contact,
-      relatedListing: related.listing || undefined,
-      relatedStore: related.store || undefined,
-      relatedCampaign: related.campaign || undefined,
-      relatedPayment: related.payment || undefined,
-    });
-    toast.success(`Ticket ${t.number} created`);
-    nav({ to: "/support/$id", params: { id: t.id } });
+    try {
+      const t = createTicket({
+        category, subcategory, subject: subject.trim(), description: description.trim(),
+        attachments, contactMethod: contact,
+        relatedListing: related.listing || undefined,
+        relatedStore: related.store || undefined,
+        relatedCampaign: related.campaign || undefined,
+        relatedPayment: related.payment || undefined,
+      });
+
+      if (contact === "in_app") {
+        toast.success(`Ticket ${t.number} created! Redirecting to in-app support…`);
+        nav({ to: "/support/$id", params: { id: t.id } });
+      } else if (contact === "email") {
+        toast.success(`Ticket ${t.number} created! Opening email client…`);
+        const mailSubject = encodeURIComponent(`[Omeetso Support #${t.number}] ${subject.trim()}`);
+        const mailBody = encodeURIComponent(
+          `Hello Omeetso Support Team,\n\nI have submitted a support request (Ticket #${t.number}).\n\nSubject: ${subject.trim()}\nCategory: ${category}${
+            subcategory ? ` - ${subcategory}` : ""
+          }\nDescription:\n${description.trim()}\n\nPlease respond to me via email.\n\nThank you.`
+        );
+        window.location.href = `mailto:info@omeetso.in?subject=${mailSubject}&body=${mailBody}`;
+        setTimeout(() => {
+          nav({ to: "/contact" });
+        }, 400);
+      } else if (contact === "call") {
+        toast.success(`Ticket ${t.number} created! Connecting to support hotline…`);
+        window.location.href = "tel:+919876543210";
+        setTimeout(() => {
+          nav({ to: "/contact" });
+        }, 400);
+      }
+    } catch (err: any) {
+      toast.error(err?.message || "Failed to create support ticket");
+    } finally {
+      setBusy(false);
+    }
   };
 
   const subs = CATEGORIES.find((c) => c.id === category)?.sub ?? [];
@@ -96,7 +124,7 @@ function NewTicket() {
           <label className="block">
             <span className="text-[11px] font-semibold">Description *</span>
             <textarea rows={5} value={description} onChange={(e) => setDescription(e.target.value)}
-              placeholder="Please describe what happened (minimum 20 characters)"
+              placeholder="Please describe what happened in detail…"
               className="mt-1 w-full rounded-2xl border border-border bg-card px-3 py-2.5 text-sm outline-none focus:border-primary" />
             <p className="mt-0.5 text-right text-[10px] text-muted-foreground">{description.length} chars</p>
           </label>
@@ -121,9 +149,13 @@ function NewTicket() {
           </div>
         </div>
 
-        <div className="fixed inset-x-0 bottom-0 z-10 mx-auto max-w-[430px] border-t border-border bg-card p-3 safe-b">
-          <button onClick={submit} disabled={busy}
-            className="w-full rounded-full bg-primary py-3 text-sm font-bold text-primary-foreground disabled:opacity-70">
+        <div className="fixed inset-x-0 bottom-0 z-10 mx-auto max-w-[430px] border-t border-border bg-card/95 backdrop-blur-md p-3 safe-b">
+          <button
+            type="button"
+            onClick={submit}
+            disabled={busy}
+            className="w-full rounded-full bg-primary py-3 text-sm font-bold text-primary-foreground shadow-md hover:bg-primary/90 transition-all active:scale-[0.99] disabled:opacity-60 cursor-pointer"
+          >
             {busy ? "Submitting…" : "Submit Request"}
           </button>
         </div>

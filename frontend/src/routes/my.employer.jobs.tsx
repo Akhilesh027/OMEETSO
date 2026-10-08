@@ -11,6 +11,7 @@ import {
   fetchEmployerJobs,
   fetchEmployerJobApplicants,
   listCandidateApplicationsLocal,
+  getLocal,
   JobItem,
   JobApplicationItem
 } from "@/lib/jobs";
@@ -70,8 +71,7 @@ function EmployerJobsDashboardPage() {
 
   const [privateNoteInput, setPrivateNoteInput] = useState("");
 
-  const loadData = async () => {
-    setLoading(true);
+  const loadData = async (isBackground = false) => {
     let currentUserId = "me";
     let token: string | null = null;
     try {
@@ -80,20 +80,39 @@ function EmployerJobsDashboardPage() {
       if (u._id || u.id) currentUserId = u._id || u.id;
     } catch { }
 
+    // Instant paint from local cache so the page loads in 0ms without delay
+    const allCachedJobs = getLocal<JobItem[]>("omeetso_jobs_list", []);
+    const userCachedJobs = allCachedJobs.filter(
+      (j) => !currentUserId || currentUserId === "me" || j.employerId === "me" || j.employerId === currentUserId
+    );
+
+    if (userCachedJobs.length > 0 && !isBackground && jobs.length === 0) {
+      setJobs(userCachedJobs);
+      const initId = selectedJobId && userCachedJobs.some((j) => j.id === selectedJobId) ? selectedJobId : userCachedJobs[0].id;
+      setSelectedJobId(initId);
+      const cachedApps = getLocal<JobApplicationItem[]>(`omeetso_employer_applicants_${initId}`, []);
+      if (cachedApps.length > 0) {
+        setApplicants(cachedApps);
+      }
+      setLoading(false);
+    } else if (jobs.length === 0 && !isBackground) {
+      setLoading(true);
+    }
+
     try {
       const myJobs = await fetchEmployerJobs(currentUserId, token);
-      setJobs(myJobs);
       if (myJobs.length > 0) {
-        const firstId = myJobs[0].id;
-        const firstJob = myJobs[0];
-        setSelectedJobId(firstId);
-        const firstJobApplicants = await fetchEmployerJobApplicants(firstId, token, firstJob.title);
-        setApplicants(firstJobApplicants);
-      } else {
+        setJobs(myJobs);
+        const targetId = selectedJobId && myJobs.some((j) => j.id === selectedJobId) ? selectedJobId : myJobs[0].id;
+        setSelectedJobId(targetId);
+        const activeJ = myJobs.find((j) => j.id === targetId) || myJobs[0];
+        const jobApps = await fetchEmployerJobApplicants(targetId, token, activeJ.title);
+        setApplicants(jobApps);
+      } else if (userCachedJobs.length === 0) {
         setApplicants([]);
       }
     } catch {
-      // Fallback
+      // Fallback silently
     } finally {
       setLoading(false);
     }
@@ -101,10 +120,47 @@ function EmployerJobsDashboardPage() {
 
   useEffect(() => {
     loadData();
-  }, []);
+
+    // Listen for real-time application submissions and job changes
+    const handleAppSubmitted = (e: any) => {
+      const newApp = e?.detail;
+      if (newApp && newApp.jobId) {
+        if (newApp.jobId === selectedJobId) {
+          setApplicants((prev) => {
+            if (prev.some((a) => a.id === newApp.id)) return prev;
+            return [newApp, ...prev];
+          });
+        }
+      }
+      loadData(true);
+    };
+
+    const handleStorageChange = (e: StorageEvent) => {
+      if (e.key && (e.key.startsWith("omeetso_employer_applicants_") || e.key === "omeetso_jobs_list")) {
+        loadData(true);
+      }
+    };
+
+    window.addEventListener("omeetso_job_application_submitted", handleAppSubmitted);
+    window.addEventListener("omeetso_jobs_changed", () => loadData(true));
+    window.addEventListener("storage", handleStorageChange);
+
+    return () => {
+      window.removeEventListener("omeetso_job_application_submitted", handleAppSubmitted);
+      window.removeEventListener("omeetso_jobs_changed", () => loadData(true));
+      window.removeEventListener("storage", handleStorageChange);
+    };
+  }, [selectedJobId]);
 
   const handleSelectJob = async (jobId: string) => {
     setSelectedJobId(jobId);
+
+    // Instant paint from local cache for selected job
+    const cachedApps = getLocal<JobApplicationItem[]>(`omeetso_employer_applicants_${jobId}`, []);
+    if (cachedApps.length > 0) {
+      setApplicants(cachedApps);
+    }
+
     let token: string | null = null;
     try {
       token = localStorage.getItem("omeetso_user_token");

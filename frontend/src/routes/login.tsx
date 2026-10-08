@@ -282,7 +282,7 @@ function LoginPage() {
         phone: "+919876543210",
         accountType: "individual",
         status: "ACTIVE",
-        profile: { name: "Google User", city: "Hyderabad", pincode: "500081", area: "Madhapur" }
+        profile: { name: "Google User", city: "Hyderabad", pincode: "", area: "" }
       };
       localStorage.setItem("omeetso_user", JSON.stringify(fallbackUser));
       localStorage.setItem("omeetso_user_token", "mock_google_jwt_token");

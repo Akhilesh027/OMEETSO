@@ -60,7 +60,7 @@ const UserSchema = new Schema<IUser>(
       avatar: { type: String },
       bio: { type: String },
       city: { type: String, required: true, default: "Hyderabad" },
-      pincode: { type: String, required: true, default: "500081" },
+      pincode: { type: String, default: "" },
       area: { type: String, default: "" },
       language: { type: String, default: "en" },
       memberSince: { type: Date, default: Date.now }

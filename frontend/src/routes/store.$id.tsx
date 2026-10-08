@@ -31,59 +31,8 @@ export const Route = createFileRoute("/store/$id")({
     title: typeof s.title === "string" ? s.title : undefined,
     desc: typeof s.desc === "string" ? s.desc : undefined,
   }),
-  loader: async ({ params }) => {
+  loader: ({ params }) => {
     let s: Store | undefined = undefined;
-    try {
-      const res = await fetch(`${API_BASE}/stores/${params.id}`);
-      const json = await res.json();
-      if (json.success && json.data) {
-        const item = json.data;
-        s = {
-          ...emptyStore(),
-          id: item.id || item._id,
-          name: item.name,
-          tagline: item.tagline || "",
-          description: item.description || "",
-          businessType: item.businessType || "Retailer",
-          primaryCategory: item.primaryCategory || "general",
-          supportingCategories: item.supportingCategories || [],
-          pincode: item.pincode || "500081",
-          area: item.area || "Madhapur",
-          city: item.city || "Hyderabad",
-          address: item.address || "",
-          businessMobile: item.businessMobile || "",
-          email: item.email || "",
-          logo: item.logo,
-          cover: item.cover,
-          rating: item.rating || 0,
-          reviewCount: item.reviewCount || 0,
-          followersCount: item.followersCount || 0,
-          status: (item.status?.toLowerCase() || "approved") as any,
-          createdAt: new Date(item.createdAt || Date.now()).getTime(),
-          updatedAt: new Date(item.updatedAt || Date.now()).getTime()
-        };
-      } else {
-        // Fallback search listing seller
-        const lRes = await fetch(`${API_BASE}/listings/${params.id}`);
-        const lJson = await lRes.json();
-        if (lJson.success && lJson.data) {
-          const lItem = lJson.data;
-          s = {
-            ...emptyStore(),
-            id: params.id,
-            name: `${lItem.sellerName || "Store"} Showroom`,
-            primaryCategory: lItem.categoryId || "Retail",
-            area: lItem.area || "Madhapur",
-            city: lItem.city || "Hyderabad",
-            cover: lItem.images?.[0],
-            rating: 0,
-            reviewCount: 0,
-            followersCount: 0,
-            status: "approved" as any
-          };
-        }
-      }
-    } catch { }
 
     if (!s) {
       const sample = DEFAULT_SAMPLE_STORES.find(
@@ -277,7 +226,7 @@ function StorePage() {
             title: item.title,
             price: item.price || (item.priceInPaise ? item.priceInPaise / 100 : 0),
             originalPrice: Math.round((item.price || (item.priceInPaise ? item.priceInPaise / 100 : 0)) * 1.15),
-            image: item.coverUrl || (Array.isArray(item.images) && item.images[item.coverIndex || 0]) || item.images?.[0] || "https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=600",
+            image: item.coverUrl || (Array.isArray(item.images) && item.images[item.coverIndex || 0]) || item.images?.[0] || "https://images.unsplash.com/photo-1526738549149-8e07eca6c147?w=600",
             location: `${item.area || store.area || "Madhapur"}, ${item.city || store.city || "Hyderabad"}`,
             time: "Just now",
             category: item.category || item.categoryId || store.primaryCategory || "General",
@@ -293,7 +242,7 @@ function StorePage() {
           title: l.title,
           price: l.price || 0,
           originalPrice: Math.round((l.price || 0) * 1.15),
-          image: l.images?.[l.cover || 0] || l.images?.[0] || "https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=600",
+          image: l.images?.[l.cover || 0] || l.images?.[0] || "https://images.unsplash.com/photo-1526738549149-8e07eca6c147?w=600",
           location: `${l.area || store.area || "Madhapur"}, ${l.city || store.city || "Hyderabad"}`,
           time: "Just now",
           category: l.category || store.primaryCategory || "General",

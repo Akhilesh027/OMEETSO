@@ -82,19 +82,38 @@ export default function UsersListPage() {
   }, [userId, users]);
 
   const filteredUsers = users.filter((u) => {
-    const s = searchTerm.toLowerCase().trim();
-    const matchesSearch =
-      !s ||
-      u.name.toLowerCase().includes(s) ||
-      (u.id && u.id.toLowerCase().includes(s)) ||
-      u.mobile.includes(s) ||
-      (u.email && u.email.toLowerCase().includes(s)) ||
-      u.city.toLowerCase().includes(s);
+    const rawS = searchTerm.toLowerCase().trim();
+    const s = rawS.replace(/^#/, "").replace(/^id:\s*/i, "").trim();
+    if (s) {
+      const uId = String(u.id || (u as any)._id || "").toLowerCase();
+      const uName = String(u.name || (u as any).profile?.name || "").toLowerCase();
+      const uUsername = String((u as any).username || (u as any).profile?.username || "").toLowerCase();
+      const uMobile = String(u.mobile || (u as any).phone || "").replace(/\D/g, "");
+      const cleanS = s.replace(/\D/g, "");
+      const uEmail = String(u.email || "").toLowerCase();
+      const uCity = String(u.city || "").toLowerCase();
+      const uBusinessName = String((u as any).businessName || (u as any).profile?.businessName || "").toLowerCase();
 
-    if (!matchesSearch) return false;
+      const matchesSearch =
+        uId.includes(s) ||
+        uId === s ||
+        uName.includes(s) ||
+        uUsername.includes(s) ||
+        uBusinessName.includes(s) ||
+        (cleanS.length >= 3 && uMobile.includes(cleanS)) ||
+        uEmail.includes(s) ||
+        uCity.includes(s);
 
-    if (activeTab === "buyer") return u.accountType === "individual" && u.storesCount === 0;
-    if (activeTab === "seller") return u.storesCount > 0 || u.listingsCount > 0;
+      if (!matchesSearch) return false;
+
+      // When searching by specific query, don't drop exact user matches across tabs
+      if (activeTab !== "all" && (uId.includes(s) || uUsername.includes(s) || (cleanS.length >= 10 && uMobile === cleanS))) {
+        return true;
+      }
+    }
+
+    if (activeTab === "buyer") return u.accountType === "individual" && (u.storesCount || 0) === 0;
+    if (activeTab === "seller") return (u.storesCount || 0) > 0 || (u.listingsCount || 0) > 0;
     if (activeTab === "business") return u.accountType === "business";
     if (activeTab === "suspended") return (u.status as string) === "suspended" || u.status === "temporarily_suspended" || u.status === "under_investigation";
     if (activeTab === "banned") return (u.status as string) === "banned" || u.status === "permanently_suspended";
@@ -233,7 +252,7 @@ export default function UsersListPage() {
               type="text"
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              placeholder="Search by name, mobile, city..."
+              placeholder="Search by User ID, username, name, mobile..."
               className="w-full pl-9 pr-3 py-2 text-xs rounded-xl border border-[#E2E8F0] bg-[#F5F7FC] focus:outline-none focus:ring-2 focus:ring-[#3547D4]"
             />
           </div>

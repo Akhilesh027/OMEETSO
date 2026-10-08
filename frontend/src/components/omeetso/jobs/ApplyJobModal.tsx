@@ -5,7 +5,8 @@ import {
   GraduationCap, Check, MapPin, Award, ShieldCheck,
   Zap, AlertCircle, ExternalLink, Globe, Linkedin, Github, Ban
 } from "lucide-react";
-import { JobItem, submitJobApplicationLocal, CandidateProfileItem, checkJobExperienceEligibility, EligibilityResult } from "@/lib/jobs";
+import { JobItem, submitJobApplicationLocal, CandidateProfileItem, checkJobExperienceEligibility, EligibilityResult, fetchWithTimeout } from "@/lib/jobs";
+import { getUserAccessToken } from "@/api/auth.api";
 import { uploadFile } from "@/lib/upload";
 import { toast } from "sonner";
 import { pushNotification } from "@/lib/account";
@@ -103,9 +104,9 @@ export function ApplyJobModal({ job, isOpen, onClose, onSuccess }: ApplyJobModal
           }));
         }
 
-        const res = await fetch(`${API_BASE}/jobs/candidate/profile`, {
+        const res = await fetchWithTimeout(`${API_BASE}/jobs/candidate/profile`, {
           headers: { ...(token ? { Authorization: `Bearer ${token}` } : {}) }
-        });
+        }, 5000);
         if (res.ok) {
           const json = await res.json();
           if (json.success && json.data) {
@@ -279,28 +280,40 @@ export function ApplyJobModal({ job, isOpen, onClose, onSuccess }: ApplyJobModal
 
     setLoading(true);
     try {
-      const token = typeof window !== "undefined" ? localStorage.getItem("omeetso_user_token") : null;
+      const token = getUserAccessToken() || (typeof window !== "undefined" ? localStorage.getItem("omeetso_user_token") || localStorage.getItem("omeetso_auth_token") : null);
       const formattedAnswers = Object.entries(screeningAnswers).map(([question, answer]) => ({ question, answer }));
 
       let serverApp: any = null;
+      const targetJobId = job.id || (job as any)._id || "";
       if (token) {
         try {
-          const res = await fetch(`${API_BASE}/jobs/apply`, {
+          const res = await fetchWithTimeout(`${API_BASE}/jobs/apply`, {
             method: "POST",
             headers: {
               "Content-Type": "application/json",
               Authorization: `Bearer ${token}`
             },
             body: JSON.stringify({
-              jobId: job.id,
+              jobId: targetJobId,
+              jobTitle: job.title,
+              employerId: job.employerId,
               customSnapshot: formData,
               screeningAnswers: formattedAnswers
             })
-          });
+          }, 8000);
           const json = await res.json();
           if (res.ok && json.success) {
             serverApp = json.data;
           } else if (json.error?.message && json.error.message.toLowerCase().includes("already applied")) {
+            submitJobApplicationLocal({
+              id: `APP-${targetJobId}`,
+              jobId: targetJobId,
+              employerId: job.employerId || "emp-default",
+              job: { id: targetJobId, title: job.title, companyName: job.companyName, location: job.location, salary: job.salary },
+              applicantProfileSnapshot: formData,
+              screeningAnswers: formattedAnswers,
+              status: "APPLIED"
+            });
             toast.info("You have already applied for this position.");
             setLoading(false);
             setStep("success");
@@ -315,17 +328,19 @@ export function ApplyJobModal({ job, isOpen, onClose, onSuccess }: ApplyJobModal
               message: json.error.message
             });
             return;
+          } else if (json.error?.message) {
+            console.warn("[Job Apply] Server response:", json.error.message);
           }
         } catch (serverErr) {
-          console.warn("[Job Apply] Server fetch skipped:", serverErr);
+          console.warn("[Job Apply] Server fetch skipped or timed out:", serverErr);
         }
       }
 
       submitJobApplicationLocal({
         id: serverApp?.id || serverApp?._id || `APP-${Date.now()}`,
-        jobId: job.id,
+        jobId: targetJobId,
         employerId: job.employerId || "emp-default",
-        job: { title: job.title, companyName: job.companyName, location: job.location, salary: job.salary },
+        job: { id: targetJobId, title: job.title, companyName: job.companyName, location: job.location, salary: job.salary },
         applicantProfileSnapshot: formData,
         screeningAnswers: formattedAnswers,
         status: "APPLIED"

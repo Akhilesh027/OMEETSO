@@ -32,7 +32,12 @@ import { servicesRouter } from "./modules/services/routes/services.routes";
 import { adminServicesRouter } from "./modules/services/routes/adminServices.routes";
 import { bannersRouter } from "./modules/revenue/routes/banners.routes";
 import { ogRouter } from "./modules/og/routes/og.routes";
-import { getProductOpenGraphPreview, getStoreOpenGraphPreview } from "./modules/og/controllers/og.controller";
+import {
+  getProductOpenGraphPreview,
+  getStoreOpenGraphPreview,
+  getBlogOpenGraphPreview,
+  getBlogsIndexOpenGraphPreview
+} from "./modules/og/controllers/og.controller";
 import { blogsRouter } from "./modules/blogs/routes/blogs.routes";
 import { adminBlogsRouter } from "./modules/blogs/routes/adminBlogs.routes";
 import { newsletterRouter } from "./modules/newsletter/routes/newsletter.routes";
@@ -403,6 +408,8 @@ app.use(`${env.API_PREFIX}/og`, ogRouter);
 app.get("/product/:id", getProductOpenGraphPreview);
 app.get("/p/:id", getProductOpenGraphPreview);
 app.get("/store/:id", getStoreOpenGraphPreview);
+app.get("/blog/:slug", getBlogOpenGraphPreview);
+app.get("/blogs", getBlogsIndexOpenGraphPreview);
 
 // Centralized 404 Handler
 app.use((req: Request, res: Response) => {

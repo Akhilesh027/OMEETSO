@@ -50,7 +50,7 @@ export const SPEC_CONFIG: Record<string, SpecField[]> = {
   electronics: [
     { key: "Brand", label: "Brand", type: "text", required: true },
     { key: "Model", label: "Model", type: "text" },
-    { key: "Product type", label: "Product type", type: "select", options: ["Laptops", "TVs", "Cameras", "Speakers & Audio", "Gaming Consoles", "Smart Home", "Monitors", "Other"], required: true },
+    { key: "Product type", label: "Product type", type: "select", options: ["Laptops & Notebooks", "Desktop Computers", "Gaming Consoles (PS5, Xbox)", "Cameras & DSLRs", "Audio & Headphones", "Smartwatches & Wearables", "Computer Accessories & Monitors", "TVs", "Smart Home", "Other"], required: true },
     { key: "Purchase year", label: "Purchase year", type: "select", options: YEARS },
     { key: "Warranty", label: "Warranty", type: "select", options: ["None", "Under 3 months", "3–6 months", "6–12 months", "Extended"] },
     { key: "Working condition", label: "Working condition", type: "select", options: ["Perfect", "Minor issues", "Needs repair"], required: true },

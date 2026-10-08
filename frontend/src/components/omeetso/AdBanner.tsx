@@ -1,4 +1,4 @@
-import { ArrowRight, Info, Sparkles, X, Zap, Plus, CheckCircle2, Clock, Coins, ShieldCheck } from "lucide-react";
+import { ArrowRight, Info, Sparkles, X, Zap, Plus, CheckCircle2, Clock, Coins, ShieldCheck, ChevronLeft, ChevronRight } from "lucide-react";
 import { useEffect, useState, useMemo } from "react";
 import { Link } from "@tanstack/react-router";
 import { dismissAd, isAdDismissed, trackAdClick, trackAdImpression } from "@/lib/ads";
@@ -105,10 +105,10 @@ export const DEFAULT_ROTATING_BANNERS = [
     ctaText: "Shop Electronics",
     destinationUrl: "/results?cat=electronics",
     ctaLink: "/results?cat=electronics",
-    image: "https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=1600",
-    imageUrl: "https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=1600",
+    image: "https://images.unsplash.com/photo-1517336714731-489689fd1ca8?w=1600",
+    imageUrl: "https://images.unsplash.com/photo-1517336714731-489689fd1ca8?w=1600",
     creative: {
-      imageUrl: "https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=1600",
+      imageUrl: "https://images.unsplash.com/photo-1517336714731-489689fd1ca8?w=1600",
       title: "Upgrade Your Tech — Verified Mobiles & Laptops Nearby",
       description: "Explore authentic smartphones, MacBooks, tablets and accessories tested and sold by trusted local owners.",
       destinationUrl: "/results?cat=electronics"
@@ -218,8 +218,8 @@ export const DEFAULT_NATIVE_AD = {
   cta: "Browse Deals",
   ctaText: "Browse Deals",
   destinationUrl: "/results?cat=electronics",
-  image: "https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=600",
-  imageUrl: "https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=600",
+  image: "https://images.unsplash.com/photo-1517336714731-489689fd1ca8?w=800",
+  imageUrl: "https://images.unsplash.com/photo-1517336714731-489689fd1ca8?w=800",
   advertiser: "Omeetso Partner",
   label: "Sponsored"
 };
@@ -345,10 +345,10 @@ export function getCategoryDefaultBanner(categoryId: string, categoryName?: stri
       ctaText: "Shop Electronics",
       destinationUrl: "/results?cat=electronics",
       ctaLink: "/results?cat=electronics",
-      image: "https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=1600",
-      imageUrl: "https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=1600",
+      image: "https://images.unsplash.com/photo-1517336714731-489689fd1ca8?w=1600",
+      imageUrl: "https://images.unsplash.com/photo-1517336714731-489689fd1ca8?w=1600",
       creative: {
-        imageUrl: "https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=1600",
+        imageUrl: "https://images.unsplash.com/photo-1517336714731-489689fd1ca8?w=1600",
         title: "Upgrade Your Tech — Verified Laptops, Tablets & Audio",
         description: "Explore authentic MacBooks, Windows ultrabooks, monitors and consoles tested by trusted local neighbors.",
         destinationUrl: "/results?cat=electronics",
@@ -441,16 +441,16 @@ export function HeroAd({ ad, ads, maxAds = 5 }: { ad?: any; ads?: any[]; maxAds?
     if (list.length === 0) {
       list = [...DEFAULT_ROTATING_BANNERS];
     }
-    // Note: When placed ads are running (1 or more), NEVER mix with default or mock banners!
     return list.slice(0, maxAds);
   }, [ad, ads, maxAds]);
 
   const [currentIndex, setCurrentIndex] = useState(0);
   const [gone, setGone] = useState(false);
+  const [isHovered, setIsHovered] = useState(false);
 
-  // Auto-rotate every 5 seconds (5000ms) if multiple ads exist for this placement
+  // Auto-rotate every 5 seconds if multiple ads exist, but pause while hovered
   useEffect(() => {
-    if (adList.length <= 1) return;
+    if (adList.length <= 1 || isHovered) return;
 
     // Preload rotating ad banner images so transition is instant with 0 flicker
     adList.forEach((a) => {
@@ -466,16 +466,17 @@ export function HeroAd({ ad, ads, maxAds = 5 }: { ad?: any; ads?: any[]; maxAds?
     }, 5000);
 
     return () => clearInterval(timer);
-  }, [adList]);
+  }, [adList, isHovered]);
 
   const currentAd = adList[currentIndex] || adList[0];
 
   const adId = currentAd?.id || currentAd?.servedAdId || "ad_hero";
   const image = currentAd?.image || currentAd?.imageUrl || currentAd?.creative?.imageUrl;
   const headline = currentAd?.headline || currentAd?.title || currentAd?.creative?.title || "Sponsored Highlight";
-  const body = currentAd?.body || currentAd?.subtitle || currentAd?.label || currentAd?.creative?.description || "";
-  const cta = currentAd?.cta || currentAd?.ctaText || "Shop Now";
-  const destinationUrl = currentAd?.destinationUrl || currentAd?.ctaLink || currentAd?.creative?.destinationUrl || "/";
+  const body = currentAd?.body || currentAd?.subtitle || currentAd?.creative?.description || "";
+  const tag = currentAd?.tag || currentAd?.label || "";
+  const cta = currentAd?.cta || currentAd?.ctaText || "Explore Now";
+  const destinationUrl = currentAd?.destinationUrl || currentAd?.ctaLink || currentAd?.creative?.destinationUrl || "/results";
   const advertiser = currentAd?.advertiser || "Omeetso Partner";
 
   useEffect(() => {
@@ -487,11 +488,16 @@ export function HeroAd({ ad, ads, maxAds = 5 }: { ad?: any; ads?: any[]; maxAds?
   if (!currentAd || gone) return null;
 
   return (
-    <div className="relative group block overflow-hidden rounded-2xl bg-slate-900 text-white shadow-md border border-slate-700/50 aspect-[16/9] max-h-56 w-full">
+    <div
+      onMouseEnter={() => setIsHovered(true)}
+      onMouseLeave={() => setIsHovered(false)}
+      className="relative group w-full overflow-hidden rounded-2xl sm:rounded-3xl bg-slate-950 text-white shadow-xl border border-slate-800/80 h-48 sm:h-56 md:h-64 lg:h-72 select-none"
+    >
       <Link
         to={destinationUrl}
         onClick={() => trackAdClick(adId)}
-        className="absolute inset-0 z-0 block flex flex-col justify-between"
+        className="absolute inset-0 z-0 block"
+        aria-label={headline}
       >
         {image ? (
           <>
@@ -502,71 +508,119 @@ export function HeroAd({ ad, ads, maxAds = 5 }: { ad?: any; ads?: any[]; maxAds?
               loading="eager"
               decoding="async"
               onError={(e) => {
-                // Fall back if blob: or original URL fails to load
-                (e.target as HTMLImageElement).src = "https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=1200";
+                (e.target as HTMLImageElement).src = "https://images.unsplash.com/photo-1556742049-0a67e557b683?w=1600";
               }}
-              className="absolute inset-0 h-full w-full object-cover transition-opacity duration-700 animate-in fade-in-50"
+              className="absolute inset-0 h-full w-full object-cover object-center transition-all duration-700 ease-out scale-100 group-hover:scale-102 animate-in fade-in-50"
             />
-            <div className="absolute inset-0 bg-gradient-to-t from-slate-950/90 via-slate-950/40 to-slate-950/20" />
+            {/* Multi-stage aesthetic dark gradient to guarantee text readability in any lighting/theme */}
+            <div className="absolute inset-0 bg-gradient-to-t from-slate-950/95 via-slate-950/65 to-slate-950/30 sm:bg-gradient-to-r sm:from-slate-950/95 sm:via-slate-950/75 sm:to-slate-950/20" />
           </>
         ) : (
-          <div className="absolute inset-0 bg-gradient-to-r from-[#1E293B] via-[#334155] to-[#0F172A]" />
+          <div className="absolute inset-0 bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900" />
         )}
       </Link>
 
-      <div className="relative p-4 flex flex-col justify-between h-full z-10 pointer-events-none">
+      <div className="relative p-4 sm:p-6 md:p-8 flex flex-col justify-between h-full z-10 pointer-events-none">
+        {/* Top Header Row */}
         <div className="flex items-center justify-between gap-2 pointer-events-auto">
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 flex-wrap">
             <AdLabel tone="dark" />
+            {tag && tag !== "Sponsored" && (
+              <span className="inline-flex items-center gap-1 rounded-full bg-amber-400/20 border border-amber-400/30 px-2.5 py-0.5 text-[10px] sm:text-xs font-black uppercase tracking-wider text-amber-300 backdrop-blur-md">
+                {tag}
+              </span>
+            )}
           </div>
-          <div className="flex items-center gap-1">
+          <div className="flex items-center gap-1.5 shrink-0">
             <InfoWhySeeing />
             <button
               type="button"
               aria-label="Dismiss ad"
               onClick={(e) => { e.preventDefault(); e.stopPropagation(); dismissAd(adId); setGone(true); }}
-              className="grid h-7 w-7 place-items-center rounded-full bg-black/40 text-white hover:bg-black/60 backdrop-blur-sm"
+              className="grid h-7 w-7 place-items-center rounded-full bg-black/40 text-white/90 hover:bg-black/70 hover:text-white transition-all backdrop-blur-sm cursor-pointer"
             >
               <X className="h-3.5 w-3.5" />
             </button>
           </div>
         </div>
 
-        <div className="pointer-events-auto">
-          <Link to={destinationUrl} onClick={() => trackAdClick(adId)}>
-            <h3 className="text-base sm:text-lg font-extrabold leading-tight drop-shadow-sm">{headline}</h3>
-            {body && <p className="mt-0.5 text-xs text-slate-200 line-clamp-1 drop-shadow-sm">{body}</p>}
-          </Link>
-
-          <div className="mt-2 flex items-center justify-between">
-            <span className="text-[10px] font-medium text-slate-300">Ad · {advertiser}</span>
-            <div className="flex items-center gap-2">
-              {adList.length > 1 && (
-                <div className="flex items-center gap-1 mr-1">
-                  {adList.map((_, idx) => (
-                    <button
-                      key={idx}
-                      type="button"
-                      aria-label={`Go to slide ${idx + 1}`}
-                      onClick={(e) => { e.preventDefault(); e.stopPropagation(); setCurrentIndex(idx); }}
-                      className={`h-1.5 rounded-full transition-all ${
-                        idx === currentIndex ? "w-5 bg-amber-400" : "w-1.5 bg-white/40 hover:bg-white/70"
-                      }`}
-                    />
-                  ))}
-                </div>
+        {/* Bottom Content Row */}
+        <div className="pointer-events-auto flex flex-col sm:flex-row sm:items-end justify-between gap-3 pt-2">
+          <div className="max-w-xl space-y-1">
+            <Link to={destinationUrl} onClick={() => trackAdClick(adId)} className="block group/link">
+              <h3 className="text-base sm:text-xl md:text-2xl lg:text-3xl font-black text-white leading-tight drop-shadow-md group-hover/link:text-amber-300 transition-colors line-clamp-2">
+                {headline}
+              </h3>
+              {body && (
+                <p className="mt-1 text-xs sm:text-sm text-slate-200 line-clamp-1 sm:line-clamp-2 font-medium drop-shadow-sm leading-relaxed">
+                  {body}
+                </p>
               )}
-              <Link
-                to={destinationUrl}
-                onClick={() => trackAdClick(adId)}
-                className="inline-flex items-center gap-1 rounded-full bg-[#FFB800] hover:bg-amber-400 px-3.5 py-1 text-xs font-bold text-slate-950 shadow-sm"
-              >
-                {cta} <ArrowRight className="h-3.5 w-3.5" />
-              </Link>
-            </div>
+            </Link>
+            <p className="text-[10px] sm:text-[11px] font-semibold text-slate-300 pt-0.5">
+              Ad · {advertiser}
+            </p>
+          </div>
+
+          {/* Action Button & Carousel Indicators */}
+          <div className="flex items-center justify-between sm:justify-end gap-3 shrink-0">
+            {adList.length > 1 && (
+              <div className="flex items-center gap-1.5">
+                {adList.map((_, idx) => (
+                  <button
+                    key={idx}
+                    type="button"
+                    aria-label={`Go to slide ${idx + 1}`}
+                    onClick={(e) => { e.preventDefault(); e.stopPropagation(); setCurrentIndex(idx); }}
+                    className={`h-1.5 rounded-full transition-all duration-300 cursor-pointer ${
+                      idx === currentIndex ? "w-6 bg-amber-400 shadow-xs" : "w-1.5 bg-white/40 hover:bg-white/70"
+                    }`}
+                  />
+                ))}
+              </div>
+            )}
+
+            <Link
+              to={destinationUrl}
+              onClick={() => trackAdClick(adId)}
+              className="inline-flex items-center gap-1.5 rounded-full bg-amber-400 hover:bg-amber-300 active:scale-95 text-slate-950 font-black px-4 py-2 sm:px-5 sm:py-2.5 text-xs sm:text-sm shadow-md transition-all shrink-0 cursor-pointer"
+            >
+              <span>{cta}</span>
+              <ArrowRight className="h-3.5 w-3.5 stroke-[2.5]" />
+            </Link>
           </div>
         </div>
       </div>
+
+      {/* Prev / Next Chevrons on Hover */}
+      {adList.length > 1 && (
+        <>
+          <button
+            type="button"
+            aria-label="Previous slide"
+            onClick={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              setCurrentIndex((prev) => (prev - 1 + adList.length) % adList.length);
+            }}
+            className="absolute left-3 top-1/2 -translate-y-1/2 z-20 hidden md:grid h-9 w-9 place-items-center rounded-full bg-black/40 hover:bg-black/70 text-white backdrop-blur-md opacity-0 group-hover:opacity-100 transition-all duration-200 cursor-pointer shadow-md"
+          >
+            <ChevronLeft className="h-5 w-5" />
+          </button>
+          <button
+            type="button"
+            aria-label="Next slide"
+            onClick={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              setCurrentIndex((prev) => (prev + 1) % adList.length);
+            }}
+            className="absolute right-3 top-1/2 -translate-y-1/2 z-20 hidden md:grid h-9 w-9 place-items-center rounded-full bg-black/40 hover:bg-black/70 text-white backdrop-blur-md opacity-0 group-hover:opacity-100 transition-all duration-200 cursor-pointer shadow-md"
+          >
+            <ChevronRight className="h-5 w-5" />
+          </button>
+        </>
+      )}
     </div>
   );
 }
@@ -797,32 +851,33 @@ export function SecondaryBannerAd({
     if (list.length === 0) {
       list = [...DEFAULT_ROTATING_BANNERS];
     }
-    // When placed ads are running (1 or more), NEVER mix in default or mock ads
     return list.slice(0, maxAds);
   }, [ad, ads, maxAds]);
 
   const [currentIndex, setCurrentIndex] = useState(0);
   const [gone, setGone] = useState(false);
+  const [isHovered, setIsHovered] = useState(false);
 
-  // Auto-rotate every 5 seconds (5000ms)
+  // Auto-rotate every 5 seconds, paused on hover
   useEffect(() => {
-    if (adList.length <= 1) return;
+    if (adList.length <= 1 || isHovered) return;
 
     const timer = setInterval(() => {
       setCurrentIndex((prev) => (prev + 1) % adList.length);
     }, 5000);
 
     return () => clearInterval(timer);
-  }, [adList.length]);
+  }, [adList.length, isHovered]);
 
   const currentAd = adList[currentIndex] || adList[0];
 
   const adId = currentAd?.id || currentAd?.servedAdId || "ad_sec";
   const image = currentAd?.image || currentAd?.imageUrl || currentAd?.creative?.imageUrl;
   const headline = currentAd?.headline || currentAd?.title || currentAd?.creative?.title || "Exclusive Offer";
-  const body = currentAd?.body || currentAd?.subtitle || currentAd?.label || currentAd?.creative?.description || "";
+  const body = currentAd?.body || currentAd?.subtitle || currentAd?.creative?.description || "";
+  const tag = currentAd?.tag || currentAd?.label || "";
   const cta = currentAd?.cta || currentAd?.ctaText || "Claim Deal";
-  const destinationUrl = currentAd?.destinationUrl || currentAd?.ctaLink || currentAd?.creative?.destinationUrl || "/";
+  const destinationUrl = currentAd?.destinationUrl || currentAd?.ctaLink || currentAd?.creative?.destinationUrl || "/results";
   const advertiser = currentAd?.advertiser || "Verified Partner";
 
   useEffect(() => {
@@ -834,11 +889,16 @@ export function SecondaryBannerAd({
   if (!currentAd || gone) return null;
 
   return (
-    <div className="relative group block overflow-hidden rounded-2xl bg-slate-900 text-white shadow-md border border-slate-700/50 aspect-[16/9] max-h-56 w-full">
+    <div
+      onMouseEnter={() => setIsHovered(true)}
+      onMouseLeave={() => setIsHovered(false)}
+      className="relative group w-full overflow-hidden rounded-2xl sm:rounded-3xl bg-slate-950 text-white shadow-lg border border-slate-800/80 h-40 sm:h-48 md:h-56 select-none"
+    >
       <Link
         to={destinationUrl}
         onClick={() => trackAdClick(adId)}
-        className="absolute inset-0 z-0 block flex flex-col justify-between"
+        className="absolute inset-0 z-0 block"
+        aria-label={headline}
       >
         {image ? (
           <>
@@ -847,70 +907,114 @@ export function SecondaryBannerAd({
               src={image}
               alt={headline}
               onError={(e) => {
-                (e.target as HTMLImageElement).src = "https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=1200";
+                (e.target as HTMLImageElement).src = "https://images.unsplash.com/photo-1556742049-0a67e557b683?w=1600";
               }}
-              className="absolute inset-0 h-full w-full object-cover transition-opacity duration-700 animate-in fade-in-50"
+              className="absolute inset-0 h-full w-full object-cover object-center transition-all duration-700 ease-out scale-100 group-hover:scale-102 animate-in fade-in-50"
             />
-            <div className="absolute inset-0 bg-gradient-to-t from-slate-950/95 via-slate-950/45 to-slate-950/20" />
+            <div className="absolute inset-0 bg-gradient-to-t from-slate-950/95 via-slate-950/65 to-slate-950/25 sm:bg-gradient-to-r sm:from-slate-950/95 sm:via-slate-950/75 sm:to-slate-950/20" />
           </>
         ) : (
-          <div className="absolute inset-0 bg-gradient-to-r from-[#1E293B] via-[#334155] to-[#0F172A]" />
+          <div className="absolute inset-0 bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900" />
         )}
       </Link>
 
-      <div className="relative p-4 flex flex-col justify-between h-full z-10 pointer-events-none">
+      <div className="relative p-3.5 sm:p-5 md:p-6 flex flex-col justify-between h-full z-10 pointer-events-none">
         <div className="flex items-center justify-between gap-2 pointer-events-auto">
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 flex-wrap">
             <AdLabel tone="dark" />
+            {tag && tag !== "Sponsored" && (
+              <span className="inline-flex items-center gap-1 rounded-full bg-amber-400/20 border border-amber-400/30 px-2 py-0.5 text-[9px] sm:text-[10px] font-black uppercase tracking-wider text-amber-300 backdrop-blur-md">
+                {tag}
+              </span>
+            )}
           </div>
-          <div className="flex items-center gap-1">
+          <div className="flex items-center gap-1.5 shrink-0">
             <InfoWhySeeing />
             <button
               type="button"
               aria-label="Dismiss ad"
               onClick={(e) => { e.preventDefault(); e.stopPropagation(); dismissAd(adId); setGone(true); }}
-              className="grid h-7 w-7 place-items-center rounded-full bg-black/40 text-white hover:bg-black/60 backdrop-blur-sm"
+              className="grid h-6 w-6 place-items-center rounded-full bg-black/40 text-white/90 hover:bg-black/70 hover:text-white transition-all backdrop-blur-sm cursor-pointer"
             >
-              <X className="h-3.5 w-3.5" />
+              <X className="h-3 w-3" />
             </button>
           </div>
         </div>
 
-        <div className="pointer-events-auto">
-          <Link to={destinationUrl} onClick={() => trackAdClick(adId)}>
-            <h3 className="text-base sm:text-lg font-extrabold leading-tight drop-shadow-sm">{headline}</h3>
-            {body && <p className="mt-0.5 text-xs text-slate-200 line-clamp-1 drop-shadow-sm">{body}</p>}
-          </Link>
-
-          <div className="mt-2 flex items-center justify-between">
-            <span className="text-[10px] font-medium text-slate-300">Ad · {advertiser}</span>
-            <div className="flex items-center gap-2">
-              {adList.length > 1 && (
-                <div className="flex items-center gap-1 mr-1">
-                  {adList.map((_, idx) => (
-                    <button
-                      key={idx}
-                      type="button"
-                      aria-label={`Go to slide ${idx + 1}`}
-                      onClick={(e) => { e.preventDefault(); e.stopPropagation(); setCurrentIndex(idx); }}
-                      className={`h-1.5 rounded-full transition-all ${
-                        idx === currentIndex ? "w-5 bg-amber-400" : "w-1.5 bg-white/40 hover:bg-white/70"
-                      }`}
-                    />
-                  ))}
-                </div>
+        <div className="pointer-events-auto flex flex-col sm:flex-row sm:items-end justify-between gap-2.5 pt-1">
+          <div className="max-w-xl space-y-0.5">
+            <Link to={destinationUrl} onClick={() => trackAdClick(adId)} className="block group/link">
+              <h3 className="text-sm sm:text-lg md:text-xl font-black text-white leading-tight drop-shadow-md group-hover/link:text-amber-300 transition-colors line-clamp-2">
+                {headline}
+              </h3>
+              {body && (
+                <p className="mt-0.5 text-[11px] sm:text-xs text-slate-200 line-clamp-1 font-medium drop-shadow-sm leading-relaxed">
+                  {body}
+                </p>
               )}
-              <Link
-                to={destinationUrl}
-                onClick={() => trackAdClick(adId)}
-                className="inline-flex items-center gap-1 rounded-full bg-[#FFB800] hover:bg-amber-400 px-3.5 py-1 text-xs font-bold text-slate-950 shadow-sm"
-              >
-                {cta} <ArrowRight className="h-3.5 w-3.5" />
-              </Link>
-            </div>
+            </Link>
+            <p className="text-[10px] font-semibold text-slate-300">
+              Ad · {advertiser}
+            </p>
+          </div>
+
+          <div className="flex items-center justify-between sm:justify-end gap-2.5 shrink-0">
+            {adList.length > 1 && (
+              <div className="flex items-center gap-1">
+                {adList.map((_, idx) => (
+                  <button
+                    key={idx}
+                    type="button"
+                    aria-label={`Go to slide ${idx + 1}`}
+                    onClick={(e) => { e.preventDefault(); e.stopPropagation(); setCurrentIndex(idx); }}
+                    className={`h-1.5 rounded-full transition-all duration-300 cursor-pointer ${
+                      idx === currentIndex ? "w-5 bg-amber-400 shadow-xs" : "w-1.5 bg-white/40 hover:bg-white/70"
+                    }`}
+                  />
+                ))}
+              </div>
+            )}
+
+            <Link
+              to={destinationUrl}
+              onClick={() => trackAdClick(adId)}
+              className="inline-flex items-center gap-1 rounded-full bg-amber-400 hover:bg-amber-300 active:scale-95 text-slate-950 font-black px-3.5 py-1.5 sm:px-4 sm:py-2 text-xs shadow-md transition-all shrink-0 cursor-pointer"
+            >
+              <span>{cta}</span>
+              <ArrowRight className="h-3 w-3 stroke-[2.5]" />
+            </Link>
           </div>
         </div>
       </div>
+
+      {adList.length > 1 && (
+        <>
+          <button
+            type="button"
+            aria-label="Previous slide"
+            onClick={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              setCurrentIndex((prev) => (prev - 1 + adList.length) % adList.length);
+            }}
+            className="absolute left-2 top-1/2 -translate-y-1/2 z-20 hidden md:grid h-8 w-8 place-items-center rounded-full bg-black/40 hover:bg-black/70 text-white backdrop-blur-md opacity-0 group-hover:opacity-100 transition-all duration-200 cursor-pointer shadow-md"
+          >
+            <ChevronLeft className="h-4 w-4" />
+          </button>
+          <button
+            type="button"
+            aria-label="Next slide"
+            onClick={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              setCurrentIndex((prev) => (prev + 1) % adList.length);
+            }}
+            className="absolute right-2 top-1/2 -translate-y-1/2 z-20 hidden md:grid h-8 w-8 place-items-center rounded-full bg-black/40 hover:bg-black/70 text-white backdrop-blur-md opacity-0 group-hover:opacity-100 transition-all duration-200 cursor-pointer shadow-md"
+          >
+            <ChevronRight className="h-4 w-4" />
+          </button>
+        </>
+      )}
     </div>
   );
 }

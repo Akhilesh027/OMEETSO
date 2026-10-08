@@ -68,7 +68,9 @@ export async function getCategories(req: Request, res: Response, next: NextFunct
         row: cat.row,
         iconName: cat.iconName || "Layers",
         iconUrl: cat.iconUrl || undefined,
-        imageUrl: cat.imageUrl || undefined,
+        imageUrl: cat.imageUrl || (cat as any).coverImage || (cat as any).coverImageUrl || undefined,
+        coverImage: (cat as any).coverImage || cat.imageUrl || (cat as any).coverImageUrl || undefined,
+        coverImageUrl: (cat as any).coverImageUrl || (cat as any).coverImage || cat.imageUrl || undefined,
         subcategoriesLabel: cat.subcategoriesLabel || undefined,
         subcategories: cat.subcategories || [],
         filters: cat.filters || [],
@@ -127,6 +129,8 @@ export async function getCategoryById(req: Request, res: Response, next: NextFun
         iconName: category.iconName || "Layers",
         iconUrl: category.iconUrl || undefined,
         imageUrl: category.imageUrl || undefined,
+        coverImage: category.coverImage || category.imageUrl || undefined,
+        coverImageUrl: category.coverImageUrl || category.coverImage || category.imageUrl || undefined,
         subcategoriesLabel: category.subcategoriesLabel || undefined,
         subcategories: category.subcategories || [],
         filters: category.filters || [],
@@ -197,6 +201,8 @@ export async function createCategory(req: Request, res: Response, next: NextFunc
       iconName,
       iconUrl,
       imageUrl,
+      coverImage,
+      coverImageUrl,
       subcategoriesLabel,
       subcategories,
       filters,
@@ -234,13 +240,17 @@ export async function createCategory(req: Request, res: Response, next: NextFunc
       return;
     }
 
+    const effectiveCover = coverImage || coverImageUrl || imageUrl || undefined;
+
     const newCategory = await Category.create({
       categoryId: generatedId,
       name: name.trim(),
       row: Number(row) === 2 ? 2 : Number(row) === 3 ? 3 : 1,
       iconName: iconName || "Layers",
       iconUrl: iconUrl || undefined,
-      imageUrl: imageUrl || undefined,
+      imageUrl: effectiveCover,
+      coverImage: effectiveCover,
+      coverImageUrl: effectiveCover,
       subcategoriesLabel: subcategoriesLabel || undefined,
       subcategories: Array.isArray(subcategories) ? subcategories : [],
       filters: Array.isArray(filters) ? filters : [],
@@ -287,6 +297,8 @@ export async function updateCategory(req: Request, res: Response, next: NextFunc
       iconName,
       iconUrl,
       imageUrl,
+      coverImage,
+      coverImageUrl,
       subcategoriesLabel,
       subcategories,
       filters,
@@ -301,11 +313,17 @@ export async function updateCategory(req: Request, res: Response, next: NextFunc
       isActive
     } = req.body;
 
+    const effectiveCover = coverImage !== undefined ? coverImage : (coverImageUrl !== undefined ? coverImageUrl : imageUrl);
+
     if (name !== undefined) category.name = name.trim();
     if (row !== undefined) category.row = Number(row) === 2 ? 2 : Number(row) === 3 ? 3 : 1;
     if (iconName !== undefined) category.iconName = iconName;
     if (iconUrl !== undefined) category.iconUrl = iconUrl;
-    if (imageUrl !== undefined) category.imageUrl = imageUrl;
+    if (effectiveCover !== undefined) {
+      category.imageUrl = effectiveCover;
+      (category as any).coverImage = effectiveCover;
+      (category as any).coverImageUrl = effectiveCover;
+    }
     if (subcategoriesLabel !== undefined) category.subcategoriesLabel = subcategoriesLabel;
     if (subcategories !== undefined) category.subcategories = Array.isArray(subcategories) ? subcategories : [];
     if (filters !== undefined) category.filters = Array.isArray(filters) ? filters : [];

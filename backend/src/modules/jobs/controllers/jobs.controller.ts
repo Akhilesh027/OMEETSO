@@ -61,7 +61,7 @@ export async function getPublicJobs(req: Request, res: Response, next: NextFunct
     const skip = (page - 1) * limit;
 
     const query: Record<string, any> = {
-      status: { $in: ["ACTIVE", "APPROVED", "PUBLISHED", "active", "approved", "published"] }
+      status: { $in: ["ACTIVE", "APPROVED", "PUBLISHED", "active", "approved", "published", "SUBMITTED", "submitted"] }
     };
 
     if (req.query.q) {
@@ -259,7 +259,7 @@ export async function createJobListing(req: AuthenticatedUserRequest, res: Respo
       isUrgent: Boolean(body.isUrgent),
       isFeatured: Boolean(body.isFeatured),
       screeningQuestions: Array.isArray(body.screeningQuestions) ? body.screeningQuestions : [],
-      status: "SUBMITTED"
+      status: body.status || "APPROVED"
     });
 
     // Dispatch instant alert to admin
@@ -395,16 +395,20 @@ export async function applyToJob(req: AuthenticatedUserRequest, res: Response, n
     }
 
     const isObjectId = mongoose.Types.ObjectId.isValid(jobId);
-    let job = isObjectId ? await Job.findById(jobId) : await Job.findOne({ $or: [{ slug: jobId }, { id: jobId }] });
-    
-    // If not in database, attempt fallback
+    let job = isObjectId ? await Job.findById(jobId) : null;
     if (!job) {
-      const sample = await Job.findOne();
-      job = sample;
+      job = await Job.findOne({
+        $or: [
+          ...(isObjectId ? [{ _id: new mongoose.Types.ObjectId(jobId) }] : []),
+          { slug: jobId },
+          ...(req.body.jobTitle ? [{ title: new RegExp(`^${req.body.jobTitle.trim()}$`, "i") }] : []),
+          ...(customSnapshot?.jobTitle ? [{ title: new RegExp(`^${customSnapshot.jobTitle.trim()}$`, "i") }] : [])
+        ]
+      });
     }
 
     if (!job) {
-      res.status(404).json({ success: false, error: { message: "Job listing not found" } });
+      res.status(404).json({ success: false, error: { message: "Job listing not found or has expired." } });
       return;
     }
 
@@ -492,10 +496,23 @@ export async function applyToJob(req: AuthenticatedUserRequest, res: Response, n
       return;
     }
 
+    // Resolve target employer
+    const targetEmployerId = job.employerId || (req.body.employerId && mongoose.Types.ObjectId.isValid(req.body.employerId) ? new mongoose.Types.ObjectId(req.body.employerId) : req.user._id);
+
     const application = await JobApplication.create({
       jobId: job._id,
       applicantId: req.user._id,
-      employerId: job.employerId,
+      employerId: targetEmployerId,
+      jobSnapshot: {
+        title: job.title,
+        companyName: job.companyName,
+        companyLogo: job.companyLogo,
+        location: job.location,
+        salary: job.salary,
+        jobType: job.jobType,
+        workplaceType: job.workplaceType,
+        status: job.status
+      },
       applicantProfileSnapshot: {
         name: applicantName,
         phone: applicantPhone,
@@ -538,9 +555,9 @@ export async function applyToJob(req: AuthenticatedUserRequest, res: Response, n
     }).catch(() => {});
 
     // Employer notification
-    if (job.employerId) {
+    if (targetEmployerId && String(targetEmployerId) !== String(req.user._id)) {
       await Notification.create({
-        userId: job.employerId,
+        userId: targetEmployerId,
         type: "job_application",
         title: `New Applicant: ${job.title}`,
         body: `${application.applicantProfileSnapshot?.name || "A candidate"} applied for ${job.title}.`,
@@ -591,19 +608,85 @@ export async function getCandidateApplications(req: AuthenticatedUserRequest, re
       return;
     }
 
-    const applications = await JobApplication.find({ applicantId: req.user._id })
+    const userConditions: any[] = [
+      { applicantId: req.user._id },
+      { applicantId: req.user._id.toString() }
+    ];
+
+    if (req.user.phone) {
+      userConditions.push({ "applicantProfileSnapshot.phone": req.user.phone });
+      const digits = req.user.phone.replace(/\D/g, "");
+      const last10 = digits.slice(-10);
+      if (last10 && last10.length >= 7) {
+        userConditions.push({ "applicantProfileSnapshot.phone": new RegExp(last10 + "$") });
+      }
+    }
+
+    if (req.user.email) {
+      userConditions.push({ "applicantProfileSnapshot.email": new RegExp(`^${req.user.email.trim()}$`, "i") });
+    }
+
+    try {
+      const candProfile = await CandidateProfile.findOne({ userId: req.user._id });
+      if (candProfile) {
+        if (candProfile.phone) {
+          userConditions.push({ "applicantProfileSnapshot.phone": candProfile.phone });
+          const digits = candProfile.phone.replace(/\D/g, "").slice(-10);
+          if (digits && digits.length >= 7) {
+            userConditions.push({ "applicantProfileSnapshot.phone": new RegExp(digits + "$") });
+          }
+        }
+        if (candProfile.email) {
+          userConditions.push({ "applicantProfileSnapshot.email": new RegExp(`^${candProfile.email.trim()}$`, "i") });
+        }
+      }
+    } catch {}
+
+    const applications = await JobApplication.find({ $or: userConditions })
       .populate("jobId", "title companyName companyLogo location salary jobType workplaceType status")
       .sort({ createdAt: -1 })
       .lean();
 
-    res.status(200).json({
-      success: true,
-      data: applications.map((a: any) => ({
+    const enriched = await Promise.all(applications.map(async (a: any) => {
+      let jobData = a.jobId && typeof a.jobId === "object" && a.jobId.title ? {
+        ...a.jobId,
+        id: a.jobId._id ? a.jobId._id.toString() : a.jobId.id
+      } : (a.jobSnapshot ? { ...a.jobSnapshot, id: a.jobId?.toString?.() || a._id.toString() } : null);
+
+      const jId = a.jobId?._id ? a.jobId._id.toString() : (typeof a.jobId === "string" ? a.jobId : String(a.jobId || ""));
+
+      if (!jobData && jId && mongoose.Types.ObjectId.isValid(jId)) {
+        try {
+          const directJob = await Job.findById(jId).select("title companyName companyLogo location salary jobType workplaceType status").lean();
+          if (directJob) {
+            jobData = { ...directJob, id: directJob._id.toString() };
+          }
+        } catch {}
+      }
+
+      if (!jobData) {
+        jobData = {
+          id: jId || a._id.toString(),
+          title: a.jobSnapshot?.title || "Job Position",
+          companyName: a.jobSnapshot?.companyName || "Hiring Company",
+          companyLogo: a.jobSnapshot?.companyLogo,
+          location: a.jobSnapshot?.location || { city: "Hyderabad" },
+          salary: a.jobSnapshot?.salary,
+          status: a.jobSnapshot?.status || "ACTIVE"
+        };
+      }
+
+      return {
         ...a,
         id: a._id.toString(),
-        jobId: a.jobId?._id ? a.jobId._id.toString() : (typeof a.jobId === 'string' ? a.jobId : String(a.jobId || '')),
-        job: a.jobId ? { ...a.jobId, id: a.jobId._id ? a.jobId._id.toString() : a.jobId.id } : null
-      }))
+        jobId: jId,
+        job: jobData
+      };
+    }));
+
+    res.status(200).json({
+      success: true,
+      data: enriched
     });
   } catch (err) {
     next(err);
@@ -634,17 +717,32 @@ export async function getJobApplicants(req: AuthenticatedUserRequest, res: Respo
       return;
     }
 
-    const jobId = String(req.params.jobId);
+    const rawJobId = req.params.jobId ? String(req.params.jobId) : "";
     const { status, q, sort } = req.query;
 
-    const jobQueryIds: any[] = [jobId];
-    if (mongoose.Types.ObjectId.isValid(jobId)) {
-      jobQueryIds.push(new mongoose.Types.ObjectId(jobId));
-    }
+    const query: Record<string, any> = {};
 
-    const query: Record<string, any> = {
-      jobId: { $in: jobQueryIds }
-    };
+    if (rawJobId && rawJobId !== "all") {
+      const jobQueryIds: any[] = [rawJobId];
+      if (mongoose.Types.ObjectId.isValid(rawJobId)) {
+        jobQueryIds.push(new mongoose.Types.ObjectId(rawJobId));
+      }
+      const targetJob = mongoose.Types.ObjectId.isValid(rawJobId)
+        ? await Job.findById(rawJobId).select("_id").lean()
+        : await Job.findOne({ $or: [{ slug: rawJobId }, { title: rawJobId }] }).select("_id").lean();
+      if (targetJob) {
+        jobQueryIds.push(targetJob._id);
+      }
+      query.jobId = { $in: jobQueryIds };
+    } else {
+      // Find all jobs posted by this employer
+      const employerJobs = await Job.find({ employerId: req.user._id }).select("_id").lean();
+      const employerJobIds = employerJobs.map(j => j._id);
+      query.$or = [
+        { employerId: req.user._id },
+        { jobId: { $in: employerJobIds } }
+      ];
+    }
 
     if (status && status !== "ALL") {
       query.status = (status as string).toUpperCase();

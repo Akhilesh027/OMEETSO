@@ -511,31 +511,83 @@ export function ConfirmModal({
 }
 
 // ---------------- Loading overlay ----------------
-// ---------------- Loading overlay ----------------
-export function LoadingOverlay({ open, label }: { open: boolean; label?: string }) {
+export function LoadingOverlay({
+  open,
+  label,
+  step,
+  progress = 65,
+}: {
+  open: boolean;
+  label?: string;
+  step?: string;
+  progress?: number;
+}) {
   if (!open) return null;
+  const isComplete = progress >= 100;
+
   return (
-    <div role="status" aria-live="assertive" className="fixed inset-0 z-[100] grid place-items-center bg-background/80 backdrop-blur-md p-4 animate-in fade-in duration-200">
-      <div className="w-full max-w-sm rounded-3xl bg-card border border-border/80 p-6 shadow-2xl text-center space-y-4">
-        <div className="relative mx-auto h-16 w-16 grid place-items-center">
-          <div className="absolute inset-0 rounded-full border-4 border-indigo-brand/20 animate-ping opacity-40" />
-          <div className="h-14 w-14 rounded-full border-4 border-t-indigo-brand border-r-indigo-brand border-b-indigo-brand/20 border-l-indigo-brand/20 animate-spin" />
+    <div
+      role="status"
+      aria-live="assertive"
+      className="fixed inset-0 z-[100] grid place-items-center bg-background/85 backdrop-blur-lg p-4 animate-in fade-in duration-300"
+    >
+      <div className="w-full max-w-sm rounded-3xl bg-card/95 border border-indigo-brand/30 p-7 shadow-[0_20px_60px_-15px_rgba(79,70,229,0.3)] text-center space-y-5 relative overflow-hidden">
+        {/* Subtle decorative top background gradient glow */}
+        <div className="absolute -top-24 left-1/2 -translate-x-1/2 w-48 h-48 bg-gradient-to-br from-indigo-500/20 via-purple-500/15 to-transparent rounded-full blur-2xl pointer-events-none" />
+
+        {/* Animated Central Loader Icon */}
+        <div className="relative mx-auto h-20 w-20 grid place-items-center">
+          <div className="absolute inset-0 rounded-full border-4 border-indigo-500/20 animate-ping opacity-60" />
+          <div className="absolute -inset-1 rounded-full border border-indigo-500/30 animate-pulse" />
+          <div
+            className={`h-16 w-16 rounded-full border-4 ${
+              isComplete
+                ? "border-emerald-500 bg-emerald-500/10"
+                : "border-t-indigo-brand border-r-indigo-brand border-b-transparent border-l-transparent animate-spin"
+            }`}
+          />
           <div className="absolute inset-0 grid place-items-center">
-            <span className="text-xl">⚡</span>
+            {isComplete ? (
+              <span className="text-2xl animate-in zoom-in-75 duration-300">✓</span>
+            ) : (
+              <span className="text-2xl animate-bounce">⚡</span>
+            )}
           </div>
         </div>
 
-        <div className="space-y-1.5">
-          <h3 className="text-base font-extrabold text-foreground tracking-tight">
-            {label ?? "Publishing Listing…"}
+        {/* Titles & Dynamic Live Step Text */}
+        <div className="space-y-1.5 relative z-10">
+          <h3 className="text-lg font-black text-foreground tracking-tight">
+            {label ?? "Publishing Quick Listing…"}
           </h3>
-          <p className="text-xs text-muted-foreground font-medium animate-pulse">
-            Compressing photos, saving to MongoDB, and alerting nearby buyers…
+          <p className="text-xs font-semibold text-indigo-600 dark:text-indigo-400 min-h-[1.25rem] transition-all duration-300">
+            {step ?? "Compressing photos, saving to MongoDB, and alerting nearby buyers…"}
           </p>
         </div>
 
-        <div className="h-1.5 w-full rounded-full bg-secondary overflow-hidden">
-          <div className="h-full rounded-full bg-indigo-brand animate-[pulse_1.2s_ease-in-out_infinite]" style={{ width: "85%" }} />
+        {/* Dynamic Progress Bar with percentage */}
+        <div className="space-y-1.5 relative z-10">
+          <div className="flex items-center justify-between text-[11px] font-bold text-muted-foreground px-1">
+            <span>Progress</span>
+            <span className="text-indigo-brand">{Math.min(100, Math.max(0, Math.round(progress)))}%</span>
+          </div>
+          <div className="h-2 w-full rounded-full bg-secondary overflow-hidden p-0.5 border border-border/60">
+            <div
+              className={`h-full rounded-full transition-all duration-500 ease-out ${
+                isComplete
+                  ? "bg-emerald-500 shadow-[0_0_12px_rgba(16,185,129,0.6)]"
+                  : "bg-gradient-to-r from-indigo-brand via-purple-600 to-indigo-500 animate-[pulse_1.5s_ease-in-out_infinite] shadow-[0_0_12px_rgba(99,102,241,0.5)]"
+              }`}
+              style={{ width: `${Math.min(100, Math.max(8, progress))}%` }}
+            />
+          </div>
+        </div>
+
+        {/* Feature Badges Footer */}
+        <div className="flex items-center justify-center gap-2 pt-1 border-t border-border/50 text-[10px] font-bold text-muted-foreground">
+          <span className="flex items-center gap-1">🔒 Live MongoDB Sync</span>
+          <span>•</span>
+          <span className="flex items-center gap-1">⚡ Buyer Radar</span>
         </div>
       </div>
     </div>

@@ -64,6 +64,7 @@ export async function getAdminListingsQueueApi(params?: Record<string, any>): Pr
       _id: l.id,
       title: l.title,
       description: l.description,
+      price: l.price !== undefined ? l.price : (l.priceInPaise ? l.priceInPaise / 100 : 0),
       priceInPaise: l.priceInPaise || (l.price ? Math.round(l.price * 100) : 0),
       condition: l.condition,
       categoryId: l.categoryId || l.category,

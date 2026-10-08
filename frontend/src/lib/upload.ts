@@ -3,6 +3,8 @@ import { API_BASE } from "@/config/api";
 
 // In-memory upload promise cache to prevent redundant uploads and allow seamless background uploading
 const uploadPromiseCache = new Map<string, Promise<string>>();
+// In-memory resolved remote URL map for instant O(1) lookups
+const resolvedUrlCache = new Map<string, string>();
 
 /**
  * Fast client-side canvas compression to reduce multi-MB photos down to ~100-200KB before upload,
@@ -69,25 +71,32 @@ export async function uploadImageToCloudinary(fileOrBase64: File | string, purpo
   }
 
   // Check upload cache if string identifier exists
-  const cacheKey = typeof fileOrBase64 === "string" ? fileOrBase64.slice(0, 200) + fileOrBase64.length : null;
+  const cacheKey = typeof fileOrBase64 === "string" ? fileOrBase64.slice(0, 150) + fileOrBase64.length : null;
+  if (cacheKey && resolvedUrlCache.has(cacheKey)) {
+    return resolvedUrlCache.get(cacheKey)!;
+  }
   if (cacheKey && uploadPromiseCache.has(cacheKey)) {
     return uploadPromiseCache.get(cacheKey)!;
   }
 
   const uploadTask = (async () => {
-    // Fast client-side compression before network transmission
-    const compressedBase64 = await compressImageForUpload(fileOrBase64, 1280, 0.82);
-    const base64String = compressedBase64 || (typeof fileOrBase64 === "string" ? fileOrBase64 : "");
+    // If string is already a compressed data URI under ~600KB, skip redundant canvas re-compression
+    let base64String = typeof fileOrBase64 === "string" ? fileOrBase64 : "";
+    if (!base64String || typeof fileOrBase64 !== "string" || base64String.length > 700000) {
+      const compressed = await compressImageForUpload(fileOrBase64, 1280, 0.82);
+      if (compressed) base64String = compressed;
+    }
 
     if (!base64String) return "";
     if (base64String.startsWith("http://") || base64String.startsWith("https://")) {
+      if (cacheKey) resolvedUrlCache.set(cacheKey, base64String);
       return base64String;
     }
 
     const token = typeof window !== "undefined" ? (getUserAccessToken() || localStorage.getItem("omeetso_user_token")) : null;
     try {
       const controller = new AbortController();
-      const timeout = setTimeout(() => controller.abort(), 10000); // 10s max timeout per image
+      const timeout = setTimeout(() => controller.abort(), 6000); // 6s fast timeout per image
 
       const res = await fetch(`${API_BASE}/uploads/direct`, {
         method: "POST",
@@ -101,6 +110,7 @@ export async function uploadImageToCloudinary(fileOrBase64: File | string, purpo
       clearTimeout(timeout);
       const json = await res.json();
       if (json.success && json.data?.url) {
+        if (cacheKey) resolvedUrlCache.set(cacheKey, json.data.url);
         return json.data.url;
       }
     } catch (err) {
@@ -115,6 +125,56 @@ export async function uploadImageToCloudinary(fileOrBase64: File | string, purpo
   }
 
   return uploadTask;
+}
+
+/**
+ * High-speed image upload with graceful fallback.
+ * If image was proactively uploaded in background, returns immediately (<1ms).
+ * Otherwise races upload with a max 1.5s grace period so publishing is never delayed.
+ */
+export async function fastUploadImageWithGracePeriod(
+  fileOrBase64: File | string,
+  purpose = "listings",
+  graceMs = 1500
+): Promise<string> {
+  if (!fileOrBase64) return "";
+  if (typeof fileOrBase64 === "string" && (fileOrBase64.startsWith("http://") || fileOrBase64.startsWith("https://"))) {
+    return fileOrBase64;
+  }
+  const cacheKey = typeof fileOrBase64 === "string" ? fileOrBase64.slice(0, 150) + fileOrBase64.length : null;
+  if (cacheKey && resolvedUrlCache.has(cacheKey)) {
+    return resolvedUrlCache.get(cacheKey)!;
+  }
+  try {
+    const task = uploadImageToCloudinary(fileOrBase64, purpose);
+    const fallback = typeof fileOrBase64 === "string" ? fileOrBase64 : "";
+    const timer = new Promise<string>((resolve) => setTimeout(() => resolve(fallback), graceMs));
+    return await Promise.race([task, timer]);
+  } catch {
+    return typeof fileOrBase64 === "string" ? fileOrBase64 : "";
+  }
+}
+
+/**
+ * High-speed video upload with graceful fallback.
+ */
+export async function fastUploadVideoWithGracePeriod(
+  fileOrBase64: File | string,
+  purpose = "listing_videos",
+  graceMs = 2000
+): Promise<string> {
+  if (!fileOrBase64) return "";
+  if (typeof fileOrBase64 === "string" && (fileOrBase64.startsWith("http://") || fileOrBase64.startsWith("https://"))) {
+    return fileOrBase64;
+  }
+  try {
+    const task = uploadVideoToCloudinary(fileOrBase64, purpose);
+    const fallback = typeof fileOrBase64 === "string" ? fileOrBase64 : "";
+    const timer = new Promise<string>((resolve) => setTimeout(() => resolve(fallback), graceMs));
+    return await Promise.race([task, timer]);
+  } catch {
+    return typeof fileOrBase64 === "string" ? fileOrBase64 : "";
+  }
 }
 
 export async function uploadVideoToCloudinary(fileOrBase64: File | string, purpose = "listing_videos"): Promise<string> {

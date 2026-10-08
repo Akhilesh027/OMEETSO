@@ -14,22 +14,30 @@ export async function getHomeBanners(req: Request, res: Response, next: NextFunc
     if (locationQuery) {
       const locVal = locationQuery.split(",")[0].trim().toLowerCase();
       let locRegex = locVal;
-      if (locVal.includes("bangalore") || locVal.includes("bengaluru") || locVal.includes("benglure")) {
-        locRegex = "bangalore|bengaluru|benglure";
-      } else if (locVal.includes("hyderabad") || locVal.includes("hyd")) {
-        locRegex = "hyderabad|hyd|secunderabad";
-      } else if (locVal.includes("mumbai") || locVal.includes("bombay")) {
-        locRegex = "mumbai|bombay|thane";
+      if (/hyderabad|hyd|secunderabad|cyberabad|madhapur|gachibowli|kukatpally/i.test(locVal)) {
+        locRegex = "hyderabad|hyd|secunderabad|cyberabad|madhapur|gachibowli|kukatpally";
+      } else if (/bangalore|bengaluru|benglure|whitefield|koramangala|hsr|indiranagar/i.test(locVal)) {
+        locRegex = "bangalore|bengaluru|benglure|whitefield|koramangala|hsr|indiranagar";
+      } else if (/mumbai|bombay|thane|navi mumbai|andheri|bandra/i.test(locVal)) {
+        locRegex = "mumbai|bombay|thane|navi mumbai|andheri|bandra";
+      } else if (/delhi|ncr|gurgaon|gurugram|noida/i.test(locVal)) {
+        locRegex = "delhi|ncr|gurgaon|gurugram|noida";
       }
       filter.$or = [
         { location: { $regex: locRegex, $options: "i" } },
+        { location: { $regex: "all|national|india|pan|local|everywhere|online|network|district|pros|showrooms|merchants|marketplace|opportunities|vehicles", $options: "i" } },
         { location: { $exists: false } },
         { location: null },
         { location: "" }
       ];
     }
 
-    const banners = await HomeBanner.find(filter).sort({ order: 1, createdAt: -1 }).lean();
+    let banners = await HomeBanner.find(filter).sort({ order: 1, createdAt: -1 }).lean();
+    if (banners.length === 0 && filter.$or) {
+      const fallbackFilter = { ...filter };
+      delete fallbackFilter.$or;
+      banners = await HomeBanner.find(fallbackFilter).sort({ order: 1, createdAt: -1 }).lean();
+    }
 
     res.status(200).json({
       success: true,

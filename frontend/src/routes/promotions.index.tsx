@@ -144,7 +144,7 @@ function PromotionsHub() {
               allCampaigns.map((c: any) => {
                 const listingId = c.listingId?.id || c.listingId?._id || c.listingId || c.source?.listingId || "";
                 const title = c.productName || c.listingId?.title || c.creative?.name || c.campaignType || "Boosted Product";
-                const img = c.listingId?.images?.[0] || c.creative?.imageUrl || c.bannerUrl || "https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=400";
+                const img = c.listingId?.images?.[0] || c.creative?.imageUrl || c.bannerUrl || "https://images.unsplash.com/photo-1526738549149-8e07eca6c147?w=400";
                 const status = (c.status || "active").toUpperCase();
                 const imps = c.impressionsCount || c.analytics?.impressions || 0;
                 const clicks = c.clicksCount || c.analytics?.clicks || 0;

@@ -267,5 +267,7 @@ const CandidateProfileSchema = new Schema<ICandidateProfile>(
   { timestamps: true }
 );
 
+CandidateProfileSchema.index({ userId: 1 });
+
 export const CandidateProfile = mongoose.model<ICandidateProfile>("CandidateProfile", CandidateProfileSchema);
 

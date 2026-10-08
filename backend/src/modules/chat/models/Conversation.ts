@@ -7,6 +7,9 @@ export interface IConversation extends Document {
   listingId?: mongoose.Types.ObjectId;
   storeId?: mongoose.Types.ObjectId;
   jobId?: mongoose.Types.ObjectId;
+  listingTitle?: string;
+  listingImage?: string;
+  listingPriceInPaise?: number;
   buyerId: mongoose.Types.ObjectId;
   sellerId: mongoose.Types.ObjectId;
   participantIds: mongoose.Types.ObjectId[];
@@ -28,6 +31,9 @@ const ConversationSchema = new Schema<IConversation>(
     listingId: { type: Schema.Types.ObjectId, ref: "Listing" },
     storeId: { type: Schema.Types.ObjectId, ref: "Store" },
     jobId: { type: Schema.Types.ObjectId, ref: "Job" },
+    listingTitle: { type: String },
+    listingImage: { type: String },
+    listingPriceInPaise: { type: Number },
     buyerId: { type: Schema.Types.ObjectId, ref: "User", required: true, index: true },
     sellerId: { type: Schema.Types.ObjectId, ref: "User", required: true, index: true },
     participantIds: [{ type: Schema.Types.ObjectId, ref: "User", required: true, index: true }],

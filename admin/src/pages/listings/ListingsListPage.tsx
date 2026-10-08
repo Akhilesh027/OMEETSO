@@ -82,25 +82,35 @@ export default function ListingsListPage() {
     try {
       const res = await getAdminListingsQueueApi({ limit: 100 });
       if (res.success && Array.isArray(res.data)) {
-        const mapped: Listing[] = res.data.map((item: any) => ({
-          id: item.id || item._id,
-          title: item.title,
-          description: item.description || item.title,
-          price: item.priceInPaise ? item.priceInPaise / 100 : item.price || 0,
-          currency: "INR",
-          condition: item.condition || "Like New",
-          categoryId: item.categoryId || item.category || "General",
-          subcategoryId: item.subcategoryId,
-          sellerId: item.seller?.id || item.sellerId || "user_1",
-          sellerName: item.seller?.name || item.sellerName || "Omeetso Seller",
-          status: (item.status?.toLowerCase() || "submitted") as any,
-          images: item.images || [],
-          coverIndex: item.coverIndex || 0,
-          location: { city: item.city || "Hyderabad", area: item.area || "Madhapur", pincode: item.pincode || "500081" },
-          reportCount: 0,
-          createdAt: item.createdAt || new Date().toISOString(),
-          updatedAt: item.createdAt || new Date().toISOString()
-        }));
+        const mapped: Listing[] = res.data.map((item: any) => {
+          const price = item.price !== undefined && item.price !== null
+            ? Number(item.price)
+            : (item.priceInPaise ? Number(item.priceInPaise) / 100 : 0);
+          const priceInPaise = item.priceInPaise !== undefined && item.priceInPaise !== null
+            ? Number(item.priceInPaise)
+            : (price ? Math.round(price * 100) : 0);
+
+          return {
+            id: item.id || item._id,
+            title: item.title,
+            description: item.description || item.title,
+            price,
+            priceInPaise,
+            currency: "INR",
+            condition: item.condition || "Like New",
+            categoryId: item.categoryId || item.category || "General",
+            subcategoryId: item.subcategoryId,
+            sellerId: item.seller?.id || item.sellerId || "user_1",
+            sellerName: item.seller?.name || item.sellerName || "Omeetso Seller",
+            status: (item.status?.toLowerCase() || "submitted") as any,
+            images: item.images || [],
+            coverIndex: item.coverIndex || 0,
+            location: { city: item.city || "Hyderabad", area: item.area || "Madhapur", pincode: item.pincode || "500081" },
+            reportCount: 0,
+            createdAt: item.createdAt || new Date().toISOString(),
+            updatedAt: item.createdAt || new Date().toISOString()
+          };
+        });
         setListings(mapped);
         try {
           localStorage.setItem("omeetso_admin_listings_cache", JSON.stringify(mapped));
@@ -419,7 +429,7 @@ export default function ListingsListPage() {
                         <td className="p-3">
                           <div className="flex items-center space-x-3">
                             <img
-                              src={(l.images && l.images[0]) || "https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=100"}
+                              src={(l.images && l.images[0]) || "https://images.unsplash.com/photo-1526738549149-8e07eca6c147?w=100"}
                               alt={l.title}
                               className="w-10 h-10 rounded-xl object-cover border border-slate-200 shrink-0"
                             />
@@ -430,7 +440,7 @@ export default function ListingsListPage() {
                           </div>
                         </td>
                         <td className="p-3 font-bold text-[#3547D4] text-xs">
-                          ₹{(l?.priceInPaise ? l.priceInPaise / 100 : (l?.price ?? 0)).toLocaleString("en-IN")}
+                          ₹{(l?.price ?? ((l?.priceInPaise || 0) / 100)).toLocaleString("en-IN")}
                         </td>
                         <td className="p-3 capitalize font-medium text-slate-600">{l.categoryId}</td>
                         <td className="p-3 font-medium text-[#111827]">{l.sellerName}</td>
@@ -540,13 +550,13 @@ export default function ListingsListPage() {
                     />
                   </div>
                   <img
-                    src={(l.images && l.images[0]) || "https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=400"}
+                    src={(l.images && l.images[0]) || "https://images.unsplash.com/photo-1526738549149-8e07eca6c147?w=400"}
                     alt={l.title}
                     className="w-full h-36 object-cover rounded-xl border border-slate-200"
                   />
                   <div className="flex items-center justify-between">
                     <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500">{l.categoryId}</span>
-                    <span className="text-xs font-extrabold text-[#3547D4]">₹{((l.priceInPaise || 0) / 100).toLocaleString("en-IN")}</span>
+                    <span className="text-xs font-extrabold text-[#3547D4]">₹{(l.price ?? ((l.priceInPaise || 0) / 100)).toLocaleString("en-IN")}</span>
                   </div>
                   <h4 className="text-xs font-bold text-[#111827] line-clamp-1">{l.title}</h4>
                   <div className="text-[11px] text-[#64748B]">Seller: {l.sellerName}</div>
@@ -597,13 +607,18 @@ export default function ListingsListPage() {
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs">
               <img
-                src={(selectedListing.images && selectedListing.images[0]) || "https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=400"}
+                src={(selectedListing.images && selectedListing.images[0]) || "https://images.unsplash.com/photo-1526738549149-8e07eca6c147?w=400"}
                 alt={selectedListing.title}
                 className="w-full h-44 object-cover rounded-xl border border-slate-200"
               />
               <div className="space-y-2">
                 <h4 className="font-bold text-sm text-[#111827]">{selectedListing.title}</h4>
-                <div className="text-base font-extrabold text-[#3547D4]">₹{((selectedListing.priceInPaise || 0) / 100).toLocaleString("en-IN")}</div>
+                <div className="flex items-center space-x-2">
+                  <span className="text-xs font-bold text-slate-500">Product Amount:</span>
+                  <span className="text-base font-extrabold text-emerald-600 bg-emerald-50 px-2.5 py-0.5 rounded-lg border border-emerald-200">
+                    ₹{(selectedListing.price ?? ((selectedListing.priceInPaise || 0) / 100)).toLocaleString("en-IN")}
+                  </span>
+                </div>
                 <div>Category: <span className="font-bold capitalize">{selectedListing.categoryId}</span></div>
                 <div>Seller: <span className="font-bold">{selectedListing.sellerName}</span></div>
                 <div>Location: <span className="font-bold">{selectedListing.location?.city || "Hyderabad"}</span></div>
@@ -784,8 +799,11 @@ export default function ListingsListPage() {
                   <input
                     type="number"
                     required
-                    value={formData.priceInPaise ? formData.priceInPaise / 100 : ""}
-                    onChange={(e) => setFormData({ ...formData, priceInPaise: Number(e.target.value) * 100 })}
+                    value={formData.price !== undefined && formData.price !== null ? formData.price : (formData.priceInPaise ? formData.priceInPaise / 100 : "")}
+                    onChange={(e) => {
+                      const p = Number(e.target.value);
+                      setFormData({ ...formData, price: p, priceInPaise: Math.round(p * 100) });
+                    }}
                     placeholder="15000"
                     className="w-full p-2.5 rounded-xl border border-[#E2E8F0] bg-[#F5F7FC] focus:outline-none"
                   />

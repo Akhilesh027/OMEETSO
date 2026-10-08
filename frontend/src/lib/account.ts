@@ -83,7 +83,7 @@ export const DEFAULT_AVATARS = {
 };
 
 function getStoredActiveLocation(): { area: string; city: string; pincode: string } {
-  if (typeof window === "undefined") return { area: "", city: "Hyderabad", pincode: "500081" };
+  if (typeof window === "undefined") return { area: "", city: "Hyderabad", pincode: "" };
   try {
     const raw = localStorage.getItem("omeetso_selected_location") || localStorage.getItem("omeetso_location");
     if (raw) {
@@ -92,12 +92,12 @@ function getStoredActiveLocation(): { area: string; city: string; pincode: strin
         return {
           area: typeof parsed.area === "string" ? parsed.area : "",
           city: typeof parsed.city === "string" ? parsed.city : "",
-          pincode: typeof parsed.pincode === "string" ? parsed.pincode : "500081"
+          pincode: typeof parsed.pincode === "string" ? parsed.pincode : ""
         };
       }
     }
   } catch {}
-  return { area: "", city: "Hyderabad", pincode: "500081" };
+  return { area: "", city: "Hyderabad", pincode: "" };
 }
 
 export function formatLocationDisplay(area?: any, city?: any, pincode?: any): string {
@@ -134,7 +134,7 @@ const DEFAULT_PROFILE: Profile = {
   mobile: "",
   mobileVerified: false,
   city: "Hyderabad",
-  pincode: "500081",
+  pincode: "",
   area: "",
   language: "en",
   bio: "",
@@ -198,7 +198,7 @@ export function getProfile(): Profile {
         city: rawCity,
         pincode: (typeof liveUser.profile?.pincode === "string" ? liveUser.profile.pincode : "") ||
                  (validStored && typeof validStored.pincode === "string" ? validStored.pincode : "") ||
-                 activeLoc.pincode || "500081",
+                 activeLoc.pincode || "",
         area: cleanArea,
         avatar: resolvedAvatar,
         bio: (typeof liveUser.profile?.bio === "string" ? liveUser.profile.bio : "") ||
@@ -223,7 +223,7 @@ export function getProfile(): Profile {
         avatar: cleanAvatar
       };
     }
-    return { ...DEFAULT_PROFILE, area: activeLoc.area || "", city: activeLoc.city || activeLoc.area || "Hyderabad", pincode: activeLoc.pincode || "500081" };
+    return { ...DEFAULT_PROFILE, area: activeLoc.area || "", city: activeLoc.city || activeLoc.area || "Hyderabad", pincode: activeLoc.pincode || "" };
   } catch {
     return { ...DEFAULT_PROFILE };
   }

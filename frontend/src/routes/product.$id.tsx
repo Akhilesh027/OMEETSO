@@ -60,7 +60,7 @@ export const Route = createFileRoute("/product/$id")({
     const coverIdx = product.cover || product.coverIndex || 0;
     const rawImg = (Array.isArray(product.images) && product.images.length > 0)
       ? (product.images[coverIdx] || product.images[0])
-      : (product.image || "https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=1200&h=630&fit=crop&q=85");
+      : (product.image || "https://images.unsplash.com/photo-1526738549149-8e07eca6c147?w=1200&h=630&fit=crop&q=85");
 
     const imgUrl = rawImg.startsWith("http://") || rawImg.startsWith("https://")
       ? rawImg
@@ -246,8 +246,8 @@ function ProductPage() {
   const { saved, toggle } = useSaved(product.id);
   const images = Array.isArray(product.images) && product.images.length > 0
     ? product.images.filter((im: string) => im && !im.startsWith("blob:"))
-    : [product.image || "https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=400"];
-  const displayImages = images.length > 0 ? images : ["https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=400"];
+    : [product.image || "https://images.unsplash.com/photo-1526738549149-8e07eca6c147?w=400"];
+  const displayImages = images.length > 0 ? images : ["https://images.unsplash.com/photo-1526738549149-8e07eca6c147?w=400"];
   const [idx, setIdx] = useState(0);
   const [offerOpen, setOfferOpen] = useState(false);
   const [offerAmount, setOfferAmount] = useState<string>("");
@@ -255,6 +255,15 @@ function ProductPage() {
   const [guestOpen, setGuestOpen] = useState(false);
   const nav = useNavigate();
   const { addConversation } = useChatContext();
+
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      const sp = new URLSearchParams(window.location.search);
+      if (sp.get("offer") === "1" || sp.get("makeOffer") === "1") {
+        setOfferOpen(true);
+      }
+    }
+  }, []);
 
   const currentUserId = useMemo(() => {
     try {
@@ -278,6 +287,14 @@ function ProductPage() {
     )
   );
 
+  const isQuickSale = Boolean(
+    (product as any).method === "quick" ||
+    (product as any).quickSale ||
+    (product as any).isQuickSell ||
+    product.id?.startsWith("Q-") ||
+    product.id?.includes("quick")
+  );
+
   const handleStartChat = async () => {
     const token = getUserAccessToken() || (typeof localStorage !== "undefined" ? localStorage.getItem("omeetso_user_token") || localStorage.getItem("omeetso_auth_token") : null);
     if (!token) {
@@ -297,15 +314,33 @@ function ProductPage() {
 
     try {
       const targetListingId = product.id || product._id;
-      const targetSellerId = (typeof realSellerId === "string" && !realSellerId.startsWith("u_")) ? realSellerId : undefined;
-      const res = await startConversationApi("LISTING", targetListingId, targetSellerId);
+      const targetSellerId = realSellerId;
+      const priceInPaise = typeof product.price === "number" ? Math.round(product.price * 100) : 0;
+      const title = product.title;
+      const image = Array.isArray(product.images) && product.images[0] ? product.images[0] : product.image;
+      const res = await startConversationApi("LISTING", targetListingId, targetSellerId, {
+        title,
+        image,
+        priceInPaise
+      });
       if (res.success && res.data?.id) {
         if (addConversation) {
           addConversation(res.data);
         }
         nav({ to: "/chat/$id", params: { id: res.data.id } });
       } else {
-        toast.error(res.error?.message || "Could not start chat");
+        const errMsg = res.error?.message || "Could not start chat";
+        if (
+          res.error?.code === "TOKEN_EXPIRED" ||
+          res.error?.code === "UNAUTHORIZED" ||
+          errMsg.toLowerCase().includes("token expired") ||
+          errMsg.toLowerCase().includes("invalid token")
+        ) {
+          toast.error("Your session has expired. Please sign in again.");
+          nav({ to: "/login" });
+          return;
+        }
+        toast.error(errMsg);
       }
     } catch {
       toast.error("Connection error. Please try again.");
@@ -559,7 +594,7 @@ function ProductPage() {
               <img
                 src={currentMedia.url}
                 alt={product.title}
-                onError={(e) => { (e.target as HTMLImageElement).src = "https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=800"; }}
+                onError={(e) => { (e.target as HTMLImageElement).src = "https://images.unsplash.com/photo-1526738549149-8e07eca6c147?w=800"; }}
                 className="aspect-[4/3] w-full rounded-2xl object-cover border border-border/80 shadow-xs md:rounded-3xl"
               />
               <span className="absolute top-3 right-3 grid h-8 w-8 place-items-center rounded-full bg-slate-950/60 border border-white/20 text-white backdrop-blur-sm opacity-0 group-hover:opacity-100 transition-opacity">
@@ -654,6 +689,11 @@ function ProductPage() {
           <div>
             <div className="flex flex-wrap items-center gap-2">
               <p className="text-3xl sm:text-4xl font-black text-slate-950 dark:text-white leading-none">{formatINR(product.price)}</p>
+              {isQuickSale && (
+                <span className="inline-flex items-center gap-1.5 rounded-full bg-gradient-to-r from-amber-400 via-amber-500 to-amber-400 text-slate-950 px-3 py-1 text-xs font-black shadow-md border border-amber-300 tracking-tight animate-in fade-in">
+                  <Zap className="h-3.5 w-3.5 fill-slate-950" /> ⚡ QUICK SALE
+                </span>
+              )}
               {isNegotiable ? (
                 <span className="rounded-full bg-blue-500/10 border border-blue-500/30 px-3 py-0.5 text-xs font-extrabold text-blue-700 dark:text-blue-300">
                   Negotiable Price
@@ -669,6 +709,29 @@ function ProductPage() {
                 </span>
               )}
             </div>
+
+            {/* Quick Sale Clearance Highlight Banner */}
+            {isQuickSale && (
+              <div className="mt-3 rounded-2xl bg-gradient-to-r from-amber-500/15 via-amber-500/5 to-transparent border border-amber-500/30 p-3 sm:p-3.5 flex items-center justify-between gap-3 shadow-xs">
+                <div className="flex items-center gap-2.5">
+                  <div className="grid h-8 w-8 shrink-0 place-items-center rounded-xl bg-amber-500 text-slate-950 shadow-sm font-black">
+                    <Zap className="h-4 w-4 fill-slate-950" />
+                  </div>
+                  <div>
+                    <p className="text-xs font-black text-foreground flex items-center gap-1">
+                      ⚡ Quick Sale Clearance Item
+                    </p>
+                    <p className="text-[11px] text-muted-foreground font-medium">
+                      Priced for rapid sale. Direct seller contact with rapid response.
+                    </p>
+                  </div>
+                </div>
+                <span className="shrink-0 text-[10px] font-black uppercase text-amber-700 dark:text-amber-300 bg-amber-500/20 px-2.5 py-1 rounded-full border border-amber-500/30">
+                  Instant Deal
+                </span>
+              </div>
+            )}
+
             <h1 className="mt-2.5 text-lg sm:text-xl font-extrabold text-foreground leading-snug">{product.title}</h1>
             <p className="mt-1.5 flex items-center gap-1 text-xs text-muted-foreground font-medium">
               <MapPin className="h-3.5 w-3.5 text-blue-600 shrink-0" /> {product.area || "Nearby"}{product.city ? `, ${product.city}` : ""}{product.distanceKm ? ` · ${product.distanceKm} km away` : ""}{product.postedAgo ? ` · ${product.postedAgo}` : ""}
@@ -740,17 +803,34 @@ function ProductPage() {
           <div>
             <h3 className="mb-2.5 text-xs font-bold uppercase tracking-wider text-muted-foreground">Specifications & Details</h3>
             <div className="grid grid-cols-2 gap-3.5 rounded-2xl bg-card p-4 border border-border shadow-xs">
-              {Object.entries({
-                Category: (product.category || "General").replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase()),
-                Subcategory: (product.subcategory || product.category || "General").replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase()),
-                Condition: (product.condition || "good").replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase()),
-                ...(product.specs || {})
-              }).map(([k, v]) => (
-                <div key={k}>
-                  <p className="text-[11px] font-bold text-muted-foreground uppercase tracking-wide">{k}</p>
-                  <p className="text-xs font-bold text-foreground capitalize mt-0.5">{String(v)}</p>
-                </div>
-              ))}
+              {(() => {
+                const rawObj: Record<string, any> = {
+                  Category: (product.category || "General").replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase()),
+                  Subcategory: (product.subcategory || product.category || "General").replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase()),
+                  Condition: (product.condition || "good").replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase()),
+                  ...(product.specs || {})
+                };
+                const seen = new Set<string>();
+                const entries: [string, any][] = [];
+
+                for (const [rawK, rawV] of Object.entries(rawObj)) {
+                  if (!rawV || !String(rawV).trim() || String(rawV).trim().toLowerCase() === "undefined") continue;
+                  let k = rawK.trim();
+                  if (k.toLowerCase() === "brand / manufacturer" || k.toLowerCase() === "manufacturer") {
+                    k = "Brand";
+                  }
+                  if (seen.has(k.toLowerCase())) continue;
+                  seen.add(k.toLowerCase());
+                  entries.push([k, rawV]);
+                }
+
+                return entries.map(([k, v]) => (
+                  <div key={k}>
+                    <p className="text-[11px] font-bold text-muted-foreground uppercase tracking-wide">{k}</p>
+                    <p className="text-xs font-bold text-foreground capitalize mt-0.5">{String(v)}</p>
+                  </div>
+                ));
+              })()}
             </div>
           </div>
 
@@ -845,6 +925,11 @@ function ProductPage() {
             <div className="space-y-3.5 rounded-3xl border border-border bg-card p-5 shadow-xs">
               <div className="flex flex-wrap items-center gap-2">
                 <p className="text-3xl font-black text-slate-950 dark:text-white leading-none">{formatINR(product.price)}</p>
+                {isQuickSale && (
+                  <span className="inline-flex items-center gap-1 rounded-full bg-gradient-to-r from-amber-400 to-amber-500 text-slate-950 px-2.5 py-0.5 text-xs font-black shadow-sm border border-amber-300">
+                    <Zap className="h-3 w-3 fill-slate-950" /> ⚡ Quick Sale
+                  </span>
+                )}
                 {isNegotiable ? (
                   <span className="rounded-full bg-blue-500/10 border border-blue-500/30 px-2.5 py-0.5 text-xs font-extrabold text-blue-700 dark:text-blue-300">
                     Negotiable

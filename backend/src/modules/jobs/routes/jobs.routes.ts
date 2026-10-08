@@ -20,11 +20,6 @@ import {
 
 export const jobsRouter = Router();
 
-// Public routes
-jobsRouter.get("/categories", getJobCategories);
-jobsRouter.get("/", getPublicJobs);
-jobsRouter.get("/:id", getJobById);
-
 // Candidate routes (authenticated)
 jobsRouter.get("/candidate/profile", authenticateUser, getCandidateProfile);
 jobsRouter.put("/candidate/profile", authenticateUser, updateCandidateProfile);
@@ -33,10 +28,16 @@ jobsRouter.get("/candidate/applications", authenticateUser, getCandidateApplicat
 jobsRouter.post("/candidate/applications/:applicationId/withdraw", authenticateUser, withdrawApplication);
 
 // Employer routes (authenticated)
-jobsRouter.post("/", authenticateUser, createJobListing);
 jobsRouter.get("/employer/my-jobs", authenticateUser, getEmployerJobs);
+jobsRouter.get("/employer/applicants", authenticateUser, getJobApplicants);
+jobsRouter.post("/", authenticateUser, createJobListing);
+jobsRouter.get("/:jobId/applicants", authenticateUser, getJobApplicants);
+jobsRouter.patch("/applicants/:applicationId/status", authenticateUser, updateApplicantStatus);
 jobsRouter.post("/:id/duplicate", authenticateUser, duplicateJobListing);
 jobsRouter.post("/:id/renew", authenticateUser, renewJobListing);
 jobsRouter.post("/:id/close", authenticateUser, closeJobListing);
-jobsRouter.get("/:jobId/applicants", authenticateUser, getJobApplicants);
-jobsRouter.patch("/applicants/:applicationId/status", authenticateUser, updateApplicantStatus);
+
+// Public routes
+jobsRouter.get("/categories", getJobCategories);
+jobsRouter.get("/", getPublicJobs);
+jobsRouter.get("/:id", getJobById);

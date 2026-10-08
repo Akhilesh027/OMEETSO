@@ -8,7 +8,7 @@ import {
 import { MobileFrame } from "@/components/omeetso/MobileFrame";
 import { JobCard } from "@/components/omeetso/jobs/JobCard";
 import { ApplyJobModal } from "@/components/omeetso/jobs/ApplyJobModal";
-import { fetchJobById, JobItem, toggleSaveJobLocal, getSavedJobIds, listCandidateApplicationsLocal, checkIsCandidateApplied, CandidateProfileItem } from "@/lib/jobs";
+import { fetchJobById, JobItem, toggleSaveJobLocal, getSavedJobIds, listCandidateApplicationsLocal, checkIsCandidateApplied, CandidateProfileItem, fetchWithTimeout } from "@/lib/jobs";
 import { uploadFile } from "@/lib/upload";
 import { ReportSheet } from "@/components/omeetso/ReportSheet";
 import { startConversationApi } from "@/api/chat.api";
@@ -85,9 +85,9 @@ function JobDetailPage() {
         setCandidateProfile(JSON.parse(local));
       }
       const token = localStorage.getItem("omeetso_user_token");
-      const res = await fetch(`${API_BASE}/jobs/candidate/profile`, {
+      const res = await fetchWithTimeout(`${API_BASE}/jobs/candidate/profile`, {
         headers: { ...(token ? { Authorization: `Bearer ${token}` } : {}) }
-      });
+      }, 4000);
       if (res.ok) {
         const json = await res.json();
         if (json.success && json.data) {

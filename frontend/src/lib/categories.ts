@@ -4,6 +4,9 @@ import { API_BASE } from "@/config/api";
 
 export type LiveCategory = Category & {
   subcategories: (string | { id: string; name: string })[];
+  imageUrl?: string;
+  coverImage?: string;
+  coverImageUrl?: string;
 };
 
 let cachedCategories: LiveCategory[] | null = null;
@@ -98,6 +101,9 @@ export async function fetchLiveCategories(forceRefresh = false): Promise<LiveCat
               id: item.categoryId || item.id || item._id,
               name: item.name || mockFallback?.name || catId,
               icon: item.iconName || item.icon || CATEGORY_ICON_NAME_MAP[catId] || mockFallback?.icon || "Package",
+              imageUrl: item.imageUrl || item.coverImage || item.coverImageUrl,
+              coverImage: item.coverImage || item.imageUrl || item.coverImageUrl,
+              coverImageUrl: item.coverImageUrl || item.coverImage || item.imageUrl,
               count: item.count ?? 0,
               tint: CATEGORY_TINT_MAP[catId] || mockFallback?.tint || "bg-primary/10 text-primary",
               subcategories: Array.isArray(item.subcategories) && item.subcategories.length > 0
@@ -286,4 +292,69 @@ if (typeof window !== "undefined") {
     cachedCategories = null;
     notify();
   });
+}
+
+export function resolveElectronicsSubcategory(sub?: string, title?: string, specs?: any): string {
+  const s = (sub || "").trim().toLowerCase();
+  const t = (title || "").trim().toLowerCase();
+  const specObj = specs && typeof specs === "object" ? specs : {};
+  const specType = String(specObj["Product type"] || specObj["type"] || "").trim().toLowerCase();
+
+  if (
+    s.includes("laptop") || s.includes("notebook") || s.includes("macbook") ||
+    specType.includes("laptop") || specType.includes("notebook") ||
+    t.includes("macbook") || t.includes("thinkpad") || t.includes("laptop") || t.includes("notebook") || t.includes("chromebook")
+  ) {
+    return "Laptops & Notebooks";
+  }
+
+  if (
+    s.includes("gaming") || s.includes("console") || s.includes("ps5") || s.includes("ps4") || s.includes("xbox") || s.includes("playstation") ||
+    specType.includes("gaming") || specType.includes("console") ||
+    t.includes("playstation") || t.includes("ps5") || t.includes("ps4") || t.includes("xbox") || t.includes("nintendo") || t.includes("dualsense")
+  ) {
+    return "Gaming Consoles (PS5, Xbox)";
+  }
+
+  if (
+    s.includes("desktop") || s.includes("pc") || s.includes("computer") ||
+    specType.includes("desktop") || specType.includes("pc") ||
+    t.includes("desktop") || t.includes("imac") || t.includes("mac mini") || t.includes("mac studio") || t.includes("assembled pc") || t.includes("gaming rig")
+  ) {
+    return "Desktop Computers";
+  }
+
+  if (
+    s.includes("camera") || s.includes("dslr") || s.includes("mirrorless") || s.includes("gopro") ||
+    specType.includes("camera") ||
+    t.includes("dslr") || t.includes("camera") || t.includes("gopro") || t.includes("canon eos") || t.includes("sony alpha") || t.includes("nikon")
+  ) {
+    return "Cameras & DSLRs";
+  }
+
+  if (
+    s.includes("audio") || s.includes("headphone") || s.includes("earphone") || s.includes("speaker") || s.includes("soundbar") || s.includes("airpod") ||
+    specType.includes("audio") || specType.includes("speaker") ||
+    t.includes("headphone") || t.includes("earphone") || t.includes("earbud") || t.includes("airpod") || t.includes("speaker") || t.includes("soundbar") || t.includes("sony wh-") || t.includes("bose")
+  ) {
+    return "Audio & Headphones";
+  }
+
+  if (
+    s.includes("watch") || s.includes("wearable") || s.includes("band") ||
+    specType.includes("watch") ||
+    t.includes("smartwatch") || t.includes("smart watch") || t.includes("apple watch") || t.includes("galaxy watch") || t.includes("fitness tracker")
+  ) {
+    return "Smartwatches & Wearables";
+  }
+
+  if (
+    s.includes("monitor") || s.includes("accessory") || s.includes("keyboard") || s.includes("mouse") ||
+    specType.includes("monitor") || specType.includes("accessory") ||
+    t.includes("monitor") || t.includes("keyboard") || t.includes("mouse") || t.includes("graphic card") || t.includes("graphics card") || t.includes("rtx") || t.includes("ssd")
+  ) {
+    return "Computer Accessories & Monitors";
+  }
+
+  return sub || "Laptops & Notebooks";
 }

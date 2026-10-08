@@ -8,8 +8,9 @@ import {
 import { MobileFrame } from "@/components/omeetso/MobileFrame";
 import {
   listCandidateApplicationsLocal, withdrawJobApplicationLocal, getSavedJobIds,
-  fetchPublicJobs, JobItem, JobApplicationItem, getCandidateApplicationsStorageKey, setLocal
+  fetchPublicJobs, JobItem, JobApplicationItem, getCandidateApplicationsStorageKey, setLocal, fetchWithTimeout
 } from "@/lib/jobs";
+import { getUserAccessToken } from "@/api/auth.api";
 import { startConversationApi } from "@/api/chat.api";
 import { JobCard } from "@/components/omeetso/jobs/JobCard";
 import { API_BASE } from "@/config/api";
@@ -64,14 +65,24 @@ function MyJobsDashboardPage() {
   const [loading, setLoading] = useState(true);
 
   const loadData = useCallback(async () => {
-    const token = typeof window !== "undefined" ? localStorage.getItem("omeetso_user_token") : null;
+    const token = getUserAccessToken() || (typeof window !== "undefined" ? localStorage.getItem("omeetso_user_token") || localStorage.getItem("omeetso_auth_token") : null);
     let serverApps: JobApplicationItem[] = [];
+
+    // Instant paint from local cache so user sees applications immediately without waiting
+    const localApps = listCandidateApplicationsLocal();
+    if (localApps.length > 0) {
+      setApplications(localApps);
+      setLoading(false);
+    }
+
+    // Fetch public jobs in parallel to enrich any job details if needed
+    const publicJobsPromise = fetchPublicJobs().catch(() => []);
 
     if (token) {
       try {
-        const res = await fetch(`${API_BASE}/jobs/candidate/applications`, {
+        const res = await fetchWithTimeout(`${API_BASE}/jobs/candidate/applications`, {
           headers: { Authorization: `Bearer ${token}` }
-        });
+        }, 5000);
         if (res.ok) {
           const json = await res.json();
           if (json.success && Array.isArray(json.data)) {
@@ -81,31 +92,61 @@ function MyJobsDashboardPage() {
       } catch { }
     }
 
-    const localApps = listCandidateApplicationsLocal();
-    
-    // Deduplicate by job ID / application ID to get only jobs applied by this candidate
+    const publicJobs = await publicJobsPromise;
     const appMap = new Map<string, JobApplicationItem>();
-    
-    // Server apps take primary precedence
+
+    // 1. Process server apps first
     for (const app of serverApps) {
       const rawJobId = (typeof app.jobId === "object" && app.jobId !== null ? (app.jobId as any)._id || (app.jobId as any).id : app.jobId) || app.job?.id || (app.job as any)?._id || app.id;
-      const jId = String(rawJobId);
-      appMap.set(jId, {
+      const jId = String(rawJobId || "");
+      const appId = String(app.id || (app as any)._id || `APP-${jId}`);
+
+      // Enrich job details from local match or public jobs if server app.job is null or generic
+      const localMatch = localApps.find(l => l.id === appId || (l.jobId && l.jobId === jId));
+      const publicMatch = publicJobs.find(p => p.id === jId || (p as any)._id === jId);
+      
+      const safeJob = (app.job && app.job.title && app.job.title !== "Job Application") 
+        ? app.job 
+        : (publicMatch || localMatch?.job || app.job || { title: "Job Position", companyName: "Company" });
+
+      const mergedSnapshot = {
+        ...(localMatch?.applicantProfileSnapshot || {}),
+        ...(app.applicantProfileSnapshot || {}),
+        resumeUrl: app.applicantProfileSnapshot?.resumeUrl || localMatch?.applicantProfileSnapshot?.resumeUrl,
+        resumeFileName: app.applicantProfileSnapshot?.resumeFileName || localMatch?.applicantProfileSnapshot?.resumeFileName,
+      };
+
+      appMap.set(appId, {
         ...app,
+        id: appId,
         jobId: jId,
-        id: app.id || (app as any)._id
+        job: safeJob,
+        applicantProfileSnapshot: mergedSnapshot as any
       });
     }
-    
-    // Add local apps if not already present on server
+
+    // 2. Add local apps if not already present on server
     for (const app of localApps) {
       const rawJobId = (typeof app.jobId === "object" && app.jobId !== null ? (app.jobId as any)._id || (app.jobId as any).id : app.jobId) || app.job?.id || (app.job as any)?._id || app.id;
-      const jId = String(rawJobId);
-      if (!appMap.has(jId)) {
-        appMap.set(jId, {
-          ...app,
-          jobId: jId
-        });
+      const jId = String(rawJobId || "");
+      const appId = String(app.id || (app as any)._id || `APP-${jId}`);
+
+      if (!appMap.has(appId)) {
+        // Also check if any server app already represents this specific job
+        const existsForJob = Array.from(appMap.values()).some(x => x.jobId && x.jobId === jId);
+        if (!existsForJob) {
+          const publicMatch = publicJobs.find(p => p.id === jId || (p as any)._id === jId);
+          const safeJob = (app.job && app.job.title && app.job.title !== "Job Application")
+            ? app.job
+            : (publicMatch || app.job || { title: "Job Position", companyName: "Company" });
+
+          appMap.set(appId, {
+            ...app,
+            id: appId,
+            jobId: jId,
+            job: safeJob
+          });
+        }
       }
     }
 
@@ -116,7 +157,7 @@ function MyJobsDashboardPage() {
     });
 
     // Update local cache so offline state mirrors latest server statuses
-    if (serverApps.length > 0) {
+    if (merged.length > 0) {
       const storageKey = getCandidateApplicationsStorageKey();
       setLocal(storageKey, merged);
     }
@@ -135,9 +176,7 @@ function MyJobsDashboardPage() {
     }
 
     const savedIds = getSavedJobIds();
-    fetchPublicJobs().then((all) => {
-      setSavedJobs(all.filter((j) => savedIds.includes(j.id)));
-    });
+    setSavedJobs(publicJobs.filter((j) => savedIds.includes(j.id)));
   }, [search.id, search.jobId]);
 
   useEffect(() => {
@@ -147,11 +186,13 @@ function MyJobsDashboardPage() {
       loadData();
     };
 
+    window.addEventListener("omeetso_job_application_submitted", handleSync);
     window.addEventListener("omeetso_job_applications_changed", handleSync);
     window.addEventListener("focus", handleSync);
     window.addEventListener("storage", handleSync);
 
     return () => {
+      window.removeEventListener("omeetso_job_application_submitted", handleSync);
       window.removeEventListener("omeetso_job_applications_changed", handleSync);
       window.removeEventListener("focus", handleSync);
       window.removeEventListener("storage", handleSync);
@@ -256,11 +297,21 @@ function MyJobsDashboardPage() {
                   Loading your applications...
                 </div>
               ) : applications.length === 0 ? (
-                <div className="p-12 text-center text-xs text-muted-foreground space-y-3">
-                  <p className="font-bold">No applications submitted yet.</p>
-                  <Link to="/jobs" className="inline-block px-4 py-2 bg-primary text-primary-foreground font-bold rounded-xl">
-                    Explore Jobs
-                  </Link>
+                <div className="p-12 text-center text-xs text-muted-foreground space-y-4">
+                  <div className="w-12 h-12 mx-auto rounded-2xl bg-indigo-50 dark:bg-indigo-950/40 text-indigo-600 flex items-center justify-center">
+                    <Briefcase className="h-6 w-6" />
+                  </div>
+                  <div>
+                    <p className="font-extrabold text-sm text-foreground">No applications submitted yet</p>
+                    <p className="text-muted-foreground text-xs max-w-sm mx-auto mt-1">
+                      When you apply for jobs on Omeetso, your applications, status updates, and interview invites will appear right here.
+                    </p>
+                  </div>
+                  <div className="flex items-center justify-center gap-3 pt-1">
+                    <Link to="/jobs" className="px-5 py-2.5 bg-indigo-brand text-white font-extrabold text-xs rounded-xl shadow-md hover:bg-indigo-brand/90 transition-all">
+                      Explore Active Jobs
+                    </Link>
+                  </div>
                 </div>
               ) : (
                 applications.map((app) => {
@@ -495,8 +546,8 @@ function MyJobsDashboardPage() {
                     {selectedAppModal.applicantProfileSnapshot.phone && (
                       <div><span className="text-muted-foreground font-bold">Phone:</span> <span className="font-bold text-foreground">{selectedAppModal.applicantProfileSnapshot.phone}</span></div>
                     )}
-                    {selectedAppModal.applicantProfileSnapshot.totalExperience !== undefined && (
-                      <div><span className="text-muted-foreground font-bold">Experience:</span> <span className="font-bold text-foreground">{selectedAppModal.applicantProfileSnapshot.totalExperience} years</span></div>
+                    {(selectedAppModal.applicantProfileSnapshot.experience || (selectedAppModal.applicantProfileSnapshot as any).totalExperience) && (
+                      <div><span className="text-muted-foreground font-bold">Experience:</span> <span className="font-bold text-foreground">{selectedAppModal.applicantProfileSnapshot.experience || (selectedAppModal.applicantProfileSnapshot as any).totalExperience}</span></div>
                     )}
                     {selectedAppModal.applicantProfileSnapshot.expectedSalary && (
                       <div><span className="text-muted-foreground font-bold">Expected Salary:</span> <span className="font-bold text-foreground">{selectedAppModal.applicantProfileSnapshot.expectedSalary}</span></div>

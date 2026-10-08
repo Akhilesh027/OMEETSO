@@ -15,7 +15,7 @@ import { DEFAULT_SAMPLE_STORES } from "@/lib/sampleStores";
 import { API_BASE } from "@/config/api";
 import {
   Edit3, PauseCircle, PlayCircle, RefreshCw, Trash2, Share2, BadgeCheck,
-  BarChart3, Sparkles, Store as StoreIcon, ChevronRight, AlertCircle, Eye, MessageSquare, Heart, ShieldCheck, CheckCircle2, XCircle, ArrowRight, Check, Plus
+  BarChart3, Sparkles, Store as StoreIcon, ChevronRight, AlertCircle, Eye, MessageSquare, Heart, ShieldCheck, CheckCircle2, XCircle, ArrowRight, Check, Plus, Zap
 } from "lucide-react";
 import { toast } from "sonner";
 import { BoostAdWizard } from "@/components/omeetso/promotions/BoostAdWizard";
@@ -134,8 +134,13 @@ function Manage() {
                   onError={(e) => { (e.target as HTMLImageElement).src = fallbackImg; }}
                   className="aspect-[16/10] w-full object-cover"
                 />
-                <div className="absolute left-3 top-3">
+                <div className="absolute left-3 top-3 flex items-center gap-1.5">
                   <StatusBadge status={l.status} />
+                  {(l.method === "quick" || (l as any).quickSale || (l as any).isQuickSell || l.id?.startsWith("Q-") || l.id?.includes("quick")) && (
+                    <span className="rounded-full bg-gradient-to-r from-amber-400 to-amber-500 text-slate-950 px-2.5 py-0.5 text-[10px] font-black flex items-center gap-1 shadow-md border border-amber-300">
+                      <Zap className="h-3 w-3 fill-slate-950" /> Quick Sale Deal
+                    </span>
+                  )}
                 </div>
               </div>
 

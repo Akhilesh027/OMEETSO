@@ -1,5 +1,6 @@
 import { Response, NextFunction } from "express";
 import mongoose from "mongoose";
+import crypto from "crypto";
 import { Conversation } from "../models/Conversation";
 import { Message } from "../models/Message";
 import { Offer } from "../models/Offer";
@@ -14,6 +15,11 @@ import { SafetyPriority } from "../../../contracts";
 import { AuthenticatedUserRequest } from "../../../middleware/authenticateUser";
 import { getIO } from "../../../sockets/socket-server";
 
+function toDeterministicObjectId(str: string): mongoose.Types.ObjectId {
+  const hash = crypto.createHash("md5").update(String(str)).digest("hex").slice(0, 24);
+  return new mongoose.Types.ObjectId(hash);
+}
+
 export async function startConversation(req: AuthenticatedUserRequest, res: Response, next: NextFunction): Promise<void> {
   try {
     if (!req.user) {
@@ -21,13 +27,29 @@ export async function startConversation(req: AuthenticatedUserRequest, res: Resp
       return;
     }
 
-    const { contextType = "LISTING", contextId, listingId, storeId, jobId, recipientId, applicantId } = req.body;
+    const {
+      contextType = "LISTING",
+      contextId,
+      listingId,
+      storeId,
+      jobId,
+      recipientId,
+      applicantId,
+      title,
+      image,
+      priceInPaise,
+      metadata
+    } = req.body;
     let targetId = contextId || listingId || storeId || jobId;
 
     if (!targetId) {
       res.status(400).json({ success: false, error: { code: "BAD_REQUEST", message: "contextId/listingId/storeId/jobId required" } });
       return;
     }
+
+    const metaTitle = title || metadata?.title;
+    const metaImage = image || metadata?.image;
+    const metaPrice = priceInPaise ?? metadata?.priceInPaise;
 
     let buyerId = req.user._id;
     let sellerId: any = recipientId || applicantId;
@@ -45,8 +67,8 @@ export async function startConversation(req: AuthenticatedUserRequest, res: Resp
         sellerId = (store as any).userId || (store as any).sellerId || (store as any).ownerId || sellerId;
         refStoreId = store._id;
         entityContextId = store._id;
-      } else if (isOid) {
-        entityContextId = new mongoose.Types.ObjectId(targetId);
+      } else {
+        entityContextId = isOid ? new mongoose.Types.ObjectId(targetId) : toDeterministicObjectId(targetId);
       }
     } else if (normalizedContext === "JOB") {
       const isOid = mongoose.Types.ObjectId.isValid(targetId);
@@ -62,9 +84,6 @@ export async function startConversation(req: AuthenticatedUserRequest, res: Resp
       if (!job && isOid) {
         job = await Job.findById(targetId);
       }
-      if (!job) {
-        job = await Job.findOne();
-      }
       if (job) {
         refJobId = job._id;
         entityContextId = job._id;
@@ -76,36 +95,39 @@ export async function startConversation(req: AuthenticatedUserRequest, res: Resp
           buyerId = req.user._id;
           sellerId = recipientId || applicantId || job.employerId;
         }
-      } else if (isOid) {
-        entityContextId = new mongoose.Types.ObjectId(targetId);
+      } else {
+        entityContextId = isOid ? new mongoose.Types.ObjectId(targetId) : toDeterministicObjectId(targetId);
       }
     } else {
       const isOid = mongoose.Types.ObjectId.isValid(targetId);
       let listing = isOid ? await Listing.findById(targetId) : await Listing.findOne({ $or: [{ id: targetId }, { slug: targetId }] });
-      if (!listing) {
-        listing = await Listing.findOne();
-      }
       if (listing) {
         sellerId = (listing as any).sellerId || (listing as any).userId || sellerId;
         refListingId = listing._id;
         entityContextId = listing._id;
-      } else if (isOid) {
-        entityContextId = new mongoose.Types.ObjectId(targetId);
+      } else {
+        entityContextId = isOid ? new mongoose.Types.ObjectId(targetId) : toDeterministicObjectId(targetId);
       }
     }
 
     // Ensure entityContextId is a valid ObjectId
     if (!entityContextId) {
-      entityContextId = mongoose.Types.ObjectId.isValid(targetId) ? new mongoose.Types.ObjectId(targetId) : new mongoose.Types.ObjectId();
+      entityContextId = mongoose.Types.ObjectId.isValid(targetId) ? new mongoose.Types.ObjectId(targetId) : toDeterministicObjectId(targetId);
     }
 
     // Ensure sellerId is a valid ObjectId
     if (!sellerId || !mongoose.Types.ObjectId.isValid(sellerId)) {
-      const otherUser = await User.findOne({ _id: { $ne: buyerId } }).select("_id");
-      if (otherUser) {
-        sellerId = otherUser._id;
+      if (recipientId) {
+        sellerId = mongoose.Types.ObjectId.isValid(recipientId)
+          ? new mongoose.Types.ObjectId(recipientId)
+          : toDeterministicObjectId(recipientId);
       } else {
-        sellerId = buyerId;
+        const otherUser = await User.findOne({ _id: { $ne: buyerId } }).select("_id");
+        if (otherUser) {
+          sellerId = otherUser._id;
+        } else {
+          sellerId = buyerId;
+        }
       }
     }
 
@@ -113,16 +135,23 @@ export async function startConversation(req: AuthenticatedUserRequest, res: Resp
     const sId = new mongoose.Types.ObjectId(sellerId.toString());
     const participants = bId.equals(sId) ? [bId] : [bId, sId];
 
-    let conversation = await Conversation.findOne({
-      $or: [
-        { buyerId: bId, sellerId: sId, contextType: normalizedContext, contextId: entityContextId },
-        { buyerId: sId, sellerId: bId, contextType: normalizedContext, contextId: entityContextId },
-        { participantIds: { $all: participants }, contextType: normalizedContext, contextId: entityContextId },
-        ...(refJobId ? [{ jobId: refJobId, participantIds: { $in: [bId] } }] : []),
-        ...(refStoreId ? [{ storeId: refStoreId, participantIds: { $in: [bId] } }] : []),
-        ...(refListingId ? [{ listingId: refListingId, participantIds: { $in: [bId] } }] : [])
-      ]
-    });
+    const orConditions: any[] = [
+      { buyerId: bId, sellerId: sId, contextType: normalizedContext, contextId: entityContextId },
+      { buyerId: sId, sellerId: bId, contextType: normalizedContext, contextId: entityContextId },
+      { participantIds: { $all: participants }, contextType: normalizedContext, contextId: entityContextId }
+    ];
+
+    if (refListingId) {
+      orConditions.push({ listingId: refListingId, participantIds: { $all: participants } });
+    }
+    if (refJobId) {
+      orConditions.push({ jobId: refJobId, participantIds: { $all: participants } });
+    }
+    if (refStoreId) {
+      orConditions.push({ storeId: refStoreId, participantIds: { $all: participants } });
+    }
+
+    let conversation = await Conversation.findOne({ $or: orConditions });
 
     if (!conversation) {
       conversation = await Conversation.create({
@@ -134,6 +163,9 @@ export async function startConversation(req: AuthenticatedUserRequest, res: Resp
         listingId: refListingId,
         storeId: refStoreId,
         jobId: refJobId,
+        listingTitle: metaTitle,
+        listingImage: metaImage,
+        listingPriceInPaise: metaPrice,
         unreadCounts: [
           { userId: bId, count: 0 },
           ...(bId.equals(sId) ? [] : [{ userId: sId, count: 0 }])
@@ -143,6 +175,23 @@ export async function startConversation(req: AuthenticatedUserRequest, res: Resp
 
       if (refListingId) {
         await Listing.findByIdAndUpdate(refListingId, { $inc: { "analytics.chats": 1 } }).catch(() => {});
+      }
+    } else {
+      let changed = false;
+      if (metaTitle && !(conversation as any).listingTitle) {
+        (conversation as any).listingTitle = metaTitle;
+        changed = true;
+      }
+      if (metaImage && !(conversation as any).listingImage) {
+        (conversation as any).listingImage = metaImage;
+        changed = true;
+      }
+      if (metaPrice && !(conversation as any).listingPriceInPaise) {
+        (conversation as any).listingPriceInPaise = metaPrice;
+        changed = true;
+      }
+      if (changed) {
+        await conversation.save().catch(() => {});
       }
     }
 
@@ -203,7 +252,7 @@ function formatConversationItem(c: any, userId: any) {
   const isStore = c.contextType === "STORE" || !!c.storeId;
 
   let title = "Marketplace Conversation";
-  let image = "https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=400";
+  let image = "https://images.unsplash.com/photo-1526738549149-8e07eca6c147?w=400";
   let priceInPaise = 0;
   let salaryText = "";
 
@@ -218,8 +267,8 @@ function formatConversationItem(c: any, userId: any) {
     priceInPaise = 0;
   } else {
     title = c.listingId?.title || c.listingTitle || "Product Listing";
-    image = c.listingId?.images?.[0] || c.listingImage || "https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=400";
-    priceInPaise = c.listingId?.priceInPaise || 0;
+    image = c.listingId?.images?.[0] || c.listingImage || "https://images.unsplash.com/photo-1526738549149-8e07eca6c147?w=400";
+    priceInPaise = c.listingId?.priceInPaise || c.listingPriceInPaise || 0;
   }
 
   return {
@@ -596,7 +645,7 @@ export async function createOffer(req: AuthenticatedUserRequest, res: Response, 
       sellerId = sellerId || otherId;
     }
 
-    const originalPrice = (conversation.listingId as any)?.priceInPaise || amountInPaise;
+    const originalPrice = (conversation.listingId as any)?.priceInPaise || (conversation as any).listingPriceInPaise || amountInPaise;
 
     const offer = await Offer.create({
       conversationId: conversation._id,

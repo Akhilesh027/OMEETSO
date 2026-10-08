@@ -410,7 +410,7 @@ export async function seedMultiLocationMarket(): Promise<{
       seller: sellerDocs[6], // Rajesh (Hyderabad)
       storeId: storeDocs[0]._id,
       categoryId: "electronics",
-      subcategoryId: "Gaming Consoles",
+      subcategoryId: "Gaming Consoles (PS5, Xbox)",
       title: "Sony PlayStation 5 Disc Edition + 2 Controllers",
       description: "Indian edition PS5 console with 2 DualSense wireless controllers, charging station, and two game discs (Spider-Man 2 and God of War Ragnarok).",
       priceInPaise: 3999900, // ₹39,999
@@ -427,7 +427,7 @@ export async function seedMultiLocationMarket(): Promise<{
     {
       seller: sellerDocs[2], // Rohan (Bangalore)
       categoryId: "electronics",
-      subcategoryId: "Laptops",
+      subcategoryId: "Laptops & Notebooks",
       title: "Apple MacBook Pro 14 M3 Pro (18GB / 512GB) Space Black",
       description: "Space Black M3 Pro with 11-core CPU, 14-core GPU, Liquid Retina XDR display. Battery cycle count only 32. Original MagSafe 3 charger and box.",
       priceInPaise: 14800000, // ₹1,48,000

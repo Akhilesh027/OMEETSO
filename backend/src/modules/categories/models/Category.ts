@@ -15,6 +15,8 @@ export interface ICategory extends Document {
   iconName: string;
   iconUrl?: string;
   imageUrl?: string;
+  coverImage?: string;
+  coverImageUrl?: string;
   subcategoriesLabel?: string;
   subcategories: string[];
   filters: string[];
@@ -39,6 +41,8 @@ const CategorySchema = new Schema<ICategory>(
     iconName: { type: String, default: "Layers" },
     iconUrl: { type: String },
     imageUrl: { type: String },
+    coverImage: { type: String },
+    coverImageUrl: { type: String },
     subcategoriesLabel: { type: String },
     subcategories: [{ type: String }],
     filters: [{ type: String }],
