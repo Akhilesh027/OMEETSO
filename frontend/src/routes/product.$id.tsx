@@ -467,33 +467,48 @@ function ProductPage() {
   };
 
   const videoUrl = product.videoUrl || product.video;
-  const rawCandidatePhone = 
-    product.sellerPhone || 
-    product.whatsappPhone || 
-    liveSeller?.phone || 
-    liveSeller?.mobile || 
-    liveSeller?.profile?.phone || 
-    (product.seller as any)?.phone || 
-    mockSeller?.phone || 
-    "";
-  const cleanPhoneDigits = rawCandidatePhone.replace(/\D/g, "");
-  const callablePhone = cleanPhoneDigits.length === 10
-    ? `+91${cleanPhoneDigits}`
-    : (cleanPhoneDigits.length === 12 && cleanPhoneDigits.startsWith("91"))
-      ? `+${cleanPhoneDigits}`
-      : cleanPhoneDigits.length >= 10
-        ? `+${cleanPhoneDigits}`
-        : "";
+  const contactPref = (product as any).contactPref || "call_and_chat";
+  const isNumberHidden = contactPref === "hide_number";
+  const isChatOnly = contactPref === "chat_only";
+  const canCallSeller = !isNumberHidden && !isChatOnly;
 
-  const cleanWa = cleanPhoneDigits;
-  const waPhone = cleanWa.length === 10 ? `91${cleanWa}` : (cleanWa.length === 12 && cleanWa.startsWith("91") ? cleanWa : cleanWa);
+  const rawCandidatePhone = (isNumberHidden || isChatOnly)
+    ? ""
+    : (
+        product.sellerPhone || 
+        product.whatsappPhone || 
+        liveSeller?.phone || 
+        liveSeller?.mobile || 
+        liveSeller?.profile?.phone || 
+        (product.seller as any)?.phone || 
+        mockSeller?.phone || 
+        ""
+      );
+  const cleanPhoneDigits = rawCandidatePhone.replace(/\D/g, "");
+  const callablePhone = canCallSeller && cleanPhoneDigits.length >= 10
+    ? (cleanPhoneDigits.length === 10
+        ? `+91${cleanPhoneDigits}`
+        : (cleanPhoneDigits.length === 12 && cleanPhoneDigits.startsWith("91"))
+          ? `+${cleanPhoneDigits}`
+          : `+${cleanPhoneDigits}`)
+    : "";
+
+  // WhatsApp logic: only if number is NOT hidden and WhatsApp is enabled
+  const isWhatsappAllowed = !isNumberHidden && (product.enableWhatsapp !== false);
+  const rawWaCandidate = isWhatsappAllowed
+    ? (product.whatsappPhone || (!isChatOnly ? rawCandidatePhone : ""))
+    : "";
+  const cleanWaDigits = rawWaCandidate.replace(/\D/g, "");
+  const waPhone = cleanWaDigits.length === 10
+    ? `91${cleanWaDigits}`
+    : (cleanWaDigits.length === 12 && cleanWaDigits.startsWith("91") ? cleanWaDigits : cleanWaDigits);
   const waText = encodeURIComponent(`Hi, I'm interested in your Omeetso listing: ${product.title}`);
-  const waLink = waPhone && waPhone.length >= 10 ? `https://wa.me/${waPhone}?text=${waText}` : null;
+  const waLink = isWhatsappAllowed && waPhone && waPhone.length >= 10 ? `https://wa.me/${waPhone}?text=${waText}` : null;
 
   const handleCallClick = (e: React.MouseEvent) => {
-    if (!callablePhone) {
+    if (!canCallSeller || !callablePhone) {
       e.preventDefault();
-      toast.info("Seller has not provided a direct calling number. Please use Chat or WhatsApp.", {
+      toast.info(isNumberHidden ? "Seller has hidden their mobile number. Please use in-app Chat." : "Seller accepts chat only.", {
         action: {
           label: "Chat Now",
           onClick: handleStartChat
@@ -979,7 +994,7 @@ function ProductPage() {
                   </a>
                 )}
 
-                {!isOwner && (
+                {!isOwner && canCallSeller && (
                   <a
                     href={callablePhone ? `tel:${callablePhone}` : "#"}
                     onClick={handleCallClick}
@@ -988,6 +1003,18 @@ function ProductPage() {
                   >
                     <Phone className="h-4 w-4 text-blue-600" /> Call Seller
                   </a>
+                )}
+
+                {!isOwner && isChatOnly && (
+                  <div className="flex items-center justify-center gap-1.5 rounded-2xl bg-blue-500/10 border border-blue-500/20 py-2.5 px-3 text-xs font-bold text-blue-700 dark:text-blue-300">
+                    <MessageCircle className="h-3.5 w-3.5" /> Seller accepts chat only
+                  </div>
+                )}
+
+                {!isOwner && isNumberHidden && (
+                  <div className="flex items-center justify-center gap-1.5 rounded-2xl bg-secondary border border-border py-2.5 px-3 text-xs font-bold text-muted-foreground">
+                    <ShieldCheck className="h-3.5 w-3.5 text-blue-600" /> Mobile number hidden • Chat only
+                  </div>
                 )}
 
                 <div className="flex items-center justify-between pt-2 text-xs text-muted-foreground font-semibold">
@@ -1031,9 +1058,13 @@ function ProductPage() {
         <div className={`fixed bottom-0 left-1/2 z-40 grid w-full max-w-[430px] -translate-x-1/2 ${
           isOwner
             ? "grid-cols-1"
-            : waLink
-              ? (isNegotiable ? "grid-cols-4" : "grid-cols-3")
-              : (isNegotiable ? "grid-cols-3" : "grid-cols-2")
+            : ((canCallSeller ? 1 : 0) + (waLink ? 1 : 0) + (isNegotiable ? 1 : 0) + 1 === 4)
+              ? "grid-cols-4"
+              : ((canCallSeller ? 1 : 0) + (waLink ? 1 : 0) + (isNegotiable ? 1 : 0) + 1 === 3)
+                ? "grid-cols-3"
+                : ((canCallSeller ? 1 : 0) + (waLink ? 1 : 0) + (isNegotiable ? 1 : 0) + 1 === 2)
+                  ? "grid-cols-2"
+                  : "grid-cols-1"
         } gap-1.5 border-t border-border bg-card/95 backdrop-blur-md p-2.5 safe-b md:hidden shadow-lg`}>
           {isOwner ? (
             <button
@@ -1044,13 +1075,15 @@ function ProductPage() {
             </button>
           ) : (
             <>
-              <a
-                href={callablePhone ? `tel:${callablePhone}` : "#"}
-                onClick={handleCallClick}
-                className="flex flex-col items-center justify-center gap-0.5 rounded-2xl border border-border bg-secondary py-2 text-xs font-bold text-foreground cursor-pointer"
-              >
-                <Phone className="h-4 w-4 text-blue-600" /> Call
-              </a>
+              {canCallSeller && (
+                <a
+                  href={callablePhone ? `tel:${callablePhone}` : "#"}
+                  onClick={handleCallClick}
+                  className="flex flex-col items-center justify-center gap-0.5 rounded-2xl border border-border bg-secondary py-2 text-xs font-bold text-foreground cursor-pointer"
+                >
+                  <Phone className="h-4 w-4 text-blue-600" /> Call
+                </a>
+              )}
               {waLink && (
                 <a
                   href={waLink}

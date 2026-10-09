@@ -42,6 +42,7 @@ export const CreateListingRequestSchema = z.object({
   fulfilment: z.string().optional().default("pickup"),
   specs: z.union([z.record(z.string(), z.any()), z.any()]).optional().default({}),
   contactPref: z.string().optional().default("call_and_chat"),
+  bestContactTime: z.string().optional().default("anytime"),
   method: z.enum(["quick", "detailed"]).optional().default("detailed")
 }).passthrough();
 

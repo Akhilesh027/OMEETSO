@@ -138,8 +138,9 @@ function EditListing() {
           city: l!.city || "",
           area: l!.area || "",
           pincode: l!.pincode || "",
-          whatsappPhone: l!.whatsappPhone || l!.sellerPhone || "",
-          sellerPhone: l!.sellerPhone || l!.whatsappPhone || "",
+          whatsappPhone: l!.contactPref === "hide_number" ? "" : (l!.whatsappPhone || (l!.contactPref === "chat_only" ? "" : l!.sellerPhone) || ""),
+          sellerPhone: (l!.contactPref === "hide_number" || l!.contactPref === "chat_only") ? "" : (l!.sellerPhone || ""),
+          enableWhatsapp: l!.contactPref === "hide_number" ? false : (l!.enableWhatsapp ?? true),
           contactPref: l!.contactPref || "call_and_chat",
           bestContactTime: l!.bestContactTime || "anytime"
         })
@@ -148,7 +149,17 @@ function EditListing() {
       console.warn("MongoDB listing update warning:", err);
     }
 
-    upsertListing({ ...l!, status: nextStatus, editHistory: hist });
+    const isHidden = l!.contactPref === "hide_number";
+    const isChat = l!.contactPref === "chat_only";
+
+    upsertListing({
+      ...l!,
+      sellerPhone: (isHidden || isChat) ? "" : (l!.sellerPhone || ""),
+      whatsappPhone: isHidden ? "" : (l!.whatsappPhone || (isChat ? "" : l!.sellerPhone)),
+      enableWhatsapp: isHidden ? false : (l!.enableWhatsapp ?? true),
+      status: nextStatus,
+      editHistory: hist
+    });
 
     pushNotification({
       id: `listing-updated-${id}-${Date.now()}`,
@@ -389,8 +400,24 @@ function EditListing() {
                 whatsappPhone={l.whatsappPhone}
                 enableWhatsapp={l.enableWhatsapp ?? true}
                 sellerPhone={l.sellerPhone}
-                onPref={(p) => patch({ contactPref: p as ContactPref })}
-                onPrefChange={(p) => patch({ contactPref: p as ContactPref })}
+                onPref={(p) => {
+                  if (p === "hide_number") {
+                    patch({ contactPref: p as ContactPref, enableWhatsapp: false, sellerPhone: "", whatsappPhone: "" });
+                  } else if (p === "chat_only") {
+                    patch({ contactPref: p as ContactPref, sellerPhone: "" });
+                  } else {
+                    patch({ contactPref: p as ContactPref });
+                  }
+                }}
+                onPrefChange={(p) => {
+                  if (p === "hide_number") {
+                    patch({ contactPref: p as ContactPref, enableWhatsapp: false, sellerPhone: "", whatsappPhone: "" });
+                  } else if (p === "chat_only") {
+                    patch({ contactPref: p as ContactPref, sellerPhone: "" });
+                  } else {
+                    patch({ contactPref: p as ContactPref });
+                  }
+                }}
                 onTime={(t) => patch({ bestContactTime: t as BestContactTime })}
                 onTimeChange={(t) => patch({ bestContactTime: t as BestContactTime })}
                 onWhatsappPhoneChange={(v) => patch({ whatsappPhone: v })}

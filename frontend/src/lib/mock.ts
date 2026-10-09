@@ -472,6 +472,8 @@ export const getProduct = (id: string) => {
       enableWhatsapp: live.enableWhatsapp,
       sellerPhone: live.sellerPhone,
       method: live.method,
+      contactPref: live.contactPref || "call_and_chat",
+      bestContactTime: live.bestContactTime || "anytime",
     };
   }
   return PRODUCTS.find((p) => p.id === cleanId || p.id === id);

@@ -2,7 +2,7 @@ import type { ComponentType, ReactNode } from "react";
 import { Link } from "@tanstack/react-router";
 import {
   Bolt, ClipboardList, Store as StoreIcon, FileClock,
-  Check, ChevronRight, AlertCircle, Loader2,
+  Check, ChevronRight, AlertCircle, Loader2, ShieldCheck, MessageCircle,
 } from "lucide-react";
 import { cn, preventNonNumericKeyDown, sanitizeNumericInput, formatPhoneDisplay, cleanPhoneInput } from "@/lib/utils";
 import type { Condition, ContactPref, BestContactTime, Fulfilment } from "@/lib/listings";
@@ -334,11 +334,18 @@ export function ContactPreferenceSelector({
 }) {
   const currentPref = pref ?? "call_and_chat";
   const currentTime = time ?? bestTime ?? "anytime";
-  const isWhatsappActive = enableWhatsapp ?? true;
+  const isWhatsappActive = currentPref === "hide_number" ? false : (enableWhatsapp ?? true);
 
   const setP = (p: ContactPref) => {
     if (onPref) onPref(p);
     if (onPrefChange) onPrefChange(p);
+    if (p === "hide_number") {
+      onEnableWhatsappChange?.(false);
+      onSellerPhoneChange?.("");
+      onWhatsappPhoneChange?.("");
+    } else if (p === "chat_only") {
+      onSellerPhoneChange?.("");
+    }
   };
 
   const setT = (t: BestContactTime) => {
@@ -392,50 +399,79 @@ export function ContactPreferenceSelector({
         </div>
       )}
 
-      <div className="rounded-2xl border border-emerald-500/30 bg-emerald-500/5 p-3.5 space-y-2.5">
-        <label className="flex items-center gap-2.5 cursor-pointer">
-          <input
-            type="checkbox"
-            checked={isWhatsappActive}
-            onChange={(e) => onEnableWhatsappChange?.(e.target.checked)}
-            className="h-4 w-4 rounded border-border text-emerald-600 focus:ring-emerald-500"
-          />
-          <span className="text-xs font-extrabold text-foreground flex items-center gap-1.5">
-            <span className="grid h-5 w-5 place-items-center rounded-full bg-emerald-500 text-white font-bold text-[10px]">WA</span>
-            Allow buyers to contact via WhatsApp
-          </span>
-        </label>
-
-        {isWhatsappActive && (
-          <div className="pt-1">
-            <div className="flex items-center justify-between mb-1">
-              <label className="block text-[11px] font-bold text-muted-foreground">WhatsApp Number (Optional if same as account phone)</label>
-              <span className="text-[10px] font-bold text-muted-foreground">10 digits</span>
-            </div>
-            <div className="flex items-center rounded-xl border border-border bg-background px-3 py-2 focus-within:border-emerald-500 focus-within:ring-2 focus-within:ring-emerald-500/20 transition-all">
-              <span className="flex items-center gap-1.5 text-xs font-bold text-foreground font-mono pr-2.5 border-r border-border mr-2.5 shrink-0 select-none">
-                <span className="text-sm">🇮🇳</span> +91
-              </span>
-              <input
-                type="tel"
-                inputMode="numeric"
-                maxLength={16}
-                value={formatPhoneDisplay(whatsappPhone ?? "")}
-                onKeyDown={(e) => preventNonNumericKeyDown(e)}
-                onChange={(e) => {
-                  const cleaned = cleanPhoneInput(e.target.value);
-                  onWhatsappPhoneChange?.(cleaned);
-                }}
-                placeholder="98765 43210"
-                className="w-full bg-transparent text-xs font-bold text-foreground outline-none font-mono tracking-wider placeholder:font-normal placeholder:text-muted-foreground/60"
-              />
-            </div>
-            {whatsappPhone && whatsappPhone.length > 0 && whatsappPhone.length < 10 && (
-              <p className="mt-1 text-[10.5px] font-bold text-amber-600">Please enter a complete 10-digit mobile number ({whatsappPhone.length}/10)</p>
-            )}
+      {/* Chat only informative banner */}
+      {currentPref === "chat_only" && (
+        <div className="rounded-2xl border border-blue-500/20 bg-blue-500/5 p-3.5 space-y-1.5">
+          <div className="flex items-center gap-2">
+            <MessageCircle className="h-4 w-4 text-blue-600 shrink-0" />
+            <span className="text-xs font-black text-foreground">Chat Only Mode</span>
           </div>
-        )}
-      </div>
+          <p className="text-[11px] font-medium text-muted-foreground leading-relaxed pl-6">
+            Direct calling is disabled. Interested buyers will reach you exclusively through secure in-app chat.
+          </p>
+        </div>
+      )}
+
+      {/* Hide number security banner - ensures no number is shown or asked */}
+      {currentPref === "hide_number" && (
+        <div className="rounded-2xl border border-indigo-brand/20 bg-indigo-brand/5 p-4 space-y-1.5">
+          <div className="flex items-center gap-2">
+            <ShieldCheck className="h-4.5 w-4.5 text-indigo-brand shrink-0" />
+            <span className="text-xs font-black text-foreground">Mobile Number 100% Hidden</span>
+          </div>
+          <p className="text-[11px] font-medium text-muted-foreground leading-relaxed pl-6.5">
+            Your phone number is completely protected and will never be displayed to buyers. Calling and WhatsApp are disabled to ensure your phone number remains private. Buyers can only contact you via secure Omeetso in-app chat.
+          </p>
+        </div>
+      )}
+
+      {/* WhatsApp Section: Only available when number is NOT hidden */}
+      {currentPref !== "hide_number" && (
+        <div className="rounded-2xl border border-emerald-500/30 bg-emerald-500/5 p-3.5 space-y-2.5">
+          <label className="flex items-center gap-2.5 cursor-pointer">
+            <input
+              type="checkbox"
+              checked={isWhatsappActive}
+              onChange={(e) => onEnableWhatsappChange?.(e.target.checked)}
+              className="h-4 w-4 rounded border-border text-emerald-600 focus:ring-emerald-500"
+            />
+            <span className="text-xs font-extrabold text-foreground flex items-center gap-1.5">
+              <span className="grid h-5 w-5 place-items-center rounded-full bg-emerald-500 text-white font-bold text-[10px]">WA</span>
+              Allow buyers to contact via WhatsApp
+            </span>
+          </label>
+
+          {isWhatsappActive && (
+            <div className="pt-1">
+              <div className="flex items-center justify-between mb-1">
+                <label className="block text-[11px] font-bold text-muted-foreground">WhatsApp Number (Optional if same as account phone)</label>
+                <span className="text-[10px] font-bold text-muted-foreground">10 digits</span>
+              </div>
+              <div className="flex items-center rounded-xl border border-border bg-background px-3 py-2 focus-within:border-emerald-500 focus-within:ring-2 focus-within:ring-emerald-500/20 transition-all">
+                <span className="flex items-center gap-1.5 text-xs font-bold text-foreground font-mono pr-2.5 border-r border-border mr-2.5 shrink-0 select-none">
+                  <span className="text-sm">🇮🇳</span> +91
+                </span>
+                <input
+                  type="tel"
+                  inputMode="numeric"
+                  maxLength={16}
+                  value={formatPhoneDisplay(whatsappPhone ?? "")}
+                  onKeyDown={(e) => preventNonNumericKeyDown(e)}
+                  onChange={(e) => {
+                    const cleaned = cleanPhoneInput(e.target.value);
+                    onWhatsappPhoneChange?.(cleaned);
+                  }}
+                  placeholder="98765 43210"
+                  className="w-full bg-transparent text-xs font-bold text-foreground outline-none font-mono tracking-wider placeholder:font-normal placeholder:text-muted-foreground/60"
+                />
+              </div>
+              {whatsappPhone && whatsappPhone.length > 0 && whatsappPhone.length < 10 && (
+                <p className="mt-1 text-[10.5px] font-bold text-amber-600">Please enter a complete 10-digit mobile number ({whatsappPhone.length}/10)</p>
+              )}
+            </div>
+          )}
+        </div>
+      )}
 
       <div>
         <p className="mb-1.5 text-xs font-bold text-muted-foreground">Best contact time</p>

@@ -369,9 +369,11 @@ function DetailedSellPage() {
           images: uploadedImages || [],
           coverIndex: data.cover || 0,
           videoUrl: finalVideo,
-          whatsappPhone: data.whatsappPhone || data.sellerPhone || "",
-          sellerPhone: data.sellerPhone || data.whatsappPhone || "",
-          enableWhatsapp: data.enableWhatsapp ?? true,
+          whatsappPhone: data.contactPref === "hide_number" ? "" : (data.whatsappPhone || (data.contactPref === "chat_only" ? "" : data.sellerPhone) || ""),
+          sellerPhone: (data.contactPref === "hide_number" || data.contactPref === "chat_only") ? "" : (data.sellerPhone || ""),
+          enableWhatsapp: data.contactPref === "hide_number" ? false : (data.enableWhatsapp ?? true),
+          contactPref: data.contactPref || "call_and_chat",
+          bestContactTime: data.bestContactTime || "anytime",
           city: data.city || "",
           area: data.area || "",
           pincode: data.pincode || "",
@@ -399,6 +401,9 @@ function DetailedSellPage() {
       setPublishProgress(85);
       setPublishStep(`Broadcasting nearby alerts in ${data.area || "your area"}...`);
 
+      const isHidden = data.contactPref === "hide_number";
+      const isChat = data.contactPref === "chat_only";
+
       const listing: Listing = {
         id, title: data.title!, price: data.price ?? 0, negotiable: Boolean(data.negotiable), free: !!data.free,
         condition: (data.condition ?? "good") as Condition,
@@ -407,15 +412,15 @@ function DetailedSellPage() {
         images: finalImages, cover: data.cover ?? 0,
         video: finalSavedVideo,
         videoUrl: finalSavedVideo,
-        whatsappPhone: data.whatsappPhone || data.sellerPhone,
-        sellerPhone: data.sellerPhone || data.whatsappPhone,
-        enableWhatsapp: data.enableWhatsapp ?? true,
+        whatsappPhone: isHidden ? "" : (data.whatsappPhone || (isChat ? "" : data.sellerPhone)),
+        sellerPhone: (isHidden || isChat) ? "" : (data.sellerPhone || ""),
+        enableWhatsapp: isHidden ? false : (data.enableWhatsapp ?? true),
         pincode: data.pincode || "", area: data.area || "", city: data.city || "", state: data.state,
         fulfilment: (data.fulfilment ?? "pickup") as Fulfilment,
         specs: data.specs ?? {},
         contactPref: (data.contactPref ?? "call_and_chat") as ContactPref,
         bestContactTime: (data.bestContactTime ?? "anytime") as BestContactTime,
-        sellerName: data.sellerName ?? "You", sellerPhone: data.sellerPhone || data.whatsappPhone,
+        sellerName: data.sellerName ?? "You", sellerPhone: (isHidden || isChat) ? "" : (data.sellerPhone || ""),
         sellerType: data.sellerType ?? "individual",
         status: "under_review", createdAt: now, updatedAt: now, method: "detailed",
         storeId: storeId,
@@ -971,7 +976,15 @@ function DetailedSellPage() {
                   sellerPhone={data.sellerPhone}
                   whatsappPhone={data.whatsappPhone}
                   enableWhatsapp={data.enableWhatsapp ?? true}
-                  onPrefChange={(contactPref) => patch({ contactPref })}
+                  onPrefChange={(contactPref) => {
+                    if (contactPref === "hide_number") {
+                      patch({ contactPref, enableWhatsapp: false, sellerPhone: "", whatsappPhone: "" });
+                    } else if (contactPref === "chat_only") {
+                      patch({ contactPref, sellerPhone: "" });
+                    } else {
+                      patch({ contactPref });
+                    }
+                  }}
                   onTimeChange={(bestContactTime) => patch({ bestContactTime })}
                   onSellerPhoneChange={(sellerPhone) => patch({ sellerPhone })}
                   onWhatsappPhoneChange={(whatsappPhone) => patch({ whatsappPhone })}
@@ -1213,9 +1226,11 @@ function DetailedSellPage() {
                   <button type="button" className="flex-1 h-10 rounded-xl bg-indigo-brand text-xs font-bold text-white flex items-center justify-center gap-1.5">
                     <MessageSquare className="h-3.5 w-3.5" /> Chat Seller
                   </button>
-                  <button type="button" className="h-10 px-3.5 rounded-xl border border-border text-xs font-bold text-foreground flex items-center justify-center">
-                    <Phone className="h-3.5 w-3.5" />
-                  </button>
+                  {data.contactPref === "call_and_chat" && (
+                    <button type="button" className="h-10 px-3.5 rounded-xl border border-border text-xs font-bold text-foreground flex items-center justify-center" title="Direct calling available">
+                      <Phone className="h-3.5 w-3.5" />
+                    </button>
+                  )}
                 </div>
               </div>
             </div>

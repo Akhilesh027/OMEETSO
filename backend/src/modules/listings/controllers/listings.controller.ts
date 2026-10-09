@@ -109,6 +109,7 @@ export async function createListing(req: AuthenticatedUserRequest, res: Response
       fulfilment,
       specs,
       contactPref,
+      bestContactTime,
       method
     } = req.body;
 
@@ -181,15 +182,16 @@ export async function createListing(req: AuthenticatedUserRequest, res: Response
       images: rawImages,
       coverIndex: coverIndex || 0,
       videoUrl: videoUrl || undefined,
-      whatsappPhone: whatsappPhone || contactNumber,
-      sellerPhone: sellerPhone || contactNumber,
-      enableWhatsapp: enableWhatsapp ?? true,
+      whatsappPhone: contactPref === "hide_number" ? "" : (whatsappPhone || (contactPref === "chat_only" ? "" : contactNumber)),
+      sellerPhone: (contactPref === "hide_number" || contactPref === "chat_only") ? "" : (sellerPhone || contactNumber),
+      enableWhatsapp: contactPref === "hide_number" ? false : (enableWhatsapp ?? true),
       pincode: safePincode,
       area: safeArea,
       city: safeCity,
       fulfilment: safeFulfilment,
       specs: specs || {},
       contactPref: contactPref || "call_and_chat",
+      bestContactTime: bestContactTime || "anytime",
       method: safeMethod,
       status: ListingStatus.SUBMITTED,
       publishedAt: undefined,
@@ -293,15 +295,16 @@ export async function createListing(req: AuthenticatedUserRequest, res: Response
         images: listing.images,
         coverIndex: listing.coverIndex,
         videoUrl: listing.videoUrl,
-        whatsappPhone: listing.whatsappPhone,
-        sellerPhone: (listing as any).sellerPhone || listing.whatsappPhone,
-        enableWhatsapp: listing.enableWhatsapp,
+        whatsappPhone: listing.contactPref === "hide_number" ? "" : listing.whatsappPhone,
+        sellerPhone: (listing.contactPref === "hide_number" || listing.contactPref === "chat_only") ? "" : ((listing as any).sellerPhone || listing.whatsappPhone),
+        enableWhatsapp: listing.contactPref === "hide_number" ? false : listing.enableWhatsapp,
         pincode: listing.pincode,
         area: listing.area,
         city: listing.city,
         fulfilment: listing.fulfilment,
         specs: listing.specs ? Object.fromEntries(listing.specs) : {},
-        contactPref: listing.contactPref,
+        contactPref: listing.contactPref || "call_and_chat",
+        bestContactTime: (listing as any).bestContactTime || "anytime",
         method: listing.method || safeMethod,
         rating: listing.rating || 0,
         reviewCount: listing.reviewCount || 0,
@@ -758,15 +761,16 @@ export async function getListingById(req: Request, res: Response, next: NextFunc
         images: listing.images,
         coverIndex: listing.coverIndex,
         videoUrl: listing.videoUrl,
-        whatsappPhone: listing.whatsappPhone || (listing as any).sellerPhone || seller?.profile?.phone || seller?.phone || "",
-        sellerPhone: (listing as any).sellerPhone || listing.whatsappPhone || seller?.profile?.phone || seller?.phone || seller?.mobile || store?.phone || "",
-        enableWhatsapp: listing.enableWhatsapp ?? true,
+        whatsappPhone: listing.contactPref === "hide_number" ? "" : (listing.whatsappPhone || (listing.contactPref === "chat_only" ? "" : (listing as any).sellerPhone || seller?.profile?.phone || seller?.phone || "")),
+        sellerPhone: (listing.contactPref === "hide_number" || listing.contactPref === "chat_only") ? "" : ((listing as any).sellerPhone || listing.whatsappPhone || seller?.profile?.phone || seller?.phone || seller?.mobile || store?.phone || ""),
+        enableWhatsapp: listing.contactPref === "hide_number" ? false : (listing.enableWhatsapp ?? true),
         pincode: listing.pincode,
         area: listing.area,
         city: listing.city,
         fulfilment: listing.fulfilment,
         specs: listing.specs ? Object.fromEntries(Object.entries(listing.specs)) : {},
-        contactPref: listing.contactPref,
+        contactPref: listing.contactPref || "call_and_chat",
+        bestContactTime: (listing as any).bestContactTime || "anytime",
         method: listing.method || "detailed",
         quickSale: listing.method === "quick",
         isQuickSell: listing.method === "quick",
@@ -935,7 +939,17 @@ export async function updateListing(req: AuthenticatedUserRequest, res: Response
       if (area) listing.area = area;
       if (city) listing.city = city;
       if (pincode) listing.pincode = pincode;
-      if (contactPref) listing.contactPref = contactPref;
+      if (contactPref) {
+        listing.contactPref = contactPref;
+        if (contactPref === "hide_number") {
+          listing.sellerPhone = "";
+          listing.whatsappPhone = "";
+          listing.enableWhatsapp = false;
+        } else if (contactPref === "chat_only") {
+          listing.sellerPhone = "";
+        }
+      }
+      if (bestContactTime) (listing as any).bestContactTime = bestContactTime;
       await listing.save();
 
       res.status(200).json({
@@ -962,7 +976,17 @@ export async function updateListing(req: AuthenticatedUserRequest, res: Response
     if (area) listing.area = area;
     if (city) listing.city = city;
     if (pincode) listing.pincode = pincode;
-    if (contactPref) listing.contactPref = contactPref;
+    if (contactPref) {
+      listing.contactPref = contactPref;
+      if (contactPref === "hide_number") {
+        listing.sellerPhone = "";
+        listing.whatsappPhone = "";
+        listing.enableWhatsapp = false;
+      } else if (contactPref === "chat_only") {
+        listing.sellerPhone = "";
+      }
+    }
+    if (bestContactTime) (listing as any).bestContactTime = bestContactTime;
 
     await listing.save();
 
