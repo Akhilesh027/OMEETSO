@@ -16,8 +16,8 @@ export async function getHomeBanners(req: Request, res: Response, next: NextFunc
       let locRegex = locVal;
       if (/hyderabad|hyd|secunderabad|cyberabad|madhapur|gachibowli|kukatpally/i.test(locVal)) {
         locRegex = "hyderabad|hyd|secunderabad|cyberabad|madhapur|gachibowli|kukatpally";
-      } else if (/bangalore|bengaluru|benglure|whitefield|koramangala|hsr|indiranagar/i.test(locVal)) {
-        locRegex = "bangalore|bengaluru|benglure|whitefield|koramangala|hsr|indiranagar";
+      } else if (/bangalore|bengaluru|banglore|bengalore|bengolre|bangaluru|benglure|blr|whitefield|koramangala|hsr|indiranagar/i.test(locVal)) {
+        locRegex = "bangalore|bengaluru|banglore|bengalore|bengolre|bangaluru|benglure|blr|whitefield|koramangala|hsr|indiranagar";
       } else if (/mumbai|bombay|thane|navi mumbai|andheri|bandra/i.test(locVal)) {
         locRegex = "mumbai|bombay|thane|navi mumbai|andheri|bandra";
       } else if (/delhi|ncr|gurgaon|gurugram|noida/i.test(locVal)) {

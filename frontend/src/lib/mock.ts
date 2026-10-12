@@ -369,7 +369,8 @@ export function getSubcategoriesForCategory(catId: string): { id: string; name: 
   });
 }
 
-export const PRODUCTS: Product[] = [
+export const PRODUCTS: Product[] = [];
+const MOCK_PRODUCTS_OLD: Product[] = [
   // --- BIKES ---
   {
     id: "BIKE-101",

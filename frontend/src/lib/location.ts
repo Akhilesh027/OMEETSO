@@ -554,7 +554,7 @@ export function resolveCityFromLocation(loc?: { area?: string; city?: string; pi
   const text = `${loc.city || ""} ${loc.area || ""} ${loc.pincode || ""}`.toLowerCase();
 
   if (
-    /hyderabad|hyd|secunderabad|cyberabad|ghatkesar|kompally|bowenpally|jeedimetla|medchal|shamshabad|trimulgherry|madhapur|gachibowli|hitec|kukatpally|ameerpet|kondapur|banjara|jubilee|uppal|nagole|lb nagar|begumpet|somajiguda|punjagutta|himayatnagar|mehdipatnam|abids|charminar|ecil|malkajgiri|alwal|sainikpuri|dilsukhnagar|kothapet|vidyanagar|kachiguda|miyapur|nizampet|chanda nagar|lingampally|manikonda|narsingi|tellapur|peerzadiguda|karmanghat|vanasthalipuram|balanagar|quthbullapur|sanathnagar|sr nagar|500\d{3}|501\d{3}|502\d{3}/i.test(
+    /hyderabad|hyd|secunderabad|cyberabad|hyderbad|hydrabad|ghatkesar|kompally|bowenpally|jeedimetla|medchal|shamshabad|trimulgherry|madhapur|gachibowli|hitec|kukatpally|ameerpet|kondapur|banjara|jubilee|uppal|nagole|lb nagar|begumpet|somajiguda|punjagutta|himayatnagar|mehdipatnam|abids|charminar|ecil|malkajgiri|alwal|sainikpuri|dilsukhnagar|kothapet|vidyanagar|kachiguda|miyapur|nizampet|chanda nagar|lingampally|manikonda|narsingi|tellapur|peerzadiguda|karmanghat|vanasthalipuram|balanagar|quthbullapur|sanathnagar|sr nagar|500\d{3}|501\d{3}|502\d{3}/i.test(
       text
     )
   ) {
@@ -562,7 +562,7 @@ export function resolveCityFromLocation(loc?: { area?: string; city?: string; pi
   }
 
   if (
-    /bangalore|bengaluru|benglure|whitefield|koramangala|indiranagar|hsr|marathahalli|electronic city|jayanagar|jp nagar|bellandur|yelahanka|hebbal|malleswaram|rajajinagar|btm|560\d{3}/i.test(
+    /bangalore|bengaluru|banglore|bengalore|bengolre|bangaluru|benglure|blr|whitefield|koramangala|indiranagar|hsr|marathahalli|electronic city|jayanagar|jp nagar|bellandur|yelahanka|hebbal|malleswaram|rajajinagar|btm|sk garden|560\d{3}/i.test(
       text
     )
   ) {
@@ -570,11 +570,19 @@ export function resolveCityFromLocation(loc?: { area?: string; city?: string; pi
   }
 
   if (
-    /mumbai|bombay|thane|navi mumbai|andheri|bandra|powai|borivali|dadar|juhu|goregaon|malad|kandivali|colaba|worli|kurla|ghatkopar|vashi|400\d{3}/i.test(
+    /mumbai|bombay|thane|navi mumbai|mumbay|andheri|bandra|powai|borivali|dadar|juhu|goregaon|malad|kandivali|colaba|worli|kurla|ghatkopar|vashi|400\d{3}/i.test(
       text
     )
   ) {
     return "Mumbai";
+  }
+
+  if (
+    /delhi|new delhi|ncr|gurgaon|gurugram|noida|greater noida|faridabad|ghaziabad|110\d{3}|122\d{3}|201\d{3}/i.test(
+      text
+    )
+  ) {
+    return "Delhi NCR";
   }
 
   if (loc.city && loc.city.trim().length > 0) return loc.city.trim();
@@ -953,8 +961,43 @@ export async function searchLocations(query: string): Promise<LocationSuggestion
     }
   } else {
     const lowerQ = q.toLowerCase();
+    const isBangaloreSearch = /bangalore|bengaluru|banglore|bengalore|bengolre|bangaluru|benglure|blr/i.test(lowerQ);
+    const isHyderabadSearch = /hyderabad|hyd|secunderabad|cyberabad|hyderbad|hydrabad/i.test(lowerQ);
+    const isMumbaiSearch = /mumbai|bombay|thane|mumbay/i.test(lowerQ);
+
+    if (isBangaloreSearch) {
+      addResult({
+        id: "city-bangalore-central",
+        area: "Bangalore",
+        city: "Bangalore",
+        state: "Karnataka",
+        pincode: "560001",
+        displayName: "Bangalore",
+        secondaryText: "Karnataka, India",
+        source: "local",
+      });
+    } else if (isHyderabadSearch) {
+      addResult({
+        id: "city-hyderabad-central",
+        area: "Hyderabad",
+        city: "Hyderabad",
+        state: "Telangana",
+        pincode: "500001",
+        displayName: "Hyderabad",
+        secondaryText: "Telangana, India",
+        source: "local",
+      });
+    }
+
     for (const item of LOCAL_GPS_COORDINATES) {
+      const matchBangalore = isBangaloreSearch && item.city.toLowerCase() === "bangalore";
+      const matchHyderabad = isHyderabadSearch && item.city.toLowerCase() === "hyderabad";
+      const matchMumbai = isMumbaiSearch && item.city.toLowerCase() === "mumbai";
+
       if (
+        matchBangalore ||
+        matchHyderabad ||
+        matchMumbai ||
         item.area.toLowerCase().includes(lowerQ) ||
         item.city.toLowerCase().includes(lowerQ) ||
         item.state.toLowerCase().includes(lowerQ)
@@ -974,7 +1017,14 @@ export async function searchLocations(query: string): Promise<LocationSuggestion
       }
     }
     for (const [pin, info] of Object.entries(KNOWN_PINCODE_MAP)) {
+      const matchBangalore = isBangaloreSearch && info.city.toLowerCase() === "bangalore";
+      const matchHyderabad = isHyderabadSearch && info.city.toLowerCase() === "hyderabad";
+      const matchMumbai = isMumbaiSearch && info.city.toLowerCase() === "mumbai";
+
       if (
+        matchBangalore ||
+        matchHyderabad ||
+        matchMumbai ||
         info.area.toLowerCase().includes(lowerQ) ||
         info.city.toLowerCase().includes(lowerQ)
       ) {

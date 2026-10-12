@@ -4,7 +4,6 @@ import {
   ArrowLeft, Search, Loader2, RefreshCw, SlidersHorizontal,
   ArrowDownUp, LayoutGrid, List as ListIcon, MapPin, BookmarkPlus, X
 } from "lucide-react";
-import { MobileFrame } from "@/components/omeetso/MobileFrame";
 import { ProductCard } from "@/components/omeetso/ProductCard";
 import { StoreCard } from "@/components/omeetso/StoreCard";
 import { SortSheet } from "@/components/omeetso/SortSheet";
@@ -22,8 +21,9 @@ import { calculateDistanceBetweenLocations, resolveCityFromLocation } from "@/li
 import { getPublicListingsApi } from "@/api/listings.api";
 import { getPublicStoresApi } from "@/api/stores.api";
 import { listListings } from "@/lib/listings";
+import { LocationModal } from "@/components/omeetso/LocationModal";
 import {
-  CATEGORIES, SUBCATEGORIES, SORT_OPTIONS, getCategory, PRODUCTS, type Product
+  CATEGORIES, SUBCATEGORIES, SORT_OPTIONS, getCategory, type Product
 } from "@/lib/mock";
 import { preventNonNumericKeyDown, sanitizeNumericInput } from "@/lib/utils";
 
@@ -148,6 +148,8 @@ function CategoryPage() {
   const [loading, setLoading] = useState<boolean>(true);
   const [searchInput, setSearchInput] = useState(search.q ?? "");
   const [localListingTick, setLocalListingTick] = useState(0);
+  const [resolvedActiveCity, setResolvedActiveCity] = useState<string>("Hyderabad");
+  const [showLocModal, setShowLocModal] = useState(false);
 
   useEffect(() => {
     const handleListingUpdate = () => {
@@ -207,7 +209,8 @@ function CategoryPage() {
     setLiveProducts([]);
     setLiveStores([]);
 
-    const activeCity = resolveCityFromLocation(activeLoc) || "Hyderabad";
+    const activeCity = resolveCityFromLocation(activeLoc) || activeLoc?.city || "Hyderabad";
+    setResolvedActiveCity(activeCity);
 
     serveAdsApi("CATEGORY_HEADER", activeLoc?.pincode, activeLoc?.area, activeCity, category.id).then((res) => {
       if (res.success && res.data && res.data.length > 0) {
@@ -262,14 +265,7 @@ function CategoryPage() {
       getPublicStoresApi()
     ]);
 
-    let rawListings = (lRes.success && Array.isArray(lRes.data)) ? lRes.data : [];
-    // If no listings in the specific city, fetch all listings for this category as fallback
-    if (rawListings.length === 0) {
-      const fallbackRes = await getPublicListingsApi({ category: category.id });
-      if (fallbackRes.success && Array.isArray(fallbackRes.data)) {
-        rawListings = fallbackRes.data;
-      }
-    }
+    const rawListings = (lRes.success && Array.isArray(lRes.data)) ? lRes.data : [];
 
     setLoading(false);
 
@@ -359,7 +355,11 @@ function CategoryPage() {
 
       const matchingStores = sRes.data.filter((item: any) => {
         const c = (item.primaryCategory || item.category || "").toLowerCase();
-        return c === targetCat || c.includes(targetCat) || targetName.includes(c);
+        const matchesCat = c === targetCat || c.includes(targetCat) || targetName.includes(c);
+        if (!matchesCat) return false;
+        if (!activeCity) return true;
+        const storeCity = resolveCityFromLocation(item) || item.city || "";
+        return storeCity.toLowerCase() === activeCity.toLowerCase();
       });
 
       if (matchingStores.length > 0) {
@@ -398,10 +398,15 @@ function CategoryPage() {
   }, [loadData]);
 
   const productList = useMemo(() => {
-    const localItems = listListings().filter(
-      (l) => (l.category || "").toLowerCase() === category.id.toLowerCase() ||
-        (l.category || "").toLowerCase().includes(category.name.toLowerCase())
-    ).map((item) => ({
+    const activeCity = resolveCityFromLocation(activeLoc) || activeLoc?.city;
+    const localItems = listListings().filter((l) => {
+      const matchesCat = (l.category || "").toLowerCase() === category.id.toLowerCase() ||
+        (l.category || "").toLowerCase().includes(category.name.toLowerCase());
+      if (!matchesCat) return false;
+      if (!activeCity) return true;
+      const lCity = resolveCityFromLocation(l) || l.city;
+      return !lCity || lCity.toLowerCase() === activeCity.toLowerCase();
+    }).map((item) => ({
       id: item.id,
       title: item.title,
       price: item.price,
@@ -411,7 +416,7 @@ function CategoryPage() {
         ? resolveElectronicsSubcategory(item.subcategory, item.title, item.specs)
         : (item.subcategory || "General"),
       condition: item.condition || "good",
-      area: item.area || "Hitec City",
+      area: item.area || activeLoc?.area || resolvedActiveCity || "Local",
       distanceKm: 2,
       postedAgo: "Recently",
       verified: false,
@@ -439,17 +444,6 @@ function CategoryPage() {
         seenIds.add(item.id);
         list.push(item);
       }
-    }
-
-    if (list.length === 0) {
-      const targetCatId = category.id.toLowerCase();
-      const targetCatName = category.name.toLowerCase();
-      const mockItems = PRODUCTS.filter(
-        (p) => (p.category || "").toLowerCase() === targetCatId ||
-          (p.category || "").toLowerCase().includes(targetCatName) ||
-          targetCatName.includes((p.category || "").toLowerCase())
-      );
-      list = mockItems;
     }
 
     const q = search.q?.toLowerCase() ?? "";
@@ -670,10 +664,9 @@ function CategoryPage() {
   };
 
   return (
-    <MobileFrame>
-      <div className="min-h-dvh bg-background pb-20 md:pb-16 font-sans">
-        {/* Mobile Header */}
-        <header className="sticky top-0 z-30 border-b border-border bg-card safe-t md:hidden">
+    <div className="min-h-dvh w-full bg-background pb-20 md:pb-16 font-sans">
+      {/* Mobile Header */}
+      <header className="sticky top-0 z-30 border-b border-border bg-card safe-t md:hidden">
           <div className="flex items-center gap-2 px-3 pt-2 pb-2">
             <button onClick={() => history.back()} className="grid h-10 w-10 place-items-center rounded-full hover:bg-secondary" aria-label="Back">
               <ArrowLeft className="h-5 w-5" />
@@ -784,7 +777,7 @@ function CategoryPage() {
                   {search.sub && <span className="text-indigo-brand font-extrabold">• {search.sub}</span>}
                 </h1>
                 <p className="text-xs sm:text-sm font-bold text-muted-foreground mt-0.5">
-                  Showing <span className="text-primary font-black">{productList.length}</span> active listings near {activeLoc?.area || "Madhapur"}
+                  Showing <span className="text-primary font-black">{productList.length}</span> active listings near {activeLoc?.area || activeLoc?.city || resolvedActiveCity || "your location"}
                 </p>
               </div>
 
@@ -807,10 +800,10 @@ function CategoryPage() {
         </div>
 
         {/* Main Content Layout */}
-        <div className="px-4 sm:px-6 md:px-8 lg:px-10 xl:px-12 md:mx-auto md:max-w-[1440px] md:grid md:grid-cols-[300px_1fr] md:gap-6 md:py-6">
+        <div className="px-4 sm:px-6 md:px-8 lg:px-10 xl:px-12 md:mx-auto md:max-w-[1440px] md:grid md:grid-cols-[260px_1fr] lg:grid-cols-[280px_1fr] xl:grid-cols-[300px_1fr] md:gap-6 md:py-6">
 
           {/* DESKTOP FILTER SIDEBAR */}
-          <aside className="hidden md:block sticky top-24 self-start rounded-3xl border border-border bg-card p-5 shadow-sm space-y-5">
+          <aside className="hidden md:block sticky top-28 self-start rounded-3xl border border-border bg-card p-5 shadow-sm space-y-5">
             <div className="flex items-center justify-between border-b border-border pb-3">
               <h2 className="text-sm font-extrabold uppercase tracking-wide text-foreground flex items-center gap-2">
                 <SlidersHorizontal className="h-4 w-4 text-indigo-brand" /> Filter {category.name}
@@ -949,7 +942,7 @@ function CategoryPage() {
           </aside>
 
           {/* MAIN LISTINGS AREA */}
-          <div className="space-y-6">
+          <div className="space-y-6 min-w-0">
             {/* Subcategories Horizontal Scroll */}
             {subs.length > 0 && (
               <div className="flex gap-2 overflow-x-auto no-scrollbar pb-1">
@@ -998,18 +991,38 @@ function CategoryPage() {
               <>
                 {/* Results Grid / List */}
                 {productList.length === 0 ? (
-                  <EmptyState
-                    title={`No ${category.name.toLowerCase()} listings found`}
-                    body="Try clearing filters or searching for something else."
-                    ctaLabel="Clear all filters"
-                    onCta={resetAllFilters}
-                  />
+                  <div className="flex flex-col items-center justify-center rounded-3xl border border-dashed border-border bg-card/60 p-8 sm:p-12 text-center backdrop-blur-sm">
+                    <div className="grid h-16 w-16 place-items-center rounded-2xl bg-primary/10 text-primary mb-4">
+                      <MapPin className="h-8 w-8" />
+                    </div>
+                    <h3 className="text-base sm:text-lg font-black text-foreground">
+                      There are no products in this location
+                    </h3>
+                    <p className="mt-1.5 max-w-sm text-xs sm:text-sm font-medium text-muted-foreground">
+                      No active {category.name.toLowerCase()} listings found in{" "}
+                      <strong className="text-foreground">{activeLoc?.area || activeLoc?.city || resolvedActiveCity || "this location"}</strong>.
+                    </p>
+                    <div className="mt-6 flex flex-wrap items-center justify-center gap-3">
+                      <button
+                        onClick={() => setShowLocModal(true)}
+                        className="inline-flex items-center gap-1.5 rounded-full bg-primary px-5 py-2.5 text-xs font-bold text-primary-foreground shadow-sm hover:opacity-90 transition-all"
+                      >
+                        <MapPin className="h-3.5 w-3.5" /> Change Location
+                      </button>
+                      <button
+                        onClick={() => nav({ to: "/sell" as any })}
+                        className="inline-flex items-center gap-1.5 rounded-full border border-border bg-secondary/80 px-5 py-2.5 text-xs font-bold text-foreground hover:bg-secondary transition-all"
+                      >
+                        Post a Listing
+                      </button>
+                    </div>
+                  </div>
                 ) : view === "list" ? (
                   <div className="space-y-3">
                     {interleaveAds(productList, liveSponsoredAd, "list")}
                   </div>
                 ) : (
-                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5 sm:gap-6">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-2 xl:grid-cols-3 gap-4 lg:gap-6">
                     {interleaveAds(productList, liveSponsoredAd, "grid")}
                   </div>
                 )}
@@ -1044,8 +1057,12 @@ function CategoryPage() {
           value={search.sort ?? "relevance"}
           onChange={(id) => nav({ search: (p: S) => ({ ...p, sort: id }) })}
         />
+
+        <LocationModal
+          open={showLocModal}
+          onClose={() => setShowLocModal(false)}
+        />
       </div>
-    </MobileFrame>
   );
 }
 
@@ -1134,13 +1151,13 @@ function interleaveAds(products: Product[], sponsoredAd: any, mode: "grid" | "li
 function NotFound() {
   const nav = useNavigate();
   return (
-    <MobileFrame>
+    <div className="min-h-dvh w-full flex items-center justify-center p-4">
       <EmptyState
         title="Category not found"
         body="This category is unavailable."
         ctaLabel="Browse categories"
         onCta={() => nav({ to: "/categories" })}
       />
-    </MobileFrame>
+    </div>
   );
 }

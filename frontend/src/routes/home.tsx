@@ -823,7 +823,12 @@ function Home() {
   const secondaryAd = getAd("HOME_SECONDARY_BANNER");
 
   const organic = useMemo(() => {
-    const local = listListings();
+    const activeCity = resolveCityFromLocation(loc) || loc?.city;
+    const local = listListings().filter((item) => {
+      if (!activeCity) return true;
+      const itemCity = resolveCityFromLocation(item) || item.city;
+      return !itemCity || itemCity.toLowerCase() === activeCity.toLowerCase();
+    });
     const localMapped = (local || []).map((item) => ({
       id: item.id,
       title: item.title,
@@ -858,13 +863,7 @@ function Home() {
       return [...localMapped, ...filteredLive];
     }
 
-    if (localMapped.length > 0) {
-      const seenIds = new Set(localMapped.map((l) => l.id));
-      const filteredMock = PRODUCTS.filter((p) => !seenIds.has(p.id));
-      return [...localMapped, ...filteredMock];
-    }
-
-    return PRODUCTS;
+    return localMapped;
   }, [liveProducts, loc?.city, localListingTick]);
 
   const nearby = organic.slice(0, 12);

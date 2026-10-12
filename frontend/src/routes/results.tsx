@@ -5,7 +5,7 @@ import { MobileFrame } from "@/components/omeetso/MobileFrame";
 import { ProductCard } from "@/components/omeetso/ProductCard";
 import { SortSheet } from "@/components/omeetso/SortSheet";
 import { FilterChip } from "@/components/omeetso/FilterChip";
-import { PRODUCTS, CATEGORIES as STATIC_CATEGORIES, SORT_OPTIONS, getAd, type Product } from "@/lib/mock";
+import { CATEGORIES as STATIC_CATEGORIES, SORT_OPTIONS, getAd, type Product } from "@/lib/mock";
 import { listListings, fetchLivePublicListings } from "@/lib/listings";
 import { fetchLiveCategories, getCachedCategories, resolveElectronicsSubcategory, type LiveCategory } from "@/lib/categories";
 import { calculateDistanceBetweenLocations, resolveCityFromLocation } from "@/lib/location";
@@ -257,7 +257,7 @@ function Results() {
           quickSale: item.method === "quick" || Boolean(item.quickSale || item.isQuickSell),
           isQuickSell: item.method === "quick" || Boolean(item.quickSale || item.isQuickSell),
         }));
-        setAllProducts([...localItems, ...PRODUCTS]);
+        setAllProducts(localItems);
       }
     }).catch(() => {
       const localItems: Product[] = listListings().map((item) => ({
@@ -287,7 +287,7 @@ function Results() {
         quickSale: item.method === "quick",
         isQuickSell: item.method === "quick",
       }));
-      setAllProducts([...localItems, ...PRODUCTS]);
+      setAllProducts(localItems);
     });
 
     import("@/api/adCampaigns.api").then(({ serveAdsApi }) => {

@@ -130,7 +130,7 @@ export async function createListing(req: AuthenticatedUserRequest, res: Response
     // Auto-normalize satellite suburbs to parent metro city if postal division matches
     if (/^(500|501|502)\d{3}$/.test(safePincode) && /^(ghatkesar|secunderabad|medchal|shamshabad|cyberabad)$/i.test(safeCity)) {
       safeCity = "Hyderabad";
-    } else if (/^560\d{3}$/.test(safePincode) && /^(whitefield|electronic city|yelahanka|hsr)$/i.test(safeCity)) {
+    } else if (/^560\d{3}$/.test(safePincode) && /^(whitefield|electronic city|yelahanka|hsr|koramangala|indiranagar|marathahalli|bengaluru|banglore|bengalore|bengolre|bangaluru|benglure|blr)$/i.test(safeCity)) {
       safeCity = "Bangalore";
     }
     const safeCategory = (categoryId && String(categoryId).trim()) || "mobiles";
@@ -500,10 +500,10 @@ export async function getPublicListings(req: Request, res: Response, next: NextF
           { area: /hyderabad|secunderabad|cyberabad|ghatkesar|medchal|shamshabad/i },
           { pincode: /^(500|501|502)\d{3}$/ }
         );
-      } else if (/bangalore|bengaluru/i.test(lowerCity)) {
+      } else if (/bangalore|bengaluru|banglore|bengalore|bengolre|bangaluru|benglure|blr/i.test(lowerCity)) {
         orClauses.push(
-          { city: /bangalore|bengaluru/i },
-          { area: /bangalore|bengaluru/i },
+          { city: /bangalore|bengaluru|banglore|bengalore|bengolre|bangaluru|benglure|blr/i },
+          { area: /bangalore|bengaluru|banglore|bengalore|bengolre|bangaluru|benglure|blr/i },
           { pincode: /^560\d{3}$/ }
         );
       } else if (/mumbai|bombay|thane/i.test(lowerCity)) {
@@ -523,6 +523,12 @@ export async function getPublicListings(req: Request, res: Response, next: NextF
           { city: /hyderabad|secunderabad|ghatkesar/i },
           { area: /ghatkesar/i },
           { pincode: /^(500098|500\d{3})$/ }
+        );
+      } else if (/nalgonda/i.test(lowerCity)) {
+        orClauses.push(
+          { city: /nalgonda/i },
+          { area: /nalgonda/i },
+          { pincode: /^508\d{3}$/ }
         );
       }
 

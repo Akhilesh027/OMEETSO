@@ -134,6 +134,17 @@ export async function seedMultiLocationMarket(): Promise<{
       pincode: "400076",
       accountType: "business" as const,
       bio: "Commercial machinery & industrial tools supplier."
+    },
+    {
+      phone: "+919866012345",
+      email: "suresh.nalgonda@gmail.com",
+      name: "Suresh Reddy",
+      avatar: MALE_AVATAR_DATA_URI,
+      city: "Nalgonda",
+      area: "Clock Tower",
+      pincode: "508001",
+      accountType: "business" as const,
+      bio: "Trusted local electronics and gadget store in Nalgonda."
     }
   ];
 
@@ -257,6 +268,28 @@ export async function seedMultiLocationMarket(): Promise<{
       status: StoreStatus.APPROVED,
       rating: 4.9,
       reviewCount: 38,
+      followersCount: 0
+    },
+    {
+      ownerId: sellerDocs[8]?._id || sellerDocs[0]._id,
+      name: "Nalgonda Digital World & Mobiles",
+      slug: "nalgonda-digital-world-mobiles",
+      tagline: "Authorized Laptops, Gadgets & Smartphones",
+      description: "Premier local electronics showroom in Nalgonda near Clock Tower. Verified genuine brand warranties and fast local doorstep delivery.",
+      businessType: "Electronics & Mobile Store",
+      logo: "https://images.unsplash.com/photo-1550009158-9ebf69173e03?w=200",
+      cover: "https://images.unsplash.com/photo-1519389950473-47ba0277781c?w=1000",
+      primaryCategory: "electronics",
+      supportingCategories: ["electronics", "mobiles", "appliances"],
+      pincode: "508001",
+      area: "Clock Tower",
+      city: "Nalgonda",
+      address: "Main Road, Near Clock Tower, Nalgonda, Telangana",
+      businessMobile: "+919866012345",
+      email: "store.nalgonda@omeetso.com",
+      status: StoreStatus.APPROVED,
+      rating: 4.8,
+      reviewCount: 29,
       followersCount: 0
     }
   ];
@@ -441,6 +474,41 @@ export async function seedMultiLocationMarket(): Promise<{
       area: "Koramangala",
       pincode: "560034",
       specs: { "Chip": "M3 Pro", "RAM": "18GB Unified", "SSD": "512GB", "Screen": "14.2 inch XDR", "Color": "Space Black" }
+    },
+    {
+      seller: sellerDocs[8] || sellerDocs[0],
+      storeId: storeDocs[3]?._id,
+      categoryId: "electronics",
+      subcategoryId: "Laptops & Notebooks",
+      title: "Dell Inspiron 15 Core i5 16GB RAM 512GB SSD",
+      description: "Fast Dell 15.6 inch FHD anti-glare display laptop, Intel Core i5 12th Gen, 16GB DDR4 RAM, 512GB NVMe SSD, backlit keyboard, Windows 11 Home with MS Office. Excellent condition with original charger in Nalgonda.",
+      priceInPaise: 4250000, // ₹42,500
+      condition: "excellent",
+      images: [
+        "https://images.unsplash.com/photo-1588872657578-7efd1f1555ed?w=800",
+        "https://images.unsplash.com/photo-1541807084-5c52b6b3adef?w=800"
+      ],
+      city: "Nalgonda",
+      area: "Clock Tower",
+      pincode: "508001",
+      specs: { "Brand": "Dell", "Processor": "Intel Core i5 12th Gen", "RAM": "16GB", "Storage": "512GB SSD", "Screen": "15.6 inch FHD" }
+    },
+    {
+      seller: sellerDocs[8] || sellerDocs[0],
+      categoryId: "electronics",
+      subcategoryId: "Smartwatches & Wearables",
+      title: "Samsung Galaxy Watch 5 Pro 45mm Bluetooth",
+      description: "Titanium Black case with Sapphire Crystal display, GPS route tracking, body composition sensor, long battery life. In mint condition with box and magnetic wireless charger in Nalgonda.",
+      priceInPaise: 1850000, // ₹18,500
+      condition: "like_new",
+      images: [
+        "https://images.unsplash.com/photo-1508685096489-7aacd43bd3b1?w=800",
+        "https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=800"
+      ],
+      city: "Nalgonda",
+      area: "VT Colony",
+      pincode: "508001",
+      specs: { "Brand": "Samsung", "Model": "Galaxy Watch 5 Pro", "Display": "Sapphire Crystal", "Size": "45mm", "Connectivity": "Bluetooth" }
     },
 
     // --- 5. FURNITURE ---
@@ -756,7 +824,7 @@ export async function seedMultiLocationMarket(): Promise<{
       city: item.city,
       location: {
         type: "Point",
-        coordinates: item.city === "Hyderabad" ? [78.3871, 17.4486] : item.city === "Bangalore" ? [77.6101, 12.9352] : [72.8258, 19.0596]
+        coordinates: item.city === "Hyderabad" ? [78.3871, 17.4486] : item.city === "Bangalore" ? [77.6101, 12.9352] : item.city === "Nalgonda" ? [79.2684, 17.0575] : [72.8258, 19.0596]
       },
       fulfilment: "pickup",
       specs: item.specs,

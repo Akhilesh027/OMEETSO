@@ -1800,7 +1800,7 @@ export async function serveAds(req: Request, res: Response, next: NextFunction):
     const userArea = (area || "").toString().toLowerCase().trim();
     const userPin = (pincode || "").toString().replace(/\D/g, "").trim();
 
-    const isBangalore = (s: string) => s.includes("bangalore") || s.includes("bengaluru") || s.includes("benglure") || s.includes("blr") || s.includes("560034") || s.includes("560001");
+    const isBangalore = (s: string) => s.includes("bangalore") || s.includes("bengaluru") || s.includes("banglore") || s.includes("bengalore") || s.includes("bengolre") || s.includes("bangaluru") || s.includes("benglure") || s.includes("blr") || s.includes("560034") || s.includes("560001");
     const isHyderabad = (s: string) => s.includes("hyderabad") || s.includes("secunderabad") || s.includes("hyd") || s.includes("cyberabad") || s.includes("500081") || s.includes("500032") || s.includes("500039") || s.includes("500072") || s.includes("500034");
     const isMumbai = (s: string) => s.includes("mumbai") || s.includes("bombay") || s.includes("thane") || s.includes("400050") || s.includes("400001");
 
