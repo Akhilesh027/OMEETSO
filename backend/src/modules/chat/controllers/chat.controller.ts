@@ -252,23 +252,31 @@ function formatConversationItem(c: any, userId: any) {
   const isStore = c.contextType === "STORE" || !!c.storeId;
 
   let title = "Marketplace Conversation";
-  let image = "https://images.unsplash.com/photo-1526738549149-8e07eca6c147?w=400";
+  let image = "";
   let priceInPaise = 0;
   let salaryText = "";
 
   if (isJob) {
-    title = c.jobId?.title ? `${c.jobId.title}${c.jobId.companyName ? ` (${c.jobId.companyName})` : ""}` : (c.listingTitle || "Job Opportunity");
-    image = c.jobId?.companyLogo || "https://images.unsplash.com/photo-1486406146926-c627a92ad1ab?w=400";
+    title = c.jobId?.title ? `${c.jobId.title}${c.jobId.companyName ? ` (${c.jobId.companyName})` : ""}` : (c.listingTitle && !c.listingTitle.includes("Royal Enfield") ? c.listingTitle : "Job Opportunity");
+    image = c.jobId?.companyLogo || "";
     salaryText = formatSalaryText(c.jobId?.salary);
     priceInPaise = 0;
   } else if (isStore) {
-    title = c.storeId?.name || c.listingTitle || "Store Conversation";
-    image = c.storeId?.logo || "https://images.unsplash.com/photo-1528698827591-e19ccd7bc23d?w=400";
+    title = c.storeId?.name || (c.listingTitle && !c.listingTitle.includes("Royal Enfield") && c.listingTitle !== "Product Listing" ? c.listingTitle : "");
+    image = c.storeId?.logo || "";
     priceInPaise = 0;
   } else {
-    title = c.listingId?.title || c.listingTitle || "Product Listing";
-    image = c.listingId?.images?.[0] || c.listingImage || "https://images.unsplash.com/photo-1526738549149-8e07eca6c147?w=400";
-    priceInPaise = c.listingId?.priceInPaise || c.listingPriceInPaise || 0;
+    const isMockRepeated = c.listingTitle && (c.listingTitle.includes("Royal Enfield") || c.listingTitle === "Product Listing" || c.listingTitle === "Marketplace Conversation");
+    if (c.listingId?.title) {
+      title = c.listingId.title;
+      priceInPaise = c.listingId.priceInPaise || 0;
+      image = (Array.isArray(c.listingId.images) && c.listingId.images[0]) || "";
+    } else {
+      title = !isMockRepeated ? (c.listingTitle || "") : "";
+      priceInPaise = title ? (c.listingPriceInPaise || 0) : 0;
+      const rawImg = c.listingImage || "";
+      image = rawImg.includes("photo-1526738549149") ? "" : rawImg;
+    }
   }
 
   return {

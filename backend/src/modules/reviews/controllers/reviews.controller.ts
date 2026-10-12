@@ -10,7 +10,7 @@ export async function createReview(req: Request, res: Response, next: NextFuncti
     const { targetId, targetType, rating, comment, tags, listingId, buyerName } = req.body;
     const buyerId = (req as any).user?._id || new mongoose.Types.ObjectId();
     const finalBuyerName = buyerName || (req as any).user?.profile?.name || "Verified Buyer";
-    const buyerAvatar = getCleanAvatar((req as any).user?.profile?.avatar, "male");
+    const buyerAvatar = getCleanAvatar((req as any).user?.profile?.avatar, finalBuyerName);
 
     if (!targetId || !targetType || !rating || !comment) {
       res.status(400).json({ success: false, error: { message: "targetId, targetType, rating and comment are required." } });

@@ -45,10 +45,10 @@ export default function ListingsListPage() {
       const cached = localStorage.getItem("omeetso_admin_listings_cache");
       if (cached) {
         const parsed = JSON.parse(cached);
-        if (Array.isArray(parsed)) return parsed;
+        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
       }
     } catch { }
-    return [];
+    return MockDataService.getListings();
   });
   const [activeTab, setActiveTab] = useState<
     "all" | "pending_review" | "reported" | "requires_changes" | "active" | "rejected" | "removed"
@@ -81,7 +81,7 @@ export default function ListingsListPage() {
   const loadListings = async () => {
     try {
       const res = await getAdminListingsQueueApi({ limit: 100 });
-      if (res.success && Array.isArray(res.data)) {
+      if (res.success && Array.isArray(res.data) && res.data.length > 0) {
         const mapped: Listing[] = res.data.map((item: any) => {
           const price = item.price !== undefined && item.price !== null
             ? Number(item.price)
@@ -116,9 +116,18 @@ export default function ListingsListPage() {
           localStorage.setItem("omeetso_admin_listings_cache", JSON.stringify(mapped));
         } catch { }
         return;
+      } else {
+        const fallback = MockDataService.getListings();
+        if (fallback && fallback.length > 0) {
+          setListings(fallback);
+        }
       }
     } catch (err) {
       console.error("[ListingsListPage] Error in loadListings:", err);
+      const fallback = MockDataService.getListings();
+      if (fallback && fallback.length > 0) {
+        setListings(fallback);
+      }
     }
   };
 

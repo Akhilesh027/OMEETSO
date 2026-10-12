@@ -161,10 +161,14 @@ function ThreadRow({ t, conv, active }: { t: ReturnType<typeof conversationToThr
       className={`flex items-start gap-3 px-3 py-3 transition-colors ${active ? "bg-navy/[0.06]" : "hover:bg-secondary/60"}`}
     >
       <div className="relative shrink-0">
-        {conv?.listingImage ? (
+        {conv?.listingImage && !conv.listingImage.includes("photo-1526738549149") ? (
           <img src={conv.listingImage} alt="" className="h-10 w-10 rounded-xl object-cover" />
+        ) : t.peerType === "store" ? (
+          <div className="grid h-10 w-10 place-items-center rounded-xl bg-indigo-50 text-indigo-600 dark:bg-indigo-950/40">
+            <StoreIcon className="h-5 w-5" />
+          </div>
         ) : (
-          <div className="grid h-10 w-10 place-items-center rounded-xl bg-secondary">
+          <div className="grid h-10 w-10 place-items-center rounded-xl bg-secondary text-muted-foreground">
             <MessageCircle className="h-4 w-4" />
           </div>
         )}
@@ -186,7 +190,7 @@ function ThreadRow({ t, conv, active }: { t: ReturnType<typeof conversationToThr
           </div>
           <span className="shrink-0 text-[10px] text-muted-foreground">{formatChatTime(t.updatedAt)}</span>
         </div>
-        {conv && (
+        {conv?.listingTitle && !conv.listingTitle.includes("Royal Enfield") && conv.listingTitle !== "Product Listing" && conv.listingTitle !== "Marketplace Conversation" && (
           <p className="line-clamp-1 text-[10px] text-muted-foreground">
             {conv.listingTitle}
             {conv.salaryText

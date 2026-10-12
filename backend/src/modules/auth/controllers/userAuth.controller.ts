@@ -21,6 +21,7 @@ const USER_REFRESH_COOKIE = "omeetso_user_refresh";
 
 export function formatAuthUser(user: any) {
   const isEmailVerified = Boolean(user.emailVerified || user.verificationSummary?.emailVerified);
+  const createdDate = user.createdAt || user.profile?.memberSince || new Date();
   return {
     id: user._id.toString(),
     _id: user._id.toString(),
@@ -30,6 +31,9 @@ export function formatAuthUser(user: any) {
     accountType: user.accountType,
     status: user.status,
     profile: user.profile,
+    createdAt: createdDate,
+    updatedAt: user.updatedAt || createdDate,
+    memberSince: user.profile?.memberSince || createdDate,
     verificationSummary: {
       mobileVerified: Boolean(user.verificationSummary?.mobileVerified ?? true),
       emailVerified: isEmailVerified,

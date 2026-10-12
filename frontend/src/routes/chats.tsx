@@ -296,10 +296,16 @@ function ChatCard({ t, conv }: { t: ReturnType<typeof conversationToThread>; con
   return (
     <Link to="/chat/$id" params={{ id: t.id }} className="flex items-center gap-3 bg-card px-3 py-3 active:bg-muted">
       <div className="relative">
-        {conv?.listingImage ? (
+        {conv?.listingImage && !conv.listingImage.includes("photo-1526738549149") ? (
           <img src={conv.listingImage} alt="" className="h-12 w-12 rounded-xl object-cover" />
+        ) : t.peerType === "store" ? (
+          <div className="grid h-12 w-12 place-items-center rounded-xl bg-indigo-50 text-indigo-600 dark:bg-indigo-950/40">
+            <StoreIcon className="h-6 w-6" />
+          </div>
         ) : (
-          <div className="grid h-12 w-12 place-items-center rounded-xl bg-secondary"><MessageCircle className="h-5 w-5" /></div>
+          <div className="grid h-12 w-12 place-items-center rounded-xl bg-secondary text-muted-foreground">
+            <MessageCircle className="h-5 w-5" />
+          </div>
         )}
         {t.peerType === "store" && (
           <span className="absolute -bottom-1 -right-1 grid h-5 w-5 place-items-center rounded-full border-2 border-card bg-navy text-white">
@@ -319,19 +325,18 @@ function ChatCard({ t, conv }: { t: ReturnType<typeof conversationToThread>; con
           </div>
           <span className="shrink-0 text-[11px] text-muted-foreground">{formatChatTime(t.updatedAt)}</span>
         </div>
-        <p className="line-clamp-1 text-[11px] text-muted-foreground">
-          {conv?.listingTitle
-            ? `${conv.listingTitle}${
-                conv.salaryText
-                  ? ` · ${conv.salaryText}`
-                  : conv.servicePriceText
-                    ? ` · ${conv.servicePriceText}`
-                    : conv.listingPriceInPaise && conv.listingPriceInPaise > 0
-                      ? ` · ${formatINR(conv.listingPriceInPaise / 100)}`
-                      : ""
-              }`
-            : ""}
-        </p>
+        {conv?.listingTitle && !conv.listingTitle.includes("Royal Enfield") && conv.listingTitle !== "Product Listing" && conv.listingTitle !== "Marketplace Conversation" && (
+          <p className="line-clamp-1 text-[11px] text-muted-foreground">
+            {conv.listingTitle}
+            {conv.salaryText
+              ? ` · ${conv.salaryText}`
+              : conv.servicePriceText
+                ? ` · ${conv.servicePriceText}`
+                : conv.listingPriceInPaise && conv.listingPriceInPaise > 0
+                  ? ` · ${formatINR(conv.listingPriceInPaise / 100)}`
+                  : ""}
+          </p>
+        )}
         <div className="mt-0.5 flex items-center gap-1.5">
           <p className="line-clamp-1 flex-1 text-xs text-foreground">{t.lastMessagePreview ?? "Start the conversation"}</p>
           {statusChip && (

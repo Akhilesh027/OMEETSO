@@ -18,7 +18,7 @@ import { CATEGORIES, PRODUCTS, STORES, getAd, formatINR } from "@/lib/mock";
 import { getRecentlyViewed } from "@/lib/saved";
 import { cn } from "@/lib/utils";
 
-import { fetchLivePublicListings } from "@/lib/listings";
+import { fetchLivePublicListings, listListings } from "@/lib/listings";
 import { serveAdsApi } from "@/api/adCampaigns.api";
 import { API_BASE } from "@/config/api";
 
@@ -525,6 +525,19 @@ function Home() {
 
   const [recentlyViewed, setRecentlyViewed] = useState<string[]>([]);
   const [locLoaded, setLocLoaded] = useState(false);
+  const [localListingTick, setLocalListingTick] = useState(0);
+
+  useEffect(() => {
+    const handleListingUpdate = () => {
+      setLocalListingTick((t) => t + 1);
+    };
+    window.addEventListener("omeetso_listing_updated", handleListingUpdate);
+    window.addEventListener("storage", handleListingUpdate);
+    return () => {
+      window.removeEventListener("omeetso_listing_updated", handleListingUpdate);
+      window.removeEventListener("storage", handleListingUpdate);
+    };
+  }, []);
 
   useEffect(() => {
     const syncLocation = () => {
@@ -810,8 +823,49 @@ function Home() {
   const secondaryAd = getAd("HOME_SECONDARY_BANNER");
 
   const organic = useMemo(() => {
-    return liveProducts;
-  }, [liveProducts]);
+    const local = listListings();
+    const localMapped = (local || []).map((item) => ({
+      id: item.id,
+      title: item.title,
+      price: item.price,
+      negotiable: item.negotiable,
+      category: item.category,
+      subcategory: item.subcategory,
+      condition: item.condition,
+      area: item.area || "Local",
+      city: item.city || loc?.city || "Hyderabad",
+      pincode: item.pincode,
+      distanceKm: 0.5,
+      postedAgo: "Recently",
+      image: item.images?.[item.cover || 0] || item.images?.[0] || "https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=400",
+      images: item.images,
+      verified: true,
+      sellerName: item.sellerName || "You",
+      sellerType: item.sellerType || "individual",
+      sellerId: item.sellerId || "me",
+      rating: 5.0,
+      reviewCount: 1,
+      description: item.description,
+      specs: item.specs || {},
+      method: item.method || "detailed",
+      quickSale: item.method === "quick" || Boolean(item.quickSale || item.isQuickSell),
+      isQuickSell: item.method === "quick" || Boolean(item.quickSale || item.isQuickSell),
+    }));
+
+    if (liveProducts && liveProducts.length > 0) {
+      const seenIds = new Set(localMapped.map((l) => l.id));
+      const filteredLive = liveProducts.filter((p) => !seenIds.has(p.id));
+      return [...localMapped, ...filteredLive];
+    }
+
+    if (localMapped.length > 0) {
+      const seenIds = new Set(localMapped.map((l) => l.id));
+      const filteredMock = PRODUCTS.filter((p) => !seenIds.has(p.id));
+      return [...localMapped, ...filteredMock];
+    }
+
+    return PRODUCTS;
+  }, [liveProducts, loc?.city, localListingTick]);
 
   const nearby = organic.slice(0, 12);
   const featured = organic.length > 0 ? (organic.length <= 4 ? organic : organic.slice(0, 8)) : [];

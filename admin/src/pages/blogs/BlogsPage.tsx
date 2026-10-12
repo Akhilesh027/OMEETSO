@@ -338,17 +338,26 @@ export const BlogsPage: React.FC = () => {
   };
 
   const openQuickScheduleModal = (blog: BlogItem) => {
+    const formatLocalDateTime = (d: Date) => {
+      const year = d.getFullYear();
+      const month = String(d.getMonth() + 1).padStart(2, "0");
+      const day = String(d.getDate()).padStart(2, "0");
+      const hours = String(d.getHours()).padStart(2, "0");
+      const minutes = String(d.getMinutes()).padStart(2, "0");
+      return `${year}-${month}-${day}T${hours}:${minutes}`;
+    };
+
     let initDate = "";
     if (blog.scheduledAt) {
       try {
-        initDate = new Date(blog.scheduledAt).toISOString().slice(0, 16);
+        initDate = formatLocalDateTime(new Date(blog.scheduledAt));
       } catch {}
     }
     if (!initDate) {
       const tomorrow = new Date();
       tomorrow.setDate(tomorrow.getDate() + 1);
       tomorrow.setHours(9, 0, 0, 0);
-      initDate = tomorrow.toISOString().slice(0, 16);
+      initDate = formatLocalDateTime(tomorrow);
     }
     setQuickScheduledDate(initDate);
     setQuickScheduleBlog(blog);
@@ -1000,6 +1009,39 @@ export const BlogsPage: React.FC = () => {
                   onChange={(e) => setQuickScheduledDate(e.target.value)}
                   className="w-full h-11 rounded-xl border border-purple-300 bg-white px-3.5 text-xs font-bold text-admin-text outline-none focus:border-purple-600 focus:ring-2 focus:ring-purple-600/20 shadow-xs"
                 />
+                <div className="mt-2 flex flex-wrap gap-1.5 items-center">
+                  <span className="text-[11px] font-bold text-slate-500">Presets:</span>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const d = new Date();
+                      d.setDate(d.getDate() + 1);
+                      d.setHours(9, 0, 0, 0);
+                      const year = d.getFullYear();
+                      const month = String(d.getMonth() + 1).padStart(2, "0");
+                      const day = String(d.getDate()).padStart(2, "0");
+                      setQuickScheduledDate(`${year}-${month}-${day}T09:00`);
+                    }}
+                    className="px-2.5 py-1 rounded-lg bg-purple-50 border border-purple-200 text-[11px] font-bold text-purple-700 hover:bg-purple-100 cursor-pointer"
+                  >
+                    Tomorrow 9 AM
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const d = new Date();
+                      d.setDate(d.getDate() + 2);
+                      d.setHours(10, 0, 0, 0);
+                      const year = d.getFullYear();
+                      const month = String(d.getMonth() + 1).padStart(2, "0");
+                      const day = String(d.getDate()).padStart(2, "0");
+                      setQuickScheduledDate(`${year}-${month}-${day}T10:00`);
+                    }}
+                    className="px-2.5 py-1 rounded-lg bg-purple-50 border border-purple-200 text-[11px] font-bold text-purple-700 hover:bg-purple-100 cursor-pointer"
+                  >
+                    In 2 Days
+                  </button>
+                </div>
               </div>
 
               <div className="flex items-center justify-end gap-2.5 pt-2">

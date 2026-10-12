@@ -4,7 +4,6 @@ import {
   MALE_AVATAR_DATA_URI,
   FEMALE_AVATAR_DATA_URI,
   NEUTRAL_AVATAR_DATA_URI,
-  isPhotoUrl,
   getCleanAvatar
 } from "./avatarSvgs";
 
@@ -73,8 +72,47 @@ export type Profile = {
   accountType: AccountType;
   businessEnabled?: boolean;
   memberSince: number;
+  createdAt?: number | string;
   responseTime?: string;
 };
+
+export function formatRegistrationDayAndDate(dateVal: any): string {
+  if (!dateVal) return "Date not recorded";
+  try {
+    const d = new Date(dateVal);
+    if (isNaN(d.getTime()) || d.getFullYear() < 1990) return "Date not recorded";
+    return d.toLocaleDateString("en-IN", {
+      weekday: "long",
+      day: "numeric",
+      month: "short",
+      year: "numeric"
+    });
+  } catch {
+    return "Date not recorded";
+  }
+}
+
+export function formatRegistrationDateTime(dateVal: any): string {
+  if (!dateVal) return "Date not recorded";
+  try {
+    const d = new Date(dateVal);
+    if (isNaN(d.getTime()) || d.getFullYear() < 1990) return "Date not recorded";
+    const dateStr = d.toLocaleDateString("en-IN", {
+      weekday: "long",
+      day: "numeric",
+      month: "short",
+      year: "numeric"
+    });
+    const timeStr = d.toLocaleTimeString("en-IN", {
+      hour: "2-digit",
+      minute: "2-digit",
+      hour12: true
+    });
+    return `${dateStr} (${timeStr})`;
+  } catch {
+    return "Date not recorded";
+  }
+}
 
 export const DEFAULT_AVATARS = {
   male: MALE_AVATAR_DATA_URI,
@@ -138,7 +176,7 @@ const DEFAULT_PROFILE: Profile = {
   area: "",
   language: "en",
   bio: "",
-  avatar: DEFAULT_AVATARS.male,
+  avatar: DEFAULT_AVATARS.other,
   accountType: "individual",
   businessEnabled: false,
   memberSince: Date.now(),
@@ -170,11 +208,9 @@ export function getProfile(): Profile {
         (typeof liveUser.profile?.avatar === "string" ? liveUser.profile.avatar : null) ||
         (typeof liveUser.avatar === "string" ? liveUser.avatar : null) ||
         (validStored && typeof validStored.avatar === "string" ? validStored.avatar : null) ||
-        DEFAULT_AVATARS.male;
+        DEFAULT_AVATARS.other;
 
-      if (isPhotoUrl(resolvedAvatar)) {
-        resolvedAvatar = DEFAULT_AVATARS.male;
-      }
+      resolvedAvatar = getCleanAvatar(resolvedAvatar);
 
       const rawArea = (typeof liveUser.profile?.area === "string" ? liveUser.profile.area : "") ||
                       (validStored && typeof validStored.area === "string" ? validStored.area : "") ||
@@ -204,15 +240,16 @@ export function getProfile(): Profile {
         bio: (typeof liveUser.profile?.bio === "string" ? liveUser.profile.bio : "") ||
              (validStored && typeof validStored.bio === "string" ? validStored.bio : ""),
         accountType: (liveUser.accountType === "business" || liveUser.accountType === "individual" ? liveUser.accountType : (validStored?.accountType || "individual")),
-        memberSince: liveUser.createdAt ? new Date(liveUser.createdAt).getTime() : (validStored?.memberSince || Date.now()),
+        memberSince: (liveUser.createdAt ? new Date(liveUser.createdAt).getTime() : 0) ||
+                     (liveUser.memberSince ? new Date(liveUser.memberSince).getTime() : 0) ||
+                     (liveUser.profile?.memberSince ? new Date(liveUser.profile.memberSince).getTime() : 0) ||
+                     (validStored?.memberSince || Date.now()),
+        createdAt: liveUser.createdAt || validStored?.createdAt || validStored?.memberSince || Date.now(),
       };
     }
 
     if (stored && typeof stored === "object") {
-      let cleanAvatar = (typeof stored.avatar === "string" ? stored.avatar : "") || DEFAULT_AVATARS.male;
-      if (isPhotoUrl(cleanAvatar)) {
-        cleanAvatar = DEFAULT_AVATARS.male;
-      }
+      const cleanAvatar = getCleanAvatar(typeof stored.avatar === "string" ? stored.avatar : "");
       const rawStoredArea = typeof stored.area === "string" ? stored.area : "";
       const cleanArea = rawStoredArea.toLowerCase() === "madhapur" ? "" : rawStoredArea;
       return {

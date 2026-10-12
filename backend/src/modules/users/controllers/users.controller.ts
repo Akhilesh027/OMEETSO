@@ -203,7 +203,8 @@ export async function getPublicProfile(req: Request, res: Response, next: NextFu
         avatar: user.profile?.avatar || (user as any).avatar || MALE_AVATAR_DATA_URI,
         city: user.profile?.city || (user as any).city || "Hyderabad",
         area: user.profile?.area || (user as any).area || "Hyderabad",
-        memberSince: user.profile?.memberSince || (user.createdAt ? new Date(user.createdAt).getFullYear().toString() : "2024"),
+        memberSince: user.profile?.memberSince || user.createdAt || new Date(),
+        createdAt: user.createdAt || user.profile?.memberSince || new Date(),
         bio: user.profile?.bio || "Trusted Omeetso verified seller.",
         accountType: user.accountType || "individual",
         verificationSummary: user.verificationSummary || { identityVerified: true, phoneVerified: true, emailVerified: true }

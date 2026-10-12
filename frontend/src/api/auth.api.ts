@@ -97,7 +97,6 @@ export async function loginUserApi(phone: string, pin?: string): Promise<{ succe
       localStorage.setItem("omeetso_profile", "1");
       localStorage.removeItem("omeetso_guest");
       localStorage.removeItem("omeetso_guest_session");
-      localStorage.removeItem("omeetso_user_listings");
       localStorage.removeItem("omeetso_notifications");
       try {
         window.dispatchEvent(new CustomEvent("omeetso_auth_changed"));
@@ -149,7 +148,6 @@ export async function registerUserApi(payload: RegisterPayload): Promise<{ succe
       }
       localStorage.removeItem("omeetso_guest");
       localStorage.removeItem("omeetso_guest_session");
-      localStorage.removeItem("omeetso_user_listings");
       localStorage.removeItem("omeetso_notifications");
       try {
         window.dispatchEvent(new CustomEvent("omeetso_auth_changed"));
@@ -199,7 +197,6 @@ export async function verifyUserOtp(phone: string, code: string): Promise<{ succ
       localStorage.setItem("omeetso_profile", "1");
       localStorage.removeItem("omeetso_guest");
       localStorage.removeItem("omeetso_guest_session");
-      localStorage.removeItem("omeetso_user_listings");
       localStorage.removeItem("omeetso_notifications");
       try {
         window.dispatchEvent(new CustomEvent("omeetso_auth_changed"));
@@ -238,7 +235,6 @@ export async function resetUserPinApi(
       localStorage.setItem("omeetso_profile", "1");
       localStorage.removeItem("omeetso_guest");
       localStorage.removeItem("omeetso_guest_session");
-      localStorage.removeItem("omeetso_user_listings");
       localStorage.removeItem("omeetso_notifications");
       try {
         window.dispatchEvent(new CustomEvent("omeetso_auth_changed"));
@@ -332,5 +328,119 @@ export async function deleteUserAccountApi(): Promise<{ success: boolean; error?
     return { success: false, error: "Network error: Unable to connect to server" };
   }
 }
+
+export function isJwtTokenExpired(token: string | null): boolean {
+  if (!token || token === "guest_token" || token === "null" || token === "undefined") {
+    return true;
+  }
+  if (token === "mock_google_jwt_token" || token.startsWith("mock_")) {
+    return false;
+  }
+  try {
+    const parts = token.split(".");
+    if (parts.length !== 3) {
+      return false;
+    }
+    const base64Url = parts[1];
+    const base64 = base64Url.replace(/-/g, "+").replace(/_/g, "/");
+    const jsonPayload = decodeURIComponent(
+      atob(base64)
+        .split("")
+        .map((c) => "%" + ("00" + c.charCodeAt(0).toString(16)).slice(-2))
+        .join("")
+    );
+    const decoded = JSON.parse(jsonPayload);
+    if (decoded && typeof decoded.exp === "number") {
+      return decoded.exp * 1000 <= Date.now();
+    }
+    return false;
+  } catch {
+    return false;
+  }
+}
+
+export function isUserLoggedInSync(): boolean {
+  if (typeof window === "undefined") return false;
+  const isGuest = localStorage.getItem("omeetso_guest") || localStorage.getItem("omeetso_guest_session");
+  const token = getUserAccessToken();
+  if (!token || token === "guest_token" || token === "null" || token === "undefined" || isGuest) {
+    return false;
+  }
+  if (isJwtTokenExpired(token)) {
+    return false;
+  }
+  const user = localStorage.getItem("omeetso_user");
+  return Boolean(user);
+}
+
+export async function checkUserAuthStatus(): Promise<{
+  isAuthenticated: boolean;
+  isExpired: boolean;
+  user?: any;
+}> {
+  if (typeof window === "undefined") {
+    return { isAuthenticated: false, isExpired: false };
+  }
+
+  const token = getUserAccessToken();
+  const rawUser = localStorage.getItem("omeetso_user");
+  const isGuest = localStorage.getItem("omeetso_guest") || localStorage.getItem("omeetso_guest_session");
+
+  if (!token || token === "guest_token" || token === "null" || token === "undefined" || isGuest) {
+    return { isAuthenticated: false, isExpired: false };
+  }
+
+  // Check client-side JWT expiration
+  if (isJwtTokenExpired(token)) {
+    // Attempt session refresh if cookie is available
+    const refreshResult = await refreshUserSession();
+    if (refreshResult.success && refreshResult.data) {
+      return { isAuthenticated: true, isExpired: false, user: refreshResult.data.user };
+    }
+    // Clean up expired state
+    localStorage.removeItem("omeetso_user_token");
+    localStorage.removeItem("omeetso_user");
+    return { isAuthenticated: false, isExpired: true };
+  }
+
+  // Verify against backend API
+  try {
+    const res = await fetch(`${ROOT_API}/users/me`, {
+      headers: { Authorization: `Bearer ${token}` }
+    });
+
+    if (res.status === 401 || res.status === 403) {
+      const refreshResult = await refreshUserSession();
+      if (refreshResult.success && refreshResult.data) {
+        return { isAuthenticated: true, isExpired: false, user: refreshResult.data.user };
+      }
+      localStorage.removeItem("omeetso_user_token");
+      localStorage.removeItem("omeetso_user");
+      return { isAuthenticated: false, isExpired: true };
+    }
+
+    if (res.ok) {
+      const json = await res.json();
+      if (json && json.success && json.data) {
+        localStorage.setItem("omeetso_user", JSON.stringify(json.data));
+        return { isAuthenticated: true, isExpired: false, user: json.data };
+      }
+    }
+  } catch {
+    // Offline or network error: fall back to local token validation
+  }
+
+  if (rawUser) {
+    try {
+      const parsed = JSON.parse(rawUser);
+      return { isAuthenticated: true, isExpired: false, user: parsed };
+    } catch {
+      return { isAuthenticated: true, isExpired: false };
+    }
+  }
+
+  return { isAuthenticated: false, isExpired: false };
+}
+
 
 

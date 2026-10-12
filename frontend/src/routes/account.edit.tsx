@@ -3,6 +3,7 @@ import { useMemo, useState } from "react";
 import { MobileFrame } from "@/components/omeetso/MobileFrame";
 import { BackBar } from "@/components/omeetso/TopBar";
 import { getProfile, setProfile, type AccountType, DEFAULT_AVATARS } from "@/lib/account";
+import { getCleanAvatar } from "@/lib/avatarSvgs";
 import { uploadImageToCloudinary } from "@/lib/upload";
 import { Camera, Trash2, User as UserIcon, MapPin, Briefcase, Shield, ChevronRight } from "lucide-react";
 import { toast } from "sonner";
@@ -182,7 +183,7 @@ function EditProfile() {
 
               <div className="flex flex-col items-center md:flex-row md:items-center md:gap-6">
                 <label className="relative cursor-pointer">
-                  <img src={avatar || DEFAULT_AVATARS.male}
+                  <img src={avatar || getCleanAvatar(null, name)}
                     alt="Profile" className="h-24 w-24 rounded-full border-4 border-card object-cover md:h-28 md:w-28 shadow-sm" />
                   <span className="absolute -bottom-1 -right-1 grid h-8 w-8 place-items-center rounded-full bg-primary text-primary-foreground shadow">
                     <Camera className="h-4 w-4" />
@@ -190,37 +191,19 @@ function EditProfile() {
                   <input type="file" accept="image/*" className="hidden" onChange={pickAvatar} aria-label="Change profile photo" />
                 </label>
                 <div className="mt-2 text-center md:text-left">
-                  <p className="text-sm font-bold">Profile photo / Avatar</p>
-                  <p className="text-xs text-muted-foreground">Upload your photo or choose a male/female avatar.</p>
-                  <div className="mt-2.5 flex flex-wrap items-center justify-center md:justify-start gap-2">
-                    <button
-                      type="button"
-                      onClick={() => setAvatar(DEFAULT_AVATARS.male)}
-                      className={`rounded-full px-3 py-1 text-xs font-bold transition-all cursor-pointer ${
-                        avatar === DEFAULT_AVATARS.male
-                          ? "bg-primary text-primary-foreground shadow-sm ring-2 ring-primary/30"
-                          : "bg-secondary text-foreground hover:bg-secondary/80"
-                      }`}
-                    >
-                      Male Avatar
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setAvatar(DEFAULT_AVATARS.female)}
-                      className={`rounded-full px-3 py-1 text-xs font-bold transition-all cursor-pointer ${
-                        avatar === DEFAULT_AVATARS.female
-                          ? "bg-primary text-primary-foreground shadow-sm ring-2 ring-primary/30"
-                          : "bg-secondary text-foreground hover:bg-secondary/80"
-                      }`}
-                    >
-                      Female Avatar
-                    </button>
-                    {avatar && avatar !== DEFAULT_AVATARS.male && (
-                      <button onClick={() => setAvatar(DEFAULT_AVATARS.male)} className="inline-flex items-center gap-1 text-xs font-semibold text-rose-700 hover:underline">
-                        <Trash2 className="h-3 w-3" /> Reset
+                  <p className="text-sm font-bold">Profile photo</p>
+                  <p className="text-xs text-muted-foreground">Upload your photo or use the standard profile icon.</p>
+                  {avatar && (
+                    <div className="mt-2.5 flex items-center justify-center md:justify-start">
+                      <button
+                        type="button"
+                        onClick={() => setAvatar(getCleanAvatar(null, name))}
+                        className="inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-bold bg-secondary text-foreground hover:bg-secondary/80 transition-all cursor-pointer"
+                      >
+                        <Trash2 className="h-3 w-3 text-rose-600" /> Reset to Default
                       </button>
-                    )}
-                  </div>
+                    </div>
+                  )}
                 </div>
               </div>
 

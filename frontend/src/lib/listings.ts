@@ -170,8 +170,30 @@ function getUserListingsStorageKey(): string {
 
 // ---- Listings ----
 export function listListings(): Listing[] {
-  const key = getUserListingsStorageKey();
-  return read<Listing[]>(key, []);
+  if (!isB) return [];
+  const uid = getCurrentUserId();
+  const keysToRead = [
+    uid ? `omeetso_user_listings_${uid}` : null,
+    "omeetso_user_listings",
+    "omeetso_user_listings_guest",
+  ].filter(Boolean) as string[];
+
+  const combined: Listing[] = [];
+  const seenIds = new Set<string>();
+
+  for (const k of keysToRead) {
+    const items = read<Listing[]>(k, []);
+    if (Array.isArray(items)) {
+      for (const item of items) {
+        if (item && item.id && !seenIds.has(item.id)) {
+          seenIds.add(item.id);
+          combined.push(item);
+        }
+      }
+    }
+  }
+
+  return combined;
 }
 
 const publicListingsMemoryCache: Map<string, { data: Listing[]; expiresAt: number }> = new Map();
@@ -223,7 +245,7 @@ export async function fetchLivePublicListings(params?: {
       const mapped: Listing[] = json.data.map((item: any) => {
         const validImages = Array.isArray(item.images) && item.images.length > 0 && !item.images[0].startsWith("blob:")
           ? item.images
-          : ["https://images.unsplash.com/photo-1526738549149-8e07eca6c147?w=400"];
+          : ["https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=400"];
 
         return {
           id: item.id || item._id,
@@ -265,16 +287,19 @@ export async function fetchLivePublicListings(params?: {
           updatedAt: new Date(item.createdAt || item.publishedAt || Date.now()).getTime()
         };
       });
-      publicListingsMemoryCache.set(cacheKey, {
-        data: mapped,
-        expiresAt: Date.now() + 45_000
-      });
-      return mapped;
+
+      if (mapped.length > 0) {
+        publicListingsMemoryCache.set(cacheKey, {
+          data: mapped,
+          expiresAt: Date.now() + 45_000
+        });
+        return mapped;
+      }
     }
   } catch (err) {
     console.warn("Backend feed offline");
   }
-  return [];
+  return listListings();
 }
 
 let userListingsMemoryCache: { data: Listing[]; expiresAt: number; uid?: string | null } | null = null;
@@ -447,6 +472,18 @@ export function upsertListing(l: Listing) {
   if (i === -1) all.unshift(next);
   else all[i] = next;
   write(key, all);
+  if (key !== "omeetso_user_listings") {
+    const globalAll = read<Listing[]>("omeetso_user_listings", []);
+    const gi = globalAll.findIndex((x) => x.id === l.id);
+    if (gi === -1) globalAll.unshift(next);
+    else globalAll[gi] = next;
+    write("omeetso_user_listings", globalAll);
+  }
+  if (typeof window !== "undefined") {
+    try {
+      window.dispatchEvent(new CustomEvent("omeetso_listing_updated"));
+    } catch {}
+  }
   return next;
 }
 export function deleteListing(id: string) {
@@ -454,6 +491,14 @@ export function deleteListing(id: string) {
   invalidatePublicListingsCache();
   const key = getUserListingsStorageKey();
   write(key, read<Listing[]>(key, []).filter((l) => l.id !== id));
+  if (key !== "omeetso_user_listings") {
+    write("omeetso_user_listings", read<Listing[]>("omeetso_user_listings", []).filter((l) => l.id !== id));
+  }
+  if (typeof window !== "undefined") {
+    try {
+      window.dispatchEvent(new CustomEvent("omeetso_listing_updated"));
+    } catch {}
+  }
 }
 export function setStatus(id: string, status: ListingStatus, extra: Partial<Listing> = {}) {
   invalidateUserListingsCache();

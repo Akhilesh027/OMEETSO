@@ -140,7 +140,11 @@ export async function createAdminBlog(req: Request, res: Response, next: NextFun
     }
 
     const readTime = calculateReadTime(content);
-    const blogStatus: BlogStatus = (status || "DRAFT").toUpperCase() as BlogStatus;
+    const isFutureSchedule = scheduledAt && new Date(scheduledAt).getTime() > Date.now();
+    let blogStatus: BlogStatus = (status || "DRAFT").toUpperCase() as BlogStatus;
+    if (blogStatus === "SCHEDULED" || (isFutureSchedule && blogStatus !== "DRAFT" && blogStatus !== "BLOCKED")) {
+      blogStatus = "SCHEDULED";
+    }
 
     // Convert / upload blog images to Cloudinary (mirroring listing upload pipeline)
     const rawCover = coverImage || "https://images.unsplash.com/photo-1512486130939-2c4f79935e4f?w=800";
@@ -256,22 +260,34 @@ export async function updateAdminBlog(req: Request, res: Response, next: NextFun
     if (isFeatured !== undefined) updates.isFeatured = Boolean(isFeatured);
     if (seo) updates.seo = seo;
     if (scheduledAt !== undefined) {
+      const isFuture = scheduledAt && new Date(scheduledAt).getTime() > Date.now();
       updates.scheduledAt = scheduledAt ? new Date(scheduledAt) : null;
+      if (isFuture && (!status || status.toUpperCase() === "SCHEDULED" || status.toUpperCase() === "PUBLISHED")) {
+        updates.status = "SCHEDULED";
+        updates.publishedAt = undefined;
+      }
     }
 
     if (status) {
       const nextStatus = status.toUpperCase() as BlogStatus;
-      updates.status = nextStatus;
-      if (nextStatus === "PUBLISHED" && !existing.publishedAt) {
-        updates.publishedAt = new Date();
-      }
-      if (nextStatus === "BLOCKED") {
-        updates.isBlocked = true;
-        updates.blockedAt = new Date();
-        updates.blockReason = blockReason || existing.blockReason || "Blocked by administrator";
-      } else {
+      if (nextStatus === "SCHEDULED" || (updates.scheduledAt && new Date(updates.scheduledAt).getTime() > Date.now() && nextStatus !== "DRAFT" && nextStatus !== "BLOCKED")) {
+        updates.status = "SCHEDULED";
+        updates.publishedAt = undefined;
         updates.isBlocked = false;
         updates.blockReason = undefined;
+      } else {
+        updates.status = nextStatus;
+        if (nextStatus === "PUBLISHED" && !existing.publishedAt) {
+          updates.publishedAt = new Date();
+        }
+        if (nextStatus === "BLOCKED") {
+          updates.isBlocked = true;
+          updates.blockedAt = new Date();
+          updates.blockReason = blockReason || existing.blockReason || "Blocked by administrator";
+        } else {
+          updates.isBlocked = false;
+          updates.blockReason = undefined;
+        }
       }
     }
 
@@ -320,6 +336,7 @@ export async function updateAdminBlogStatus(req: Request, res: Response, next: N
       if (scheduledAt) {
         updates.scheduledAt = new Date(scheduledAt);
       }
+      updates.publishedAt = undefined;
       updates.isBlocked = false;
       updates.blockReason = undefined;
     } else if (nextStatus === "BLOCKED") {

@@ -3,7 +3,7 @@ import { useEffect, useState, useMemo } from "react";
 import {
   ArrowLeft, Heart, Share2, Phone, MessageCircle, HandCoins, ShieldCheck,
   MapPin, Flag, ChevronLeft, ChevronRight, Truck, Package, PackageCheck, Play, Star,
-  Video, Camera, Maximize2, ArrowRight, Zap,
+  Video, Camera, Maximize2, ArrowRight, Zap, Edit3,
 } from "lucide-react";
 
 function getEmbedUrl(url: string) {
@@ -34,7 +34,7 @@ import { InfinityLoader } from "@/components/omeetso/InfinityLoader";
 import {
   PRODUCTS, SELLERS, formatINR, getProduct, getSeller, getAd, productsBySeller, productsByCategory,
 } from "@/lib/mock";
-import { fetchLiveListingById, recordListingView } from "@/lib/listings";
+import { fetchLiveListingById, recordListingView, listListings } from "@/lib/listings";
 import { addRecentlyViewed } from "@/lib/saved";
 import { useSaved } from "@/hooks/useSaved";
 import { ProductWatermark } from "@/components/omeetso/Watermark";
@@ -42,20 +42,24 @@ import { ProductWatermark } from "@/components/omeetso/Watermark";
 export const Route = createFileRoute("/product/$id")({
   loader: async ({ params }) => {
     const cleanId = (params.id || "").trim();
-    let p = getProduct(cleanId);
-    if (!p && cleanId) {
-      try {
-        const live = await fetchLiveListingById(cleanId);
-        if (live) p = live as any;
-      } catch (err) {
-        console.warn("Live listing fetch error:", err);
+    if (!cleanId) return { product: null };
+    try {
+      const live = await fetchLiveListingById(cleanId);
+      if (live) return { product: live as any };
+      if (/^[0-9a-fA-F]{24}$/.test(cleanId)) {
+        return { product: null };
       }
+    } catch (err) {
+      console.warn("Live listing fetch error:", err);
     }
+    const p = getProduct(cleanId);
     return { product: p || null };
   },
   head: ({ loaderData }) => {
     const product = loaderData?.product;
-    if (!product) return { meta: [{ title: "Product · Omeetso" }] };
+    if (!product || product.unavailable || product.status === "deleted" || product.status === "removed" || Boolean((product as any)?.isDeleted)) {
+      return { meta: [{ title: "This product is no longer available | Omeetso" }] };
+    }
 
     const coverIdx = product.cover || product.coverIndex || 0;
     const rawImg = (Array.isArray(product.images) && product.images.length > 0)
@@ -158,23 +162,27 @@ function ProductPage() {
   useEffect(() => {
     if (!cleanId) return;
     recordListingView(cleanId);
-    const local = getProduct(cleanId);
-    if (local) {
-      setProduct(local);
-      setLoading(false);
-      return;
-    }
-
     setLoading(true);
-    fetchLiveListingById(cleanId).then((live) => {
-      if (live) {
-        setProduct(live);
-      }
-    }).catch((err) => {
-      console.warn("Live fetch error on client nav:", err);
-    }).finally(() => {
-      setLoading(false);
-    });
+
+    fetchLiveListingById(cleanId)
+      .then((live) => {
+        if (live) {
+          setProduct(live);
+        } else if (/^[0-9a-fA-F]{24}$/.test(cleanId)) {
+          setProduct(null);
+        } else {
+          const local = getProduct(cleanId);
+          setProduct(local || null);
+        }
+      })
+      .catch((err) => {
+        console.warn("Live fetch error on client nav:", err);
+        const local = getProduct(cleanId);
+        setProduct(local || null);
+      })
+      .finally(() => {
+        setLoading(false);
+      });
   }, [cleanId]);
 
   if (loading && !product) {
@@ -188,7 +196,9 @@ function ProductPage() {
     );
   }
 
-  if (!product) {
+  const isUnavailable = !product || product.unavailable || product.status === "deleted" || product.status === "removed" || Boolean((product as any).isDeleted);
+
+  if (isUnavailable) {
     return <NotFound />;
   }
 
@@ -265,26 +275,46 @@ function ProductPage() {
     }
   }, []);
 
-  const currentUserId = useMemo(() => {
+  const currentUserData = useMemo(() => {
     try {
       const raw = typeof localStorage !== "undefined" ? localStorage.getItem("omeetso_user") : null;
-      if (raw) {
-        const u = JSON.parse(raw);
-        return String(u.id || u._id || "");
-      }
+      if (raw) return JSON.parse(raw);
     } catch {}
-    return "";
+    return null;
   }, []);
 
+  const currentUserId = useMemo(() => {
+    return String(currentUserData?.id || currentUserData?._id || "");
+  }, [currentUserData]);
+
   const isOwner = Boolean(
-    currentUserId &&
-    (
+    // 1. Direct user id matching
+    (currentUserId && (
       currentUserId === String(realSellerId) ||
       currentUserId === String(product.sellerId) ||
       currentUserId === String((product.sellerId as any)?._id) ||
       currentUserId === String(product.seller?._id) ||
       currentUserId === String(product.seller?.id)
-    )
+    )) ||
+    // 2. Client-authored listing in storage
+    listListings().some((l) => l.id === product.id || (l as any)._id === product.id || (l.title && l.title === product.title)) ||
+    // 3. Phone number matching current authenticated user
+    (currentUserData?.phone && (
+      currentUserData.phone === product.sellerPhone ||
+      currentUserData.phone === product.whatsappPhone ||
+      currentUserData.phone === liveSeller?.phone ||
+      currentUserData.phone === liveSeller?.profile?.phone
+    )) ||
+    // 4. Mobile matching
+    (currentUserData?.mobile && (
+      currentUserData.mobile === product.sellerPhone ||
+      currentUserData.mobile === product.whatsappPhone
+    )) ||
+    // 5. Email matching
+    (currentUserData?.email && (
+      currentUserData.email === liveSeller?.email ||
+      currentUserData.email === liveSeller?.profile?.email
+    ))
   );
 
   const isQuickSale = Boolean(
@@ -302,13 +332,13 @@ function ProductPage() {
       return;
     }
     if (isOwner) {
-      toast.info("This is your listing. Opening listing manager...", {
+      toast.info("This is your listing. Opening listing editor...", {
         action: {
-          label: "Manage",
-          onClick: () => nav({ to: "/listing/$id/manage", params: { id: product.id } })
+          label: "Edit",
+          onClick: () => nav({ to: "/listing/$id/edit", params: { id: product.id } })
         }
       });
-      nav({ to: "/listing/$id/manage", params: { id: product.id } });
+      nav({ to: "/listing/$id/edit", params: { id: product.id } });
       return;
     }
 
@@ -371,7 +401,13 @@ function ProductPage() {
     return (
       <MobileFrame>
         <div className="min-h-dvh bg-background pb-8">
-          <TopHeader saved={saved} onSave={toggle} onShare={() => share(product.title)} />
+          <TopHeader
+            saved={saved}
+            onSave={toggle}
+            onShare={() => share(product.title)}
+            isOwner={isOwner}
+            onEdit={() => nav({ to: "/listing/$id/edit", params: { id: product.id } })}
+          />
           <div className="p-8 text-center">
             <img src={product.image} alt={product.title} className="mx-auto h-48 w-full max-w-xs rounded-2xl object-cover opacity-60" />
             <h1 className="mt-4 text-lg font-bold">This product is no longer available</h1>
@@ -557,7 +593,13 @@ function ProductPage() {
     <MobileFrame>
       <div className="min-h-dvh bg-background pb-24 md:pb-16 font-sans">
         <div className="md:hidden">
-          <TopHeader saved={saved} onSave={toggle} onShare={() => share(product.title)} />
+          <TopHeader
+            saved={saved}
+            onSave={toggle}
+            onShare={() => share(product.title)}
+            isOwner={isOwner}
+            onEdit={() => nav({ to: "/listing/$id/edit", params: { id: product.id } })}
+          />
         </div>
         <div className="hidden md:block border-b border-border bg-card">
           <div className="mx-auto max-w-[1440px] px-4 sm:px-6 md:px-8 lg:px-10 xl:px-12 py-4 text-xs text-muted-foreground">
@@ -959,12 +1001,20 @@ function ProductPage() {
 
               <div className="pt-2 grid grid-cols-1 gap-2.5">
                 {isOwner ? (
-                  <button
-                    onClick={() => nav({ to: "/listing/$id/manage", params: { id: product.id } })}
-                    className="flex items-center justify-center gap-2 rounded-2xl bg-blue-600 hover:bg-blue-700 text-white py-3.5 text-sm font-extrabold shadow-md active:scale-98 transition-all"
-                  >
-                    Manage Listing
-                  </button>
+                  <div className="grid grid-cols-2 gap-2">
+                    <button
+                      onClick={() => nav({ to: "/listing/$id/edit", params: { id: product.id } })}
+                      className="flex items-center justify-center gap-1.5 rounded-2xl bg-blue-600 hover:bg-blue-700 text-white py-3.5 text-sm font-extrabold shadow-md active:scale-98 transition-all cursor-pointer"
+                    >
+                      <Edit3 className="h-4 w-4" /> Edit Listing
+                    </button>
+                    <button
+                      onClick={() => nav({ to: "/listing/$id/manage", params: { id: product.id } })}
+                      className="flex items-center justify-center gap-1.5 rounded-2xl border border-border bg-secondary hover:bg-secondary/80 text-foreground py-3.5 text-sm font-extrabold shadow-xs active:scale-98 transition-all cursor-pointer"
+                    >
+                      Manage Listing
+                    </button>
+                  </div>
                 ) : (
                   <button
                     onClick={handleStartChat}
@@ -1067,12 +1117,20 @@ function ProductPage() {
                   : "grid-cols-1"
         } gap-1.5 border-t border-border bg-card/95 backdrop-blur-md p-2.5 safe-b md:hidden shadow-lg`}>
           {isOwner ? (
-            <button
-              onClick={() => nav({ to: "/listing/$id/manage", params: { id: product.id } })}
-              className="flex items-center justify-center gap-2 rounded-2xl bg-blue-600 text-white py-3 text-sm font-extrabold shadow-sm"
-            >
-              Manage Listing
-            </button>
+            <div className="grid grid-cols-2 gap-2 w-full">
+              <button
+                onClick={() => nav({ to: "/listing/$id/edit", params: { id: product.id } })}
+                className="flex items-center justify-center gap-1.5 rounded-2xl bg-blue-600 text-white py-3 text-sm font-extrabold shadow-sm active:scale-98 cursor-pointer"
+              >
+                <Edit3 className="h-4 w-4" /> Edit Listing
+              </button>
+              <button
+                onClick={() => nav({ to: "/listing/$id/manage", params: { id: product.id } })}
+                className="flex items-center justify-center gap-1.5 rounded-2xl border border-border bg-secondary text-foreground py-3 text-sm font-extrabold shadow-xs active:scale-98 cursor-pointer"
+              >
+                Manage
+              </button>
+            </div>
           ) : (
             <>
               {canCallSeller && (
@@ -1140,13 +1198,35 @@ function ProductPage() {
   );
 }
 
-function TopHeader({ saved, onSave, onShare }: { saved: boolean; onSave: () => void; onShare: () => void }) {
+function TopHeader({
+  saved,
+  onSave,
+  onShare,
+  isOwner,
+  onEdit
+}: {
+  saved: boolean;
+  onSave: () => void;
+  onShare: () => void;
+  isOwner?: boolean;
+  onEdit?: () => void;
+}) {
   return (
     <header className="sticky top-0 z-30 flex items-center justify-between gap-2 border-b border-border bg-card/95 px-3 py-3 backdrop-blur safe-t">
       <button onClick={() => history.back()} className="grid h-10 w-10 place-items-center rounded-full hover:bg-secondary" aria-label="Back">
         <ArrowLeft className="h-5 w-5" />
       </button>
-      <div className="flex items-center gap-1">
+      <div className="flex items-center gap-1.5">
+        {isOwner && onEdit && (
+          <button
+            onClick={onEdit}
+            className="flex items-center gap-1.5 rounded-full bg-blue-600 hover:bg-blue-700 text-white px-3 py-1.5 text-xs font-extrabold shadow-xs transition-all cursor-pointer mr-1"
+            aria-label="Edit Listing"
+          >
+            <Edit3 className="h-3.5 w-3.5" />
+            <span>Edit</span>
+          </button>
+        )}
         <button onClick={onShare} className="grid h-10 w-10 place-items-center rounded-full hover:bg-secondary" aria-label="Share">
           <Share2 className="h-5 w-5 text-blue-600" />
         </button>
@@ -1241,25 +1321,25 @@ function NotFound() {
   return (
     <MobileFrame>
       <div className="min-h-[70vh] flex flex-col items-center justify-center p-6 text-center space-y-4">
-        <div className="w-16 h-16 rounded-3xl bg-indigo-50 dark:bg-indigo-950/40 text-indigo-600 flex items-center justify-center text-3xl font-black shadow-inner">
-          🛍️
+        <div className="w-16 h-16 rounded-3xl bg-amber-500/10 text-amber-600 flex items-center justify-center text-3xl font-black shadow-inner border border-amber-500/20">
+          📦
         </div>
-        <div className="space-y-1">
-          <h2 className="text-xl font-black text-foreground">Product Not Found</h2>
-          <p className="text-xs text-muted-foreground max-w-xs leading-relaxed">
-            This listing may have been sold, removed by the seller, or the link is incorrect.
+        <div className="space-y-1.5">
+          <h2 className="text-xl sm:text-2xl font-black text-foreground">This product is no longer available.</h2>
+          <p className="text-xs sm:text-sm text-muted-foreground max-w-sm leading-relaxed">
+            This listing may have been sold, deleted, or removed by the seller.
           </p>
         </div>
-        <div className="flex flex-col sm:flex-row items-center gap-2 pt-2">
+        <div className="flex flex-col sm:flex-row items-center gap-2.5 pt-2 w-full max-w-xs">
           <button
             onClick={() => nav({ to: "/results" })}
-            className="w-full sm:w-auto px-5 py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-extrabold text-xs rounded-xl shadow-md transition-all"
+            className="w-full sm:w-auto flex-1 px-5 py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-extrabold text-xs rounded-xl shadow-md transition-all cursor-pointer"
           >
             Explore Marketplace
           </button>
           <button
             onClick={() => nav({ to: "/" })}
-            className="w-full sm:w-auto px-4 py-2.5 bg-secondary text-foreground font-bold text-xs rounded-xl hover:bg-secondary/80 transition-all"
+            className="w-full sm:w-auto px-5 py-2.5 bg-secondary text-foreground font-bold text-xs rounded-xl hover:bg-secondary/80 transition-all cursor-pointer"
           >
             Go to Home
           </button>

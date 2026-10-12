@@ -7,6 +7,7 @@ import {
 import { API_BASE } from "@/config/api";
 import { registerUserApi } from "@/api/auth.api";
 import { DEFAULT_AVATARS } from "@/lib/account";
+import { getCleanAvatar } from "@/lib/avatarSvgs";
 import { uploadImageToCloudinary } from "@/lib/upload";
 import { formatPhoneDisplay, cleanPhoneInput } from "@/lib/utils";
 import { toast } from "sonner";
@@ -34,16 +35,8 @@ function ProfileSetup() {
   const [city, setCity] = useState("");
   const [lang, setLang] = useState("en");
   const [account, setAccount] = useState<Account>("individual");
-  const [gender, setGender] = useState<"male" | "female" | "other">("male");
 
-  const GENDER_AVATARS = DEFAULT_AVATARS;
-
-  const currentAvatar = avatar || GENDER_AVATARS[gender];
-
-  const handleSelectGender = (g: "male" | "female" | "other") => {
-    setGender(g);
-    setAvatar(DEFAULT_AVATARS[g]);
-  };
+  const currentAvatar = avatar || getCleanAvatar(null, name);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -89,7 +82,7 @@ function ProfileSetup() {
 
   const submit = async () => {
     if (!canSubmit) return;
-    const finalAvatar = avatar || GENDER_AVATARS[gender];
+    const finalAvatar = avatar || getCleanAvatar(null, name);
     const token = typeof window !== "undefined" ? localStorage.getItem("omeetso_user_token") : null;
 
     if (token) {
@@ -125,8 +118,7 @@ function ProfileSetup() {
           pincode,
           accountType: account,
           avatar: finalAvatar,
-          language: lang,
-          gender
+          language: lang
         });
       } catch (err) {
         console.warn("Failed to register on backend:", err);
@@ -151,8 +143,7 @@ function ProfileSetup() {
           mobile: cleanPhone,
           city,
           pincode,
-          avatar: finalAvatar,
-          gender
+          avatar: finalAvatar
         }
       };
       localStorage.setItem("omeetso_user", JSON.stringify(updatedUser));
@@ -188,29 +179,20 @@ function ProfileSetup() {
               </span>
               <input type="file" accept="image/*" className="hidden" onChange={pickAvatar} />
             </label>
-            <p className="mt-2.5 text-xs text-muted-foreground font-medium">Click to upload photo or select an avatar below</p>
-
-            {/* Gender selector */}
-            <div className="mt-3 flex items-center gap-2">
-              {[
-                { key: "male", label: "Male" },
-                { key: "female", label: "Female" },
-                { key: "other", label: "Other" }
-              ].map((g) => (
+            <p className="mt-2.5 text-xs text-muted-foreground font-medium">Click camera icon to upload a custom profile photo</p>
+            {avatar && avatar !== DEFAULT_AVATARS.other && (
+              <div className="mt-2.5">
                 <button
-                  key={g.key}
                   type="button"
-                  onClick={() => handleSelectGender(g.key as any)}
-                  className={`rounded-full px-4 py-1.5 text-xs font-bold transition-all cursor-pointer ${
-                    (gender === g.key || avatar === DEFAULT_AVATARS[g.key as keyof typeof DEFAULT_AVATARS])
-                      ? "bg-navy text-white shadow-sm"
-                      : "bg-secondary text-muted-foreground hover:bg-secondary/80"
-                  }`}
+                  onClick={() => {
+                    setAvatar(DEFAULT_AVATARS.other);
+                  }}
+                  className="rounded-full px-3.5 py-1 text-xs font-bold bg-secondary text-muted-foreground hover:bg-secondary/80 transition-all cursor-pointer"
                 >
-                  {g.label}
+                  Reset to Default Icon
                 </button>
-              ))}
-            </div>
+              </div>
+            )}
           </div>
 
           {/* Input Fields Form Grid */}

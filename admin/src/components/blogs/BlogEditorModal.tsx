@@ -134,11 +134,20 @@ function slugify(text: string): string {
     .replace(/^-+|-+$/g, "");
 }
 
+export function formatLocalDateTime(d: Date): string {
+  const year = d.getFullYear();
+  const month = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  const hours = String(d.getHours()).padStart(2, "0");
+  const minutes = String(d.getMinutes()).padStart(2, "0");
+  return `${year}-${month}-${day}T${hours}:${minutes}`;
+}
+
 function getDefaultScheduledDate(): string {
   const tomorrow = new Date();
   tomorrow.setDate(tomorrow.getDate() + 1);
   tomorrow.setHours(9, 0, 0, 0);
-  return tomorrow.toISOString().slice(0, 16);
+  return formatLocalDateTime(tomorrow);
 }
 
 export const BlogEditorModal: React.FC<BlogEditorModalProps> = ({
@@ -330,7 +339,7 @@ export const BlogEditorModal: React.FC<BlogEditorModalProps> = ({
       let initScheduled = getDefaultScheduledDate();
       if (blog.scheduledAt) {
         try {
-          initScheduled = new Date(blog.scheduledAt).toISOString().slice(0, 16);
+          initScheduled = formatLocalDateTime(new Date(blog.scheduledAt));
         } catch {}
       }
 
@@ -419,7 +428,7 @@ export const BlogEditorModal: React.FC<BlogEditorModalProps> = ({
     const d = new Date();
     d.setDate(d.getDate() + daysAhead);
     d.setHours(hour, 0, 0, 0);
-    const val = d.toISOString().slice(0, 16);
+    const val = formatLocalDateTime(d);
     setScheduledDateTime(val);
     setFormData((prev) => ({ ...prev, scheduledAt: val }));
   };
@@ -1185,31 +1194,49 @@ export const BlogEditorModal: React.FC<BlogEditorModalProps> = ({
               <Save className="h-3.5 w-3.5" /> Save as Draft
             </button>
 
-            {/* SCHEDULE BUTTON */}
-            <button
-              type="button"
-              onClick={() => {
-                if (!showSchedulePicker) {
-                  setShowSchedulePicker(true);
-                } else {
-                  handleSubmit("SCHEDULED");
-                }
-              }}
-              disabled={isSubmitting}
-              className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-purple-600 hover:bg-purple-500 text-white text-xs font-bold transition shadow-xs cursor-pointer"
-            >
-              <Calendar className="h-3.5 w-3.5" />
-              <span>{showSchedulePicker ? "Confirm Schedule" : "Schedule"}</span>
-            </button>
-
-            <button
-              type="button"
-              onClick={() => handleSubmit("PUBLISHED")}
-              disabled={isSubmitting}
-              className="flex items-center gap-1.5 px-5 py-2 rounded-xl bg-admin-indigo text-white text-xs font-extrabold hover:bg-admin-indigo/90 transition shadow-md"
-            >
-              <Send className="h-3.5 w-3.5" /> Publish Now
-            </button>
+            {/* SCHEDULE BUTTONS */}
+            {showSchedulePicker ? (
+              <>
+                <button
+                  type="button"
+                  onClick={() => handleSubmit("SCHEDULED")}
+                  disabled={isSubmitting}
+                  className="flex items-center gap-1.5 px-5 py-2 rounded-xl bg-purple-600 hover:bg-purple-500 text-white text-xs font-extrabold transition shadow-md cursor-pointer"
+                >
+                  <Calendar className="h-3.5 w-3.5" />
+                  <span>Confirm Schedule</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleSubmit("PUBLISHED")}
+                  disabled={isSubmitting}
+                  className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl border border-slate-200 bg-white text-slate-600 text-xs font-bold hover:bg-slate-50 transition shadow-xs cursor-pointer"
+                  title="Ignore schedule and publish immediately"
+                >
+                  <Send className="h-3.5 w-3.5" /> Publish Immediately
+                </button>
+              </>
+            ) : (
+              <>
+                <button
+                  type="button"
+                  onClick={() => setShowSchedulePicker(true)}
+                  disabled={isSubmitting}
+                  className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-purple-50 hover:bg-purple-100 text-purple-800 border border-purple-200 text-xs font-bold transition shadow-xs cursor-pointer"
+                >
+                  <Calendar className="h-3.5 w-3.5" />
+                  <span>Schedule</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleSubmit("PUBLISHED")}
+                  disabled={isSubmitting}
+                  className="flex items-center gap-1.5 px-5 py-2 rounded-xl bg-admin-indigo text-white text-xs font-extrabold hover:bg-admin-indigo/90 transition shadow-md cursor-pointer"
+                >
+                  <Send className="h-3.5 w-3.5" /> Publish Now
+                </button>
+              </>
+            )}
           </div>
         </div>
 

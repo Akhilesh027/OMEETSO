@@ -36,7 +36,7 @@ function BlockedPage() {
             <div className="space-y-2">
               {list.map((u) => (
                 <div key={u.id} className="flex items-center gap-3 rounded-2xl bg-card p-3 card-elev">
-                  {u.avatar ? <img src={getCleanAvatar(u.avatar, "male")} alt="" className="h-10 w-10 rounded-full object-cover bg-slate-50" /> : <div className="grid h-10 w-10 place-items-center rounded-full bg-secondary"><UserX className="h-4 w-4" /></div>}
+                  {u.avatar ? <img src={getCleanAvatar(u.avatar, u.name)} alt="" className="h-10 w-10 rounded-full object-cover bg-slate-50" /> : <div className="grid h-10 w-10 place-items-center rounded-full bg-secondary"><UserX className="h-4 w-4" /></div>}
                   <div className="min-w-0 flex-1">
                     <p className="text-sm font-bold">{u.name}</p>
                     <p className="text-[11px] text-muted-foreground">Blocked {new Date(u.blockedAt).toLocaleDateString("en-IN")}</p>

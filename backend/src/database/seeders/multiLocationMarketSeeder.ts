@@ -6,6 +6,7 @@ import { Listing } from "../../modules/listings/models/Listing";
 import { Category } from "../../modules/categories/models/Category";
 import { SEED_CATEGORIES } from "./categorySeeder";
 import { ListingStatus, StoreStatus, UserStatus } from "../../contracts";
+import { MALE_AVATAR_DATA_URI, FEMALE_AVATAR_DATA_URI } from "../../utils/avatarSvgs";
 
 export async function seedMultiLocationMarket(): Promise<{
   sellersCount: number;
@@ -50,7 +51,7 @@ export async function seedMultiLocationMarket(): Promise<{
       phone: "+919849012345",
       email: "aditya.varma@gmail.com",
       name: "Aditya Varma",
-      avatar: "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=200",
+      avatar: MALE_AVATAR_DATA_URI,
       city: "Hyderabad",
       area: "Madhapur",
       pincode: "500081",
@@ -61,7 +62,7 @@ export async function seedMultiLocationMarket(): Promise<{
       phone: "+919820012345",
       email: "sneha.kulkarni@gmail.com",
       name: "Sneha Kulkarni",
-      avatar: "https://images.unsplash.com/photo-1517841905240-472988babdf9?w=200",
+      avatar: FEMALE_AVATAR_DATA_URI,
       city: "Mumbai",
       area: "Bandra West",
       pincode: "400050",
@@ -72,7 +73,7 @@ export async function seedMultiLocationMarket(): Promise<{
       phone: "+919880012345",
       email: "rohan.nambiar@gmail.com",
       name: "Rohan Nambiar",
-      avatar: "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=200",
+      avatar: MALE_AVATAR_DATA_URI,
       city: "Bangalore",
       area: "Koramangala",
       pincode: "560034",
@@ -83,7 +84,7 @@ export async function seedMultiLocationMarket(): Promise<{
       phone: "+919440012345",
       email: "kavita.reddy@gmail.com",
       name: "Kavita Reddy",
-      avatar: "https://images.unsplash.com/photo-1544005313-94ddf0286df2?w=200",
+      avatar: FEMALE_AVATAR_DATA_URI,
       city: "Hyderabad",
       area: "Gachibowli",
       pincode: "500032",
@@ -94,7 +95,7 @@ export async function seedMultiLocationMarket(): Promise<{
       phone: "+919810012345",
       email: "vikram.malhotra@gmail.com",
       name: "Vikram Malhotra",
-      avatar: "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=200",
+      avatar: MALE_AVATAR_DATA_URI,
       city: "Mumbai",
       area: "Andheri West",
       pincode: "400053",
@@ -105,7 +106,7 @@ export async function seedMultiLocationMarket(): Promise<{
       phone: "+919845012345",
       email: "ananya.hegde@gmail.com",
       name: "Ananya Hegde",
-      avatar: "https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?w=200",
+      avatar: FEMALE_AVATAR_DATA_URI,
       city: "Bangalore",
       area: "Indiranagar",
       pincode: "560038",
@@ -116,7 +117,7 @@ export async function seedMultiLocationMarket(): Promise<{
       phone: "+919341012345",
       email: "rajesh.agarwal@gmail.com",
       name: "Rajesh Agarwal",
-      avatar: "https://images.unsplash.com/photo-1492562080023-ab3db95bfbce?w=200",
+      avatar: MALE_AVATAR_DATA_URI,
       city: "Hyderabad",
       area: "Kukatpally",
       pincode: "500072",
@@ -127,7 +128,7 @@ export async function seedMultiLocationMarket(): Promise<{
       phone: "+919769012345",
       email: "pooja.deshmukh@gmail.com",
       name: "Pooja Deshmukh",
-      avatar: "https://images.unsplash.com/photo-1524504388940-b1c1722653e1?w=200",
+      avatar: FEMALE_AVATAR_DATA_URI,
       city: "Mumbai",
       area: "Powai",
       pincode: "400076",

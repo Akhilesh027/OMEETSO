@@ -13,9 +13,10 @@ import {
 import {
   getProfile, setProfile, completionPct, unreadCount, subscribeAccount,
   getBusinessProfile, getVerifications, getTrustScore, logout, logoutMock, DEFAULT_AVATARS,
-  listNearbyChangesNotifications, pushNotification, formatLocationDisplay, listReviews
+  listNearbyChangesNotifications, pushNotification, formatLocationDisplay, listReviews,
+  formatRegistrationDayAndDate
 } from "@/lib/account";
-import { getCleanAvatar, isPhotoUrl } from "@/lib/avatarSvgs";
+import { getCleanAvatar } from "@/lib/avatarSvgs";
 import { SectionTitle, MenuGroup, MenuRow, Stat, VerifBadge, ConfirmModal } from "@/components/omeetso/account";
 import { toast } from "sonner";
 
@@ -326,7 +327,10 @@ function Account() {
                     {p.mobile && <p className="truncate text-xs text-muted-foreground">{p.mobile}</p>}
                     <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
                       {anyVerified && <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2 py-0.5 text-[10px] font-bold text-emerald-700"><BadgeCheck className="h-3 w-3" /> Verified</span>}
-                      <span className="text-[11px] text-muted-foreground">Member since {new Date(p.memberSince).toLocaleDateString("en-IN", { month: "short", year: "numeric" })}</span>
+                      <span className="text-[11px] text-muted-foreground flex items-center gap-1.5">
+                        <Calendar className="h-3 w-3 text-indigo-brand shrink-0" />
+                        <span>Registered on <strong className="text-foreground font-semibold">{formatRegistrationDayAndDate(p.memberSince || (p as any).createdAt)}</strong></span>
+                      </span>
                     </div>
                   </div>
                   <button onClick={() => setIsEditModalOpen(true)} aria-label="Edit profile" className="grid h-9 w-9 place-items-center rounded-full text-muted-foreground hover:bg-secondary md:hidden">
@@ -780,10 +784,7 @@ function EditProfileModal({ open, onClose, profile, onSaved }: { open: boolean; 
   const [area, setArea] = useState(profile.area && profile.area !== "Madhapur" ? profile.area : "");
   const [pincode, setPincode] = useState(profile.pincode || "");
   const [bio, setBio] = useState(profile.bio || "");
-  const [avatar, setAvatar] = useState(getCleanAvatar(profile.avatar, "male"));
-  const [gender, setGender] = useState<"male" | "female" | "other">(
-    profile.avatar === DEFAULT_AVATARS.female || profile.avatar?.includes("bgF") ? "female" : "male"
-  );
+  const [avatar, setAvatar] = useState(getCleanAvatar(profile.avatar));
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
@@ -793,15 +794,7 @@ function EditProfileModal({ open, onClose, profile, onSaved }: { open: boolean; 
     setArea(profile.area && profile.area !== "Madhapur" ? profile.area : "");
     setPincode(profile.pincode || "");
     setBio(profile.bio || "");
-    const initialAvatar = getCleanAvatar(profile.avatar, "male");
-    setAvatar(initialAvatar);
-    if (initialAvatar === DEFAULT_AVATARS.female || initialAvatar.includes("bgF")) {
-      setGender("female");
-    } else if (initialAvatar === DEFAULT_AVATARS.male || initialAvatar.includes("bgM")) {
-      setGender("male");
-    } else {
-      setGender("other");
-    }
+    setAvatar(getCleanAvatar(profile.avatar));
   }, [profile, open]);
 
   if (!open) return null;
@@ -810,23 +803,16 @@ function EditProfileModal({ open, onClose, profile, onSaved }: { open: boolean; 
   const emailValid = !emailTrimmed || /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(emailTrimmed);
   const canSave = name.trim().length >= 2 && emailValid && pincode.length === 6;
 
-  const handleSelectGender = (g: "male" | "female" | "other") => {
-    setGender(g);
-    setAvatar(DEFAULT_AVATARS[g]);
-  };
-
   const pickAvatar = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const f = e.target.files?.[0]; if (!f) return;
     try {
       const url = await uploadImageToCloudinary(f, "profile");
       setAvatar(url);
-      setGender("other");
       toast.success("Profile photo uploaded!");
     } catch {
       const r = new FileReader();
       r.onload = () => {
         setAvatar(String(r.result));
-        setGender("other");
       };
       r.readAsDataURL(f);
     }
@@ -839,7 +825,7 @@ function EditProfileModal({ open, onClose, profile, onSaved }: { open: boolean; 
       return;
     }
     setSaving(true);
-    const finalAvatar = avatar || DEFAULT_AVATARS[gender];
+    const finalAvatar = avatar || DEFAULT_AVATARS.other;
     const token = typeof window !== "undefined" ? (getUserAccessToken() || localStorage.getItem("omeetso_user_token")) : null;
 
     if (token) {
@@ -903,45 +889,25 @@ function EditProfileModal({ open, onClose, profile, onSaved }: { open: boolean; 
         <div className="mt-4 space-y-4">
           <div className="flex flex-col items-center">
             <label className="relative cursor-pointer">
-              <img src={avatar || DEFAULT_AVATARS[gender]} alt="Profile" className="h-20 w-20 rounded-full object-cover border-4 border-card shadow-md" />
+              <img src={avatar || getCleanAvatar(null, name)} alt="Profile" className="h-20 w-20 rounded-full object-cover border-4 border-card shadow-md" />
               <span className="absolute -bottom-1 -right-1 grid h-7 w-7 place-items-center rounded-full bg-navy text-white shadow">
                 <Camera className="h-3.5 w-3.5" />
               </span>
               <input type="file" accept="image/*" className="hidden" onChange={pickAvatar} />
             </label>
-            <p className="mt-1 text-[11px] text-muted-foreground">Click camera to upload custom photo</p>
-            <div className="mt-2.5 flex items-center gap-2">
-              <button
-                type="button"
-                onClick={() => handleSelectGender("male")}
-                className={`rounded-full px-3 py-1 text-xs font-bold transition-all cursor-pointer ${(gender === "male" || avatar === DEFAULT_AVATARS.male)
-                  ? "bg-navy text-white shadow-sm ring-2 ring-primary/30"
-                  : "bg-secondary text-muted-foreground hover:bg-secondary/80"
-                  }`}
-              >
-                Male Avatar
-              </button>
-              <button
-                type="button"
-                onClick={() => handleSelectGender("female")}
-                className={`rounded-full px-3 py-1 text-xs font-bold transition-all cursor-pointer ${(gender === "female" || avatar === DEFAULT_AVATARS.female)
-                  ? "bg-navy text-white shadow-sm ring-2 ring-primary/30"
-                  : "bg-secondary text-muted-foreground hover:bg-secondary/80"
-                  }`}
-              >
-                Female Avatar
-              </button>
-              <button
-                type="button"
-                onClick={() => handleSelectGender("other")}
-                className={`rounded-full px-3 py-1 text-xs font-bold transition-all cursor-pointer ${(gender === "other" && avatar !== DEFAULT_AVATARS.male && avatar !== DEFAULT_AVATARS.female)
-                  ? "bg-navy text-white shadow-sm ring-2 ring-primary/30"
-                  : "bg-secondary text-muted-foreground hover:bg-secondary/80"
-                  }`}
-              >
-                Neutral
-              </button>
-            </div>
+            {avatar && (
+              <div className="mt-2 flex items-center justify-center">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setAvatar(getCleanAvatar(null, name));
+                  }}
+                  className="rounded-full px-3 py-1 text-[11px] font-bold bg-secondary text-muted-foreground hover:bg-secondary/80 transition-all cursor-pointer"
+                >
+                  Reset to Default Avatar
+                </button>
+              </div>
+            )}
           </div>
 
           <div>

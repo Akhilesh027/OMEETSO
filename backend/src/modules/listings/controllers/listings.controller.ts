@@ -8,7 +8,8 @@ import { AuthenticatedUserRequest } from "../../../middleware/authenticateUser";
 import { ListingStatus } from "../../../contracts";
 import { Notification } from "../../notifications/models/Notification";
 import { convertImagesToCloudinary, convertVideoToCloudinary } from "../../../utils/cloudinaryUpload";
-import { sendAdminAlertEmail } from "../../auth/services/email.service";
+import { sendAdminAlertEmail, sendListingSubmittedEmail } from "../../auth/services/email.service";
+import { User } from "../../users/models/User";
 import { env } from "../../../config/env";
 
 function escapeRegex(str: string): string {
@@ -273,6 +274,51 @@ export async function createListing(req: AuthenticatedUserRequest, res: Response
     }).catch((err) => {
       console.warn("[Email] Failed to dispatch admin alert for new listing:", err?.message || err);
     });
+
+    // Dispatch submission confirmation email to the seller
+    (async () => {
+      try {
+        let sellerEmail = req.user?.email || (req.body as any)?.email;
+        let sellerName = req.user?.profile?.name || req.user?.profile?.businessName || "Seller";
+
+        if (!sellerEmail) {
+          const userDoc = await User.findById(sellerId).select("email profile").lean();
+          if (userDoc) {
+            sellerEmail = userDoc.email || (userDoc.profile as any)?.email;
+            sellerName = userDoc.profile?.name || sellerName;
+          }
+        }
+
+        if (!sellerEmail && listing.storeId) {
+          const storeDoc = await Store.findById(listing.storeId).select("email name").lean();
+          if (storeDoc?.email) {
+            sellerEmail = storeDoc.email;
+            sellerName = storeDoc.name || sellerName;
+          }
+        }
+
+        if (sellerEmail) {
+          const portalUrl = (env.CLIENT_USER_URL || "https://omeetso.in").replace(/\/$/, "");
+          const formattedPrice = listing.free
+            ? "Free"
+            : `₹${Math.round((listing.priceInPaise || 0) / 100).toLocaleString("en-IN")}`;
+
+          await sendListingSubmittedEmail({
+            toEmail: sellerEmail,
+            sellerName,
+            listingTitle: listing.title,
+            listingPrice: formattedPrice,
+            listingUrl: `${portalUrl}/product/${listing._id}`,
+            listingCategory: listing.categoryId || "General",
+            listingLocation: [listing.area, listing.city].filter(Boolean).join(", ") || "India",
+            imageUrl: Array.isArray(listing.images) && listing.images.length > 0 ? listing.images[0] : undefined
+          });
+          console.log(`[Listing] ✅ Submission confirmation email dispatched to ${sellerEmail}`);
+        }
+      } catch (err: any) {
+        console.warn("[Listing] Failed to dispatch submission confirmation email:", err?.message || err);
+      }
+    })();
 
     res.status(201).json({
       success: true,
@@ -724,18 +770,8 @@ export async function getListingById(req: Request, res: Response, next: NextFunc
       .lean();
     }
 
-    if (!listing && listingId) {
-      const cleanSearch = listingId.replace(/[-_]/g, " ").trim();
-      if (cleanSearch.length > 2) {
-        listing = await Listing.findOne({ title: new RegExp(cleanSearch, "i") })
-          .populate("sellerId", "profile.name profile.businessName profile.avatar profile.city profile.area profile.phone phone mobile accountType verificationSummary createdAt")
-          .populate("storeId", "name slug logo cover rating reviewCount phone")
-          .lean();
-      }
-    }
-
-    if (!listing) {
-      res.status(404).json({ success: false, error: { code: "NOT_FOUND", message: "Listing not found" } });
+    if (!listing || listing.status === "deleted" || listing.status === "removed" || listing.isDeleted) {
+      res.status(404).json({ success: false, error: { code: "NOT_FOUND", message: "This product is no longer available." } });
       return;
     }
 

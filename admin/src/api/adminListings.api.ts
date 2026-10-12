@@ -17,7 +17,7 @@ function getHeaders(): Record<string, string> {
 async function resilientFetch(path: string, options: RequestInit = {}): Promise<Response | null> {
   try {
     const controller = typeof AbortController !== "undefined" ? new AbortController() : null;
-    const timeoutId = controller ? setTimeout(() => controller.abort(), 3500) : null;
+    const timeoutId = controller ? setTimeout(() => controller.abort(), 10000) : null;
 
     const res = await fetch(path, {
       ...options,
@@ -46,10 +46,9 @@ export async function getAdminListingsQueueApi(params?: Record<string, any>): Pr
     if (res) {
       const json = await res.json();
       console.log(`[adminListings.api] Response from ${url}:`, json);
-      if (json.success && Array.isArray(json.data)) {
+      if (json.success && Array.isArray(json.data) && json.data.length > 0) {
         return { success: true, data: json.data, pagination: json.pagination };
       }
-      return { success: false, error: json.error?.message || "Server returned failure" };
     }
   } catch (error) {
     console.error("[adminListings.api] Failed to fetch queue:", error);

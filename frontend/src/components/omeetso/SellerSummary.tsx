@@ -1,6 +1,7 @@
 import { ShieldCheck, Star, MapPin, Store as StoreIcon, User, ArrowRight, Zap } from "lucide-react";
 import { Link } from "@tanstack/react-router";
 import type { Seller } from "@/lib/mock";
+import { getCleanAvatar } from "@/lib/avatarSvgs";
 
 export function SellerSummary({
   seller,
@@ -39,13 +40,13 @@ export function SellerSummary({
   const mainTitle = businessName || displayName;
   const ownerSubtitle = seller.ownerName || (businessName && businessName !== displayName ? displayName : undefined);
 
-  // Parse ISO date strings (e.g. "2026-07-30T05:41:40.763Z") into clean "Jul 2026" format
+  // Parse ISO date strings into full day and date format (e.g. "Thu, 30 Jul 2026")
   const parseMemberSince = (val: any) => {
     if (!val || val === 0 || val === "0") return "N/A";
     try {
       const d = new Date(val);
       if (!isNaN(d.getTime()) && d.getFullYear() > 1990) {
-        return d.toLocaleDateString("en-US", { month: "short", year: "numeric" });
+        return d.toLocaleDateString("en-IN", { weekday: "short", day: "numeric", month: "short", year: "numeric" });
       }
     } catch { /* ignore */ }
     return String(val);
@@ -82,13 +83,11 @@ export function SellerSummary({
         className="flex items-start gap-3.5 group"
       >
         <div className="relative h-13 w-13 shrink-0">
-          {seller.avatar ? (
-            <img src={seller.avatar} alt={mainTitle} className="h-13 w-13 rounded-full object-cover border border-border shadow-sm group-hover:scale-105 transition-transform" />
-          ) : (
-            <div className="grid h-13 w-13 place-items-center rounded-full bg-gradient-to-tr from-primary to-indigo-800 text-white font-black text-base shadow-sm group-hover:scale-105 transition-transform">
-              {mainTitle ? mainTitle.charAt(0).toUpperCase() : "S"}
-            </div>
-          )}
+          <img
+            src={getCleanAvatar(seller.avatar, seller.name || seller.ownerName)}
+            alt={mainTitle}
+            className="h-13 w-13 rounded-full object-cover border border-border shadow-sm group-hover:scale-105 transition-transform"
+          />
           {seller.verified && (
             <span className="absolute -bottom-1 -right-1 grid h-5 w-5 place-items-center rounded-full bg-blue-600 text-white border-2 border-card shadow-sm">
               <ShieldCheck className="h-3 w-3" />

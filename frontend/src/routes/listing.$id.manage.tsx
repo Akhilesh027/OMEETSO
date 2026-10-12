@@ -255,7 +255,7 @@ function Manage() {
               </h2>
 
               <div className="space-y-2.5">
-                <ActionRow icon={Edit3} label={isRejected ? "Fix and Resubmit Listing" : "Edit Listing Details"} to={`/listing/${id}/edit`} disabled={isSold} />
+                <ActionRow icon={Edit3} label={isRejected ? "Fix and Resubmit Listing" : "Edit Listing Details"} onClick={() => nav({ to: "/listing/$id/edit", params: { id } })} disabled={isSold} />
 
                 {isExpired ? (
                   <ActionRow icon={RefreshCw} label="Renew Listing for 30 Days" onClick={() => {

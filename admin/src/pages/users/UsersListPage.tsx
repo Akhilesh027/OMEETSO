@@ -16,8 +16,41 @@ import {
   Building2,
   ShoppingBag,
   ArrowLeft,
+  Calendar,
+  Clock,
 } from "lucide-react";
 import { useToast } from "@/contexts/ToastContext";
+
+function formatRegistrationDayAndDate(dateValue: any): string {
+  if (!dateValue) return "Date not recorded";
+  try {
+    const d = new Date(dateValue);
+    if (isNaN(d.getTime()) || d.getFullYear() < 1990) return "Date not recorded";
+    return d.toLocaleDateString("en-IN", {
+      weekday: "long",
+      day: "numeric",
+      month: "short",
+      year: "numeric"
+    });
+  } catch {
+    return "Date not recorded";
+  }
+}
+
+function formatRegistrationTime(dateValue: any): string {
+  if (!dateValue) return "";
+  try {
+    const d = new Date(dateValue);
+    if (isNaN(d.getTime()) || d.getFullYear() < 1990) return "";
+    return d.toLocaleTimeString("en-IN", {
+      hour: "2-digit",
+      minute: "2-digit",
+      hour12: true
+    });
+  } catch {
+    return "";
+  }
+}
 
 export default function UsersListPage() {
   const { userId } = useParams<{ userId?: string }>();
@@ -264,6 +297,7 @@ export default function UsersListPage() {
             <thead className="bg-[#F5F7FC] text-[#64748B] font-bold uppercase text-[10px] border-b border-[#E2E8F0]">
               <tr>
                 <th className="p-3">User & Contact</th>
+                <th className="p-3">Registered (Day & Date)</th>
                 <th className="p-3">Account Type</th>
                 <th className="p-3">Location</th>
                 <th className="p-3">Verifications</th>
@@ -276,7 +310,7 @@ export default function UsersListPage() {
             <tbody className="divide-y divide-[#E2E8F0]">
               {filteredUsers.length === 0 ? (
                 <tr>
-                  <td colSpan={8} className="p-8 text-center text-slate-400">
+                  <td colSpan={9} className="p-8 text-center text-slate-400">
                     No matching users found for current filter.
                   </td>
                 </tr>
@@ -294,6 +328,18 @@ export default function UsersListPage() {
                           {u.email && <div className="text-[10px] text-slate-400">{u.email}</div>}
                         </div>
                       </div>
+                    </td>
+                    <td className="p-3 whitespace-nowrap">
+                      <div className="font-bold text-[#111827] flex items-center space-x-1.5">
+                        <Calendar className="w-3.5 h-3.5 text-[#3547D4] shrink-0" />
+                        <span>{formatRegistrationDayAndDate(u.createdAt)}</span>
+                      </div>
+                      {formatRegistrationTime(u.createdAt) && (
+                        <div className="text-[10px] text-[#64748B] flex items-center space-x-1 pl-5 mt-0.5">
+                          <Clock className="w-3 h-3 text-slate-400 shrink-0" />
+                          <span>{formatRegistrationTime(u.createdAt)}</span>
+                        </div>
+                      )}
                     </td>
                     <td className="p-3">
                       <span
@@ -419,6 +465,29 @@ export default function UsersListPage() {
                   <div className="font-bold text-sm text-[#111827]">{selectedUser.name}</div>
                   <div className="text-[#64748B]">{selectedUser.mobile} — {selectedUser.email || "No email"}</div>
                 </div>
+              </div>
+
+              <div className="p-3 bg-indigo-50/70 border border-indigo-100 rounded-xl space-y-1.5 text-xs">
+                <div className="flex items-center justify-between">
+                  <span className="font-bold text-indigo-950 flex items-center gap-1.5">
+                    <Calendar className="w-4 h-4 text-[#3547D4]" />
+                    Registration Day & Date:
+                  </span>
+                  <span className="font-extrabold text-[#111827]">
+                    {formatRegistrationDayAndDate(selectedUser.createdAt)}
+                  </span>
+                </div>
+                {formatRegistrationTime(selectedUser.createdAt) && (
+                  <div className="flex items-center justify-between text-[11px] text-[#64748B] pt-0.5 border-t border-indigo-100/60">
+                    <span className="flex items-center gap-1 font-medium">
+                      <Clock className="w-3 h-3 text-slate-400" />
+                      Registration Time:
+                    </span>
+                    <span className="font-semibold text-slate-700">
+                      {formatRegistrationTime(selectedUser.createdAt)}
+                    </span>
+                  </div>
+                )}
               </div>
               <div className="grid grid-cols-2 gap-2 border border-[#E2E8F0] p-3 rounded-xl">
                 <div>Account Type: <span className="font-bold text-[#111827] capitalize">{selectedUser.accountType}</span></div>

@@ -2,7 +2,7 @@ import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useState, useEffect, useMemo } from "react";
 import {
   ArrowLeft, MapPin, Star, ShieldCheck, User, Store as StoreIcon,
-  MoreVertical, Ban, Flag, Share2, UserCheck, UserPlus,
+  MoreVertical, Ban, Flag, Share2, UserCheck, UserPlus, Calendar,
 } from "lucide-react";
 import { MobileFrame } from "@/components/omeetso/MobileFrame";
 import { ProductCard } from "@/components/omeetso/ProductCard";
@@ -15,6 +15,7 @@ import { getUserAccessToken } from "@/api/auth.api";
 import { getSeller, productsBySeller } from "@/lib/mock";
 import { listListings } from "@/lib/listings";
 import { getCleanAvatar, MALE_AVATAR_DATA_URI } from "@/lib/avatarSvgs";
+import { formatRegistrationDayAndDate } from "@/lib/account";
 
 export const Route = createFileRoute("/seller/$id")({
   loader: ({ params }) => {
@@ -132,7 +133,8 @@ function SellerPage() {
               type: d.accountType || d.type || prev?.type || "individual",
               area: d.area || d.city || prev?.area || "Hyderabad",
               city: d.city || prev?.city || "Hyderabad",
-              memberSince: d.memberSince || (d.createdAt ? new Date(d.createdAt).getFullYear().toString() : prev?.memberSince || "2024"),
+              createdAt: d.createdAt || prev?.createdAt,
+              memberSince: d.memberSince || d.createdAt || prev?.memberSince || "2024",
               rating: d.rating ?? prev?.rating ?? 0,
               reviews: d.reviewCount ?? d.reviews ?? prev?.reviews ?? 0,
               responseTime: d.responseTime || prev?.responseTime || "Within 1 hour",
@@ -321,19 +323,11 @@ function SellerPage() {
         <div className="px-4 pt-4 md:mx-auto md:max-w-[1440px] md:px-6 md:pt-8">
           <div className="flex items-center gap-3">
             <div className="relative">
-              {currentSeller.avatar ? (
-                <img
-                  src={getCleanAvatar(currentSeller.avatar, "male")}
-                  alt={currentSeller.name}
-                  className="h-16 w-16 rounded-full object-cover shadow-sm bg-slate-50"
-                  onError={(e) => { (e.target as HTMLElement).style.display = "none"; }}
-                />
-              ) : null}
-              {(!currentSeller.avatar) && (
-                <div className="grid h-16 w-16 place-items-center rounded-full bg-secondary font-bold text-indigo-brand text-xl">
-                  {currentSeller.name?.charAt(0) || "S"}
-                </div>
-              )}
+              <img
+                src={getCleanAvatar(currentSeller.avatar, currentSeller.name)}
+                alt={currentSeller.name}
+                className="h-16 w-16 rounded-full object-cover shadow-sm bg-slate-50"
+              />
               {currentSeller.verified && (
                 <span className="absolute -bottom-1 -right-1 grid h-6 w-6 place-items-center rounded-full bg-emerald-600 text-white shadow">
                   <ShieldCheck className="h-3.5 w-3.5" />
@@ -371,10 +365,14 @@ function SellerPage() {
           </div>
           <p className="mt-3 text-sm text-muted-foreground">{currentSeller.about ?? "Trusted Omeetso seller."}</p>
 
-          <div className="mt-4 grid grid-cols-3 gap-2 text-center">
-            <StatCard label="Active" value={String(active.length)} />
-            <StatCard label="Sold" value={String(sold)} />
-            <StatCard label="Member" value={currentSeller.memberSince || "2024"} />
+          <div className="mt-4 grid grid-cols-2 gap-2 text-center">
+            <StatCard label="Active Listings" value={String(active.length)} />
+            <StatCard label="Sold Items" value={String(sold)} />
+          </div>
+
+          <div className="mt-2.5 flex items-center justify-center gap-1.5 rounded-xl bg-surface-2 border border-border/60 py-2 px-3 text-xs text-muted-foreground">
+            <Calendar className="h-3.5 w-3.5 text-indigo-brand shrink-0" />
+            <span>Registered: <strong className="text-foreground font-bold">{formatRegistrationDayAndDate(currentSeller.createdAt || currentSeller.memberSince)}</strong></span>
           </div>
 
           <div className="mt-4 flex gap-2">

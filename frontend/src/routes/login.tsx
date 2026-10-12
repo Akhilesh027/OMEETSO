@@ -27,6 +27,12 @@ type LoginStep = "phone" | "pin" | "not_registered" | "otp_fallback" | "forgot_p
 
 function LoginPage() {
   const nav = useNavigate();
+  const getRedirectTarget = () => {
+    if (typeof window === "undefined") return "/home";
+    const params = new URLSearchParams(window.location.search);
+    const r = params.get("redirect");
+    return r && r.startsWith("/") ? r : "/home";
+  };
   const [step, setStep] = useState<LoginStep>("phone");
   const [phone, setPhone] = useState("");
   const [registeredName, setRegisteredName] = useState("");
@@ -122,7 +128,7 @@ function LoginPage() {
 
     if (res.success) {
       toast.success(`Welcome back${registeredName ? `, ${registeredName}` : ""}! Signed in successfully.`);
-      nav({ to: "/home" });
+      nav({ to: getRedirectTarget() as any });
     } else {
       setErrorMessage(res.error || "Incorrect 4-digit PIN. Please try again.");
       toast.error(res.error || "Sign in failed");
@@ -158,7 +164,7 @@ function LoginPage() {
 
     if (res.success) {
       toast.success("Signed in successfully via OTP!");
-      nav({ to: "/home" });
+      nav({ to: getRedirectTarget() as any });
     } else {
       setErrorMessage(res.error || "Invalid OTP code");
     }
@@ -223,7 +229,7 @@ function LoginPage() {
 
     if (res.success) {
       toast.success("🎉 PIN updated successfully! Welcome to omeetso.");
-      nav({ to: "/home" });
+      nav({ to: getRedirectTarget() as any });
     } else {
       setErrorMessage(res.error || "Failed to update PIN. Please check your OTP and try again.");
       toast.error(res.error || "Failed to reset PIN");
@@ -267,7 +273,7 @@ function LoginPage() {
             localStorage.removeItem("omeetso_guest_session");
           }
           toast.success("Signed in with Google successfully!");
-          nav({ to: "/home" });
+          nav({ to: getRedirectTarget() as any });
           return;
         }
       }
@@ -291,7 +297,7 @@ function LoginPage() {
       localStorage.removeItem("omeetso_guest_session");
     }
     toast.success("Signed in with Google");
-    nav({ to: "/home" });
+    nav({ to: getRedirectTarget() as any });
     setGoogleLoading(false);
   };
 

@@ -1,8 +1,8 @@
 import { BottomSheet } from "@/components/omeetso/BottomSheet";
 import {
-  Camera, Image as ImageIcon, MapPin, Mic, Package, FileText,
+  Image as ImageIcon, Package, FileText,
   Upload, FilePlus, ShieldCheck, CheckCircle2, UserCheck, Smartphone,
-  ExternalLink, Navigation, Sparkles, X, Check
+  ExternalLink, Sparkles, X, Check
 } from "lucide-react";
 import { sendMessage, type DocumentAttachment, type ContactAttachment } from "@/lib/chat";
 import { PRODUCTS } from "@/lib/mock";
@@ -18,15 +18,6 @@ const SAMPLE_DOCS = [
   { name: "Verified_ID_Proof_Redacted.pdf", size: 680 * 1024, ext: "PDF", type: "Identity Proof" },
 ];
 
-const AREAS = [
-  { name: "Madhapur Metro Station", area: "Madhapur, near ticket counter / Exit B" },
-  { name: "Inorbit Mall Entrance", area: "Cyberabad, main gate public parking" },
-  { name: "Ameerpet Metro Station", area: "Ameerpet, Concourse / Exit A" },
-  { name: "Public Café near Kondapur", area: "Kondapur Main Road" },
-  { name: "Forum Sujana Mall", area: "Kukatpally, Main Concourse" },
-  { name: "Hitec City Cyber Towers", area: "Main Entrance Security Gate" },
-];
-
 const IMAGE_SAMPLES = PRODUCTS.slice(0, 8).map((p) => p.image);
 
 export interface AttachmentSheetProps {
@@ -35,14 +26,12 @@ export interface AttachmentSheetProps {
   threadId: string;
   sellerListings?: string[];
   onSendAttachment?: (payload: {
-    type: "image" | "document" | "location" | "voice" | "contact";
+    type: "image" | "document" | "contact";
     text?: string;
     imageUrl?: string;
     caption?: string;
     document?: DocumentAttachment;
     contact?: ContactAttachment;
-    location?: { name: string; area: string };
-    voice?: { durationSec: number };
   }) => void;
 }
 
@@ -53,7 +42,7 @@ export function AttachmentSheet({
   sellerListings,
   onSendAttachment,
 }: AttachmentSheetProps) {
-  const [view, setView] = useState<"menu" | "document" | "gallery" | "location" | "voice" | "contact" | "product">("menu");
+  const [view, setView] = useState<"menu" | "document" | "gallery" | "contact" | "product">("menu");
   
   // Document state
   const [selectedDoc, setSelectedDoc] = useState<DocumentAttachment | null>(null);
@@ -69,61 +58,67 @@ export function AttachmentSheet({
   const [contactName, setContactName] = useState("");
   const [contactPhone, setContactPhone] = useState("");
 
-  // Voice state
-  const [recording, setRecording] = useState(false);
-  const [dur, setDur] = useState(0);
-
   const close = () => {
     setView("menu");
     setSelectedDoc(null);
     setDocCaption("");
     setSelectedImg(null);
     setCaption("");
-    setRecording(false);
-    setDur(0);
     onClose();
   };
 
   const dispatchAttachment = (payload: {
-    type: "image" | "document" | "location" | "voice" | "contact";
+    type: "image" | "document" | "contact";
     text?: string;
     imageUrl?: string;
     caption?: string;
     document?: DocumentAttachment;
     contact?: ContactAttachment;
-    location?: { name: string; area: string };
-    voice?: { durationSec: number };
   }) => {
     if (onSendAttachment) {
-      onSendAttachment(payload);
+      onSendAttachment(payload as any);
     } else {
       sendMessage(threadId, {
-        ...payload,
         from: "me",
+        type: payload.type as any,
+        text: payload.caption || payload.text,
+        imageUrl: payload.imageUrl,
+        document: payload.document,
+        contact: payload.contact,
       });
     }
   };
 
-  // ── Document Handler ──
+  // ── Document Handlers ──
   const handleDocFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
-    if (file.size > 25 * 1024 * 1024) {
-      toast.error("Document exceeds maximum size (25MB)");
+    if (file.size > 15 * 1024 * 1024) {
+      toast.error("Document exceeds maximum size (15 MB)");
       return;
     }
 
     const ext = file.name.split(".").pop()?.toUpperCase() || "DOC";
-    const objectUrl = URL.createObjectURL(file);
-
-    setSelectedDoc({
+    const newDoc: DocumentAttachment = {
       name: file.name,
       size: file.size,
       ext,
-      mimeType: file.type,
-      url: objectUrl,
+      mimeType: file.type || "application/octet-stream",
+    };
+
+    setSelectedDoc(newDoc);
+    toast.success(`Attached "${file.name}"`);
+  };
+
+  const selectSampleDoc = (sample: typeof SAMPLE_DOCS[0]) => {
+    setSelectedDoc({
+      name: sample.name,
+      size: sample.size,
+      ext: sample.ext,
+      mimeType: "application/pdf",
     });
+    toast.info(`Selected ${sample.type}`);
   };
 
   const sendDocument = () => {
@@ -165,41 +160,6 @@ export function AttachmentSheet({
     close();
   };
 
-  // ── Location Handler ──
-  const shareLocation = (l: { name: string; area: string }) => {
-    dispatchAttachment({
-      type: "location",
-      location: l,
-    });
-    toast.success("Meeting point shared");
-    close();
-  };
-
-  const shareCurrentGps = () => {
-    if ("geolocation" in navigator) {
-      toast.info("Fetching your GPS coordinates...");
-      navigator.geolocation.getCurrentPosition(
-        () => {
-          shareLocation({
-            name: "Current GPS Location",
-            area: "Hyderabad, Telangana • Within 100m accuracy",
-          });
-        },
-        () => {
-          shareLocation({
-            name: "Live Coordinate Location",
-            area: "Madhapur, Cyberabad • 500081",
-          });
-        }
-      );
-    } else {
-      shareLocation({
-        name: "Pinned Location",
-        area: "Madhapur, Hyderabad",
-      });
-    }
-  };
-
   // ── Contact Handler ──
   const sendContact = () => {
     if (!contactName.trim() || !contactPhone.trim()) {
@@ -216,20 +176,6 @@ export function AttachmentSheet({
     });
 
     toast.success("Contact details shared");
-    close();
-  };
-
-  // ── Voice Handler ──
-  const sendVoice = () => {
-    if (dur < 1) {
-      toast.error("Recording too short");
-      return;
-    }
-    dispatchAttachment({
-      type: "voice",
-      voice: { durationSec: Math.round(dur) },
-    });
-    toast.success("Voice note sent");
     close();
   };
 
@@ -253,10 +199,9 @@ export function AttachmentSheet({
       title={
         view === "menu" ? "Share & Attach" :
         view === "document" ? "Share Document" :
-        view === "gallery" ? "Choose Photo" :
-        view === "location" ? "Share Safe Meeting Point" :
+        view === "gallery" ? "Upload Photo" :
         view === "contact" ? "Share Contact Card" :
-        view === "voice" ? "Voice Note" : "Your Listings"
+        "Your Listings"
       }
     >
       {/* ── Main Attachment Menu ── */}
@@ -271,17 +216,6 @@ export function AttachmentSheet({
             onClick={() => setView("document")}
           />
           <Opt
-            icon={Camera}
-            label="Camera"
-            sub="Take Photo"
-            color="text-sky-500"
-            bg="bg-sky-50 dark:bg-sky-950/40"
-            onClick={() => {
-              setView("gallery");
-              setTimeout(() => imgFileRef.current?.click(), 100);
-            }}
-          />
-          <Opt
             icon={ImageIcon}
             label="Gallery"
             sub="Upload Image"
@@ -290,28 +224,12 @@ export function AttachmentSheet({
             onClick={() => setView("gallery")}
           />
           <Opt
-            icon={MapPin}
-            label="Location"
-            sub="Safe Meetup"
-            color="text-emerald-500"
-            bg="bg-emerald-50 dark:bg-emerald-950/40"
-            onClick={() => setView("location")}
-          />
-          <Opt
             icon={Smartphone}
             label="Contact"
             sub="Phone & WhatsApp"
             color="text-amber-500"
             bg="bg-amber-50 dark:bg-amber-950/40"
             onClick={() => setView("contact")}
-          />
-          <Opt
-            icon={Mic}
-            label="Voice Note"
-            sub="Record Audio"
-            color="text-purple-500"
-            bg="bg-purple-50 dark:bg-purple-950/40"
-            onClick={() => setView("voice")}
           />
           {sellerListings && sellerListings.length > 0 && (
             <Opt
@@ -333,70 +251,88 @@ export function AttachmentSheet({
             type="file"
             ref={docFileRef}
             onChange={handleDocFileUpload}
-            accept=".pdf,.doc,.docx,.xls,.xlsx,.txt,.csv,.zip"
+            accept=".pdf,.doc,.docx,.xls,.xlsx,.txt"
             className="hidden"
           />
 
-          {/* Upload Button */}
           <button
             onClick={() => docFileRef.current?.click()}
-            className="flex w-full items-center justify-center gap-2 rounded-2xl border-2 border-dashed border-sky-300 dark:border-sky-800 bg-sky-50/50 dark:bg-sky-950/20 p-4 transition-all hover:bg-sky-50 dark:hover:bg-sky-900/30"
+            className="flex w-full items-center justify-center gap-2 rounded-2xl border-2 border-dashed border-indigo-300 dark:border-indigo-800 bg-indigo-50/50 dark:bg-indigo-950/20 p-4 transition-all hover:bg-indigo-50"
           >
-            <Upload className="h-5 w-5 text-sky-600 dark:text-sky-400" />
-            <span className="text-xs font-bold text-sky-900 dark:text-sky-200">
-              Upload PDF or File from Device (Max 25MB)
-            </span>
+            <Upload className="h-5 w-5 text-indigo-600 dark:text-indigo-400" />
+            <div className="text-left">
+              <p className="text-xs font-bold text-indigo-950 dark:text-indigo-200">
+                Upload File from Device
+              </p>
+              <p className="text-[10px] text-muted-foreground">PDF, DOC, Invoices, Receipts (up to 15MB)</p>
+            </div>
           </button>
 
-          {/* Preset Templates */}
           <div>
-            <p className="mb-2 text-xs font-bold text-muted-foreground uppercase tracking-wider">
-              Quick Verified Templates
-            </p>
+            <div className="flex items-center justify-between mb-2">
+              <span className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">
+                Verified Document Templates
+              </span>
+              <span className="text-[10px] text-emerald-600 font-semibold flex items-center gap-0.5">
+                <ShieldCheck className="h-3 w-3" /> Auto-Verified
+              </span>
+            </div>
+
             <div className="space-y-2">
-              {SAMPLE_DOCS.map((d) => (
-                <button
-                  key={d.name}
-                  onClick={() => setSelectedDoc({ name: d.name, size: d.size, ext: d.ext })}
-                  className={cn(
-                    "flex w-full items-center gap-3 rounded-2xl border p-3 text-left transition-all",
-                    selectedDoc?.name === d.name
-                      ? "border-primary bg-primary/5 ring-1 ring-primary"
-                      : "border-border bg-card hover:bg-secondary/60"
-                  )}
-                >
-                  <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-red-500 text-[10px] font-black text-white shadow-sm">
-                    PDF
-                  </span>
-                  <div className="min-w-0 flex-1">
-                    <p className="truncate text-xs font-bold">{d.name}</p>
-                    <p className="text-[10px] text-muted-foreground">
-                      {d.type} • {(d.size / 1024).toFixed(0)} KB
-                    </p>
-                  </div>
-                  {selectedDoc?.name === d.name && (
-                    <CheckCircle2 className="h-5 w-5 text-primary shrink-0" />
-                  )}
-                </button>
-              ))}
+              {SAMPLE_DOCS.map((doc) => {
+                const isSelected = selectedDoc?.name === doc.name;
+                return (
+                  <button
+                    key={doc.name}
+                    onClick={() => selectSampleDoc(doc)}
+                    className={cn(
+                      "w-full flex items-center justify-between p-2.5 rounded-xl border transition-all text-left",
+                      isSelected
+                        ? "border-primary bg-primary/5 ring-1 ring-primary"
+                        : "border-border/70 hover:border-primary/50 bg-card"
+                    )}
+                  >
+                    <div className="flex items-center gap-2.5 min-w-0">
+                      <div className="h-9 w-9 shrink-0 rounded-lg bg-red-100 dark:bg-red-950/50 text-red-600 flex items-center justify-center font-black text-[10px]">
+                        {doc.ext}
+                      </div>
+                      <div className="min-w-0">
+                        <p className="text-xs font-bold text-foreground truncate">{doc.name}</p>
+                        <p className="text-[10px] text-muted-foreground flex items-center gap-1.5 mt-0.5">
+                          <span>{doc.type}</span>
+                          <span>•</span>
+                          <span>{(doc.size / 1024).toFixed(0)} KB</span>
+                        </p>
+                      </div>
+                    </div>
+                    {isSelected ? (
+                      <CheckCircle2 className="h-4 w-4 text-primary shrink-0 ml-2" />
+                    ) : (
+                      <FilePlus className="h-4 w-4 text-muted-foreground/60 shrink-0 ml-2" />
+                    )}
+                  </button>
+                );
+              })}
             </div>
           </div>
 
-          {/* Selected Document Details & Send */}
           {selectedDoc && (
-            <div className="rounded-2xl border border-sky-200 dark:border-sky-800 bg-sky-50/80 dark:bg-sky-950/40 p-3 space-y-2">
-              <div className="flex items-center justify-between text-xs font-bold text-sky-900 dark:text-sky-100">
-                <span className="truncate flex-1">{selectedDoc.name}</span>
-                <span className="text-[10px] text-sky-700 dark:text-sky-300 ml-2">
-                  {(selectedDoc.size / 1024).toFixed(0)} KB
-                </span>
+            <div className="space-y-2 pt-2 border-t border-border">
+              <div className="flex items-center gap-2 p-2 bg-secondary/60 rounded-xl">
+                <FileText className="h-4 w-4 text-primary shrink-0" />
+                <span className="text-xs font-bold text-foreground truncate flex-1">{selectedDoc.name}</span>
+                <button onClick={() => setSelectedDoc(null)} className="p-1 text-muted-foreground hover:text-foreground">
+                  <X className="h-3.5 w-3.5" />
+                </button>
               </div>
+
               <input
                 value={docCaption}
-                onChange={(e) => setDocCaption(e.target.value.slice(0, 200))}
-                placeholder="Add a note or description (optional)"
+                onChange={(e) => setDocCaption(e.target.value)}
+                placeholder="Add optional note or description..."
                 className="w-full rounded-xl border border-border bg-card px-3 py-2 text-xs outline-none focus:border-primary"
               />
+
               <button
                 onClick={sendDocument}
                 className="flex h-11 w-full items-center justify-center rounded-xl bg-navy text-xs font-bold text-white shadow-md hover:bg-navy/90"
@@ -421,11 +357,11 @@ export function AttachmentSheet({
 
           <button
             onClick={() => imgFileRef.current?.click()}
-            className="flex w-full items-center justify-center gap-2 rounded-2xl border-2 border-dashed border-indigo-300 dark:border-indigo-800 bg-indigo-50/50 dark:bg-indigo-950/20 p-3.5"
+            className="flex w-full items-center justify-center gap-2 rounded-2xl border-2 border-dashed border-indigo-300 dark:border-indigo-800 bg-indigo-50/50 dark:bg-indigo-950/20 p-3.5 hover:bg-indigo-50 transition-all"
           >
-            <Camera className="h-4 w-4 text-indigo-600" />
+            <ImageIcon className="h-4 w-4 text-indigo-600" />
             <span className="text-xs font-bold text-indigo-900 dark:text-indigo-200">
-              Take Photo or Upload from Library
+              Upload from Photos / Gallery
             </span>
           </button>
 
@@ -449,51 +385,18 @@ export function AttachmentSheet({
               <img src={selectedImg} alt="Preview" className="max-h-44 w-full rounded-2xl object-cover" />
               <input
                 value={caption}
-                onChange={(e) => setCaption(e.target.value.slice(0, 200))}
-                placeholder="Add a photo caption (optional)"
+                onChange={(e) => setCaption(e.target.value)}
+                placeholder="Add a caption..."
                 className="w-full rounded-xl border border-border bg-card px-3 py-2 text-xs outline-none focus:border-primary"
               />
               <button
                 onClick={sendImage}
-                className="flex h-11 w-full items-center justify-center rounded-xl bg-navy text-xs font-bold text-white shadow-md hover:bg-navy/90"
+                className="h-11 w-full rounded-2xl bg-navy text-xs font-bold text-white shadow-md hover:bg-navy/90"
               >
                 Send Photo
               </button>
             </div>
           )}
-        </div>
-      )}
-
-      {/* ── Location View ── */}
-      {view === "location" && (
-        <div className="space-y-3 pb-4">
-          <button
-            onClick={shareCurrentGps}
-            className="flex w-full items-center justify-center gap-2 rounded-2xl bg-emerald-600 p-3 text-xs font-bold text-white shadow-md hover:bg-emerald-700"
-          >
-            <Navigation className="h-4 w-4" /> Share My Current Location
-          </button>
-
-          <div className="space-y-2">
-            <p className="text-[11px] font-bold text-muted-foreground uppercase tracking-wider">
-              Verified Public Meeting Points
-            </p>
-            {AREAS.map((l) => (
-              <button
-                key={l.name}
-                onClick={() => shareLocation(l)}
-                className="flex w-full items-center gap-3 rounded-2xl border border-border bg-card p-3 text-left hover:bg-secondary/60 transition-all"
-              >
-                <span className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-emerald-100 dark:bg-emerald-950 text-emerald-600">
-                  <MapPin className="h-4 w-4" />
-                </span>
-                <span className="min-w-0 flex-1">
-                  <span className="block truncate text-xs font-bold">{l.name}</span>
-                  <span className="block truncate text-[11px] text-muted-foreground">{l.area}</span>
-                </span>
-              </button>
-            ))}
-          </div>
         </div>
       )}
 
@@ -530,39 +433,6 @@ export function AttachmentSheet({
             Share Contact Details
           </button>
         </div>
-      )}
-
-      {/* ── Voice Note View ── */}
-      {view === "voice" && (
-        <VoiceRecorder
-          recording={recording}
-          dur={dur}
-          onStart={() => {
-            setRecording(true);
-            const start = Date.now();
-            const iv = window.setInterval(() => {
-              const t = (Date.now() - start) / 1000;
-              if (t >= 120) {
-                setRecording(false);
-                clearInterval(iv);
-                setDur(120);
-              } else setDur(t);
-            }, 100);
-            (window as unknown as { __omeetsoRecIv?: number }).__omeetsoRecIv = iv;
-          }}
-          onStop={() => {
-            setRecording(false);
-            const iv = (window as unknown as { __omeetsoRecIv?: number }).__omeetsoRecIv;
-            if (iv) clearInterval(iv);
-          }}
-          onCancel={() => {
-            setRecording(false);
-            setDur(0);
-            const iv = (window as unknown as { __omeetsoRecIv?: number }).__omeetsoRecIv;
-            if (iv) clearInterval(iv);
-          }}
-          onSend={sendVoice}
-        />
       )}
 
       {/* ── Products View ── */}
@@ -621,67 +491,6 @@ function Opt({
         <p className="text-[10px] text-muted-foreground mt-0.5">{sub}</p>
       </div>
     </button>
-  );
-}
-
-function VoiceRecorder({
-  recording,
-  dur,
-  onStart,
-  onStop,
-  onCancel,
-  onSend,
-}: {
-  recording: boolean;
-  dur: number;
-  onStart: () => void;
-  onStop: () => void;
-  onCancel: () => void;
-  onSend: () => void;
-}) {
-  const mm = Math.floor(dur / 60);
-  const ss = Math.floor(dur % 60).toString().padStart(2, "0");
-  return (
-    <div className="pt-2 pb-4 text-center">
-      <div
-        className={cn(
-          "mx-auto grid h-24 w-24 place-items-center rounded-full transition-all",
-          recording ? "bg-red-100 dark:bg-red-950/40" : "bg-secondary"
-        )}
-      >
-        <Mic className={cn("h-10 w-10", recording ? "text-red-600 animate-pulse" : "text-muted-foreground")} />
-      </div>
-      <p className="mt-3 text-2xl font-extrabold tabular-nums">{mm}:{ss}</p>
-      <p className="text-[11px] text-muted-foreground">Maximum 2 minutes audio note</p>
-      {!recording && dur === 0 && (
-        <button
-          onClick={onStart}
-          className="mt-4 h-11 w-full rounded-2xl bg-navy text-xs font-bold text-white shadow-md hover:bg-navy/90"
-        >
-          Start Recording
-        </button>
-      )}
-      {recording && (
-        <div className="mt-4 grid grid-cols-2 gap-2">
-          <button onClick={onCancel} className="h-11 rounded-2xl border border-border text-xs font-bold">
-            Cancel
-          </button>
-          <button onClick={onStop} className="h-11 rounded-2xl bg-red-600 text-xs font-bold text-white shadow-md">
-            Stop
-          </button>
-        </div>
-      )}
-      {!recording && dur > 0 && (
-        <div className="mt-4 grid grid-cols-2 gap-2">
-          <button onClick={onCancel} className="h-11 rounded-2xl border border-border text-xs font-bold">
-            Discard
-          </button>
-          <button onClick={onSend} className="h-11 rounded-2xl bg-navy text-xs font-bold text-white shadow-md">
-            Send Voice Note
-          </button>
-        </div>
-      )}
-    </div>
   );
 }
 

@@ -88,6 +88,8 @@ function Results() {
     return null;
   });
 
+  const [localListingTick, setLocalListingTick] = useState(0);
+
   useEffect(() => {
     const syncLoc = () => {
       try {
@@ -95,11 +97,17 @@ function Results() {
         if (raw) setActiveLoc(JSON.parse(raw));
       } catch { /* ignore */ }
     };
+    const syncListing = () => setLocalListingTick((t) => t + 1);
+
     window.addEventListener("storage", syncLoc);
+    window.addEventListener("storage", syncListing);
     window.addEventListener("omeetso_location_changed", syncLoc);
+    window.addEventListener("omeetso_listing_updated", syncListing);
     return () => {
       window.removeEventListener("storage", syncLoc);
+      window.removeEventListener("storage", syncListing);
       window.removeEventListener("omeetso_location_changed", syncLoc);
+      window.removeEventListener("omeetso_listing_updated", syncListing);
     };
   }, []);
 
@@ -133,7 +141,7 @@ function Results() {
             pincode: item.pincode || "",
             distanceKm: calculatedDist,
             postedAgo: "Just now",
-            image: item.images?.[0] || item.image || "https://images.unsplash.com/photo-1526738549149-8e07eca6c147?w=400",
+            image: item.images?.[0] || item.image || "https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=400",
             images: item.images,
             verified: true,
             sellerName: item.businessName || item.storeName || item.sellerName || "Verified Local Seller",
@@ -184,12 +192,102 @@ function Results() {
           return timeB - timeA;
         });
 
-        setAllProducts(mappedLive);
+        const localItems: Product[] = listListings().map((item) => ({
+          id: item.id,
+          title: item.title,
+          price: item.price,
+          negotiable: item.negotiable,
+          category: (item.category || "electronics").toLowerCase(),
+          subcategory: resolveElectronicsSubcategory(item.subcategory, item.title, item.specs),
+          condition: item.condition || "good",
+          area: item.area || activeLoc?.area || "Local",
+          city: item.city || activeCity,
+          pincode: item.pincode || "",
+          distanceKm: 0.5,
+          postedAgo: "Recently",
+          image: item.images?.[item.cover || 0] || item.images?.[0] || "https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=400",
+          images: item.images,
+          verified: true,
+          sellerName: item.sellerName || "You",
+          sellerType: item.sellerType || "individual",
+          sellerId: item.sellerId || "u_seller",
+          rating: 4.8,
+          reviewCount: 5,
+          description: item.description,
+          specs: item.specs || {},
+          method: item.method || "detailed",
+          quickSale: item.method === "quick" || Boolean(item.quickSale || item.isQuickSell),
+          isQuickSell: item.method === "quick" || Boolean(item.quickSale || item.isQuickSell),
+        }));
+
+        const seenIds = new Set<string>();
+        const merged: Product[] = [];
+        for (const item of [...localItems, ...mappedLive]) {
+          if (!seenIds.has(item.id)) {
+            seenIds.add(item.id);
+            merged.push(item);
+          }
+        }
+        setAllProducts(merged);
       } else {
-        setAllProducts([]);
+        const localItems: Product[] = listListings().map((item) => ({
+          id: item.id,
+          title: item.title,
+          price: item.price,
+          negotiable: item.negotiable,
+          category: (item.category || "electronics").toLowerCase(),
+          subcategory: resolveElectronicsSubcategory(item.subcategory, item.title, item.specs),
+          condition: item.condition || "good",
+          area: item.area || activeLoc?.area || "Local",
+          city: item.city || activeCity,
+          pincode: item.pincode || "",
+          distanceKm: 0.5,
+          postedAgo: "Recently",
+          image: item.images?.[item.cover || 0] || item.images?.[0] || "https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=400",
+          images: item.images,
+          verified: true,
+          sellerName: item.sellerName || "You",
+          sellerType: item.sellerType || "individual",
+          sellerId: item.sellerId || "u_seller",
+          rating: 4.8,
+          reviewCount: 5,
+          description: item.description,
+          specs: item.specs || {},
+          method: item.method || "detailed",
+          quickSale: item.method === "quick" || Boolean(item.quickSale || item.isQuickSell),
+          isQuickSell: item.method === "quick" || Boolean(item.quickSale || item.isQuickSell),
+        }));
+        setAllProducts([...localItems, ...PRODUCTS]);
       }
     }).catch(() => {
-      setAllProducts([]);
+      const localItems: Product[] = listListings().map((item) => ({
+        id: item.id,
+        title: item.title,
+        price: item.price,
+        negotiable: item.negotiable,
+        category: (item.category || "electronics").toLowerCase(),
+        subcategory: resolveElectronicsSubcategory(item.subcategory, item.title, item.specs),
+        condition: item.condition || "good",
+        area: item.area || activeLoc?.area || "Local",
+        city: item.city || activeCity,
+        pincode: item.pincode || "",
+        distanceKm: 1.5,
+        postedAgo: "Just now",
+        image: item.images?.[item.cover || 0] || item.images?.[0] || "https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=400",
+        images: item.images,
+        verified: false,
+        sellerName: item.sellerName || "Local Seller",
+        sellerType: item.sellerType || "individual",
+        sellerId: item.sellerId || "u_seller",
+        rating: 4.8,
+        reviewCount: 5,
+        description: item.description,
+        specs: item.specs || {},
+        method: item.method || "detailed",
+        quickSale: item.method === "quick",
+        isQuickSell: item.method === "quick",
+      }));
+      setAllProducts([...localItems, ...PRODUCTS]);
     });
 
     import("@/api/adCampaigns.api").then(({ serveAdsApi }) => {
@@ -214,7 +312,7 @@ function Results() {
         }
       });
     });
-  }, [search.q, search.cat, search.sub, activeLoc?.area, activeLoc?.pincode, activeLoc?.city]);
+  }, [search.q, search.cat, search.sub, activeLoc?.area, activeLoc?.pincode, activeLoc?.city, localListingTick]);
 
   const [minPInput, setMinPInput] = useState(search.minP ?? "");
   const [maxPInput, setMaxPInput] = useState(search.maxP ?? "");

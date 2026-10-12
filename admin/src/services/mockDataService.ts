@@ -137,7 +137,8 @@ export class MockDataService {
 
   // --- LISTINGS ---
   static getListings(): Listing[] {
-    return LocalStorageService.getItem<Listing[]>(STORAGE_KEYS.LISTINGS, []);
+    const list = LocalStorageService.getItem<Listing[]>(STORAGE_KEYS.LISTINGS, LISTINGS);
+    return list && list.length > 0 ? list : LISTINGS;
   }
 
   static saveListings(listings: Listing[]): void {

@@ -15,6 +15,7 @@ import {
   type Thread, type Offer,
 } from "@/lib/chat";
 import { MessageBubble } from "@/components/omeetso/chat/MessageBubble";
+import { getCleanAvatar } from "@/lib/avatarSvgs";
 import { ThreadListPane } from "@/components/omeetso/chat/ThreadListPane";
 import { MakeOfferSheet } from "@/components/omeetso/chat/MakeOfferSheet";
 import { AttachmentSheet } from "@/components/omeetso/chat/AttachmentSheet";
@@ -370,13 +371,11 @@ function Conversation() {
               className="flex min-w-0 flex-1 items-center gap-2.5 rounded-xl px-1 py-1 hover:bg-secondary/40 transition-colors"
             >
               <div className="relative shrink-0">
-                {thread.peerAvatar ? (
-                  <img src={thread.peerAvatar} alt="" className="h-9 w-9 rounded-full object-cover shrink-0" />
-                ) : (
-                  <span className="grid h-9 w-9 place-items-center rounded-full bg-secondary text-muted-foreground shrink-0">
-                    <UserCircle2 className="h-5 w-5" />
-                  </span>
-                )}
+                <img
+                  src={getCleanAvatar(thread.peerAvatar, thread.peerName)}
+                  alt=""
+                  className="h-9 w-9 rounded-full object-cover shrink-0"
+                />
                 {isPeerOnline && thread.peerType !== "store" && (
                   <span className="absolute -right-0.5 -top-0.5 h-2.5 w-2.5 rounded-full border-2 border-card bg-emerald-500" />
                 )}
@@ -428,9 +427,9 @@ function Conversation() {
           </div>
 
           {/* Context Header Card */}
-          {conversation && (conversation.listingTitle || conversation.listingImage) && (
+          {conversation && (conversation.listingTitle || (conversation.listingImage && !conversation.listingImage.includes("photo-1526738549149"))) && (isJob || isService || (conversation.contextId && conversation.contextId !== "null" && conversation.listingTitle && conversation.listingTitle !== "Product Listing" && !conversation.listingTitle.includes("Royal Enfield"))) && (
             <div className="shrink-0 flex items-center gap-3 border-t border-border bg-card px-3 py-2">
-              {conversation.listingImage ? (
+              {conversation.listingImage && !conversation.listingImage.includes("photo-1526738549149") ? (
                 <img src={conversation.listingImage} alt="" className="h-10 w-10 rounded-xl object-cover shrink-0" />
               ) : isJob ? (
                 <div className="grid h-10 w-10 place-items-center rounded-xl bg-blue-500/10 text-blue-600 shrink-0">
@@ -440,6 +439,10 @@ function Conversation() {
                 <div className="grid h-10 w-10 place-items-center rounded-xl bg-indigo-500/10 text-indigo-600 shrink-0">
                   <Wrench className="h-5 w-5" />
                 </div>
+              ) : isStore ? (
+                <div className="grid h-10 w-10 place-items-center rounded-xl bg-indigo-50 text-indigo-600 dark:bg-indigo-950/40 shrink-0">
+                  <StoreIcon className="h-5 w-5" />
+                </div>
               ) : (
                 <div className="grid h-10 w-10 place-items-center rounded-xl bg-secondary shrink-0">
                   <Package className="h-5 w-5 text-muted-foreground" />
@@ -447,23 +450,42 @@ function Conversation() {
               )}
 
               <div className="min-w-0 flex-1">
-                <p className="truncate text-xs font-bold text-foreground">
-                  {conversation.listingTitle || (isJob ? "Job Posting" : isService ? "Service Details" : "Product Listing")}
-                </p>
+                {!isJob && !isService && (conversation.contextId || thread?.productId) ? (
+                  <Link
+                    to="/product/$id"
+                    params={{ id: String(conversation.contextId || thread?.productId) }}
+                    className="hover:underline block"
+                  >
+                    <p className="truncate text-xs font-bold text-foreground">
+                      {conversation.listingTitle || "Product Listing"}
+                    </p>
+                    {conversation.listingPriceInPaise && conversation.listingPriceInPaise > 0 ? (
+                      <p className="text-xs font-extrabold text-foreground">
+                        {formatINR(conversation.listingPriceInPaise / 100)}
+                      </p>
+                    ) : null}
+                  </Link>
+                ) : (
+                  <>
+                    <p className="truncate text-xs font-bold text-foreground">
+                      {conversation.listingTitle || (isJob ? "Job Posting" : isService ? "Service Details" : "Product Listing")}
+                    </p>
 
-                {isJob ? (
-                  <p className="text-xs font-semibold text-blue-600 dark:text-blue-400">
-                    {conversation.salaryText || "Verified Employer · Application Open"}
-                  </p>
-                ) : isService ? (
-                  <p className="text-xs font-semibold text-indigo-600 dark:text-indigo-400">
-                    {conversation.servicePriceText || "Service Inquiry"}
-                  </p>
-                ) : conversation.listingPriceInPaise && conversation.listingPriceInPaise > 0 ? (
-                  <p className="text-xs font-extrabold text-foreground">
-                    {formatINR(conversation.listingPriceInPaise / 100)}
-                  </p>
-                ) : null}
+                    {isJob ? (
+                      <p className="text-xs font-semibold text-blue-600 dark:text-blue-400">
+                        {conversation.salaryText || "Verified Employer · Application Open"}
+                      </p>
+                    ) : isService ? (
+                      <p className="text-xs font-semibold text-indigo-600 dark:text-indigo-400">
+                        {conversation.servicePriceText || "Service Inquiry"}
+                      </p>
+                    ) : conversation.listingPriceInPaise && conversation.listingPriceInPaise > 0 ? (
+                      <p className="text-xs font-extrabold text-foreground">
+                        {formatINR(conversation.listingPriceInPaise / 100)}
+                      </p>
+                    ) : null}
+                  </>
+                )}
               </div>
 
               {/* Action buttons on the right side of header */}

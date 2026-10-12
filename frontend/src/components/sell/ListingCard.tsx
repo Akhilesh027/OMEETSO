@@ -1,5 +1,5 @@
 import { Link } from "@tanstack/react-router";
-import { Eye, Heart, MessageCircle, Tag, MoreVertical, ImageOff, Zap } from "lucide-react";
+import { Eye, Heart, MessageCircle, Tag, MoreVertical, ImageOff, Zap, Edit3 } from "lucide-react";
 import { formatINR, timeAgo, type Listing } from "@/lib/listings";
 import { cn } from "@/lib/utils";
 import { StatusBadge } from "./StatusBadge";
@@ -61,11 +61,22 @@ export function ListingCard({
             <p className="line-clamp-1 text-sm font-bold">{l.title}</p>
             <p className="text-sm font-extrabold text-navy">₹{formatINR(l.finalSalePrice ?? l.price)}</p>
           </Link>
-          {onMenu && (
-            <button onClick={onMenu} aria-label="More actions" className="grid h-8 w-8 place-items-center rounded-full hover:bg-secondary">
-              <MoreVertical className="h-4 w-4" />
-            </button>
-          )}
+          <div className="flex items-center gap-1 shrink-0">
+            <Link
+              to="/listing/$id/edit"
+              params={{ id: l.id }}
+              className="flex items-center gap-1 text-[11px] font-bold text-blue-600 hover:text-blue-800 bg-blue-500/10 hover:bg-blue-500/20 px-2.5 py-1 rounded-full border border-blue-500/20 transition-all shadow-2xs"
+              title="Edit Listing"
+            >
+              <Edit3 className="h-3 w-3" />
+              <span>Edit</span>
+            </Link>
+            {onMenu && (
+              <button onClick={onMenu} aria-label="More actions" className="grid h-8 w-8 place-items-center rounded-full hover:bg-secondary">
+                <MoreVertical className="h-4 w-4" />
+              </button>
+            )}
+          </div>
         </div>
         <div className="mt-1 flex flex-wrap items-center gap-1.5">
           <StatusBadge status={l.status} />

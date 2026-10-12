@@ -23,7 +23,7 @@ import { getPublicListingsApi } from "@/api/listings.api";
 import { getPublicStoresApi } from "@/api/stores.api";
 import { listListings } from "@/lib/listings";
 import {
-  CATEGORIES, SUBCATEGORIES, SORT_OPTIONS, getCategory, type Product
+  CATEGORIES, SUBCATEGORIES, SORT_OPTIONS, getCategory, PRODUCTS, type Product
 } from "@/lib/mock";
 import { preventNonNumericKeyDown, sanitizeNumericInput } from "@/lib/utils";
 
@@ -144,9 +144,22 @@ function CategoryPage() {
   const [liveSponsoredAd, setLiveSponsoredAd] = useState<any | null>(null);
   const [liveProducts, setLiveProducts] = useState<any[]>([]);
   const [liveStores, setLiveStores] = useState<any[]>([]);
-  const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
+  const [loading, setLoading] = useState<boolean>(true);
   const [searchInput, setSearchInput] = useState(search.q ?? "");
+  const [localListingTick, setLocalListingTick] = useState(0);
+
+  useEffect(() => {
+    const handleListingUpdate = () => {
+      setLocalListingTick((t) => t + 1);
+    };
+    window.addEventListener("omeetso_listing_updated", handleListingUpdate);
+    window.addEventListener("storage", handleListingUpdate);
+    return () => {
+      window.removeEventListener("omeetso_listing_updated", handleListingUpdate);
+      window.removeEventListener("storage", handleListingUpdate);
+    };
+  }, []);
 
   const [minPInput, setMinPInput] = useState(search.minP ?? "");
   const [maxPInput, setMaxPInput] = useState(search.maxP ?? "");
@@ -191,6 +204,8 @@ function CategoryPage() {
   const loadData = useCallback(async () => {
     setLoading(true);
     setError(null);
+    setLiveProducts([]);
+    setLiveStores([]);
 
     const activeCity = resolveCityFromLocation(activeLoc) || "Hyderabad";
 
@@ -258,17 +273,16 @@ function CategoryPage() {
 
     setLoading(false);
 
-    if (rawListings.length > 0) {
-      const targetCat = category.id.toLowerCase().replace(/_/g, "-");
-      const targetName = category.name.toLowerCase();
+    const targetCat = category.id.toLowerCase().replace(/_/g, "-");
+    const targetName = category.name.toLowerCase();
 
-      const matchingListings = rawListings.filter((item: any) => {
-        const cId = (item.categoryId || item.category || "").toLowerCase().replace(/_/g, "-");
-        return cId === targetCat || cId.includes(targetCat) || targetName.includes(cId);
-      });
+    const matchingListings = rawListings.filter((item: any) => {
+      const cId = (item.categoryId || item.category || "").toLowerCase().replace(/_/g, "-");
+      return cId === targetCat || cId.includes(targetCat) || targetName.includes(cId);
+    });
 
-      const finalCatListings = matchingListings.length > 0 ? matchingListings : rawListings;
-      const mappedP = finalCatListings.map((item: any) => {
+    if (matchingListings.length > 0) {
+      const mappedP = matchingListings.map((item: any) => {
         const calculatedDist = calculateDistanceBetweenLocations(
           activeLoc ? { area: activeLoc.area, pincode: activeLoc.pincode, city: activeCity } : undefined,
           { area: item.area || item.location, pincode: item.pincode, city: item.city }
@@ -335,6 +349,8 @@ function CategoryPage() {
       });
 
       setLiveProducts(mappedP);
+    } else {
+      setLiveProducts([]);
     }
 
     if (sRes.success && Array.isArray(sRes.data)) {
@@ -346,25 +362,36 @@ function CategoryPage() {
         return c === targetCat || c.includes(targetCat) || targetName.includes(c);
       });
 
-      const mappedS = matchingStores.map((item: any) => ({
-        id: item.id || item._id,
-        name: item.name,
-        cover: item.cover || "https://images.unsplash.com/photo-1441986300917-64674bd600d8?w=800",
-        logo: item.logo || "https://res.cloudinary.com/demo/image/upload/f_auto,q_auto,w_200,h_200,c_fill/avatar_cxx1sy.png",
-        category: item.primaryCategory || category.name,
-        area: item.area || "Local",
-        city: item.city || "",
-        pincode: item.pincode || "",
-        distanceKm: calculateDistanceBetweenLocations(activeLoc, { area: item.area, pincode: item.pincode, city: item.city }),
-        rating: item.rating || 0,
-        reviews: item.reviewCount || 0,
-        open: true,
-        verified: true,
-        sponsored: false
-      }));
-      setLiveStores(mappedS);
+      if (matchingStores.length > 0) {
+        const mappedS = matchingStores.map((item: any) => ({
+          id: item.id || item._id,
+          name: item.name,
+          cover: item.cover || "https://images.unsplash.com/photo-1441986300917-64674bd600d8?w=800",
+          logo: item.logo || "https://res.cloudinary.com/demo/image/upload/f_auto,q_auto,w_200,h_200,c_fill/avatar_cxx1sy.png",
+          category: item.primaryCategory || category.name,
+          area: item.area || "Local",
+          city: item.city || "",
+          pincode: item.pincode || "",
+          distanceKm: calculateDistanceBetweenLocations(activeLoc, { area: item.area, pincode: item.pincode, city: item.city }),
+          rating: item.rating || 0,
+          reviews: item.reviewCount || 0,
+          open: true,
+          verified: true,
+          sponsored: false
+        }));
+        setLiveStores(mappedS);
+      } else {
+        setLiveStores([]);
+      }
+    } else {
+      setLiveStores([]);
     }
   }, [category.name, category.id, activeLoc?.area, activeLoc?.pincode, activeLoc?.city]);
+
+  useEffect(() => {
+    setLiveProducts([]);
+    setLiveStores([]);
+  }, [category.id]);
 
   useEffect(() => {
     loadData();
@@ -398,7 +425,32 @@ function CategoryPage() {
       isQuickSell: item.method === "quick" || Boolean(item.quickSale || item.isQuickSell),
     }));
 
-    let list = [...localItems, ...liveProducts];
+    const targetCat = category.id.toLowerCase().replace(/_/g, "-");
+    const targetName = category.name.toLowerCase();
+    const matchingLive = liveProducts.filter((item) => {
+      const cId = (item.category || item.categoryId || "").toLowerCase().replace(/_/g, "-");
+      return cId === targetCat || cId.includes(targetCat) || targetName.includes(cId);
+    });
+
+    const seenIds = new Set<string>();
+    let list: Product[] = [];
+    for (const item of [...localItems, ...matchingLive]) {
+      if (!seenIds.has(item.id)) {
+        seenIds.add(item.id);
+        list.push(item);
+      }
+    }
+
+    if (list.length === 0) {
+      const targetCatId = category.id.toLowerCase();
+      const targetCatName = category.name.toLowerCase();
+      const mockItems = PRODUCTS.filter(
+        (p) => (p.category || "").toLowerCase() === targetCatId ||
+          (p.category || "").toLowerCase().includes(targetCatName) ||
+          targetCatName.includes((p.category || "").toLowerCase())
+      );
+      list = mockItems;
+    }
 
     const q = search.q?.toLowerCase() ?? "";
     if (search.sub) {
@@ -578,7 +630,7 @@ function CategoryPage() {
     }
 
     return list;
-  }, [liveProducts, category.id, category.name, search.q, search.sub, search.cond, search.quickSale, search.verified, search.hasVideo, search.minP, search.maxP, search.sort, activeLoc]);
+  }, [liveProducts, category.id, category.name, search.q, search.sub, search.cond, search.quickSale, search.verified, search.hasVideo, search.minP, search.maxP, search.sort, activeLoc, localListingTick]);
 
   const view = search.view ?? "grid";
   const sortLabel = SORT_OPTIONS.find((o) => o.id === (search.sort ?? "relevance"))?.label ?? "Relevance";

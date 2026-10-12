@@ -154,8 +154,9 @@ export function MakeOfferSheet({
       <div className="space-y-4 font-sans pt-1">
         {/* Product card summary */}
         {(() => {
-          const fallbackImg = "https://images.unsplash.com/photo-1526738549149-8e07eca6c147?w=400";
-          const imgSrc = product?.image || (product as any)?.coverUrl || (Array.isArray(product?.images) && product.images[0]) || fallbackImg;
+          const fallbackImg = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='100' height='100' viewBox='0 0 24 24' fill='none' stroke='%2394a3b8' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m7.5 4.27 9 5.15'/%3E%3Cpath d='M21 8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16Z'/%3E%3Cpath d='m3.3 7 8.7 5 8.7-5'/%3E%3Cpath d='M12 22V12'/%3E%3C/svg%3E";
+          const rawSrc = product?.image || (product as any)?.coverUrl || (Array.isArray(product?.images) && product.images[0]) || "";
+          const imgSrc = (rawSrc && !rawSrc.includes("photo-1526738549149")) ? rawSrc : fallbackImg;
           return (
             <div className="flex items-center gap-3.5 rounded-2xl border border-border bg-card p-3.5 shadow-sm">
               <img

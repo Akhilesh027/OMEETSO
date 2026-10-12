@@ -1,5 +1,6 @@
 import { Blog } from "../../modules/blogs/models/Blog";
 import { uploadToCloudinary, convertImagesToCloudinary } from "../../utils/cloudinaryUpload";
+import { MALE_AVATAR_DATA_URI, FEMALE_AVATAR_DATA_URI } from "../../utils/avatarSvgs";
 
 export const INITIAL_BLOGS = [
   {
@@ -24,7 +25,7 @@ Avoid paying large cash advances before verifying identity. Always use secure es
     tags: ["cars", "used-cars", "hyderabad", "rto-verification", "safety"],
     author: {
       name: "Rajesh Varma",
-      avatar: "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=200",
+      avatar: MALE_AVATAR_DATA_URI,
       role: "Senior Automotive Specialist",
       bio: "12+ years experience in pre-owned vehicle valuations and automotive fleet inspections across South India."
     },
@@ -66,7 +67,7 @@ Check active listings in your neighborhood (e.g. Madhapur, Kondapur, Kukatpally)
     tags: ["smartphones", "selling-tips", "electronics", "gadgets", "resale"],
     author: {
       name: "Sneha Reddy",
-      avatar: "https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=200",
+      avatar: FEMALE_AVATAR_DATA_URI,
       role: "Consumer Tech Editor",
       bio: "Tech enthusiast reviewing smartphones, consumer electronics, and smart devices."
     },
@@ -104,7 +105,7 @@ On Omeetso, prioritized trust badges indicate mobile-verified accounts and verif
     tags: ["safety", "scams", "fraud-prevention", "buyer-protection", "upi-safety"],
     author: {
       name: "Vikram Malhotra",
-      avatar: "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=200",
+      avatar: MALE_AVATAR_DATA_URI,
       role: "Trust & Safety Lead",
       bio: "Leading consumer cyber safety protocols and marketplace fraud prevention."
     },
@@ -143,7 +144,7 @@ If high rental flexibility and career mobility are your priorities, renting in G
     tags: ["real-estate", "hyderabad", "gachibowli", "uppal", "rent-vs-buy"],
     author: {
       name: "Kavitha Sharma",
-      avatar: "https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?w=200",
+      avatar: FEMALE_AVATAR_DATA_URI,
       role: "Real Estate Analyst",
       bio: "Analyzing residential and commercial property markets across Telangana and Andhra Pradesh."
     },

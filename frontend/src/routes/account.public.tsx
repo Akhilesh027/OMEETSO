@@ -1,8 +1,8 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { MobileFrame } from "@/components/omeetso/MobileFrame";
 import { BackBar } from "@/components/omeetso/TopBar";
-import { getProfile, getVerifications } from "@/lib/account";
-import { Star, ShieldCheck, MapPin, MessageCircle } from "lucide-react";
+import { getProfile, getVerifications, formatRegistrationDayAndDate } from "@/lib/account";
+import { Star, ShieldCheck, MapPin, MessageCircle, Calendar } from "lucide-react";
 
 export const Route = createFileRoute("/account/public")({
   head: () => ({ meta: [{ title: "Public profile preview — Omeetso" }] }),
@@ -34,14 +34,9 @@ function PublicPreview() {
           <p className="mt-1 flex items-center justify-center gap-1 text-[11px] text-muted-foreground">
             <MapPin className="h-3 w-3" /> {p.area}, {p.city}
           </p>
-          <p className="text-[11px] text-muted-foreground">
-            Member since {(() => {
-              try {
-                const d = new Date(p.memberSince);
-                if (!isNaN(d.getTime())) return d.toLocaleDateString("en-IN", { month: "short", year: "numeric" });
-              } catch { }
-              return "2024";
-            })()}
+          <p className="mt-1 flex items-center justify-center gap-1.5 text-[11px] text-muted-foreground">
+            <Calendar className="h-3 w-3 text-indigo-brand shrink-0" />
+            <span>Registered on <strong className="text-foreground font-semibold">{formatRegistrationDayAndDate(p.memberSince || (p as any).createdAt)}</strong></span>
           </p>
           <p className="mt-1 flex items-center justify-center gap-1 text-[11px] text-muted-foreground">
             <MessageCircle className="h-3 w-3" /> {p.responseTime}

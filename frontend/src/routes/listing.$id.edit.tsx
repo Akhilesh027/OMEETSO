@@ -108,7 +108,7 @@ function EditListing() {
   }
 
   async function save() {
-    const v = validateAll(l as Listing, { specs: true });
+    const v = validateAll(l as Listing, { specs: false });
     setErrors(v.errors);
     setSummary(v.summary);
     if (!v.ok) {
@@ -116,7 +116,7 @@ function EditListing() {
       return;
     }
     setSaving(true);
-    const nextStatus = l!.status === "rejected" ? "under_review" : l!.status === "active" ? "requires_changes" : l!.status;
+    const nextStatus = (l!.status === "rejected" || l!.status === "requires_changes") ? "under_review" : (l!.status || "active");
     const hist = [...(l!.editHistory ?? []), { at: Date.now(), note: "Edited by seller" }];
     try {
       const token = getUserAccessToken() || (typeof localStorage !== "undefined" ? localStorage.getItem("omeetso_user_token") : null);
@@ -188,11 +188,7 @@ function EditListing() {
     }
 
     setSaving(false);
-    toast.success(
-      nextStatus === "requires_changes"
-        ? "Changes submitted to MongoDB for review."
-        : "Listing changes saved successfully",
-    );
+    toast.success("Listing changes saved successfully");
     nav({ to: "/listing/$id/manage", params: { id } });
   }
 

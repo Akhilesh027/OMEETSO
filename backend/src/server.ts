@@ -27,6 +27,17 @@ async function startServer() {
   try { await seedCategories(); } catch (e) { console.error("[Seed] Categories failed:", e); }
   try { await seedBannersAndAds(); } catch (e) { console.error("[Seed] Banners and ads failed:", e); }
   try { await seedBlogs(); } catch (e) { console.error("[Seed] Blogs failed:", e); }
+  try {
+    const { Listing } = await import("./modules/listings/models/Listing");
+    const count = await Listing.countDocuments();
+    if (count === 0) {
+      const { seedMultiLocationMarket } = await import("./database/seeders/multiLocationMarketSeeder");
+      await seedMultiLocationMarket();
+      console.log("[Seed] Multi-location market listings seeded successfully");
+    }
+  } catch (e) {
+    console.error("[Seed] Market listings seed failed:", e);
+  }
 
   startBackgroundWorkers();
 

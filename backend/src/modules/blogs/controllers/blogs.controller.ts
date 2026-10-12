@@ -11,9 +11,19 @@ export async function getPublicBlogs(req: Request, res: Response, next: NextFunc
     const skip = (page - 1) * limit;
 
     const { category, tag, q } = req.query;
+    const now = new Date();
+
+    // Auto-promote any scheduled articles that have matured
+    Blog.updateMany(
+      { status: "SCHEDULED", scheduledAt: { $lte: now } },
+      { $set: { status: "PUBLISHED", publishedAt: now } }
+    ).catch(() => {});
 
     const query: Record<string, any> = {
-      status: "PUBLISHED",
+      $or: [
+        { status: "PUBLISHED" },
+        { status: "SCHEDULED", scheduledAt: { $lte: now } }
+      ],
       isBlocked: { $ne: true }
     };
 
@@ -64,8 +74,12 @@ export async function getPublicBlogs(req: Request, res: Response, next: NextFunc
 
 export async function getFeaturedBlogs(req: Request, res: Response, next: NextFunction): Promise<void> {
   try {
+    const now = new Date();
     const blogs = await Blog.find({
-      status: "PUBLISHED",
+      $or: [
+        { status: "PUBLISHED" },
+        { status: "SCHEDULED", scheduledAt: { $lte: now } }
+      ],
       isBlocked: { $ne: true },
       isFeatured: true
     })
@@ -104,6 +118,11 @@ export async function getBlogBySlug(req: Request, res: Response, next: NextFunct
 
     if (!blog || blog.status === "BLOCKED" || (blog as any).isBlocked) {
       res.status(404).json({ success: false, error: { message: "Article not found or currently unavailable" } });
+      return;
+    }
+
+    if (blog.status === "SCHEDULED" && blog.scheduledAt && new Date(blog.scheduledAt) > new Date()) {
+      res.status(404).json({ success: false, error: { message: "Article is scheduled for future release and not yet public." } });
       return;
     }
 

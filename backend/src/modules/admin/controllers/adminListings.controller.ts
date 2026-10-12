@@ -23,11 +23,15 @@ export function invalidateListingsCache(): void {
  */
 async function notifyListingApproved(listing: any): Promise<void> {
   try {
-    if (!listing.sellerId) return;
+    if (!listing) return;
 
-    // 1. In-app notification
-    await Notification.create({
-      userId: listing.sellerId,
+    // 1. Resolve raw seller ID whether populated or raw ObjectId
+    const rawSellerId = listing.sellerId?._id || listing.sellerId;
+    if (!rawSellerId) return;
+
+    // 2. In-app notification
+    Notification.create({
+      userId: rawSellerId,
       type: "listing_moderation",
       title: `Listing Approved: ${listing.title}`,
       body: `Your listing "${listing.title}" has been approved and is now live on Omeetso!`,
@@ -35,9 +39,37 @@ async function notifyListingApproved(listing: any): Promise<void> {
       thumbnail: listing.images?.[0]
     }).catch(() => { });
 
-    // 2. Fetch seller details to dispatch confirmation email
-    const seller = await User.findById(listing.sellerId).lean();
-    const recipientEmail = seller?.email || (listing as any).email;
+    // 3. Multi-source email resolution
+    let recipientEmail: string | undefined =
+      (typeof listing.sellerId === "object" ? listing.sellerId.email : undefined) ||
+      (listing as any).email ||
+      (listing as any).sellerEmail;
+
+    let sellerName = "Seller";
+
+    if (!recipientEmail) {
+      try {
+        const seller = await User.findById(rawSellerId).select("email profile").lean();
+        if (seller) {
+          recipientEmail = seller.email || (seller.profile as any)?.email;
+          sellerName = seller.profile?.name || seller.profile?.businessName || sellerName;
+        }
+      } catch (err: any) {
+        console.warn(`[AdminListing] Error fetching seller ${rawSellerId} for approval email:`, err?.message || err);
+      }
+    }
+
+    // 4. Fallback to Store email if listing has an associated storeId
+    if (!recipientEmail && listing.storeId) {
+      try {
+        const { Store } = await import("../../stores/models/Store");
+        const store = await Store.findById(listing.storeId).select("email name").lean();
+        if (store?.email) {
+          recipientEmail = store.email;
+          sellerName = store.name || sellerName;
+        }
+      } catch { }
+    }
 
     if (recipientEmail) {
       const portalUrl = (env.CLIENT_USER_URL || "https://omeetso.in").replace(/\/$/, "");
@@ -46,7 +78,7 @@ async function notifyListingApproved(listing: any): Promise<void> {
 
       const emailResult = await sendListingApprovedEmail({
         toEmail: recipientEmail,
-        sellerName: seller?.profile?.name || seller?.profile?.businessName || "Seller",
+        sellerName,
         listingTitle: listing.title,
         listingPrice: formattedPrice,
         listingUrl: `${portalUrl}/product/${listing._id}`,
@@ -60,7 +92,7 @@ async function notifyListingApproved(listing: any): Promise<void> {
 
       console.log(`[AdminListing] Approval email dispatch to ${recipientEmail}:`, emailResult?.success ? "SUCCESS" : emailResult?.error || "FAILED");
     } else {
-      console.log(`[AdminListing] Notice: Seller ${listing.sellerId} does not have an email address configured. Confirmation email skipped.`);
+      console.log(`[AdminListing] Notice: Seller ${rawSellerId} does not have an email address configured across user or store profiles. Confirmation email skipped.`);
     }
   } catch (error) {
     console.error("[AdminListing] Error in notifyListingApproved:", error);
@@ -217,8 +249,10 @@ export async function approveListing(req: AuthenticatedAdminRequest, res: Respon
       userAgent: req.get("user-agent")
     });
 
-    // Notify the listing owner via in-app notification & confirmation email
-    await notifyListingApproved(listing);
+    // Notify the listing owner via in-app notification & confirmation email in background
+    notifyListingApproved(listing).catch((err) => {
+      console.error("[AdminListing] Background notify error on approve:", err);
+    });
 
     invalidateListingsCache();
 
@@ -560,7 +594,9 @@ export async function updateAdminListingStatus(req: AuthenticatedAdminRequest, r
 
     if (listing.sellerId) {
       if (targetStatus === ListingStatus.APPROVED) {
-        await notifyListingApproved(listing);
+        notifyListingApproved(listing).catch((err) => {
+          console.error("[AdminListing] Background notify error on status update:", err);
+        });
       } else {
         let notifTitle = `Listing Status: ${listing.title}`;
         let notifBody = reason || `Your listing status has been updated to ${targetStatus.toLowerCase().replace("_", " ")}.`;
@@ -747,7 +783,9 @@ export async function bulkApproveListings(req: AuthenticatedAdminRequest, res: R
         });
 
         if (listing.sellerId) {
-          await notifyListingApproved(listing);
+          notifyListingApproved(listing).catch((err) => {
+            console.error(`[AdminListing] Background notify error on bulk approve ${listingId}:`, err);
+          });
         }
 
         approvedIds.push(listing._id.toString());

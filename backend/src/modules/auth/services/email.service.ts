@@ -886,6 +886,161 @@ export async function sendAdminAlertEmail(
   return dispatchEmail({ to: adminEmail, subject, html });
 }
 
+export interface ListingSubmittedEmailOptions {
+  toEmail: string;
+  sellerName?: string;
+  listingTitle: string;
+  listingPrice: string;
+  listingUrl: string;
+  listingCategory?: string;
+  listingLocation?: string;
+  imageUrl?: string;
+}
+
+/**
+ * Dispatches a confirmation email to the seller when their listing is submitted,
+ * clearly stating "Your listing has been successfully submitted." with all existing listing details.
+ */
+export async function sendListingSubmittedEmail(
+  options: ListingSubmittedEmailOptions
+): Promise<{ success: boolean; messageId?: string; error?: string }> {
+  const sellerDisplayName = options.sellerName && options.sellerName.trim() ? options.sellerName.trim() : "Valued Seller";
+  const subject = `Your listing "${options.listingTitle}" has been successfully submitted!`;
+  const portalUrl = (env.CLIENT_USER_URL || "https://omeetso.in").replace(/\/$/, "");
+
+  const headerHtml = renderEmailHeader({
+    portalUrl,
+    badgeText: "⏳ Submission Received",
+    badgeBg: "#eff6ff",
+    badgeBorder: "#bfdbfe",
+    badgeColor: "#1d4ed8"
+  });
+
+  const footerHtml = renderEmailFooter({
+    portalUrl,
+    securityNote: "You received this email confirmation because you submitted a listing on Omeetso. Our moderation team reviews submissions promptly to maintain a safe, trusted community."
+  });
+
+  const imageHtml = options.imageUrl
+    ? `
+      <div style="margin-bottom: 22px; text-align: center;">
+        <img src="${options.imageUrl}" alt="${options.listingTitle}" style="max-width: 100%; max-height: 250px; border-radius: 14px; object-fit: cover; border: 1px solid #e2e8f0; box-shadow: 0 4px 12px rgba(0,0,0,0.06);" />
+      </div>
+    `
+    : "";
+
+  const html = `
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Your Listing Has Been Successfully Submitted</title>
+</head>
+<body style="margin: 0; padding: 0; background-color: #f1f5f9; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; color: #0f172a; -webkit-font-smoothing: antialiased;">
+  <table role="presentation" border="0" cellpadding="0" cellspacing="0" width="100%" style="background-color: #f1f5f9; padding: 30px 12px;">
+    <tr>
+      <td align="center">
+        <table role="presentation" border="0" cellpadding="0" cellspacing="0" width="100%" style="max-width: 600px; background-color: #ffffff; border-radius: 20px; overflow: hidden; border: 1px solid #e2e8f0; box-shadow: 0 10px 30px rgba(0,0,0,0.06);">
+          <tr>
+            <td>
+              ${headerHtml}
+
+              <!-- Content Body -->
+              <table role="presentation" border="0" cellpadding="0" cellspacing="0" width="100%" style="padding: 34px 32px 28px 32px;">
+                <tr>
+                  <td>
+                    <!-- Clear Confirmation Message Banner -->
+                    <div style="padding: 16px 20px; background-color: #ecfdf5; border: 1px solid #a7f3d0; border-radius: 14px; text-align: center; margin-bottom: 24px;">
+                      <div style="font-size: 11px; font-weight: 800; color: #059669; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 4px;">
+                        STATUS: SUBMISSION RECEIVED
+                      </div>
+                      <h1 style="font-size: 20px; font-weight: 800; color: #065f46; margin: 0; line-height: 1.3;">
+                        Your listing has been successfully submitted.
+                      </h1>
+                    </div>
+
+                    <p style="font-size: 14px; color: #475569; line-height: 1.6; margin: 0 0 24px 0; text-align: center;">
+                      Hello <strong>${sellerDisplayName}</strong>, thank you for publishing on Omeetso! Your listing has been received and is currently under review by our moderation team.
+                    </p>
+
+                    ${imageHtml}
+
+                    <!-- Product Summary Card (With Existing Content) -->
+                    <table role="presentation" border="0" cellpadding="0" cellspacing="0" width="100%" style="background-color: #f8fafc; border: 1px solid #e2e8f0; border-radius: 16px; padding: 20px 22px; margin-bottom: 24px;">
+                      <tr>
+                        <td>
+                          <div style="font-size: 11px; font-weight: 800; color: #2563eb; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 6px;">
+                            PRODUCT DETAILS
+                          </div>
+                          <div style="font-size: 17px; font-weight: 800; color: #0f172a; line-height: 1.4; margin-bottom: 8px;">
+                            ${options.listingTitle}
+                          </div>
+                          <div style="margin-bottom: 14px;">
+                            <span style="font-size: 24px; font-weight: 900; color: #1e40af; letter-spacing: -0.5px;">
+                              ${options.listingPrice}
+                            </span>
+                          </div>
+
+                          <table role="presentation" border="0" cellpadding="0" cellspacing="0" width="100%" style="border-top: 1px solid #e2e8f0; padding-top: 12px; margin-top: 8px;">
+                            <tr>
+                              ${options.listingCategory ? `
+                              <td style="font-size: 12px; color: #64748b; padding-right: 12px;">
+                                <strong style="color: #334155;">Category:</strong> ${options.listingCategory}
+                              </td>
+                              ` : ""}
+                              ${options.listingLocation ? `
+                              <td style="font-size: 12px; color: #64748b;">
+                                <strong style="color: #334155;">Location:</strong> ${options.listingLocation}
+                              </td>
+                              ` : ""}
+                            </tr>
+                          </table>
+                        </td>
+                      </tr>
+                    </table>
+
+                    <!-- CTA Button -->
+                    <table role="presentation" border="0" cellpadding="0" cellspacing="0" width="100%" style="margin: 0 0 28px 0;">
+                      <tr>
+                        <td align="center">
+                          <a href="${options.listingUrl}" target="_blank" style="display: inline-block; padding: 14px 34px; background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%); color: #ffffff; text-decoration: none; font-size: 14px; font-weight: 700; border-radius: 12px; box-shadow: 0 4px 14px rgba(37, 99, 235, 0.35);">
+                            View Submitted Listing &rarr;
+                          </a>
+                        </td>
+                      </tr>
+                    </table>
+
+                    <!-- Review Information Section -->
+                    <div style="background-color: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 14px; padding: 18px 20px;">
+                      <div style="font-size: 13px; font-weight: 800; color: #166534; margin-bottom: 10px;">
+                        📌 What happens next?
+                      </div>
+                      <ul style="margin: 0; padding-left: 18px; font-size: 12px; color: #374151; line-height: 1.8;">
+                        <li><strong>Moderation Review:</strong> Listings are typically verified within 15–30 minutes during business hours.</li>
+                        <li><strong>Instant Notification:</strong> You will receive an approval email the moment your listing goes live.</li>
+                        <li><strong>Editing Anytime:</strong> You can update price, photos, or details anytime from your seller dashboard.</li>
+                      </ul>
+                    </div>
+
+                  </td>
+                </tr>
+              </table>
+
+              ${footerHtml}
+            </td>
+          </tr>
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>
+  `;
+
+  return dispatchEmail({ to: options.toEmail, subject, html });
+}
+
 export interface ListingApprovedEmailOptions {
   toEmail: string;
   sellerName?: string;

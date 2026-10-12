@@ -9,6 +9,7 @@ import {
 import { registerUserApi, checkPhoneStatusApi, requestUserOtp, verifyUserOtp, RegisterPayload } from "@/api/auth.api";
 import { toast } from "sonner";
 import { DEFAULT_AVATARS } from "@/lib/account";
+import { getCleanAvatar } from "@/lib/avatarSvgs";
 import { uploadImageToCloudinary } from "@/lib/upload";
 import { preventNonNumericKeyDown, sanitizeNumericInput, formatPhoneDisplay, cleanPhoneInput } from "@/lib/utils";
 
@@ -56,14 +57,7 @@ function RegisterPage() {
   const [errorMessage, setErrorMessage] = useState("");
   const otpInputRef = useRef<HTMLInputElement>(null);
 
-  const GENDER_AVATARS = DEFAULT_AVATARS;
-
-  const currentAvatar = avatar || GENDER_AVATARS[gender];
-
-  const handleSelectGender = (g: "male" | "female" | "other") => {
-    setGender(g);
-    setAvatar(DEFAULT_AVATARS[g]);
-  };
+  const currentAvatar = avatar || getCleanAvatar(null, name);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -394,27 +388,20 @@ function RegisterPage() {
                   </label>
 
                   <div className="flex-1 text-center sm:text-left space-y-1.5">
-                    <p className="text-xs font-bold text-foreground">Profile Picture / Avatar</p>
-                    <div className="flex flex-wrap items-center justify-center sm:justify-start gap-1.5">
-                      {[
-                        { key: "male", label: "Male Avatar" },
-                        { key: "female", label: "Female Avatar" },
-                        { key: "other", label: "Custom" }
-                      ].map((g) => (
-                        <button
-                          key={g.key}
-                          type="button"
-                          onClick={() => handleSelectGender(g.key as any)}
-                          className={`rounded-full px-3 py-1 text-[11px] font-bold transition-all cursor-pointer ${
-                            (gender === g.key || avatar === DEFAULT_AVATARS[g.key as keyof typeof DEFAULT_AVATARS])
-                              ? "bg-indigo-brand text-white shadow-xs"
-                              : "bg-card border border-border text-muted-foreground hover:bg-secondary"
-                          }`}
-                        >
-                          {g.label}
-                        </button>
-                      ))}
-                    </div>
+                    <p className="text-xs font-bold text-foreground">Profile Picture</p>
+                    <p className="text-[11px] text-muted-foreground">Tap camera icon to upload your photo, or continue with standard profile icon.</p>
+                    {avatar && avatar !== DEFAULT_AVATARS.other && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setAvatar(DEFAULT_AVATARS.other);
+                          setGender("other");
+                        }}
+                        className="rounded-full px-2.5 py-0.5 text-[10px] font-bold bg-secondary text-muted-foreground hover:bg-secondary/80 transition cursor-pointer"
+                      >
+                        Reset to Default Icon
+                      </button>
+                    )}
                   </div>
                 </div>
 

@@ -194,7 +194,7 @@ function ServiceDetailPage() {
           <div className="rounded-[28px] border border-border bg-card p-5 sm:p-6 shadow-sm flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
             <div className="flex items-center gap-3.5">
               <img
-                src={getCleanAvatar(service.avatar, "male")}
+                src={getCleanAvatar(service.avatar, service.businessName)}
                 alt=""
                 className="h-14 w-14 rounded-2xl object-cover border-2 border-border shrink-0 bg-slate-50"
               />

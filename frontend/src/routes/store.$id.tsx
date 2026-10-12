@@ -226,7 +226,7 @@ function StorePage() {
             title: item.title,
             price: item.price || (item.priceInPaise ? item.priceInPaise / 100 : 0),
             originalPrice: Math.round((item.price || (item.priceInPaise ? item.priceInPaise / 100 : 0)) * 1.15),
-            image: item.coverUrl || (Array.isArray(item.images) && item.images[item.coverIndex || 0]) || item.images?.[0] || "https://images.unsplash.com/photo-1526738549149-8e07eca6c147?w=600",
+            image: item.coverUrl || (Array.isArray(item.images) && item.images[item.coverIndex || 0]) || item.images?.[0] || "https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=600",
             location: `${item.area || store.area || "Madhapur"}, ${item.city || store.city || "Hyderabad"}`,
             time: "Just now",
             category: item.category || item.categoryId || store.primaryCategory || "General",
@@ -242,7 +242,7 @@ function StorePage() {
           title: l.title,
           price: l.price || 0,
           originalPrice: Math.round((l.price || 0) * 1.15),
-          image: l.images?.[l.cover || 0] || l.images?.[0] || "https://images.unsplash.com/photo-1526738549149-8e07eca6c147?w=600",
+          image: l.images?.[l.cover || 0] || l.images?.[0] || "https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=600",
           location: `${l.area || store.area || "Madhapur"}, ${l.city || store.city || "Hyderabad"}`,
           time: "Just now",
           category: l.category || store.primaryCategory || "General",
@@ -666,7 +666,7 @@ function StorePage() {
                         <div key={rev._id || rev.id} className="rounded-3xl border border-border bg-card p-5 space-y-2 shadow-xs">
                           <div className="flex items-center justify-between text-xs">
                             <div className="flex items-center gap-2">
-                              <img src={getCleanAvatar(rev.buyerAvatar, "male")} alt="" className="h-7 w-7 rounded-full object-cover bg-slate-100" />
+                              <img src={getCleanAvatar(rev.buyerAvatar, rev.buyerName)} alt="" className="h-7 w-7 rounded-full object-cover bg-slate-100" />
                               <span className="font-black text-foreground">{rev.buyerName}</span>
                             </div>
                             <span className="text-amber-500 font-bold">{"★".repeat(rev.rating || 5)}</span>

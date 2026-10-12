@@ -6,11 +6,13 @@ import { BottomNav } from "@/components/omeetso/BottomNav";
 import {
   Bolt, ClipboardList, Briefcase, Wrench, Store as StoreIcon, FileClock,
   HelpCircle, ShieldAlert, Sparkles, ArrowRight, ShieldCheck, Check,
-  Zap, Package, Flame, Clock, ChevronRight, Layers, Building2
+  Zap, Package, Flame, Clock, ChevronRight, Layers, Building2,
+  LogIn, Lock, AlertCircle, X
 } from "lucide-react";
 import { listDrafts, seedIfEmpty } from "@/lib/listings";
 import { fetchLiveUserStores, type Store } from "@/lib/stores";
 import { getTrustScore, getTrustScoreBreakdown, getVerifications } from "@/lib/account";
+import { checkUserAuthStatus, isUserLoggedInSync } from "@/api/auth.api";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 
@@ -33,10 +35,42 @@ function SellHome() {
   const [trustModal, setTrustModal] = useState(false);
   const [activeTab, setActiveTab] = useState<"all" | "products" | "services_jobs" | "business">("all");
 
+  // Authentication & Session Expiry State
+  const [authChecked, setAuthChecked] = useState(false);
+  const [isAuthenticated, setIsAuthenticated] = useState<boolean>(() => isUserLoggedInSync());
+  const [isTokenExpired, setIsTokenExpired] = useState(false);
+  const [showAuthModal, setShowAuthModal] = useState(false);
+
   useEffect(() => {
     seedIfEmpty();
     setDrafts(listDrafts().length);
     fetchLiveUserStores().then((stores) => setUserStores(stores));
+
+    // Verify authentication status and token validity on mount
+    const verifyAuth = async () => {
+      const res = await checkUserAuthStatus();
+      setAuthChecked(true);
+      if (!res.isAuthenticated) {
+        setIsAuthenticated(false);
+        setIsTokenExpired(res.isExpired);
+        setShowAuthModal(true);
+      } else {
+        setIsAuthenticated(true);
+        setIsTokenExpired(false);
+      }
+    };
+
+    verifyAuth();
+
+    const onAuthEvent = () => {
+      verifyAuth();
+    };
+    window.addEventListener("omeetso_auth_changed", onAuthEvent);
+    window.addEventListener("storage", onAuthEvent);
+    return () => {
+      window.removeEventListener("omeetso_auth_changed", onAuthEvent);
+      window.removeEventListener("storage", onAuthEvent);
+    };
   }, []);
 
   const trustScore = getTrustScore();
@@ -48,13 +82,22 @@ function SellHome() {
   const hasStore = userStores.length > 0;
   const primaryStore = userStores[0];
 
-  const handleStartListing = (targetRoute: string) => {
-    if (!isEligible) {
+  const handleItemClick = (item: { id: string; to: string; requiresEligibility?: boolean }) => {
+    // 1. If user is not logged in or token is expired, trigger login modal
+    if (!isAuthenticated || isTokenExpired) {
+      setShowAuthModal(true);
+      return;
+    }
+
+    // 2. If item requires trust score eligibility and user is below minimum score
+    if (item.requiresEligibility && !isEligible) {
       setTrustModal(true);
       toast.error(`Minimum Trust Score of ${MIN_SCORE} required to list products`);
       return;
     }
-    nav({ to: targetRoute as any });
+
+    // 3. Otherwise proceed to destination
+    nav({ to: item.to as any });
   };
 
   const sellSections = [
@@ -222,6 +265,42 @@ function SellHome() {
         </div>
 
         <div className="p-4 md:mx-auto md:max-w-6xl space-y-6">
+          {/* Authentication Alert Banner if not logged in or token is expired */}
+          {authChecked && (!isAuthenticated || isTokenExpired) && (
+            <div className="rounded-3xl bg-gradient-to-r from-amber-500/10 via-primary/5 to-purple-500/10 border border-amber-500/30 p-4 sm:p-5 shadow-sm flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+              <div className="flex items-start gap-3.5">
+                <div className="grid h-12 w-12 shrink-0 place-items-center rounded-2xl bg-amber-500/20 text-amber-600 dark:text-amber-400 border border-amber-500/30">
+                  <LogIn className="h-6 w-6" />
+                </div>
+                <div>
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <h2 className="text-base font-extrabold text-foreground">
+                      {isTokenExpired ? "Your Login Session Has Expired" : "Sign In Required to Sell Products"}
+                    </h2>
+                    <span className="px-2.5 py-0.5 rounded-full bg-amber-500/20 text-amber-700 dark:text-amber-300 text-xs font-bold border border-amber-500/30">
+                      {isTokenExpired ? "Session Expired" : "Login Required"}
+                    </span>
+                  </div>
+                  <p className="text-xs text-muted-foreground mt-1 leading-relaxed max-w-2xl">
+                    {isTokenExpired
+                      ? "Your authentication token has expired. Please log in again to post new items, manage your storefront, and chat with buyers."
+                      : "To sell products, offer professional services, or create a business storefront, please sign in with your verified Omeetso account."}
+                  </p>
+                </div>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => setShowAuthModal(true)}
+                className="inline-flex items-center justify-center gap-2 px-5 py-3 rounded-2xl gradient-brand text-xs font-bold text-white shadow-lg shrink-0 hover:brightness-105 active:scale-95 transition-all cursor-pointer"
+              >
+                <LogIn className="h-4 w-4" />
+                <span>Log In to Sell</span>
+                <ArrowRight className="h-3.5 w-3.5" />
+              </button>
+            </div>
+          )}
+
           {/* Trust Score Status Banner if not eligible */}
           {!isEligible ? (
             <div className="rounded-3xl bg-slate-950 text-white p-5 border border-slate-800 shadow-xl relative overflow-hidden">
@@ -303,16 +382,11 @@ function SellHome() {
                     return (
                       <div
                         key={item.id}
-                        onClick={() => {
-                          if (isCardDisabled) {
-                            setTrustModal(true);
-                          } else {
-                            nav({ to: item.to as any });
-                          }
-                        }}
+                        onClick={() => handleItemClick(item)}
                         className={cn(
                           "group relative flex flex-col justify-between rounded-[28px] border border-border/80 bg-card p-5 sm:p-6 transition-all duration-200 cursor-pointer shadow-xs hover:border-primary/50 hover:shadow-xl hover:-translate-y-1 active:scale-[0.99]",
-                          isCardDisabled && "opacity-85 border-dashed"
+                          isCardDisabled && "opacity-85 border-dashed",
+                          (!isAuthenticated || isTokenExpired) && "border-amber-500/30 hover:border-amber-500/60"
                         )}
                       >
                         <div>
@@ -355,7 +429,9 @@ function SellHome() {
                         <div className="mt-5 pt-3 border-t border-border/40 flex items-center justify-between">
                           <span className="text-xs font-black text-primary group-hover:translate-x-1 transition-transform flex items-center gap-1">
                             <span>
-                              {isCardDisabled
+                              {!isAuthenticated || isTokenExpired
+                                ? `🔒 Sign In to ${item.title}`
+                                : isCardDisabled
                                 ? `Unlock via DigiLocker (${trustScore} Pts)`
                                 : `Get Started with ${item.title}`}
                             </span>
@@ -376,6 +452,111 @@ function SellHome() {
         </div>
 
         <BottomNav />
+
+        {/* ── AUTHENTICATION / LOGIN REQUIRED MODAL ── */}
+        {showAuthModal && (
+          <div
+            className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/75 backdrop-blur-md animate-in fade-in duration-200"
+            role="dialog"
+            aria-modal="true"
+          >
+            <div className="relative w-full max-w-md rounded-3xl bg-card p-6 sm:p-7 shadow-2xl border border-border text-center overflow-hidden animate-in zoom-in-95 duration-200">
+              {/* Subtle ambient background glow */}
+              <div className="absolute -top-20 -right-20 h-40 w-40 rounded-full bg-primary/20 blur-3xl pointer-events-none" />
+              <div className="absolute -bottom-20 -left-20 h-40 w-40 rounded-full bg-amber-500/15 blur-3xl pointer-events-none" />
+
+              {/* Close 'X' Button */}
+              <button
+                type="button"
+                onClick={() => setShowAuthModal(false)}
+                className="absolute top-4 right-4 grid h-8 w-8 place-items-center rounded-full text-muted-foreground hover:bg-secondary hover:text-foreground transition-colors cursor-pointer"
+                aria-label="Close dialog"
+              >
+                <X className="h-4 w-4" />
+              </button>
+
+              {/* Top Animated Icon */}
+              <div className="mx-auto mb-3.5 grid h-16 w-16 place-items-center rounded-2xl bg-gradient-to-br from-primary/20 via-indigo-500/20 to-purple-500/20 text-primary border border-primary/30 shadow-lg shadow-primary/10">
+                {isTokenExpired ? (
+                  <Clock className="h-8 w-8 text-amber-500" />
+                ) : (
+                  <LogIn className="h-8 w-8 text-primary" />
+                )}
+              </div>
+
+              {/* Status Badge */}
+              <div className="mb-2">
+                <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-black uppercase tracking-wider bg-primary/10 text-primary border border-primary/20">
+                  {isTokenExpired ? "⚠️ Session Expired" : "🔐 Authentication Required"}
+                </span>
+              </div>
+
+              {/* Modal Headline & Description */}
+              <div className="space-y-2 mb-5">
+                <h3 className="text-xl sm:text-2xl font-black text-foreground tracking-tight">
+                  {isTokenExpired ? "Session Expired — Please Log In" : "To Sell Products, Please Log In"}
+                </h3>
+                <p className="text-xs sm:text-sm text-muted-foreground leading-relaxed px-1">
+                  {isTokenExpired
+                    ? "Your session has expired. To list products, manage orders, and protect your account, please log in again to continue."
+                    : "To sell products, offer services, or manage your business storefront, please sign in to your verified Omeetso account."}
+                </p>
+              </div>
+
+              {/* Feature Highlights Card */}
+              <div className="p-3.5 rounded-2xl bg-secondary/60 border border-border/80 text-left text-xs space-y-2.5 mb-6">
+                <div className="flex items-center gap-2 font-bold text-foreground">
+                  <Check className="h-4 w-4 text-emerald-600 shrink-0 font-bold" />
+                  <span>0% commission on direct buyer purchases</span>
+                </div>
+                <div className="flex items-center gap-2 font-bold text-foreground">
+                  <Check className="h-4 w-4 text-emerald-600 shrink-0 font-bold" />
+                  <span>Instant verified buyer inquiries & private chat</span>
+                </div>
+                <div className="flex items-center gap-2 font-bold text-foreground">
+                  <Check className="h-4 w-4 text-emerald-600 shrink-0 font-bold" />
+                  <span>Publish in under 1 minute with clearance tags</span>
+                </div>
+              </div>
+
+              {/* Actions & Navigation Button */}
+              <div className="space-y-2.5">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowAuthModal(false);
+                    nav({ to: "/login", search: { redirect: "/sell" } as any });
+                  }}
+                  className="w-full flex items-center justify-center gap-2 py-3.5 px-4 rounded-2xl gradient-brand text-white font-extrabold text-sm shadow-lg hover:brightness-105 active:scale-[0.98] transition-all cursor-pointer"
+                >
+                  <LogIn className="h-4.5 w-4.5" />
+                  <span>Log In to Sell Products</span>
+                  <ArrowRight className="h-4 w-4" />
+                </button>
+
+                <div className="grid grid-cols-2 gap-2 pt-1">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setShowAuthModal(false);
+                      nav({ to: "/home" });
+                    }}
+                    className="h-10 rounded-2xl border border-border bg-card text-xs font-bold text-foreground hover:bg-secondary transition-colors cursor-pointer"
+                  >
+                    Browse Home
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setShowAuthModal(false)}
+                    className="h-10 rounded-2xl border border-border bg-card text-xs font-bold text-muted-foreground hover:bg-secondary hover:text-foreground transition-colors cursor-pointer"
+                  >
+                    Dismiss
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* ── TRUST SCORE MODAL ── */}
         {trustModal && (
