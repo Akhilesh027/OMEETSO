@@ -13,7 +13,7 @@ import { API_BASE } from "@/config/api";
 import { startConversationApi } from "@/api/chat.api";
 import { getUserAccessToken } from "@/api/auth.api";
 import { getSeller, productsBySeller } from "@/lib/mock";
-import { listListings } from "@/lib/listings";
+import { listListings, isListingActiveAndPublic } from "@/lib/listings";
 import { getCleanAvatar, MALE_AVATAR_DATA_URI } from "@/lib/avatarSvgs";
 import { formatRegistrationDayAndDate } from "@/lib/account";
 
@@ -186,7 +186,7 @@ function SellerPage() {
           } else {
             const allLocal = listListings();
             const matchedLocal = allLocal.filter(
-              (l) => l.sellerId === id || (l as any).seller?.id === id || (l as any).sellerId?._id === id
+              (l) => isListingActiveAndPublic(l) && (l.sellerId === id || (l as any).seller?.id === id || (l as any).sellerId?._id === id)
             );
             if (matchedLocal.length > 0) {
               items = matchedLocal.map((l: any) => ({

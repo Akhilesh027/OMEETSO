@@ -8,12 +8,15 @@ import {
   markNotificationReadApi,
   type NotificationItem
 } from "@/api/notifications.api";
+import { isUserLoggedInSync } from "@/api/auth.api";
 import { listNotifications, markRead, markAllRead } from "@/lib/account";
 import {
   MessageSquare, HandCoins, Package, Store, Megaphone, CreditCard, ShieldCheck, Bell, Loader2, ArrowRight, Radio
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
+import { fetchLiveListingById, isListingDeletedLocally, markListingDeletedLocally, unmarkListingDeletedLocally, deleteListing } from "@/lib/listings";
+import { getProduct } from "@/lib/mock";
 import { InfinityLoader } from "@/components/omeetso/InfinityLoader";
 
 const CATS = [
@@ -62,6 +65,12 @@ function NotifList() {
   const [unreadCount, setUnreadCount] = useState(0);
 
   const loadNotifications = useCallback(async () => {
+    if (!isUserLoggedInSync()) {
+      setNotifications([]);
+      setUnreadCount(0);
+      setLoading(false);
+      return;
+    }
     setLoading(true);
     let serverItems: NotificationItem[] = [];
     try {
@@ -130,6 +139,7 @@ function NotifList() {
   }, [loadNotifications]);
 
   const handleMarkAllRead = async () => {
+    if (!isUserLoggedInSync()) return;
     markAllRead();
     await markAllNotificationsReadApi();
     toast.success("All notifications marked as read");
@@ -154,6 +164,15 @@ function NotifList() {
 
     // 3. Navigate to destination route or notification detail
     let targetLink = n.link || `/notifications/${n.id}`;
+
+    // Normalize full URLs (e.g. http://localhost:5173/product/..., https://omeetso.in/product/...) to relative route path
+    try {
+      if (targetLink.startsWith("http://") || targetLink.startsWith("https://")) {
+        const urlObj = new URL(targetLink);
+        targetLink = urlObj.pathname + urlObj.search + urlObj.hash;
+      }
+    } catch { }
+
     const isJob = n.type === "job_application" || n.type === "jobs" || n.title?.toLowerCase().includes("job") || n.body?.toLowerCase().includes("application");
 
     // Fix: Job application notifications must open the candidate applications view / job details, never the profile builder
@@ -168,15 +187,42 @@ function NotifList() {
       targetLink = "/my/jobs";
     }
 
+    // Intercept all product notifications (including full URLs or query params)
+    if (targetLink.startsWith("/product/") || targetLink.includes("/product/")) {
+      const match = targetLink.match(/\/product\/([a-zA-Z0-9_-]+)/);
+      const prodId = match ? match[1].trim() : targetLink.replace("/product/", "").split("?")[0].split("#")[0].trim();
+
+      if (!prodId) {
+        toast.error("This product is no longer available.");
+        return;
+      }
+
+      try {
+        const live = await fetchLiveListingById(prodId);
+        if (!live || live.unavailable || live.status === "deleted" || live.status === "removed" || (live as any).isDeleted) {
+          const local = getProduct(prodId);
+          if (!local) {
+            markListingDeletedLocally(prodId);
+            toast.error("This product is no longer available.");
+            return;
+          }
+        } else {
+          unmarkListingDeletedLocally(prodId);
+        }
+      } catch (err) {
+        console.warn("Product verification warning:", err);
+      }
+
+      nav({ to: "/product/$id", params: { id: prodId } });
+      return;
+    }
+
     if (targetLink.startsWith("/chat/")) {
       const id = targetLink.replace("/chat/", "");
       nav({ to: "/chat/$id", params: { id } });
     } else if (targetLink.startsWith("/transaction/")) {
       const offerId = targetLink.replace("/transaction/", "");
       nav({ to: "/transaction/$offerId", params: { offerId } });
-    } else if (targetLink.startsWith("/product/")) {
-      const id = targetLink.replace("/product/", "");
-      nav({ to: "/product/$id", params: { id } });
     } else if (targetLink.startsWith("/store/")) {
       const id = targetLink.replace("/store/", "");
       nav({ to: "/store/$id", params: { id } });
@@ -221,9 +267,11 @@ function NotifList() {
         <BackBar
           title="Notifications"
           right={
-            <button className="text-xs font-semibold text-primary hover:underline" onClick={handleMarkAllRead}>
-              Mark all read
-            </button>
+            isUserLoggedInSync() ? (
+              <button className="text-xs font-semibold text-primary hover:underline" onClick={handleMarkAllRead}>
+                Mark all read
+              </button>
+            ) : null
           }
         />
 
@@ -262,6 +310,23 @@ function NotifList() {
               text="Loading notifications..."
               variant="section"
             />
+          ) : !isUserLoggedInSync() ? (
+            <div className="p-8 text-center text-xs text-muted-foreground flex flex-col items-center">
+              <div className="mb-3 flex h-14 w-14 items-center justify-center rounded-2xl bg-primary/10 text-primary">
+                <Bell className="h-7 w-7" />
+              </div>
+              <h3 className="font-extrabold text-foreground text-base">Sign in to view notifications</h3>
+              <p className="mt-1 text-xs text-muted-foreground max-w-xs leading-relaxed">
+                Log in to check notifications about your listings, chat messages, offers, orders, and nearby alerts.
+              </p>
+              <button
+                type="button"
+                onClick={() => nav({ to: "/login" })}
+                className="mt-5 inline-flex items-center justify-center gap-2 rounded-xl bg-primary px-6 py-2.5 text-xs font-bold text-primary-foreground shadow-sm hover:bg-primary/90 transition-all active:scale-95"
+              >
+                Sign In
+              </button>
+            </div>
           ) : filteredList.length === 0 ? (
             <div className="p-8 text-center text-xs text-muted-foreground">
               <Bell className="mx-auto mb-2 h-8 w-8 text-muted-foreground/40" />
@@ -271,7 +336,7 @@ function NotifList() {
             filteredList.map((n) => {
               const Icon = ICON[n.type] || Bell;
               const isNearby = n.type === "nearby_changes" || n.title.toLowerCase().includes("nearby");
-              const isListing = n.type === "listings" || n.type === "listing_moderation" || n.link?.startsWith("/product/");
+              const isListing = n.type === "listings" || n.type === "listing_moderation" || Boolean(n.link?.includes("/product/"));
               const isJob = n.type === "job_application" || n.type === "jobs" || n.title.toLowerCase().includes("job");
 
               return (

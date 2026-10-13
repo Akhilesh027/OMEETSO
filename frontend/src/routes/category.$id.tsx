@@ -20,7 +20,7 @@ import { fetchLiveCategories, getCachedCategories, resolveElectronicsSubcategory
 import { calculateDistanceBetweenLocations, resolveCityFromLocation } from "@/lib/location";
 import { getPublicListingsApi } from "@/api/listings.api";
 import { getPublicStoresApi } from "@/api/stores.api";
-import { listListings } from "@/lib/listings";
+import { listListings, isListingActiveAndPublic } from "@/lib/listings";
 import { LocationModal } from "@/components/omeetso/LocationModal";
 import {
   CATEGORIES, SUBCATEGORIES, SORT_OPTIONS, getCategory, type Product
@@ -273,6 +273,7 @@ function CategoryPage() {
     const targetName = category.name.toLowerCase();
 
     const matchingListings = rawListings.filter((item: any) => {
+      if (!isListingActiveAndPublic(item)) return false;
       const cId = (item.categoryId || item.category || "").toLowerCase().replace(/_/g, "-");
       return cId === targetCat || cId.includes(targetCat) || targetName.includes(cId);
     });
@@ -400,6 +401,7 @@ function CategoryPage() {
   const productList = useMemo(() => {
     const activeCity = resolveCityFromLocation(activeLoc) || activeLoc?.city;
     const localItems = listListings().filter((l) => {
+      if (!isListingActiveAndPublic(l)) return false;
       const matchesCat = (l.category || "").toLowerCase() === category.id.toLowerCase() ||
         (l.category || "").toLowerCase().includes(category.name.toLowerCase());
       if (!matchesCat) return false;

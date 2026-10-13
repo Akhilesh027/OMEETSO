@@ -14,7 +14,7 @@ import { seedBlogs } from "./database/seeders/blogSeeder";
 import { User } from "./modules/users/models/User";
 import { verifySmtpConnection } from "./modules/auth/services/email.service";
 
-// Server initialization timestamp: 2026-09-05T21:43:20
+// Server initialization timestamp: 2026-10-13T13:22:30
 const server = http.createServer(app);
 
 // Initialize Socket.IO engine

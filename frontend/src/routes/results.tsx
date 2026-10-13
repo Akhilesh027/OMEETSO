@@ -6,7 +6,7 @@ import { ProductCard } from "@/components/omeetso/ProductCard";
 import { SortSheet } from "@/components/omeetso/SortSheet";
 import { FilterChip } from "@/components/omeetso/FilterChip";
 import { CATEGORIES as STATIC_CATEGORIES, SORT_OPTIONS, getAd, type Product } from "@/lib/mock";
-import { listListings, fetchLivePublicListings } from "@/lib/listings";
+import { listListings, fetchLivePublicListings, isListingActiveAndPublic } from "@/lib/listings";
 import { fetchLiveCategories, getCachedCategories, resolveElectronicsSubcategory, type LiveCategory } from "@/lib/categories";
 import { calculateDistanceBetweenLocations, resolveCityFromLocation } from "@/lib/location";
 import { EmptyState } from "@/components/omeetso/EmptyState";
@@ -192,7 +192,7 @@ function Results() {
           return timeB - timeA;
         });
 
-        const localItems: Product[] = listListings().map((item) => ({
+        const localItems: Product[] = listListings().filter(isListingActiveAndPublic).map((item) => ({
           id: item.id,
           title: item.title,
           price: item.price,
@@ -230,7 +230,7 @@ function Results() {
         }
         setAllProducts(merged);
       } else {
-        const localItems: Product[] = listListings().map((item) => ({
+        const localItems: Product[] = listListings().filter(isListingActiveAndPublic).map((item) => ({
           id: item.id,
           title: item.title,
           price: item.price,
@@ -260,7 +260,7 @@ function Results() {
         setAllProducts(localItems);
       }
     }).catch(() => {
-      const localItems: Product[] = listListings().map((item) => ({
+      const localItems: Product[] = listListings().filter(isListingActiveAndPublic).map((item) => ({
         id: item.id,
         title: item.title,
         price: item.price,

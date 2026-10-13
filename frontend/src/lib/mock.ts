@@ -1,5 +1,5 @@
 // Omeetso core types & dynamic data helpers
-import { listListings } from "./listings";
+import { listListings, isListingDeletedLocally, isListingActiveAndPublic } from "./listings";
 import { MALE_AVATAR_DATA_URI } from "./avatarSvgs";
 
 export type ID = string;
@@ -1062,6 +1062,9 @@ export const getProduct = (id: string) => {
   const allListings = listListings();
   const live = allListings.find((l) => l.id === cleanId || (l as any)._id === cleanId || l.id === id);
   if (live) {
+    if (live.status === "deleted" || live.status === "removed" || (live as any).isDeleted || live.unavailable) {
+      return undefined;
+    }
     const mainImg = Array.isArray(live.images) && live.images.length > 0 && !live.images[0].startsWith("blob:")
       ? live.images[0]
       : "https://images.unsplash.com/photo-1526738549149-8e07eca6c147?w=400";
@@ -1102,6 +1105,9 @@ export const getProduct = (id: string) => {
       contactPref: live.contactPref || "call_and_chat",
       bestContactTime: live.bestContactTime || "anytime",
     };
+  }
+  if (isListingDeletedLocally(cleanId) || isListingDeletedLocally(id)) {
+    return undefined;
   }
   return PRODUCTS.find((p) => p.id === cleanId || p.id === id);
 };
@@ -1202,13 +1208,14 @@ export const getCategory = (id: string) => {
 export const getAd = (placement: Ad["placement"], category?: string) =>
   ADS.find((a) => a.placement === placement && (!category || !a.category || a.category === category));
 export const productsByCategory = (id: string) =>
-  listListings().filter((p) => p.category === id);
+  listListings().filter((p) => p.category === id && isListingActiveAndPublic(p));
 export const productsBySeller = (id: string) =>
   listListings().filter(
     (p) =>
-      p.sellerId === id ||
+      isListingActiveAndPublic(p) &&
+      (p.sellerId === id ||
       (p as any).seller?.id === id ||
       (p as any).sellerId?._id === id ||
       (p as any).sellerId?.toString() === id ||
-      (p as any).sellerId === id
+      (p as any).sellerId === id)
   );

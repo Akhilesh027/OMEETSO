@@ -304,6 +304,26 @@ export async function logoutUserApi(): Promise<void> {
         "omeetso_notifications",
       ];
       keysToRemove.forEach((k) => localStorage.removeItem(k));
+
+      // Also clean any user-scoped notification or cached state keys
+      try {
+        const allKeys = Object.keys(localStorage);
+        allKeys.forEach((key) => {
+          if (
+            key.startsWith("omeetso_notifications_") ||
+            key.startsWith("omeetso_user_listings_") ||
+            key.startsWith("omeetso_chat_")
+          ) {
+            localStorage.removeItem(key);
+          }
+        });
+      } catch {}
+
+      try {
+        window.dispatchEvent(new CustomEvent("omeetso_auth_changed"));
+        window.dispatchEvent(new CustomEvent("omeetso_notifications_changed"));
+        window.dispatchEvent(new CustomEvent("omeetso_listing_updated"));
+      } catch {}
     }
   }
 }

@@ -8,7 +8,7 @@ import { BottomSheet } from "@/components/omeetso/BottomSheet";
 import {
   getListing, fetchLiveListingById, deleteListing, setStatus, markSold, renewListing, upsertListing,
   getAnalytics, formatINR, formatDate, timeAgo, type Listing,
-  CONDITION_LABEL, FULFILMENT_LABEL, CONTACT_LABEL, TIME_LABEL, subscribe,
+  CONDITION_LABEL, FULFILMENT_LABEL, CONTACT_LABEL, TIME_LABEL, subscribe, markListingDeletedLocally,
 } from "@/lib/listings";
 import { fetchLiveUserStores, listStores, getStore, type Store } from "@/lib/stores";
 import { DEFAULT_SAMPLE_STORES } from "@/lib/sampleStores";
@@ -255,20 +255,65 @@ function Manage() {
               </h2>
 
               <div className="space-y-2.5">
-                <ActionRow icon={Edit3} label={isRejected ? "Fix and Resubmit Listing" : "Edit Listing Details"} onClick={() => nav({ to: "/listing/$id/edit", params: { id } })} disabled={isSold} />
+                <ActionRow
+                  icon={Eye}
+                  label="View Public Listing (Buyer View)"
+                  to={`/product/${id}`}
+                />
+
+                <ActionRow
+                  icon={Edit3}
+                  label={isRejected ? "Fix and Resubmit Listing" : "Edit Listing Details"}
+                  onClick={() => nav({ to: "/listing/$id/edit", params: { id } })}
+                  disabled={isSold}
+                />
+
+                {isSold ? (
+                  <ActionRow
+                    icon={RefreshCw}
+                    label="Relist / Reactivate Listing"
+                    onClick={() => {
+                      setStatus(id, "active", { finalSalePrice: undefined, soldChannel: undefined }, l);
+                      setL((prev) => prev ? { ...prev, status: "active", finalSalePrice: undefined, soldChannel: undefined } : prev);
+                      toast.success("Listing reactivated and set to Active!");
+                    }}
+                  />
+                ) : (
+                  <ActionRow
+                    icon={CheckCircle2}
+                    label="Mark as Sold"
+                    onClick={() => setShowSold(true)}
+                    disabled={isReview || isRejected}
+                  />
+                )}
 
                 {isExpired ? (
-                  <ActionRow icon={RefreshCw} label="Renew Listing for 30 Days" onClick={() => {
-                    renewListing(id);
-                    toast.success("Listing renewed for 30 days");
-                  }} />
+                  <ActionRow
+                    icon={RefreshCw}
+                    label="Renew Listing for 30 Days"
+                    onClick={() => {
+                      renewListing(id, l);
+                      setL((prev) => prev ? { ...prev, status: "active", expiresAt: Date.now() + 30 * 24 * 3600 * 1000 } : prev);
+                      toast.success("Listing renewed for 30 days");
+                    }}
+                  />
                 ) : isPaused ? (
-                  <ActionRow icon={PlayCircle} label="Resume Listing" onClick={() => {
-                    setStatus(id, "active");
-                    toast.success("Listing resumed");
-                  }} />
+                  <ActionRow
+                    icon={PlayCircle}
+                    label="Resume Listing"
+                    onClick={() => {
+                      setStatus(id, "active", {}, l);
+                      setL((prev) => prev ? { ...prev, status: "active" } : prev);
+                      toast.success("Listing resumed");
+                    }}
+                  />
                 ) : (
-                  <ActionRow icon={PauseCircle} label="Pause Listing" onClick={() => setShowPause(true)} disabled={isSold || isReview || isRejected} />
+                  <ActionRow
+                    icon={PauseCircle}
+                    label="Pause Listing"
+                    onClick={() => setShowPause(true)}
+                    disabled={isSold || isReview || isRejected}
+                  />
                 )}
 
                 <ActionRow
@@ -278,7 +323,7 @@ function Manage() {
                   disabled={isSold}
                 />
                 <ActionRow icon={BarChart3} label="View Detailed Analytics" to={`/listing/${id}/analytics`} />
-                <ActionRow icon={Sparkles} label="Promote Listing" onClick={() => setShowBoostWizard(true)} disabled={isReview} />
+                <ActionRow icon={Sparkles} label="Promote Listing" onClick={() => setShowBoostWizard(true)} disabled={isReview || isSold} />
                 <ActionRow icon={Trash2} label="Delete Listing Permanently" destructive onClick={() => setShowDelete(true)} />
               </div>
             </div>
@@ -342,8 +387,9 @@ function Manage() {
           confirmLabel="Delete Permanently"
           cancelLabel="Keep Listing"
           destructive
-          onConfirm={() => {
-            deleteListing(id);
+          onConfirm={async () => {
+            markListingDeletedLocally(id);
+            await deleteListing(id);
             toast.success("Listing deleted permanently");
             nav({ to: "/listings" });
           }}
@@ -356,7 +402,8 @@ function Manage() {
           body="The listing will be hidden from buyers until you resume it."
           confirmLabel="Pause Listing"
           onConfirm={() => {
-            setStatus(id, "paused");
+            setStatus(id, "paused", {}, l);
+            setL((prev) => prev ? { ...prev, status: "paused" } : prev);
             setShowPause(false);
             toast.success("Listing paused");
           }}
@@ -369,10 +416,14 @@ function Manage() {
           listing={l}
           onConfirm={async (info) => {
             await markSold(id, info, l);
-            setL((prev) => prev ? { ...prev, status: "sold", soldChannel: info.channel } : prev);
+            setL((prev) => prev ? { ...prev, status: "sold", soldChannel: info.channel, finalSalePrice: info.finalPrice } : prev);
             setShowSold(false);
-            toast.success("Listing marked as sold!");
-            nav({ to: "/listings", search: { tab: "sold" } as any });
+            toast.success("Listing marked as sold!", {
+              action: {
+                label: "View All Listings",
+                onClick: () => nav({ to: "/listings", search: { tab: "sold" } as any }),
+              },
+            });
           }}
         />
 

@@ -23,6 +23,10 @@ export async function getAdminConversations(req: AuthenticatedAdminRequest, res:
       filter.isFlagged = true;
     }
 
+    // Only include conversations that actually have messages exchanged between members
+    const activeConversationIds = await Message.distinct("conversationId");
+    filter._id = { $in: activeConversationIds };
+
     const totalConversations = await Conversation.countDocuments(filter);
 
     const rawConversations = await Conversation.find(filter)
@@ -34,7 +38,18 @@ export async function getAdminConversations(req: AuthenticatedAdminRequest, res:
       .limit(limit)
       .lean();
 
-    const items = rawConversations.map((c: any) => {
+    const convIds = rawConversations.map((c: any) => c._id);
+    const messageCounts = convIds.length > 0
+      ? await Message.aggregate([
+          { $match: { conversationId: { $in: convIds } } },
+          { $group: { _id: "$conversationId", count: { $sum: 1 } } }
+        ])
+      : [];
+    const countMap = new Map(messageCounts.map((m: any) => [m._id.toString(), m.count]));
+
+    const items = rawConversations
+      .filter((c: any) => (countMap.get(c._id.toString()) || 0) > 0)
+      .map((c: any) => {
       const participants = (c.participantIds || []).map((p: any) => ({
         id: p._id?.toString(),
         name: p.profile?.name || p.email || "Unknown User",
@@ -63,6 +78,7 @@ export async function getAdminConversations(req: AuthenticatedAdminRequest, res:
             }
           : undefined,
         participants,
+        messageCount: countMap.get(c._id.toString()) || 0,
         lastMessagePreview: c.lastMessagePreview || "No messages",
         lastMessageType: c.lastMessageType || "TEXT",
         lastMessageAt: c.lastMessageAt || c.updatedAt || c.createdAt,

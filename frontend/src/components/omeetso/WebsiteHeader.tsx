@@ -7,8 +7,11 @@ import { getThreads, subscribe as subscribeChat, seedIfEmpty } from "@/lib/chat"
 import { listNotifications, markRead, markAllRead } from "@/lib/account";
 import { getNotificationsApi, markNotificationReadApi, markAllNotificationsReadApi, type NotificationItem } from "@/api/notifications.api";
 import { getConversationsApi } from "@/api/chat.api";
-import { getUserAccessToken } from "@/api/auth.api";
+import { getUserAccessToken, isUserLoggedInSync } from "@/api/auth.api";
 import { cn } from "@/lib/utils";
+import { toast } from "sonner";
+import { fetchLiveListingById, isListingDeletedLocally, markListingDeletedLocally, unmarkListingDeletedLocally, deleteListing } from "@/lib/listings";
+import { getProduct } from "@/lib/mock";
 import { Logo } from "@/components/omeetso/Logo";
 import { LocationModal } from "@/components/omeetso/LocationModal";
 import { detectDeviceLocation } from "@/lib/location";
@@ -82,6 +85,11 @@ export function WebsiteHeader() {
 
   // Load Header Notifications (merged server + local)
   const loadHeaderNotifs = useCallback(async () => {
+    if (!isUserLoggedInSync()) {
+      setNotifList([]);
+      return;
+    }
+
     let serverItems: NotificationItem[] = [];
     try {
       const res = await getNotificationsApi(1, 10);
@@ -134,6 +142,7 @@ export function WebsiteHeader() {
   }, [loadHeaderNotifs]);
 
   const unreadNotifCount = useMemo(() => {
+    if (!isUserLoggedInSync()) return 0;
     return notifList.filter((n) => !n.isRead).length;
   }, [notifList]);
 
@@ -162,6 +171,15 @@ export function WebsiteHeader() {
     markRead(n.id, true);
 
     let targetLink = n.link || `/notifications/${n.id}`;
+
+    // Normalize full URLs (e.g. http://localhost:5173/product/..., https://omeetso.in/product/...) to relative route path
+    try {
+      if (targetLink.startsWith("http://") || targetLink.startsWith("https://")) {
+        const urlObj = new URL(targetLink);
+        targetLink = urlObj.pathname + urlObj.search + urlObj.hash;
+      }
+    } catch { }
+
     const isJob = n.type === "job_application" || n.type === "jobs" || n.title?.toLowerCase().includes("job") || n.body?.toLowerCase().includes("application");
 
     // Fix: Job application notifications must open the candidate applications view / job details, never the profile builder
@@ -176,15 +194,42 @@ export function WebsiteHeader() {
       targetLink = "/my/jobs";
     }
 
+    // Intercept all product notifications (including full URLs or query params)
+    if (targetLink.startsWith("/product/") || targetLink.includes("/product/")) {
+      const match = targetLink.match(/\/product\/([a-zA-Z0-9_-]+)/);
+      const prodId = match ? match[1].trim() : targetLink.replace("/product/", "").split("?")[0].split("#")[0].trim();
+
+      if (!prodId) {
+        toast.error("This product is no longer available.");
+        return;
+      }
+
+      try {
+        const live = await fetchLiveListingById(prodId);
+        if (!live || live.unavailable || live.status === "deleted" || live.status === "removed" || (live as any).isDeleted) {
+          const local = getProduct(prodId);
+          if (!local) {
+            markListingDeletedLocally(prodId);
+            toast.error("This product is no longer available.");
+            return;
+          }
+        } else {
+          unmarkListingDeletedLocally(prodId);
+        }
+      } catch (err) {
+        console.warn("Product verification warning:", err);
+      }
+
+      nav({ to: "/product/$id", params: { id: prodId } });
+      return;
+    }
+
     if (targetLink.startsWith("/chat/")) {
       const id = targetLink.replace("/chat/", "");
       nav({ to: "/chat/$id", params: { id } });
     } else if (targetLink.startsWith("/transaction/")) {
       const offerId = targetLink.replace("/transaction/", "");
       nav({ to: "/transaction/$offerId", params: { offerId } });
-    } else if (targetLink.startsWith("/product/")) {
-      const id = targetLink.replace("/product/", "");
-      nav({ to: "/product/$id", params: { id } });
     } else if (targetLink.startsWith("/store/")) {
       const id = targetLink.replace("/store/", "");
       nav({ to: "/store/$id", params: { id } });
@@ -721,7 +766,24 @@ export function WebsiteHeader() {
 
                   {/* Notifications List */}
                   <div className="mt-2 max-h-80 overflow-y-auto divide-y divide-border/60 no-scrollbar space-y-1">
-                    {notifList.length === 0 ? (
+                    {!isUserLoggedInSync() ? (
+                      <div className="p-6 text-center text-xs text-muted-foreground flex flex-col items-center">
+                        <div className="mb-3 flex h-12 w-12 items-center justify-center rounded-2xl bg-primary/10 text-primary">
+                          <Bell className="h-6 w-6" />
+                        </div>
+                        <h4 className="font-extrabold text-foreground text-sm">Sign in to view notifications</h4>
+                        <p className="mt-1 text-[11px] text-muted-foreground max-w-[220px]">
+                          Stay updated on your listings, messages, offers, and nearby alerts.
+                        </p>
+                        <Link
+                          to="/login"
+                          onClick={() => setNotifOpen(false)}
+                          className="mt-4 inline-flex items-center justify-center gap-1.5 rounded-xl bg-primary px-4 py-2 text-xs font-bold text-primary-foreground shadow-sm hover:bg-primary/90 transition-all active:scale-95"
+                        >
+                          Sign In
+                        </Link>
+                      </div>
+                    ) : notifList.length === 0 ? (
                       <div className="p-6 text-center text-xs text-muted-foreground">
                         <Bell className="mx-auto mb-2 h-7 w-7 text-muted-foreground/30" />
                         No notifications yet.
@@ -730,7 +792,7 @@ export function WebsiteHeader() {
                       notifList.slice(0, 6).map((n) => {
                         const Icon = NOTIF_ICON_MAP[n.type] || Bell;
                         const isNearby = n.type === "nearby_changes" || n.title.toLowerCase().includes("nearby");
-                        const isListing = n.type === "listings" || n.type === "listing_moderation" || n.link?.startsWith("/product/");
+                        const isListing = n.type === "listings" || n.type === "listing_moderation" || Boolean(n.link?.includes("/product/"));
 
                         return (
                           <div
@@ -798,16 +860,18 @@ export function WebsiteHeader() {
                   </div>
 
                   {/* Footer: View All Notifications */}
-                  <div className="mt-3 pt-2.5 border-t border-border/70 text-center">
-                    <Link
-                      to="/notifications"
-                      onClick={() => setNotifOpen(false)}
-                      className="inline-flex items-center justify-center gap-1.5 w-full rounded-2xl bg-secondary hover:bg-primary hover:text-white text-xs font-extrabold text-primary py-2 transition-all shadow-2xs"
-                    >
-                      <span>View All Notifications</span>
-                      <ArrowRight className="h-3.5 w-3.5" />
-                    </Link>
-                  </div>
+                  {isUserLoggedInSync() && (
+                    <div className="mt-3 pt-2.5 border-t border-border/70 text-center">
+                      <Link
+                        to="/notifications"
+                        onClick={() => setNotifOpen(false)}
+                        className="inline-flex items-center justify-center gap-1.5 w-full rounded-2xl bg-secondary hover:bg-primary hover:text-white text-xs font-extrabold text-primary py-2 transition-all shadow-2xs"
+                      >
+                        <span>View All Notifications</span>
+                        <ArrowRight className="h-3.5 w-3.5" />
+                      </Link>
+                    </div>
+                  )}
                 </div>
               )}
             </div>

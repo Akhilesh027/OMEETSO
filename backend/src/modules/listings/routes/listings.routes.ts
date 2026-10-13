@@ -7,7 +7,8 @@ import {
   updateListing,
   markListingSold,
   recordListingView,
-  recordListingSave
+  recordListingSave,
+  deleteListing
 } from "../controllers/listings.controller";
 import { authenticateUser } from "../../../middleware/authenticateUser";
 import { validateBody } from "../../../middleware/validateRequest";
@@ -22,6 +23,8 @@ listingsRouter.get("/:listingId", getListingById);
 
 listingsRouter.post("/", authenticateUser, validateBody(CreateListingRequestSchema), createListing);
 listingsRouter.patch("/:listingId", authenticateUser, updateListing);
+listingsRouter.delete("/:listingId", authenticateUser, deleteListing);
+listingsRouter.post("/:listingId/delete", authenticateUser, deleteListing);
 listingsRouter.post("/:listingId/mark-sold", authenticateUser, markListingSold);
 listingsRouter.post("/:listingId/view", recordListingView);
 listingsRouter.post("/:listingId/save", recordListingSave);

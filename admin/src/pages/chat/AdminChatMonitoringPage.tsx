@@ -68,9 +68,19 @@ export default function AdminChatMonitoringPage() {
     const res = await getAdminConversationsApi(params);
     setLoading(false);
     if (res.success && res.data) {
-      setConversations(res.data);
-      if (res.data.length > 0 && !activeConvId) {
-        setActiveConvId(res.data[0].id);
+      const validConvs = (res.data || []).filter(
+        (c: any) =>
+          (c.messageCount === undefined || c.messageCount > 0) &&
+          c.lastMessagePreview &&
+          c.lastMessagePreview !== "No messages"
+      );
+      setConversations(validConvs);
+      if (validConvs.length > 0) {
+        if (!activeConvId || !validConvs.some((c: any) => c.id === activeConvId)) {
+          setActiveConvId(validConvs[0].id);
+        }
+      } else {
+        setActiveConvId(null);
       }
     } else {
       showError("Failed to Load Chats", res.error || "Could not fetch conversations");
@@ -83,7 +93,21 @@ export default function AdminChatMonitoringPage() {
     const res = await getAdminConversationMessagesApi(convId);
     setMessagesLoading(false);
     if (res.success && res.data) {
-      setActiveMessages(res.data);
+      if (res.data.length === 0) {
+        setConversations((prev) => {
+          const next = prev.filter((c) => c.id !== convId);
+          setActiveConvId((curr) => {
+            if (curr === convId) {
+              return next.length > 0 ? next[0].id : null;
+            }
+            return curr;
+          });
+          return next;
+        });
+        setActiveMessages([]);
+      } else {
+        setActiveMessages(res.data);
+      }
     }
   }, []);
   const handleSendWarning = async () => {
@@ -206,6 +230,10 @@ export default function AdminChatMonitoringPage() {
   };
 
   const filteredConversations = conversations.filter((c) => {
+    // If there are no messages between two members, don't show the conversation
+    if (c.messageCount !== undefined && c.messageCount <= 0) return false;
+    if (!c.lastMessagePreview || c.lastMessagePreview === "No messages") return false;
+
     if (!searchTerm.trim()) return true;
     const search = searchTerm.toLowerCase();
     const listingTitle = c.listing?.title?.toLowerCase() || "";
@@ -367,7 +395,7 @@ export default function AdminChatMonitoringPage() {
 
           {/* Right Column: Live Transcript Inspector (7 Cols) */}
           <div className="lg:col-span-7 bg-white rounded-2xl border border-[#E2E8F0] shadow-sm flex flex-col h-[650px] overflow-hidden">
-            {activeConv ? (
+            {activeConv && (messagesLoading || activeMessages.length > 0) ? (
               <>
                 {/* Header info */}
                 <div className="p-4 border-b border-[#E2E8F0] bg-[#F5F7FC] flex items-center justify-between">
@@ -479,8 +507,14 @@ export default function AdminChatMonitoringPage() {
                 </div>
               </>
             ) : (
-              <div className="p-12 text-center text-slate-400 text-xs my-auto">
-                Select a conversation on the left to view the real-time message stream.
+              <div className="p-12 text-center text-slate-400 text-xs my-auto flex flex-col items-center justify-center gap-2">
+                <MessageSquare className="w-8 h-8 text-slate-300" />
+                <span className="font-semibold text-slate-600">No Active Messages to Inspect</span>
+                <span className="text-[11px] text-slate-400 max-w-sm">
+                  {filteredConversations.length > 0
+                    ? "Select a conversation on the left to view the real-time message stream."
+                    : "There are currently no chat threads with messages between members."}
+                </span>
               </div>
             )}
           </div>

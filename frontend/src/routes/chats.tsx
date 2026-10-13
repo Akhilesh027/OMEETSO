@@ -15,6 +15,7 @@ import { useChatContext, type ConnectionStatus } from "@/contexts/ChatProvider";
 import { getUserAccessToken } from "@/api/auth.api";
 import { conversationToThread } from "@/lib/chat-adapter";
 import { formatChatTime, isMuted, isBlocked, isArchived } from "@/lib/chat";
+import { getCleanAvatar } from "@/lib/avatarSvgs";
 import type { ConversationItem } from "@/api/chat.api";
 
 export const Route = createFileRoute("/chats")({
@@ -293,22 +294,29 @@ function ChatCard({ t, conv }: { t: ReturnType<typeof conversationToThread>; con
     return null;
   })();
 
+  const avatarSrc = t.peerType === "store" && t.peerAvatar
+    ? t.peerAvatar
+    : getCleanAvatar(t.peerAvatar, t.peerName);
+
   return (
     <Link to="/chat/$id" params={{ id: t.id }} className="flex items-center gap-3 bg-card px-3 py-3 active:bg-muted">
-      <div className="relative">
-        {conv?.listingImage && !conv.listingImage.includes("photo-1526738549149") ? (
-          <img src={conv.listingImage} alt="" className="h-12 w-12 rounded-xl object-cover" />
-        ) : t.peerType === "store" ? (
-          <div className="grid h-12 w-12 place-items-center rounded-xl bg-indigo-50 text-indigo-600 dark:bg-indigo-950/40">
-            <StoreIcon className="h-6 w-6" />
+      <div className="relative shrink-0">
+        {t.peerType === "store" && !t.peerAvatar ? (
+          <div className="grid h-12 w-12 place-items-center rounded-full bg-gradient-to-br from-primary to-indigo-800 text-white font-black text-base uppercase shadow-xs">
+            {t.peerName?.charAt(0) || <StoreIcon className="h-6 w-6" />}
           </div>
         ) : (
-          <div className="grid h-12 w-12 place-items-center rounded-xl bg-secondary text-muted-foreground">
-            <MessageCircle className="h-5 w-5" />
-          </div>
+          <img
+            src={avatarSrc}
+            alt={t.peerName}
+            onError={(e) => {
+              (e.currentTarget as HTMLImageElement).src = getCleanAvatar(null, t.peerName);
+            }}
+            className="h-12 w-12 rounded-full object-cover border border-border shadow-xs"
+          />
         )}
         {t.peerType === "store" && (
-          <span className="absolute -bottom-1 -right-1 grid h-5 w-5 place-items-center rounded-full border-2 border-card bg-navy text-white">
+          <span className="absolute -bottom-0.5 -right-0.5 grid h-4.5 w-4.5 place-items-center rounded-full border border-card bg-navy text-white">
             <StoreIcon className="h-2.5 w-2.5" />
           </span>
         )}

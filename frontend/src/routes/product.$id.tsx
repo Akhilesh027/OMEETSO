@@ -34,30 +34,64 @@ import { InfinityLoader } from "@/components/omeetso/InfinityLoader";
 import {
   PRODUCTS, SELLERS, formatINR, getProduct, getSeller, getAd, productsBySeller, productsByCategory,
 } from "@/lib/mock";
-import { fetchLiveListingById, recordListingView, listListings } from "@/lib/listings";
+import {
+  fetchLiveListingById, recordListingView, listListings, isListingDeletedLocally,
+  markListingDeletedLocally, unmarkListingDeletedLocally, isListingSold,
+  listPublicListings, fetchLivePublicListings
+} from "@/lib/listings";
 import { addRecentlyViewed } from "@/lib/saved";
 import { useSaved } from "@/hooks/useSaved";
 import { ProductWatermark } from "@/components/omeetso/Watermark";
 
 export const Route = createFileRoute("/product/$id")({
+  staleTime: 0,
+  gcTime: 0,
   loader: async ({ params }) => {
     const cleanId = (params.id || "").trim();
-    if (!cleanId) return { product: null };
+    if (!cleanId) return { product: null, unavailable: true, reason: "deleted" as const };
+
     try {
       const live = await fetchLiveListingById(cleanId);
-      if (live) return { product: live as any };
-      if (/^[0-9a-fA-F]{24}$/.test(cleanId)) {
-        return { product: null };
+      if (live) {
+        if (live.status === "deleted" || live.status === "removed" || Boolean((live as any).isDeleted) || live.unavailable) {
+          markListingDeletedLocally(cleanId);
+          return { product: null, unavailable: true, reason: "deleted" as const };
+        }
+        if (live.status === "sold" || (live as any).sold || (live as any).isSold || isListingSold(live)) {
+          return { product: live as any, unavailable: true, reason: "sold" as const };
+        }
+        unmarkListingDeletedLocally(cleanId);
+        return { product: live as any, unavailable: false, reason: null };
       }
+      // If live listing is null from backend, check mock products (for demo mock items like 'p1', etc.)
+      const mockProduct = getProduct(cleanId);
+      if (mockProduct && !isListingDeletedLocally(cleanId)) {
+        if (mockProduct.status === "sold" || isListingSold(mockProduct)) {
+          return { product: mockProduct, unavailable: true, reason: "sold" as const };
+        }
+        return { product: mockProduct, unavailable: false, reason: null };
+      }
+      markListingDeletedLocally(cleanId);
+      return { product: null, unavailable: true, reason: "deleted" as const };
     } catch (err) {
-      console.warn("Live listing fetch error:", err);
+      console.warn("Live listing loader error:", err);
+      const p = getProduct(cleanId);
+      if (p && !isListingDeletedLocally(cleanId)) {
+        if (p.status === "sold" || isListingSold(p)) {
+          return { product: p, unavailable: true, reason: "sold" as const };
+        }
+        return { product: p, unavailable: false, reason: null };
+      }
+      return { product: null, unavailable: true, reason: "deleted" as const };
     }
-    const p = getProduct(cleanId);
-    return { product: p || null };
   },
   head: ({ loaderData }) => {
     const product = loaderData?.product;
-    if (!product || product.unavailable || product.status === "deleted" || product.status === "removed" || Boolean((product as any)?.isDeleted)) {
+    const isSold = loaderData?.reason === "sold" || (product && (product.status === "sold" || product.status === "SOLD"));
+    if (isSold) {
+      return { meta: [{ title: `${product?.title ? `${product.title} (Sold)` : "Product Sold"} | Omeetso` }] };
+    }
+    if (!product || loaderData?.unavailable || product.unavailable || product.status === "deleted" || product.status === "removed" || Boolean((product as any)?.isDeleted)) {
       return { meta: [{ title: "This product is no longer available | Omeetso" }] };
     }
 
@@ -156,36 +190,111 @@ function ProductPage() {
   const { id } = Route.useParams();
   const cleanId = (id || "").trim();
   const loaderData = Route.useLoaderData();
-  const [product, setProduct] = useState<any>(() => getProduct(cleanId) || loaderData?.product || null);
-  const [loading, setLoading] = useState(!product);
+  const [product, setProduct] = useState<any>(() => {
+    if (loaderData?.product) return loaderData.product;
+    return getProduct(cleanId) || null;
+  });
+  const [unavailable, setUnavailable] = useState<boolean>(Boolean(loaderData?.unavailable));
+  const [unavailableReason, setUnavailableReason] = useState<"sold" | "deleted" | null>(loaderData?.reason || null);
+  const [loading, setLoading] = useState<boolean>(!loaderData?.product && !loaderData?.unavailable);
 
   useEffect(() => {
     if (!cleanId) return;
     recordListingView(cleanId);
-    setLoading(true);
 
+    if (loaderData?.unavailable) {
+      setUnavailable(true);
+      setUnavailableReason(loaderData.reason || "deleted");
+      setLoading(false);
+      return;
+    }
+
+    if (loaderData?.product && !loaderData?.unavailable) {
+      if (loaderData.product.status === "sold" || isListingSold(loaderData.product)) {
+        setProduct(loaderData.product);
+        setUnavailable(true);
+        setUnavailableReason("sold");
+      } else {
+        unmarkListingDeletedLocally(cleanId);
+        setProduct(loaderData.product);
+        setUnavailable(false);
+        setUnavailableReason(null);
+      }
+      setLoading(false);
+      return;
+    }
+
+    setLoading(true);
     fetchLiveListingById(cleanId)
       .then((live) => {
-        if (live) {
-          setProduct(live);
-        } else if (/^[0-9a-fA-F]{24}$/.test(cleanId)) {
+        if (!live || live.status === "deleted" || live.status === "removed" || (live as any).isDeleted || live.unavailable) {
+          markListingDeletedLocally(cleanId);
           setProduct(null);
+          setUnavailable(true);
+          setUnavailableReason("deleted");
+        } else if (live.status === "sold" || (live as any).sold || (live as any).isSold || isListingSold(live)) {
+          setProduct(live);
+          setUnavailable(true);
+          setUnavailableReason("sold");
         } else {
-          const local = getProduct(cleanId);
-          setProduct(local || null);
+          unmarkListingDeletedLocally(cleanId);
+          setProduct(live);
+          setUnavailable(false);
+          setUnavailableReason(null);
         }
       })
       .catch((err) => {
         console.warn("Live fetch error on client nav:", err);
         const local = getProduct(cleanId);
-        setProduct(local || null);
+        if (local && !isListingDeletedLocally(cleanId)) {
+          if (local.status === "sold" || isListingSold(local)) {
+            setProduct(local);
+            setUnavailable(true);
+            setUnavailableReason("sold");
+          } else {
+            setProduct(local);
+            setUnavailable(false);
+            setUnavailableReason(null);
+          }
+        } else {
+          setUnavailable(true);
+          setUnavailableReason("deleted");
+        }
       })
       .finally(() => {
         setLoading(false);
       });
-  }, [cleanId]);
+  }, [cleanId, loaderData]);
 
-  if (loading && !product) {
+  const isSold = Boolean(
+    unavailableReason === "sold" ||
+    (product && (product.status === "sold" || product.status === "SOLD" || (product as any).sold === true || (product as any).isSold === true || isListingSold(product)))
+  );
+
+  const isDeletedOrMissing = Boolean(
+    unavailableReason === "deleted" ||
+    unavailable ||
+    !product ||
+    product.unavailable ||
+    product.status === "deleted" ||
+    product.status === "removed" ||
+    Boolean((product as any).isDeleted) ||
+    isListingDeletedLocally(cleanId)
+  );
+
+  const isUnavailable = !loading && (isSold || isDeletedOrMissing);
+
+  useEffect(() => {
+    if (isUnavailable && !loading) {
+      if (isSold) {
+        toast.info("This product has already been sold.");
+      } else {
+        toast.error("This product is no longer available.");
+      }
+    }
+  }, [isUnavailable, isSold, loading]);
+
+  if (loading && !product && !isUnavailable) {
     return (
       <MobileFrame>
         <div className="min-h-dvh bg-background p-12 text-center flex flex-col items-center justify-center gap-3">
@@ -196,10 +305,8 @@ function ProductPage() {
     );
   }
 
-  const isUnavailable = !product || product.unavailable || product.status === "deleted" || product.status === "removed" || Boolean((product as any).isDeleted);
-
   if (isUnavailable) {
-    return <NotFound />;
+    return <ProductUnavailableState reason={isSold ? "sold" : "deleted"} product={product} />;
   }
 
   const liveSeller = (product as any).seller;
@@ -1071,18 +1178,9 @@ function ProductPage() {
                   <button onClick={toggle} className="inline-flex items-center gap-1.5 hover:text-foreground cursor-pointer">
                     <Heart className={"h-4 w-4 " + (saved ? "fill-blue-600 text-blue-600" : "")} /> {saved ? "Saved" : "Save Listing"}
                   </button>
-                  <div className="flex items-center gap-3">
-                    <button
-                      onClick={shareToWhatsApp}
-                      className="inline-flex items-center gap-1 text-emerald-600 hover:text-emerald-700 font-bold cursor-pointer"
-                      title="Share to WhatsApp"
-                    >
-                      <MessageCircle className="h-4 w-4 text-emerald-600" /> WhatsApp
-                    </button>
-                    <button onClick={() => share(product.title)} className="inline-flex items-center gap-1 hover:text-foreground cursor-pointer">
-                      <Share2 className="h-4 w-4 text-blue-600" /> Share
-                    </button>
-                  </div>
+                  <button onClick={() => share(product.title)} className="inline-flex items-center gap-1 hover:text-foreground cursor-pointer">
+                    <Share2 className="h-4 w-4 text-blue-600" /> Share
+                  </button>
                 </div>
               </div>
 
@@ -1316,35 +1414,182 @@ function SellerTrustBadgeMatrix({ seller, product }: { seller: any; product?: an
   );
 }
 
-function NotFound() {
+function ProductUnavailableState({
+  reason = "deleted",
+  product,
+}: {
+  reason?: "sold" | "deleted";
+  product?: any;
+}) {
   const nav = useNavigate();
+  const [recommendations, setRecommendations] = useState<any[]>([]);
+
+  useEffect(() => {
+    fetchLivePublicListings({
+      category: product?.category || product?.categoryId,
+      limit: 4,
+    })
+      .then((items) => {
+        if (items && items.length > 0) {
+          setRecommendations(items.slice(0, 4));
+        } else {
+          setRecommendations(listPublicListings().slice(0, 4));
+        }
+      })
+      .catch(() => {
+        setRecommendations(listPublicListings().slice(0, 4));
+      });
+  }, [product?.category, product?.categoryId]);
+
+  const isSold = reason === "sold";
+
   return (
     <MobileFrame>
-      <div className="min-h-[70vh] flex flex-col items-center justify-center p-6 text-center space-y-4">
-        <div className="w-16 h-16 rounded-3xl bg-amber-500/10 text-amber-600 flex items-center justify-center text-3xl font-black shadow-inner border border-amber-500/20">
-          📦
-        </div>
-        <div className="space-y-1.5">
-          <h2 className="text-xl sm:text-2xl font-black text-foreground">This product is no longer available.</h2>
-          <p className="text-xs sm:text-sm text-muted-foreground max-w-sm leading-relaxed">
-            This listing may have been sold, deleted, or removed by the seller.
-          </p>
-        </div>
-        <div className="flex flex-col sm:flex-row items-center gap-2.5 pt-2 w-full max-w-xs">
+      <div className="min-h-dvh bg-background pb-16 font-sans">
+        {/* Top bar with back navigation */}
+        <div className="sticky top-0 z-30 flex items-center gap-3 border-b border-border bg-background/95 px-4 py-3 backdrop-blur-md">
           <button
-            onClick={() => nav({ to: "/results" })}
-            className="w-full sm:w-auto flex-1 px-5 py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-extrabold text-xs rounded-xl shadow-md transition-all cursor-pointer"
+            onClick={() => {
+              if (typeof window !== "undefined" && window.history.length > 1) {
+                window.history.back();
+              } else {
+                nav({ to: "/" });
+              }
+            }}
+            className="grid h-9 w-9 place-items-center rounded-full hover:bg-secondary transition-colors cursor-pointer"
+            aria-label="Go Back"
           >
-            Explore Marketplace
+            <ArrowLeft className="h-5 w-5 text-foreground" />
           </button>
-          <button
-            onClick={() => nav({ to: "/" })}
-            className="w-full sm:w-auto px-5 py-2.5 bg-secondary text-foreground font-bold text-xs rounded-xl hover:bg-secondary/80 transition-all cursor-pointer"
+          <span className="text-sm font-extrabold text-foreground">
+            {isSold ? "Product Sold" : "Product Unavailable"}
+          </span>
+        </div>
+
+        <div className="p-4 sm:p-6 max-w-2xl mx-auto space-y-6">
+          {/* Main Status Hero Card */}
+          <div
+            className={`rounded-3xl border p-6 sm:p-8 text-center space-y-4 shadow-sm ${
+              isSold
+                ? "border-amber-500/20 bg-gradient-to-b from-amber-500/10 via-card to-card"
+                : "border-border bg-card"
+            }`}
           >
-            Go to Home
-          </button>
+            <div
+              className={`mx-auto w-16 h-16 rounded-3xl flex items-center justify-center text-3xl font-black shadow-inner border ${
+                isSold
+                  ? "bg-amber-500/15 text-amber-600 border-amber-500/30"
+                  : "bg-rose-500/10 text-rose-600 border-rose-500/20"
+              }`}
+            >
+              {isSold ? "🏷️" : "📦"}
+            </div>
+
+            <div className="space-y-1.5">
+              <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-black uppercase tracking-wider mb-1">
+                {isSold ? (
+                  <span className="bg-amber-500/15 text-amber-800 dark:text-amber-300 px-3 py-0.5 rounded-full border border-amber-500/30">
+                    Item Sold
+                  </span>
+                ) : (
+                  <span className="bg-rose-500/15 text-rose-800 dark:text-rose-300 px-3 py-0.5 rounded-full border border-rose-500/30">
+                    Listing Removed
+                  </span>
+                )}
+              </div>
+              <h1 className="text-xl sm:text-2xl font-black text-foreground">
+                {isSold ? "This Product Has Been Sold" : "This product is no longer available."}
+              </h1>
+              <p className="text-xs sm:text-sm text-muted-foreground max-w-md mx-auto leading-relaxed font-medium">
+                {isSold
+                  ? product?.title
+                    ? `"${product.title}" was marked as sold by the seller and is no longer available for purchase or enquiries.`
+                    : "This item was marked as sold by the seller and is no longer available for purchase or enquiries."
+                  : "This listing may have been sold, deleted, or removed by the seller or administrator."}
+              </p>
+            </div>
+
+            {/* Action buttons */}
+            <div className="flex flex-col sm:flex-row items-center justify-center gap-2.5 pt-2 max-w-sm mx-auto">
+              <button
+                onClick={() => {
+                  if (product?.category) {
+                    nav({ to: "/results", search: { cat: product.category } as any });
+                  } else {
+                    nav({ to: "/results" });
+                  }
+                }}
+                className="w-full sm:w-auto flex-1 px-5 py-3 bg-blue-600 hover:bg-blue-700 text-white font-extrabold text-xs rounded-2xl shadow-md transition-all cursor-pointer flex items-center justify-center gap-2"
+              >
+                <span>Explore Similar Items</span>
+                <ArrowRight className="h-4 w-4" />
+              </button>
+              <button
+                onClick={() => nav({ to: "/" })}
+                className="w-full sm:w-auto px-5 py-3 bg-secondary text-foreground font-bold text-xs rounded-2xl hover:bg-secondary/80 transition-all cursor-pointer"
+              >
+                Go to Home
+              </button>
+            </div>
+          </div>
+
+          {/* Recommended active listings */}
+          {recommendations.length > 0 && (
+            <div className="space-y-3 pt-2">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h2 className="text-sm font-extrabold text-foreground">
+                    Available Products You Might Like
+                  </h2>
+                  <p className="text-[11px] text-muted-foreground font-medium">
+                    Verified live items available nearby
+                  </p>
+                </div>
+                <Link
+                  to="/results"
+                  search={product?.category ? ({ cat: product.category } as any) : undefined}
+                  className="text-xs font-bold text-blue-600 dark:text-blue-400 hover:underline flex items-center gap-1"
+                >
+                  View all <ChevronRight className="h-3 w-3" />
+                </Link>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+                {recommendations.slice(0, 4).map((rec: any) => {
+                  const cardItem = {
+                    id: rec.id,
+                    title: rec.title,
+                    price: rec.price,
+                    image:
+                      rec.images?.[rec.cover || 0] ||
+                      rec.images?.[0] ||
+                      rec.image ||
+                      "https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=400",
+                    area: rec.area || "Nearby",
+                    city: rec.city || "Hyderabad",
+                    category: rec.category,
+                    condition: rec.condition,
+                    distanceKm: 1.2,
+                    postedAgo: "Recently",
+                    verified: true,
+                  };
+                  return (
+                    <ProductCard
+                      key={rec.id}
+                      p={cardItem as any}
+                      product={cardItem as any}
+                    />
+                  );
+                })}
+              </div>
+            </div>
+          )}
         </div>
       </div>
     </MobileFrame>
   );
+}
+
+function NotFound() {
+  return <ProductUnavailableState reason="deleted" />;
 }

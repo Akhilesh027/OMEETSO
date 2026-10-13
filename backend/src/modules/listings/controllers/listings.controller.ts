@@ -374,9 +374,13 @@ export async function getPublicListings(req: Request, res: Response, next: NextF
 
     const statusQuery = req.query.status ? (req.query.status as string).toUpperCase() : null;
     const query: Record<string, any> = {
+      isDeleted: { $ne: true },
       status: statusQuery
         ? { $in: [statusQuery, statusQuery.toLowerCase(), statusQuery.toUpperCase()] }
-        : { $in: [ListingStatus.APPROVED, ListingStatus.ACTIVE, "APPROVED", "ACTIVE", "approved", "active"] }
+        : {
+            $in: [ListingStatus.APPROVED, ListingStatus.ACTIVE, "APPROVED", "ACTIVE", "approved", "active"],
+            $nin: [ListingStatus.SOLD, "SOLD", "sold", ListingStatus.DELETED, "DELETED", "deleted", ListingStatus.PAUSED, "PAUSED", "paused", ListingStatus.REJECTED, "REJECTED", "rejected"]
+          }
     };
 
     const andConditions: any[] = [];
@@ -745,6 +749,7 @@ export async function getPublicListings(req: Request, res: Response, next: NextF
 
 export async function getListingById(req: Request, res: Response, next: NextFunction): Promise<void> {
   try {
+    res.setHeader("Cache-Control", "no-store, no-cache, must-revalidate, proxy-revalidate");
     const listingId = (req.params.listingId || req.params.id) as string;
     if (!listingId) {
       res.status(404).json({ success: false, error: { code: "NOT_FOUND", message: "Listing ID required" } });
@@ -759,16 +764,12 @@ export async function getListingById(req: Request, res: Response, next: NextFunc
         .populate("sellerId", "profile.name profile.businessName profile.avatar profile.city profile.area profile.phone phone mobile accountType verificationSummary createdAt")
         .populate("storeId", "name slug logo cover rating reviewCount phone")
         .lean();
-    }
-
-    if (!listing) {
+    } else {
       listing = await Listing.findOne({
         $or: [
           { slug: listingId },
-          { id: listingId },
           { customId: listingId },
-          { slug: listingId.toLowerCase() },
-          { id: listingId.toLowerCase() }
+          { slug: listingId.toLowerCase() }
         ]
       } as any)
       .populate("sellerId", "profile.name profile.businessName profile.avatar profile.city profile.area profile.phone phone mobile accountType verificationSummary createdAt")
@@ -776,7 +777,7 @@ export async function getListingById(req: Request, res: Response, next: NextFunc
       .lean();
     }
 
-    if (!listing || listing.status === "deleted" || listing.status === "removed" || listing.isDeleted) {
+    if (!listing || (isObjectId && listing._id?.toString() !== listingId) || listing.status === "deleted" || listing.status === "removed" || listing.isDeleted) {
       res.status(404).json({ success: false, error: { code: "NOT_FOUND", message: "This product is no longer available." } });
       return;
     }
@@ -860,9 +861,19 @@ export async function getMyListings(req: AuthenticatedUserRequest, res: Response
     const limit = Math.min(50, Math.max(1, parseInt(req.query.limit as string) || 20));
     const skip = (page - 1) * limit;
 
-    const query: Record<string, any> = { sellerId: req.user._id };
+    const query: Record<string, any> = { sellerId: req.user._id, isDeleted: { $ne: true } };
     if (req.query.status) {
-      query.status = req.query.status;
+      const s = String(req.query.status).toUpperCase();
+      if (s === "ACTIVE") {
+        query.status = {
+          $in: [ListingStatus.APPROVED, ListingStatus.ACTIVE, "APPROVED", "ACTIVE", "approved", "active", "PAUSED", "paused", "requires_changes"],
+          $nin: [ListingStatus.SOLD, "SOLD", "sold", ListingStatus.DELETED, "DELETED", "deleted"]
+        };
+      } else if (s === "SOLD") {
+        query.status = { $in: [ListingStatus.SOLD, "SOLD", "sold"] };
+      } else {
+        query.status = { $in: [s, s.toLowerCase(), req.query.status] };
+      }
     }
 
     const [listings, total] = await Promise.all([
@@ -960,8 +971,24 @@ export async function updateListing(req: AuthenticatedUserRequest, res: Response
       processedVideo = await convertVideoToCloudinary(processedVideo, "omeetso/listing_videos");
     }
 
-    // Listing Revision Logic: If listing is active/approved, create revision for review rather than overwriting live content
-    if (listing.status === ListingStatus.APPROVED || listing.status === ListingStatus.ACTIVE) {
+    // Status update (Pause / Resume / Active / Sold)
+    if (req.body.status) {
+      const s = String(req.body.status).toLowerCase();
+      if (s === "paused") listing.status = ListingStatus.PAUSED;
+      else if (s === "active" || s === "approved") listing.status = ListingStatus.ACTIVE;
+      else if (s === "sold") listing.status = ListingStatus.SOLD;
+      else (listing as any).status = req.body.status;
+    }
+
+    // Business Store assignment
+    if (req.body.storeId !== undefined) {
+      (listing as any).storeId = req.body.storeId ? new mongoose.Types.ObjectId(req.body.storeId) : undefined;
+    }
+
+    const isContentEdit = Boolean(title || description || priceInPaise !== undefined || condition || processedImages || specs);
+
+    // Listing Revision Logic: If listing is active/approved and content changed, create revision for review
+    if (isContentEdit && (listing.status === ListingStatus.APPROVED || listing.status === ListingStatus.ACTIVE)) {
       const revision = await ListingRevision.create({
         listingId: listing._id,
         sellerId: req.user._id,
@@ -1124,3 +1151,44 @@ export async function recordListingSave(req: Request, res: Response, next: NextF
     next(error);
   }
 }
+
+export async function deleteListing(req: AuthenticatedUserRequest, res: Response, next: NextFunction): Promise<void> {
+  try {
+    const rawListingId = req.params.listingId;
+    const listingId = (Array.isArray(rawListingId) ? rawListingId[0] : rawListingId) as string;
+    const isObjectId = mongoose.Types.ObjectId.isValid(listingId);
+    const listing = isObjectId
+      ? await Listing.findById(listingId)
+      : await Listing.findOne({ slug: listingId });
+
+    if (!listing) {
+      res.status(404).json({ success: false, error: { code: "NOT_FOUND", message: "Listing not found" } });
+      return;
+    }
+
+    if (req.user) {
+      const isOwner = listing.sellerId && listing.sellerId.toString() === req.user._id.toString();
+      const isAdmin = (req.user as any).role === "admin";
+      if (!isOwner && !isAdmin && process.env.NODE_ENV === "production") {
+        res.status(403).json({ success: false, error: { code: "FORBIDDEN", message: "Cannot delete another user's listing" } });
+        return;
+      }
+    }
+
+    listing.status = ListingStatus.DELETED;
+    (listing as any).isDeleted = true;
+    await listing.save();
+
+    try {
+      await Listing.findByIdAndDelete(listing._id);
+    } catch {}
+
+    res.status(200).json({
+      success: true,
+      data: { id: listing._id.toString(), status: "deleted" }
+    });
+  } catch (error) {
+    next(error);
+  }
+}
+

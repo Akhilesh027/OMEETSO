@@ -168,6 +168,79 @@ function getUserListingsStorageKey(): string {
   return uid ? `omeetso_user_listings_${uid}` : "omeetso_user_listings_guest";
 }
 
+export const DELETED_LISTINGS_KEY = "omeetso_deleted_listings";
+
+export function isListingDeletedLocally(id: string): boolean {
+  if (!isB || !id) return false;
+  try {
+    const raw = localStorage.getItem(DELETED_LISTINGS_KEY);
+    if (!raw) return false;
+    const list: string[] = JSON.parse(raw);
+    return Array.isArray(list) && (list.includes(id) || list.includes(id.trim()));
+  } catch {
+    return false;
+  }
+}
+
+export function markListingDeletedLocally(id: string): void {
+  if (!isB || !id) return;
+  try {
+    const raw = localStorage.getItem(DELETED_LISTINGS_KEY);
+    const list: string[] = raw ? JSON.parse(raw) : [];
+    const cleanId = id.trim();
+    if (!list.includes(cleanId)) {
+      list.push(cleanId);
+      localStorage.setItem(DELETED_LISTINGS_KEY, JSON.stringify(list));
+    }
+  } catch { }
+}
+
+export function unmarkListingDeletedLocally(id: string): void {
+  if (!isB || !id) return;
+  try {
+    const raw = localStorage.getItem(DELETED_LISTINGS_KEY);
+    if (!raw) return;
+    const list: string[] = JSON.parse(raw);
+    const cleanId = id.trim();
+    const filtered = list.filter((x) => x !== cleanId && x !== id);
+    localStorage.setItem(DELETED_LISTINGS_KEY, JSON.stringify(filtered));
+  } catch { }
+}
+
+export const SOLD_LISTINGS_KEY = "omeetso_sold_listing_ids";
+
+export function isListingSold(
+  l: Partial<Listing> | { status?: string; sold?: boolean; isSold?: boolean; id?: string; _id?: string } | null | undefined
+): boolean {
+  if (!l) return false;
+  const status = (l.status || "").toLowerCase();
+  if (status === "sold") return true;
+  if ((l as any).sold === true || (l as any).isSold === true) return true;
+  const id = (l as any).id || (l as any)._id;
+  if (id && isB) {
+    try {
+      const raw = localStorage.getItem(SOLD_LISTINGS_KEY);
+      if (raw) {
+        const ids: string[] = JSON.parse(raw);
+        if (Array.isArray(ids) && (ids.includes(id) || ids.includes(String(id).trim()))) return true;
+      }
+    } catch {}
+  }
+  return false;
+}
+
+export function isListingActiveAndPublic(l: Partial<Listing> | any): boolean {
+  if (!l) return false;
+  const id = l.id || l._id;
+  if (id && isListingDeletedLocally(id)) return false;
+  if (isListingSold(l)) return false;
+  const st = (l.status || "").toLowerCase();
+  if (st === "deleted" || st === "removed" || st === "rejected" || st === "paused" || st === "sold") {
+    return false;
+  }
+  return true;
+}
+
 // ---- Listings ----
 export function listListings(): Listing[] {
   if (!isB) return [];
@@ -178,6 +251,12 @@ export function listListings(): Listing[] {
     "omeetso_user_listings_guest",
   ].filter(Boolean) as string[];
 
+  let soldIds: string[] = [];
+  try {
+    const raw = localStorage.getItem(SOLD_LISTINGS_KEY);
+    if (raw) soldIds = JSON.parse(raw);
+  } catch {}
+
   const combined: Listing[] = [];
   const seenIds = new Set<string>();
 
@@ -185,8 +264,11 @@ export function listListings(): Listing[] {
     const items = read<Listing[]>(k, []);
     if (Array.isArray(items)) {
       for (const item of items) {
-        if (item && item.id && !seenIds.has(item.id)) {
+        if (item && item.id && !seenIds.has(item.id) && !isListingDeletedLocally(item.id)) {
           seenIds.add(item.id);
+          if (soldIds.includes(item.id) || soldIds.includes(item.id.trim()) || isListingSold(item)) {
+            item.status = "sold";
+          }
           combined.push(item);
         }
       }
@@ -194,6 +276,10 @@ export function listListings(): Listing[] {
   }
 
   return combined;
+}
+
+export function listPublicListings(): Listing[] {
+  return listListings().filter(isListingActiveAndPublic);
 }
 
 const publicListingsMemoryCache: Map<string, { data: Listing[]; expiresAt: number }> = new Map();
@@ -242,7 +328,9 @@ export async function fetchLivePublicListings(params?: {
     const res = await fetch(`${API_BASE}/listings?${search.toString()}`);
     const json = await res.json();
     if (json.success && Array.isArray(json.data)) {
-      const mapped: Listing[] = json.data.map((item: any) => {
+      const mapped: Listing[] = json.data
+        .filter((item: any) => isListingActiveAndPublic(item))
+        .map((item: any) => {
         const validImages = Array.isArray(item.images) && item.images.length > 0 && !item.images[0].startsWith("blob:")
           ? item.images
           : ["https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=400"];
@@ -299,7 +387,7 @@ export async function fetchLivePublicListings(params?: {
   } catch (err) {
     console.warn("Backend feed offline");
   }
-  return listListings();
+  return listListings().filter(isListingActiveAndPublic);
 }
 
 let userListingsMemoryCache: { data: Listing[]; expiresAt: number; uid?: string | null } | null = null;
@@ -394,11 +482,35 @@ export async function fetchLiveUserListings(forceRefresh = false): Promise<Listi
 }
 
 export async function fetchLiveListingById(id: string): Promise<Listing | null> {
+  const cleanId = (id || "").trim();
+  if (!cleanId) return null;
+  if (isListingDeletedLocally(cleanId)) return null;
+
   try {
-    const res = await fetch(`${API_BASE}/listings/${id}`);
+    const res = await fetch(`${API_BASE}/listings/${cleanId}?_t=${Date.now()}`);
+    if (res.status === 404) {
+      markListingDeletedLocally(cleanId);
+      return null;
+    }
+
     const json = await res.json();
+    if (json && !json.success && (json.error?.code === "NOT_FOUND" || json.error?.message?.includes("no longer available"))) {
+      markListingDeletedLocally(cleanId);
+      return null;
+    }
+
     if (json.success && json.data) {
       const item = json.data;
+      const returnedId = (item.id || item._id || "").toString();
+      if (/^[0-9a-fA-F]{24}$/.test(cleanId) && returnedId && returnedId !== cleanId) {
+        markListingDeletedLocally(cleanId);
+        return null;
+      }
+      if (item.status === "deleted" || item.status === "removed" || item.isDeleted || item.unavailable) {
+        markListingDeletedLocally(cleanId);
+        return null;
+      }
+
       const validImages = Array.isArray(item.images) && item.images.length > 0 && !item.images[0].startsWith("blob:")
         ? item.images
         : ["https://images.unsplash.com/photo-1593359677879-a4bb92f829d1?w=800"];
@@ -486,13 +598,97 @@ export function upsertListing(l: Listing) {
   }
   return next;
 }
-export function deleteListing(id: string) {
+const inFlightDeletes = new Set<string>();
+
+export async function deleteListing(id: string): Promise<boolean> {
+  const cleanId = (id || "").trim();
+  if (!cleanId || inFlightDeletes.has(cleanId)) return true;
+  inFlightDeletes.add(cleanId);
+
+  try {
+    markListingDeletedLocally(cleanId);
+    invalidateUserListingsCache();
+    invalidatePublicListingsCache();
+
+    const key = getUserListingsStorageKey();
+    write(key, read<Listing[]>(key, []).filter((l) => l.id !== cleanId));
+    if (key !== "omeetso_user_listings") {
+      write("omeetso_user_listings", read<Listing[]>("omeetso_user_listings", []).filter((l) => l.id !== cleanId));
+    }
+    if (typeof window !== "undefined") {
+      try {
+        const raw = localStorage.getItem("omeetso_sold_listing_ids") || "[]";
+        const ids: string[] = JSON.parse(raw);
+        if (ids.includes(cleanId)) {
+          localStorage.setItem("omeetso_sold_listing_ids", JSON.stringify(ids.filter((x) => x !== cleanId)));
+        }
+      } catch {}
+    }
+
+    // Sync to MongoDB backend
+    try {
+      const token = typeof window !== "undefined" ? (getUserAccessToken() || localStorage.getItem("omeetso_user_token")) : null;
+      const res = await fetch(`${API_BASE}/listings/${cleanId}`, {
+        method: "DELETE",
+        headers: {
+          "Content-Type": "application/json",
+          ...(token ? { Authorization: `Bearer ${token}` } : {})
+        },
+        credentials: "include"
+      });
+      if (!res.ok && res.status !== 404) {
+        await fetch(`${API_BASE}/listings/${cleanId}/delete`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            ...(token ? { Authorization: `Bearer ${token}` } : {})
+          },
+          credentials: "include"
+        });
+      }
+    } catch (err) {
+      console.warn("Backend deleteListing sync deferred:", err);
+    }
+
+    if (typeof window !== "undefined") {
+      try {
+        window.dispatchEvent(new CustomEvent("omeetso_listing_updated"));
+      } catch {}
+    }
+    return true;
+  } finally {
+    setTimeout(() => {
+      inFlightDeletes.delete(cleanId);
+    }, 5000);
+  }
+}
+export function setStatus(id: string, status: ListingStatus, extra: Partial<Listing> = {}, fallbackListing?: Listing) {
   invalidateUserListingsCache();
   invalidatePublicListingsCache();
-  const key = getUserListingsStorageKey();
-  write(key, read<Listing[]>(key, []).filter((l) => l.id !== id));
-  if (key !== "omeetso_user_listings") {
-    write("omeetso_user_listings", read<Listing[]>("omeetso_user_listings", []).filter((l) => l.id !== id));
+  const l = getListing(id) || fallbackListing;
+  if (l) {
+    upsertListing({ ...l, ...extra, status });
+  }
+  if (status === "active" && typeof window !== "undefined") {
+    try {
+      const raw = localStorage.getItem("omeetso_sold_listing_ids") || "[]";
+      const ids: string[] = JSON.parse(raw);
+      if (ids.includes(id)) {
+        localStorage.setItem("omeetso_sold_listing_ids", JSON.stringify(ids.filter((x) => x !== id)));
+      }
+    } catch {}
+  }
+  // Sync to MongoDB backend in background
+  const token = typeof window !== "undefined" ? (getUserAccessToken() || localStorage.getItem("omeetso_user_token")) : null;
+  if (token) {
+    fetch(`${API_BASE}/listings/${id}`, {
+      method: "PATCH",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify({ status, ...extra }),
+    }).catch((err) => console.warn("Backend setStatus sync deferred:", err));
   }
   if (typeof window !== "undefined") {
     try {
@@ -500,17 +696,28 @@ export function deleteListing(id: string) {
     } catch {}
   }
 }
-export function setStatus(id: string, status: ListingStatus, extra: Partial<Listing> = {}) {
-  invalidateUserListingsCache();
-  const l = getListing(id);
-  if (!l) return;
-  upsertListing({ ...l, ...extra, status });
-}
-export function renewListing(id: string) {
-  const l = getListing(id);
-  if (!l) return;
+export function renewListing(id: string, fallbackListing?: Listing) {
+  const l = getListing(id) || fallbackListing;
   const days30 = 30 * 24 * 3600 * 1000;
-  upsertListing({ ...l, status: "active", expiresAt: Date.now() + days30 });
+  if (l) {
+    upsertListing({ ...l, status: "active", expiresAt: Date.now() + days30 });
+  }
+  const token = typeof window !== "undefined" ? (getUserAccessToken() || localStorage.getItem("omeetso_user_token")) : null;
+  if (token) {
+    fetch(`${API_BASE}/listings/${id}`, {
+      method: "PATCH",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify({ status: "active" }),
+    }).catch((err) => console.warn("Backend renewListing sync deferred:", err));
+  }
+  if (typeof window !== "undefined") {
+    try {
+      window.dispatchEvent(new CustomEvent("omeetso_listing_updated"));
+    } catch {}
+  }
 }
 export async function markSold(
   id: string,

@@ -2,7 +2,7 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { MobileFrame } from "@/components/omeetso/MobileFrame";
 import { BackBar } from "@/components/omeetso/TopBar";
-import { getListing, getAnalytics, type Listing, type ListingAnalytics, subscribe } from "@/lib/listings";
+import { getListing, fetchLiveListingById, getAnalytics, type Listing, type ListingAnalytics, subscribe } from "@/lib/listings";
 import { Eye, Heart, MessageCircle, Phone, Tag, Share2, Sparkles, ChevronRight, TrendingUp, AlertCircle } from "lucide-react";
 
 export const Route = createFileRoute("/listing/$id/analytics")({
@@ -15,10 +15,23 @@ function Analytics() {
   const [l, setL] = useState<Listing | undefined>();
   const [a, setA] = useState<ListingAnalytics | undefined>();
   useEffect(() => {
-    const refresh = () => { setL(getListing(id)); setA(getAnalytics(id)); };
+    const refresh = () => {
+      const cached = getListing(id);
+      if (cached) {
+        setL(cached);
+        setA(getAnalytics(id));
+      } else {
+        fetchLiveListingById(id).then((live) => {
+          if (live) {
+            setL(live);
+            setA(getAnalytics(id));
+          }
+        }).catch(() => {});
+      }
+    };
     refresh();
     const unsub = subscribe(refresh);
-    return () => { unsub; };
+    return () => { unsub(); };
   }, [id]);
 
   if (!l || !a) return (

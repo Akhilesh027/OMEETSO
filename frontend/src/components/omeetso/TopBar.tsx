@@ -9,7 +9,7 @@ import { Logo } from "@/components/omeetso/Logo";
 import { unreadCount, listNotifications } from "@/lib/account";
 import { getNotificationsApi } from "@/api/notifications.api";
 import { getConversationsApi } from "@/api/chat.api";
-import { getUserAccessToken } from "@/api/auth.api";
+import { getUserAccessToken, isUserLoggedInSync } from "@/api/auth.api";
 
 export function LocationTopBar({
   area,
@@ -23,6 +23,7 @@ export function LocationTopBar({
   const [unreadChats, setUnreadChats] = useState(0);
   const [unreadNotifs, setUnreadNotifs] = useState(() => {
     try {
+      if (!isUserLoggedInSync()) return 0;
       return unreadCount();
     } catch {
       return 0;
@@ -81,6 +82,10 @@ export function LocationTopBar({
     const unsubChat = subscribeChat(updateChatCount);
 
     const updateNotifCount = async () => {
+      if (!isUserLoggedInSync()) {
+        setUnreadNotifs(0);
+        return;
+      }
       let remoteUnread = 0;
       try {
         const res = await getNotificationsApi(1, 10);

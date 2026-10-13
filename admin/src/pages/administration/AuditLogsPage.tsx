@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { PageContainer } from "@/components/layout/PageContainer";
-import { AuditLogService } from "@/services/auditLogService";
+import { getAuditLogsApi } from "@/api/adminDashboard.api";
 import type { AuditLogEntry } from "@/types/auth";
 import {
   History,
@@ -20,6 +20,7 @@ import { useToast } from "@/contexts/ToastContext";
 
 export default function AuditLogsPage() {
   const [logs, setLogs] = useState<AuditLogEntry[]>([]);
+  const [isLoading, setIsLoading] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
   const [actionFilter, setActionFilter] = useState("all");
   const [targetFilter, setTargetFilter] = useState("all");
@@ -30,8 +31,20 @@ export default function AuditLogsPage() {
 
   const { showSuccess, showError } = useToast();
 
-  const refreshLogs = () => {
-    setLogs(AuditLogService.getLogs());
+  const refreshLogs = async () => {
+    setIsLoading(true);
+    try {
+      const res = await getAuditLogsApi();
+      if (res.success && res.data) {
+        setLogs(res.data);
+      } else if (res.error) {
+        showError("Failed to fetch audit logs", res.error);
+      }
+    } catch {
+      showError("Error", "Could not load audit logs");
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   useEffect(() => {
@@ -99,10 +112,11 @@ export default function AuditLogsPage() {
           <div className="flex items-center space-x-2">
             <button
               onClick={refreshLogs}
-              className="inline-flex items-center space-x-1 px-3 py-2 rounded-xl text-xs font-semibold bg-[#F5F7FC] text-[#111827] hover:bg-slate-200 transition-colors"
+              disabled={isLoading}
+              className="inline-flex items-center space-x-1 px-3 py-2 rounded-xl text-xs font-semibold bg-[#F5F7FC] text-[#111827] hover:bg-slate-200 transition-colors disabled:opacity-50"
             >
-              <RefreshCw className="w-3.5 h-3.5" />
-              <span>Refresh Log</span>
+              <RefreshCw className={`w-3.5 h-3.5 ${isLoading ? "animate-spin" : ""}`} />
+              <span>{isLoading ? "Refreshing..." : "Refresh Log"}</span>
             </button>
             <button
               onClick={handleExportCSV}

@@ -80,3 +80,38 @@ export async function getAuditLogsApi(params?: Record<string, any>): Promise<{
     return { success: false, error: "Network error" };
   }
 }
+
+export interface PlatformAnalyticsData {
+  monthlyVolume: number;
+  registeredUsers: number;
+  activeListings: number;
+  verifiedStores: string;
+  verificationRate: string;
+  cities: {
+    city: string;
+    activeListings: number;
+    verifiedStores: string;
+    monthlyGMV: number;
+    adBoostVolume: number;
+  }[];
+}
+
+export async function getPlatformAnalyticsApi(): Promise<{
+  success: boolean;
+  data?: PlatformAnalyticsData;
+  error?: string;
+}> {
+  try {
+    const res = await fetch(`${API_BASE}/analytics`, {
+      headers: getHeaders(),
+      credentials: "include"
+    });
+    const json = await res.json();
+    if (!res.ok || !json.success) {
+      return { success: false, error: json.error?.message || "Failed to fetch platform analytics" };
+    }
+    return { success: true, data: json.data };
+  } catch (error) {
+    return { success: false, error: "Network error: Unable to fetch platform analytics" };
+  }
+}

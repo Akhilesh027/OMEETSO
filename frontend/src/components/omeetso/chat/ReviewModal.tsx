@@ -10,6 +10,8 @@ interface ReviewModalProps {
   targetType: "SELLER" | "STORE";
   targetName: string;
   listingId?: string;
+  listingTitle?: string;
+  onSuccess?: () => void;
 }
 
 const DEFAULT_TAGS = [
@@ -17,7 +19,7 @@ const DEFAULT_TAGS = [
   "Fair Price", "Friendly Seller", "Punctual Delivery", "Great Store"
 ];
 
-export function ReviewModal({ isOpen, onClose, targetId, targetType, targetName, listingId }: ReviewModalProps) {
+export function ReviewModal({ isOpen, onClose, targetId, targetType, targetName, listingId, listingTitle, onSuccess }: ReviewModalProps) {
   const [rating, setRating] = useState<number>(5);
   const [comment, setComment] = useState<string>("");
   const [selectedTags, setSelectedTags] = useState<string[]>(["Verified Buyer", "Item as Described"]);
@@ -50,10 +52,12 @@ export function ReviewModal({ isOpen, onClose, targetId, targetType, targetName,
         body: JSON.stringify({
           targetId,
           targetType,
+          targetName,
+          listingId,
+          listingTitle,
           rating,
           comment: comment.trim(),
-          tags: selectedTags,
-          listingId
+          tags: selectedTags
         })
       });
 
@@ -62,6 +66,7 @@ export function ReviewModal({ isOpen, onClose, targetId, targetType, targetName,
         toast.success(`Thank you! Review for ${targetName} submitted successfully.`);
         onClose();
         setComment("");
+        onSuccess?.();
       } else {
         toast.error(json.error?.message || "Failed to submit review");
       }

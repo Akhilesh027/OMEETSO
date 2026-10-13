@@ -4,6 +4,8 @@ import { MobileFrame } from "@/components/omeetso/MobileFrame";
 import { BackBar } from "@/components/omeetso/TopBar";
 import { deleteNotification, getNotification, markRead, timeAgo } from "@/lib/account";
 import { toast } from "sonner";
+import { fetchLiveListingById, isListingDeletedLocally, markListingDeletedLocally, unmarkListingDeletedLocally, deleteListing } from "@/lib/listings";
+import { getProduct } from "@/lib/mock";
 import { Sparkles, Trash2, ArrowRight } from "lucide-react";
 
 export const Route = createFileRoute("/notifications/$id")({
@@ -66,35 +68,71 @@ function NotifDetail() {
             return (
               <button
                 type="button"
-                onClick={() => {
+                onClick={async () => {
                   markRead(id, true);
-                  if (dest.startsWith("/chat/")) {
-                    const chatId = dest.replace("/chat/", "");
-                    nav({ to: "/chat/$id", params: { id: chatId } });
-                  } else if (dest.startsWith("/product/")) {
-                    const prodId = dest.replace("/product/", "");
-                    nav({ to: "/product/$id", params: { id: prodId } });
-                  } else if (dest.startsWith("/store/")) {
-                    const storeId = dest.replace("/store/", "");
-                    nav({ to: "/store/$id", params: { id: storeId } });
-                  } else if (dest.startsWith("/job/")) {
-                    const jobId = dest.replace("/job/", "").split("?")[0].split("#")[0];
-                    nav({ to: "/job/$id", params: { id: jobId } });
-                  } else if (dest.startsWith("/my/employer/jobs")) {
-                    nav({ to: "/my/employer/jobs" });
-                  } else if (dest.startsWith("/my/jobs")) {
+
+                  let targetLink = dest || "";
+                  try {
+                    if (targetLink.startsWith("http://") || targetLink.startsWith("https://")) {
+                      const urlObj = new URL(targetLink);
+                      targetLink = urlObj.pathname + urlObj.search + urlObj.hash;
+                    }
+                  } catch { }
+
+                  // Intercept product links
+                  if (targetLink.startsWith("/product/") || targetLink.includes("/product/")) {
+                    const match = targetLink.match(/\/product\/([a-zA-Z0-9_-]+)/);
+                    const prodId = match ? match[1].trim() : targetLink.replace("/product/", "").split("?")[0].split("#")[0].trim();
+
+                    if (!prodId) {
+                      toast.error("This product is no longer available.");
+                      return;
+                    }
+
                     try {
-                      const urlObj = new URL(dest, "http://localhost");
+                      const live = await fetchLiveListingById(prodId);
+                      if (!live || live.unavailable || live.status === "deleted" || live.status === "removed" || (live as any).isDeleted) {
+                        const local = getProduct(prodId);
+                        if (!local) {
+                          markListingDeletedLocally(prodId);
+                          toast.error("This product is no longer available.");
+                          return;
+                        }
+                      } else {
+                        unmarkListingDeletedLocally(prodId);
+                      }
+                      nav({ to: "/product/$id", params: { id: prodId } });
+                    } catch (err) {
+                      console.warn("Product verification warning:", err);
+                      nav({ to: "/product/$id", params: { id: prodId } });
+                    }
+                    return;
+                  }
+
+                  if (targetLink.startsWith("/chat/")) {
+                    const chatId = targetLink.replace("/chat/", "");
+                    nav({ to: "/chat/$id", params: { id: chatId } });
+                  } else if (targetLink.startsWith("/store/")) {
+                    const storeId = targetLink.replace("/store/", "");
+                    nav({ to: "/store/$id", params: { id: storeId } });
+                  } else if (targetLink.startsWith("/job/")) {
+                    const jobId = targetLink.replace("/job/", "").split("?")[0].split("#")[0];
+                    nav({ to: "/job/$id", params: { id: jobId } });
+                  } else if (targetLink.startsWith("/my/employer/jobs")) {
+                    nav({ to: "/my/employer/jobs" });
+                  } else if (targetLink.startsWith("/my/jobs")) {
+                    try {
+                      const urlObj = new URL(targetLink, "http://localhost");
                       const searchId = urlObj.searchParams.get("id") || urlObj.searchParams.get("jobId") || undefined;
                       const searchTab = (urlObj.searchParams.get("tab") as any) || undefined;
                       nav({ to: "/my/jobs", search: { id: searchId, tab: searchTab } as any });
                     } catch {
                       nav({ to: "/my/jobs" as any });
                     }
-                  } else if (dest.startsWith("/")) {
-                    nav({ to: dest as any });
+                  } else if (targetLink.startsWith("/")) {
+                    nav({ to: targetLink as any });
                   } else {
-                    window.location.href = dest;
+                    window.location.href = targetLink;
                   }
                 }}
                 className="mt-4 flex w-full items-center justify-between rounded-full bg-primary px-4 py-3 text-sm font-bold text-primary-foreground shadow-md hover:brightness-110 active:scale-95 transition-all"

@@ -279,6 +279,27 @@ function formatConversationItem(c: any, userId: any) {
     }
   }
 
+  let otherPartyId = otherParticipant?._id ? otherParticipant._id.toString() : (otherParticipant ? otherParticipant.toString() : userId.toString());
+  let otherPartyName = otherParticipant?.profile?.name || otherParticipant?.email || "Omeetso User";
+  let otherPartyAvatar = otherParticipant?.profile?.avatar;
+
+  if (isStore && c.storeId) {
+    const isOwner = c.storeId?.ownerId?.toString() === userId.toString();
+    if (!isOwner) {
+      otherPartyId = c.storeId._id ? c.storeId._id.toString() : c.storeId.toString();
+      otherPartyName = c.storeId.name || otherPartyName;
+      otherPartyAvatar = c.storeId.logo || otherPartyAvatar;
+    }
+  } else if (isJob && c.jobId) {
+    const isEmployer = c.jobId?.employerId?.toString() === userId.toString();
+    if (!isEmployer && c.jobId.companyLogo) {
+      otherPartyAvatar = c.jobId.companyLogo || otherPartyAvatar;
+      if (c.jobId.companyName) {
+        otherPartyName = c.jobId.companyName;
+      }
+    }
+  }
+
   return {
     id: c._id.toString(),
     contextType: isJob ? "JOB" : isStore ? "STORE" : "LISTING",
@@ -289,9 +310,9 @@ function formatConversationItem(c: any, userId: any) {
     salaryText: salaryText,
     listingImage: image,
     otherParty: {
-      id: otherParticipant?._id ? otherParticipant._id.toString() : (otherParticipant ? otherParticipant.toString() : userId.toString()),
-      name: otherParticipant?.profile?.name || otherParticipant?.email || "Omeetso User",
-      avatar: otherParticipant?.profile?.avatar
+      id: otherPartyId,
+      name: otherPartyName,
+      avatar: otherPartyAvatar
     },
     lastMessagePreview: c.lastMessagePreview || "No messages yet",
     lastMessageType: c.lastMessageType || "TEXT",
@@ -316,8 +337,8 @@ export async function getConversationById(req: AuthenticatedUserRequest, res: Re
     const userId = req.user._id;
     const c: any = await Conversation.findById(conversationId)
       .populate("listingId", "title priceInPaise images status")
-      .populate("storeId", "name logo cover")
-      .populate("jobId", "title companyName companyLogo salary")
+      .populate("storeId", "name logo cover ownerId")
+      .populate("jobId", "title companyName companyLogo salary employerId")
       .populate("participantIds", "profile.name profile.avatar email")
       .lean();
 
@@ -358,8 +379,8 @@ export async function getConversations(req: AuthenticatedUserRequest, res: Respo
       status: "ACTIVE"
     })
       .populate("listingId", "title priceInPaise images status")
-      .populate("storeId", "name logo cover")
-      .populate("jobId", "title companyName companyLogo salary")
+      .populate("storeId", "name logo cover ownerId")
+      .populate("jobId", "title companyName companyLogo salary employerId")
       .populate("participantIds", "profile.name profile.avatar email")
       .sort({ lastMessageAt: -1, updatedAt: -1 })
       .lean();

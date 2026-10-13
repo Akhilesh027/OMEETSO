@@ -5,6 +5,7 @@ import { isMuted, isBlocked, isArchived, formatChatTime } from "@/lib/chat";
 import { formatINR } from "@/lib/mock";
 import { useChatContext } from "@/contexts/ChatProvider";
 import { conversationToThread } from "@/lib/chat-adapter";
+import { getCleanAvatar } from "@/lib/avatarSvgs";
 import type { ConversationItem } from "@/api/chat.api";
 
 type Tab = "All" | "Buying" | "Selling" | "Stores" | "Archived";
@@ -154,6 +155,10 @@ function ThreadRow({ t, conv, active }: { t: ReturnType<typeof conversationToThr
     return null;
   })();
 
+  const avatarSrc = t.peerType === "store" && t.peerAvatar
+    ? t.peerAvatar
+    : getCleanAvatar(t.peerAvatar, t.peerName);
+
   return (
     <Link
       to="/chat/$id"
@@ -161,19 +166,22 @@ function ThreadRow({ t, conv, active }: { t: ReturnType<typeof conversationToThr
       className={`flex items-start gap-3 px-3 py-3 transition-colors ${active ? "bg-navy/[0.06]" : "hover:bg-secondary/60"}`}
     >
       <div className="relative shrink-0">
-        {conv?.listingImage && !conv.listingImage.includes("photo-1526738549149") ? (
-          <img src={conv.listingImage} alt="" className="h-10 w-10 rounded-xl object-cover" />
-        ) : t.peerType === "store" ? (
-          <div className="grid h-10 w-10 place-items-center rounded-xl bg-indigo-50 text-indigo-600 dark:bg-indigo-950/40">
-            <StoreIcon className="h-5 w-5" />
+        {t.peerType === "store" && !t.peerAvatar ? (
+          <div className="grid h-10 w-10 place-items-center rounded-full bg-gradient-to-br from-primary to-indigo-800 text-white font-black text-sm uppercase shadow-xs">
+            {t.peerName?.charAt(0) || <StoreIcon className="h-5 w-5" />}
           </div>
         ) : (
-          <div className="grid h-10 w-10 place-items-center rounded-xl bg-secondary text-muted-foreground">
-            <MessageCircle className="h-4 w-4" />
-          </div>
+          <img
+            src={avatarSrc}
+            alt={t.peerName}
+            onError={(e) => {
+              (e.currentTarget as HTMLImageElement).src = getCleanAvatar(null, t.peerName);
+            }}
+            className="h-10 w-10 rounded-full object-cover border border-border shadow-xs"
+          />
         )}
         {t.peerType === "store" && (
-          <span className="absolute -bottom-1 -right-1 grid h-4 w-4 place-items-center rounded-full border-2 border-card bg-navy text-white">
+          <span className="absolute -bottom-0.5 -right-0.5 grid h-4 w-4 place-items-center rounded-full border border-card bg-navy text-white">
             <StoreIcon className="h-2 w-2" />
           </span>
         )}

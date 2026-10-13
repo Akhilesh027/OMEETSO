@@ -37,14 +37,19 @@ function StatusOverlay({ p }: { p: Product }) {
 }
 
 export function ProductCard({
-  p,
+  p: propP,
+  product,
   variant = "grid",
   onPreview,
 }: {
-  p: Product;
+  p?: Product;
+  product?: Product;
   variant?: "grid" | "compact" | "list";
   onPreview?: (p: Product) => void;
 }) {
+  const p = propP || product;
+  if (!p) return null;
+
   const nav = useNavigate();
   const fallbackImg = "https://images.unsplash.com/photo-1526738549149-8e07eca6c147?w=400";
   const imgSrc = p.image || (p as any).coverUrl || (Array.isArray(p.images) && p.images[0]) || fallbackImg;

@@ -1,5 +1,5 @@
 // Omeetso Phase 6 — Account, Trust, Safety, Reviews & Support
-import { logoutUserApi, setUserAccessToken } from "@/api/auth.api";
+import { logoutUserApi, setUserAccessToken, isUserLoggedInSync } from "@/api/auth.api";
 import {
   MALE_AVATAR_DATA_URI,
   FEMALE_AVATAR_DATA_URI,
@@ -484,6 +484,7 @@ export type Notification = {
 export function getCurrentUserId(): string | null {
   if (typeof window === "undefined") return null;
   try {
+    if (!isUserLoggedInSync()) return null;
     const raw = localStorage.getItem("omeetso_user");
     if (!raw) return null;
     const u = JSON.parse(raw);
@@ -499,6 +500,7 @@ function getNotifStorageKey(): string | null {
 }
 
 export function listNotifications(): Notification[] {
+  if (!isUserLoggedInSync()) return [];
   const uid = getCurrentUserId();
   if (!uid) {
     if (typeof window !== "undefined") {
@@ -584,9 +586,13 @@ export function clearCategory(category: NotifCategory) {
   write(key, listNotifications().filter((n) => n.category !== category));
   emitNotifEvent();
 }
-export function unreadCount(): number { return listNotifications().filter((n) => !n.read).length; }
+export function unreadCount(): number {
+  if (!isUserLoggedInSync()) return 0;
+  return listNotifications().filter((n) => !n.read).length;
+}
 
 export function pushNotification(n: Omit<Notification, "time"> & { time?: number }) {
+  if (!isUserLoggedInSync()) return null;
   const uid = getCurrentUserId();
   const key = getNotifStorageKey();
   if (!key) return null;

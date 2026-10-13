@@ -17,7 +17,11 @@
     "build:contracts": "npm run build --workspace=@omeetso/contracts",
     "build:backend": "npm run build --workspace=backend",
     "migrate:images": "npm run migrate:images --workspace=backend",
-    "build": "npm run build:contracts && npm run build --workspaces"
+    "build": "npm run build:contracts && npm run build --workspaces",
+    "android:sync": "npm run cap:sync --workspace=frontend",
+    "android:build": "npm run cap:build:apk --workspace=frontend",
+    "android:open": "npm run cap:android --workspace=frontend",
+    "cap:build:apk": "npm run cap:build:apk --workspace=frontend"
   },
   "dependencies": {
     "@capacitor/android": "^8.5.0",

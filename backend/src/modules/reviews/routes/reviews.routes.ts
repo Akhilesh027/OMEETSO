@@ -13,6 +13,8 @@ export const adminReviewsRouter = Router();
 // Public & Buyer Routes
 reviewsRouter.post("/", createReview);
 reviewsRouter.get("/target/:targetId", getPublicReviews);
+reviewsRouter.patch("/:id/status", updateReviewStatus);
+reviewsRouter.delete("/:id", deleteReview);
 
 // Admin Routes
 adminReviewsRouter.get("/", getAdminReviews);

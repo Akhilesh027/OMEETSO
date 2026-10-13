@@ -159,7 +159,10 @@ const corsOptions: cors.CorsOptions = {
     "Authorization",
     "X-CSRF-Token",
     "Access-Control-Request-Headers",
-    "Access-Control-Request-Method"
+    "Access-Control-Request-Method",
+    "Cache-Control",
+    "Pragma",
+    "Expires"
   ],
   exposedHeaders: ["Set-Cookie", "Authorization"],
   maxAge: 86400
@@ -383,6 +386,8 @@ app.use(`${env.API_PREFIX}/admin/stores`, adminStoresRouter);
 app.use("/api/admin/stores", adminStoresRouter);
 app.use(`${env.API_PREFIX}/chat`, chatRouter);
 app.use(`${env.API_PREFIX}/notifications`, notificationsRouter);
+app.use(`${env.API_PREFIX}/admin/notifications`, notificationsRouter);
+app.use("/api/admin/notifications", notificationsRouter);
 app.use(`${env.API_PREFIX}/safety`, safetyRouter);
 app.use(`${env.API_PREFIX}/support`, supportRouter);
 app.use(`${env.API_PREFIX}/verification`, verificationRouter);

@@ -199,6 +199,7 @@ export async function getPublicStores(req: Request, res: Response, next: NextFun
 
 export async function getStoreById(req: Request, res: Response, next: NextFunction): Promise<void> {
   try {
+    res.setHeader("Cache-Control", "no-store, no-cache, must-revalidate, proxy-revalidate");
     const storeId = (req.params.storeId || req.params.id) as string;
     const isObjectId = /^[0-9a-fA-F]{24}$/.test(storeId || "");
     let store: any = null;
@@ -230,30 +231,31 @@ export async function getStoreById(req: Request, res: Response, next: NextFuncti
       success: true,
       data: {
         id: store._id.toString(),
-        ownerId: store.ownerId.toString(),
+        ownerId: store.ownerId ? store.ownerId.toString() : "",
         name: store.name,
         slug: store.slug,
-        tagline: store.tagline,
-        description: store.description,
-        businessType: store.businessType,
+        tagline: store.tagline || "",
+        description: store.description || "",
+        businessType: store.businessType || "Retailer",
         logo: store.logo,
         cover: store.cover,
         primaryCategory: store.primaryCategory,
-        supportingCategories: store.supportingCategories,
+        supportingCategories: store.supportingCategories || [],
         pincode: store.pincode,
         area: store.area,
         city: store.city,
-        address: store.address,
-        businessMobile: store.businessMobile,
-        email: store.email,
-        website: store.website,
-        gstin: store.gstin || "36AABCU9603R1ZM",
-        workingHours: store.workingHours,
-        delivery: store.delivery,
+        address: store.address || "",
+        businessMobile: store.businessMobile || "",
+        email: store.email || "",
+        website: store.website || "",
+        gstin: store.gstin || "",
+        workingHours: store.workingHours || [],
+        is24x7: Boolean(store.is24x7),
+        delivery: store.delivery || {},
         status: store.status,
-        rating: store.rating,
-        reviewCount: store.reviewCount,
-        followersCount: store.followersCount
+        rating: typeof store.rating === "number" ? store.rating : 0,
+        reviewCount: store.reviewCount || 0,
+        followersCount: store.followersCount || 0
       }
     });
   } catch (error) {
@@ -312,7 +314,15 @@ export async function getStoreListings(req: Request, res: Response, next: NextFu
       }
     }
 
-    if (storeObjectIds.length === 0) {
+    const orConds: any[] = [];
+    if (storeObjectIds.length > 0) {
+      orConds.push({ storeId: { $in: storeObjectIds } });
+    }
+    if (targetStore && targetStore.ownerId) {
+      orConds.push({ sellerId: targetStore.ownerId });
+    }
+
+    if (orConds.length === 0) {
       res.status(200).json({
         success: true,
         data: [],
@@ -321,7 +331,7 @@ export async function getStoreListings(req: Request, res: Response, next: NextFu
       return;
     }
 
-    query.storeId = { $in: storeObjectIds };
+    query.$or = orConds;
 
     const [listings, total] = await Promise.all([
       Listing.find(query)

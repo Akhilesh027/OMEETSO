@@ -1,1 +1,1 @@
-// Migrated to /my/employer/jobs
+// Deprecated - replaced by my.employer.jobs.tsx

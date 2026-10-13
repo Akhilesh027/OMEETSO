@@ -1,7 +1,7 @@
 import { createFileRoute, notFound, Link, useNavigate } from "@tanstack/react-router";
 import { MobileFrame } from "@/components/omeetso/MobileFrame";
-import { emptyStore, type Store } from "@/lib/stores";
-import { listListings, formatINR } from "@/lib/listings";
+import { emptyStore, storeOpenState, defaultWorkingHours, type Store } from "@/lib/stores";
+import { listListings, formatINR, isListingActiveAndPublic } from "@/lib/listings";
 import {
   ShieldCheck, Star, Phone, MessageCircle, Navigation, Store as StoreIcon,
   Package, Sparkles, Share2, Heart, Zap, ExternalLink, Clock, MapPin, CheckCircle2, Copy, ArrowRight,
@@ -12,6 +12,7 @@ import { DEFAULT_SAMPLE_STORES } from "@/lib/sampleStores";
 import { useEffect, useState } from "react";
 import { startConversationApi } from "@/api/chat.api";
 import { serveAdsApi } from "@/api/adCampaigns.api";
+import { getStoreByIdApi } from "@/api/stores.api";
 import { GoogleAdSlot } from "@/components/omeetso/GoogleAdSlot";
 import { toast } from "sonner";
 
@@ -25,18 +26,96 @@ interface StoreSearchParams {
   desc?: string;
 }
 
+export function formatStoreHours(store: Store): string {
+  if (store.is24x7) return "Open 24×7";
+  const hours = store.workingHours;
+  if (!hours || !Array.isArray(hours) || hours.length === 0) {
+    return "Mon–Sat 10:00 AM – 9:30 PM";
+  }
+  const openDays = hours.filter((h) => !h.closed);
+  if (openDays.length === 0) return "Temporarily Closed";
+
+  const formatTime = (timeStr: string) => {
+    if (!timeStr) return "";
+    const [hStr, mStr] = timeStr.split(":");
+    let h = parseInt(hStr, 10);
+    const m = mStr || "00";
+    if (isNaN(h)) return timeStr;
+    const ampm = h >= 12 ? "PM" : "AM";
+    h = h % 12 || 12;
+    return `${h}:${m} ${ampm}`;
+  };
+
+  const first = openDays[0];
+  const last = openDays[openDays.length - 1];
+  const dayRange =
+    openDays.length === 7
+      ? "All Days"
+      : openDays.length === 6 && !hours.find((h) => h.day === "Sun" && !h.closed)
+        ? "Mon–Sat"
+        : openDays.length === 5 && !hours.find((h) => (h.day === "Sat" || h.day === "Sun") && !h.closed)
+          ? "Mon–Fri"
+          : `${first.day}–${last.day}`;
+
+  return `${dayRange} ${formatTime(first.open)} – ${formatTime(first.close)}`;
+}
+
 export const Route = createFileRoute("/store/$id")({
+  staleTime: 0,
+  gcTime: 0,
   validateSearch: (s: Record<string, unknown>): StoreSearchParams => ({
     img: typeof s.img === "string" ? s.img : undefined,
     title: typeof s.title === "string" ? s.title : undefined,
     desc: typeof s.desc === "string" ? s.desc : undefined,
   }),
-  loader: ({ params }) => {
+  loader: async ({ params }) => {
+    const rawId = (params.id || "").trim();
+    if (!rawId) throw notFound();
+
     let s: Store | undefined = undefined;
 
+    // 1. Fetch live store details directly from backend MongoDB
+    try {
+      const res = await getStoreByIdApi(rawId);
+      if (res.success && res.data) {
+        const item = res.data;
+        s = {
+          ...emptyStore(),
+          ...item,
+          id: item.id || item._id || rawId,
+          name: item.name || "Verified Store",
+          tagline: item.tagline || "",
+          description: item.description || "",
+          businessType: item.businessType || "Retail Store",
+          primaryCategory: item.primaryCategory || "general",
+          supportingCategories: item.supportingCategories || [],
+          pincode: item.pincode || "",
+          area: item.area || "",
+          city: item.city || "",
+          address: item.address || "",
+          businessMobile: item.businessMobile || "",
+          email: item.email || "",
+          website: item.website || "",
+          logo: item.logo || "",
+          cover: item.cover || "",
+          workingHours: Array.isArray(item.workingHours) && item.workingHours.length > 0 ? item.workingHours : defaultWorkingHours(),
+          is24x7: Boolean(item.is24x7),
+          rating: typeof item.rating === "number" ? item.rating : 0,
+          reviewCount: typeof item.reviewCount === "number" ? item.reviewCount : 0,
+          followersCount: typeof item.followersCount === "number" ? item.followersCount : 0,
+          status: item.status || "approved",
+          ownerId: item.ownerId || "",
+          slug: item.slug || ""
+        } as any;
+      }
+    } catch {
+      // Continue to local fallbacks if network fails
+    }
+
+    // 2. Sample stores fallback
     if (!s) {
       const sample = DEFAULT_SAMPLE_STORES.find(
-        (st) => st.id === params.id || st.slug === params.id
+        (st) => st.id === rawId || st.slug === rawId
       );
       if (sample) {
         s = {
@@ -66,15 +145,16 @@ export const Route = createFileRoute("/store/$id")({
       }
     }
 
+    // 3. Fallback to localStorage if available (e.g. offline creator preview)
     if (!s) {
       try {
         const localStores: any[] = JSON.parse(localStorage.getItem("omeetso_user_stores") || "[]");
-        const found = localStores.find((st) => st.id === params.id || st._id === params.id || st.slug === params.id);
+        const found = localStores.find((st) => st.id === rawId || st._id === rawId || st.slug === rawId);
         if (found) {
           s = {
             ...emptyStore(),
             ...found,
-            id: found.id || found._id || params.id,
+            id: found.id || found._id || rawId,
             name: found.name || "Verified Store",
             cover: found.cover || found.logo,
             status: "approved" as any
@@ -84,20 +164,7 @@ export const Route = createFileRoute("/store/$id")({
     }
 
     if (!s) {
-      s = {
-        ...emptyStore(),
-        id: params.id,
-        name: "Verified Business Store",
-        primaryCategory: "Retail & Services",
-        area: "Madhapur",
-        city: "Hyderabad",
-        rating: 4.8,
-        reviewCount: 14,
-        followersCount: 0,
-        status: "approved" as any,
-        createdAt: Date.now() - 30 * 86400000,
-        updatedAt: Date.now()
-      };
+      throw notFound();
     }
 
     return { store: s };
@@ -117,7 +184,7 @@ export const Route = createFileRoute("/store/$id")({
 
     const storeName = qTitle || store?.name || "Verified Store";
     const title = `${storeName} — Verified Store on Omeetso`;
-    const description = qDesc || store?.description || `${store?.primaryCategory || "Retail"} store in ${store?.area || store?.city || "Hyderabad"}. Discover verified catalog & offers.`;
+    const description = qDesc || store?.description || `${store?.primaryCategory || "Retail"} store in ${store?.area || store?.city || "Local City"}. Discover verified catalog & offers.`;
 
     return {
       meta: [
@@ -141,13 +208,30 @@ export const Route = createFileRoute("/store/$id")({
     };
   },
   component: StorePage,
-  notFoundComponent: () => <div className="p-8 text-center text-sm font-semibold">Store not found</div>,
+  notFoundComponent: () => (
+    <MobileFrame>
+      <div className="min-h-[60vh] flex flex-col items-center justify-center p-8 text-center space-y-4">
+        <StoreIcon className="h-12 w-12 text-muted-foreground/40" />
+        <h2 className="text-lg font-black">Store Not Found</h2>
+        <p className="text-xs text-muted-foreground max-w-sm">
+          This store is either unpublished, under review, or does not exist.
+        </p>
+        <Link
+          to="/stores"
+          className="px-5 py-2.5 rounded-2xl bg-primary text-primary-foreground font-black text-xs shadow-md"
+        >
+          Browse All Stores
+        </Link>
+      </div>
+    </MobileFrame>
+  ),
 });
 
 const tabs = ["Catalog", "Sponsored Deals", "About Store", "Reviews"] as const;
 
 function StorePage() {
-  const { store } = Route.useLoaderData();
+  const { store: initialStore } = Route.useLoaderData();
+  const [store, setStore] = useState<Store>(initialStore);
   const nav = useNavigate();
   const [tab, setTab] = useState<(typeof tabs)[number]>("Catalog");
   const [apiListings, setApiListings] = useState<any[]>([]);
@@ -159,6 +243,52 @@ function StorePage() {
   const [reviewOpen, setReviewOpen] = useState<boolean>(false);
 
   const search = Route.useSearch();
+
+  // Sync state if loader data changes
+  useEffect(() => {
+    setStore(initialStore);
+    setFollowers(initialStore.followersCount || 0);
+  }, [initialStore]);
+
+  // Client-side refetch to ensure newest live store data
+  useEffect(() => {
+    if (store.id) {
+      getStoreByIdApi(store.id).then((res) => {
+        if (res.success && res.data) {
+          const item = res.data;
+          setStore((prev) => ({
+            ...prev,
+            ...item,
+            id: item.id || item._id || prev.id,
+            name: item.name || prev.name,
+            tagline: item.tagline ?? prev.tagline,
+            description: item.description ?? prev.description,
+            businessType: item.businessType || prev.businessType,
+            primaryCategory: item.primaryCategory || prev.primaryCategory,
+            supportingCategories: item.supportingCategories || prev.supportingCategories,
+            pincode: item.pincode || prev.pincode,
+            area: item.area || prev.area,
+            city: item.city || prev.city,
+            address: item.address || prev.address,
+            businessMobile: item.businessMobile || prev.businessMobile,
+            email: item.email || prev.email,
+            website: item.website || prev.website,
+            logo: item.logo || prev.logo,
+            cover: item.cover || prev.cover,
+            workingHours: Array.isArray(item.workingHours) && item.workingHours.length > 0 ? item.workingHours : prev.workingHours,
+            is24x7: Boolean(item.is24x7),
+            rating: typeof item.rating === "number" ? item.rating : prev.rating,
+            reviewCount: typeof item.reviewCount === "number" ? item.reviewCount : prev.reviewCount,
+            followersCount: typeof item.followersCount === "number" ? item.followersCount : prev.followersCount,
+            ownerId: item.ownerId || (prev as any).ownerId
+          }));
+          if (typeof item.followersCount === "number") {
+            setFollowers(item.followersCount);
+          }
+        }
+      }).catch(() => {});
+    }
+  }, [store.id]);
 
   // Check if current user is following this store
   useEffect(() => {
@@ -185,19 +315,30 @@ function StorePage() {
   useEffect(() => {
     if (search?.img) {
       setCoverSrc(search.img);
+    } else if (store.cover && !store.cover.startsWith("blob:")) {
+      setCoverSrc(store.cover);
     }
-  }, [search?.img]);
+  }, [search?.img, store.cover]);
+
+  useEffect(() => {
+    if (store.logo && !store.logo.startsWith("blob:")) {
+      setLogoSrc(store.logo);
+    }
+  }, [store.logo]);
 
   useEffect(() => {
     setLoadingListings(true);
+    const ownerId = (store as any).ownerId;
+
     // Fetch listings specifically for this store
     Promise.all([
       fetch(`${API_BASE}/stores/${store.id}/listings`).then((r) => r.json()).catch(() => null),
       fetch(`${API_BASE}/listings?storeId=${store.id}`).then((r) => r.json()).catch(() => null),
       (store as any).slug ? fetch(`${API_BASE}/listings?storeId=${(store as any).slug}`).then((r) => r.json()).catch(() => null) : null,
+      ownerId ? fetch(`${API_BASE}/listings?sellerId=${ownerId}`).then((r) => r.json()).catch(() => null) : null,
       fetch(`${API_BASE}/reviews/target/${store.id}`).then((r) => r.json()).catch(() => null),
       serveAdsApi("STORE_BANNER").catch(() => null)
-    ]).then(([sRes, storeListingsRes, slugListingsRes, revRes, adRes]) => {
+    ]).then(([sRes, storeListingsRes, slugListingsRes, ownerListingsRes, revRes, adRes]) => {
       setLoadingListings(false);
       if (revRes?.success && Array.isArray(revRes.data)) {
         setRealReviews(revRes.data);
@@ -207,6 +348,7 @@ function StorePage() {
       if (sRes?.success && Array.isArray(sRes.data)) serverItems.push(...sRes.data);
       if (storeListingsRes?.success && Array.isArray(storeListingsRes.data)) serverItems.push(...storeListingsRes.data);
       if (slugListingsRes?.success && Array.isArray(slugListingsRes.data)) serverItems.push(...slugListingsRes.data);
+      if (ownerListingsRes?.success && Array.isArray(ownerListingsRes.data)) serverItems.push(...ownerListingsRes.data);
 
       // Local storage listings attached specifically to this store
       const allLocalListings = listListings();
@@ -219,6 +361,7 @@ function StorePage() {
       // Merge and deduplicate by ID - strictly actual products belonging to this store
       const mergedMap = new Map<string, any>();
       for (const item of serverItems) {
+        if (!isListingActiveAndPublic(item)) continue;
         const id = item.id || item._id;
         if (id) {
           mergedMap.set(String(id), {
@@ -227,7 +370,7 @@ function StorePage() {
             price: item.price || (item.priceInPaise ? item.priceInPaise / 100 : 0),
             originalPrice: Math.round((item.price || (item.priceInPaise ? item.priceInPaise / 100 : 0)) * 1.15),
             image: item.coverUrl || (Array.isArray(item.images) && item.images[item.coverIndex || 0]) || item.images?.[0] || "https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=600",
-            location: `${item.area || store.area || "Madhapur"}, ${item.city || store.city || "Hyderabad"}`,
+            location: `${item.area || store.area || ""}${item.city || store.city ? `, ${item.city || store.city}` : ""}`,
             time: "Just now",
             category: item.category || item.categoryId || store.primaryCategory || "General",
             condition: item.condition || "Like New",
@@ -237,13 +380,14 @@ function StorePage() {
       }
 
       for (const l of localStoreListings) {
+        if (!isListingActiveAndPublic(l)) continue;
         mergedMap.set(String(l.id), {
           id: String(l.id),
           title: l.title,
           price: l.price || 0,
           originalPrice: Math.round((l.price || 0) * 1.15),
           image: l.images?.[l.cover || 0] || l.images?.[0] || "https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=600",
-          location: `${l.area || store.area || "Madhapur"}, ${l.city || store.city || "Hyderabad"}`,
+          location: `${l.area || store.area || ""}${l.city || store.city ? `, ${l.city || store.city}` : ""}`,
           time: "Just now",
           category: l.category || store.primaryCategory || "General",
           condition: l.condition || "Like New",
@@ -257,7 +401,7 @@ function StorePage() {
         setSponsoredAd(adRes.data[0]);
       }
     });
-  }, [store.id, (store as any).slug, store.area, store.city, store.primaryCategory]);
+  }, [store.id, (store as any).slug, (store as any).ownerId, store.area, store.city, store.primaryCategory]);
 
   const toggleFollow = async () => {
     const isNowFollowing = !following;
@@ -304,7 +448,7 @@ function StorePage() {
 
     const shareData = {
       title: `${store.name} on Omeetso`,
-      text: `Check out ${store.name} (${store.primaryCategory}) in ${store.area}, ${store.city} on Omeetso!\n${shareUrl}`,
+      text: `Check out ${store.name} (${store.primaryCategory}) in ${store.area ? `${store.area}, ` : ""}${store.city} on Omeetso!\n${shareUrl}`,
       url: shareUrl
     };
 
@@ -317,6 +461,8 @@ function StorePage() {
       toast.success("Store link copied to clipboard!");
     }
   };
+
+  const openInfo = storeOpenState(store);
 
   return (
     <MobileFrame>
@@ -386,12 +532,12 @@ function StorePage() {
                       <h1 className="text-xl font-black tracking-tight text-foreground">{store.name}</h1>
                       <ShieldCheck className="h-4 w-4 text-emerald-600 shrink-0" />
                     </div>
-                    <p className="text-xs font-bold text-primary">
-                      {store.primaryCategory || "Retail Store"} • {store.area}, {store.city}
+                    <p className="text-xs font-bold text-primary capitalize">
+                      {store.primaryCategory || "Retail Store"} • {store.area ? `${store.area}, ` : ""}{store.city || "Local"}
                     </p>
-                    <p className="text-xs font-semibold text-emerald-600 flex items-center justify-center gap-1 mt-1">
+                    <p className={`text-xs font-semibold flex items-center justify-center gap-1 mt-1 ${openInfo.open ? "text-emerald-600" : "text-rose-500"}`}>
                       <Clock className="h-3.5 w-3.5" />
-                      <span>Open Now</span> • 10:00 AM – 9:30 PM
+                      <span>{openInfo.label}</span> • {formatStoreHours(store)}
                     </p>
                   </div>
                 </div>
@@ -405,7 +551,7 @@ function StorePage() {
                 {/* Key Metrics Bar */}
                 <div className="grid grid-cols-4 divide-x divide-border rounded-2xl bg-surface-2 py-3 border border-border text-center shadow-xs">
                   <Stat k="Products" v={String(apiListings.length)} />
-                  <Stat k="Rating" v={store.rating ? `★ ${store.rating}` : "No Ratings"} />
+                  <Stat k="Rating" v={store.rating && store.rating > 0 ? `★ ${store.rating.toFixed(1)}` : "New Store"} />
                   <Stat k="Reviews" v={String(store.reviewCount || 0)} />
                   <Stat k="Followers" v={String(followers)} />
                 </div>
@@ -440,10 +586,27 @@ function StorePage() {
                   >
                     Chat
                   </ActionBtn>
-                  <ActionBtn icon={Phone} variant="secondary" onClick={() => window.open(`tel:${store.businessMobile || "9876543210"}`)}>
+                  <ActionBtn
+                    icon={Phone}
+                    variant="secondary"
+                    onClick={() => {
+                      if (store.businessMobile) {
+                        window.open(`tel:${store.businessMobile}`);
+                      } else {
+                        toast.info("No phone number provided for this store");
+                      }
+                    }}
+                  >
                     Call
                   </ActionBtn>
-                  <ActionBtn icon={Navigation} variant="secondary" onClick={() => window.open(`https://maps.google.com/?q=${encodeURIComponent(store.address || `${store.name} ${store.area} ${store.city}`)}`)}>
+                  <ActionBtn
+                    icon={Navigation}
+                    variant="secondary"
+                    onClick={() => {
+                      const dest = store.address || `${store.name} ${store.area || ""} ${store.city || ""}`;
+                      window.open(`https://maps.google.com/?q=${encodeURIComponent(dest)}`);
+                    }}
+                  >
                     Map
                   </ActionBtn>
                   <ActionBtn icon={Share2} variant="secondary" onClick={handleShareStore}>
@@ -458,12 +621,12 @@ function StorePage() {
                   Store Info & Business Details
                 </h3>
                 <div className="space-y-2">
-                  <p className="flex justify-between py-0.5"><span className="text-muted-foreground font-semibold">Category:</span> <span className="font-extrabold text-foreground">{store.primaryCategory}</span></p>
-                  <p className="flex justify-between py-0.5"><span className="text-muted-foreground font-semibold">Business Type:</span> <span className="font-extrabold text-foreground">{store.businessType || "Authorized Showroom"}</span></p>
-                  <p className="flex justify-between py-0.5"><span className="text-muted-foreground font-semibold">Area:</span> <span className="font-extrabold text-foreground">{store.area}, {store.city}</span></p>
-                  <p className="flex justify-between py-0.5"><span className="text-muted-foreground font-semibold">Pincode:</span> <span className="font-extrabold text-foreground">{store.pincode}</span></p>
-                  <p className="flex justify-between py-0.5"><span className="text-muted-foreground font-semibold">Business Contact:</span> <span className="font-extrabold text-primary">{store.businessMobile || "+91 98765 43210"}</span></p>
-                  <p className="flex justify-between py-0.5"><span className="text-muted-foreground font-semibold">Store Hours:</span> <span className="font-extrabold text-emerald-600">Mon–Sat 10:00 AM – 9:30 PM</span></p>
+                  <p className="flex justify-between py-0.5"><span className="text-muted-foreground font-semibold">Category:</span> <span className="font-extrabold text-foreground capitalize">{store.primaryCategory || "General"}</span></p>
+                  <p className="flex justify-between py-0.5"><span className="text-muted-foreground font-semibold">Business Type:</span> <span className="font-extrabold text-foreground">{store.businessType || "Retail Store"}</span></p>
+                  <p className="flex justify-between py-0.5"><span className="text-muted-foreground font-semibold">Area:</span> <span className="font-extrabold text-foreground">{store.area ? `${store.area}, ` : ""}{store.city || "—"}</span></p>
+                  <p className="flex justify-between py-0.5"><span className="text-muted-foreground font-semibold">Pincode:</span> <span className="font-extrabold text-foreground">{store.pincode || "—"}</span></p>
+                  <p className="flex justify-between py-0.5"><span className="text-muted-foreground font-semibold">Business Contact:</span> <span className="font-extrabold text-primary">{store.businessMobile || "Not provided"}</span></p>
+                  <p className="flex justify-between py-0.5"><span className="text-muted-foreground font-semibold">Store Hours:</span> <span className={`font-extrabold ${openInfo.open ? "text-emerald-600" : "text-amber-600"}`}>{formatStoreHours(store)}</span></p>
                 </div>
 
                 {store.description && (
@@ -581,7 +744,7 @@ function StorePage() {
                       </span>
                       <h3 className="text-base font-black mt-3">Special In-Store Buyer Discounts</h3>
                       <p className="text-xs text-slate-300 mt-1 leading-relaxed">
-                        Visit store directly in {store.area} or send a buyer quote request on Omeetso for custom discounts.
+                        Visit store directly in {store.area ? `${store.area}, ` : ""}{store.city || "our showroom"} or send a buyer quote request on Omeetso for custom discounts.
                       </p>
                       <button
                         onClick={handleShareStore}
@@ -621,12 +784,12 @@ function StorePage() {
                       Store Overview & Contact Information
                     </h3>
                     <div className="space-y-2.5 text-xs">
-                      <p className="flex justify-between py-1 border-b border-border/40"><span className="text-muted-foreground font-semibold">Category:</span> <span className="font-extrabold text-foreground">{store.primaryCategory}</span></p>
-                      <p className="flex justify-between py-1 border-b border-border/40"><span className="text-muted-foreground font-semibold">Business Type:</span> <span className="font-extrabold text-foreground">{store.businessType || "Authorized Showroom"}</span></p>
-                      <p className="flex justify-between py-1 border-b border-border/40"><span className="text-muted-foreground font-semibold">Area:</span> <span className="font-extrabold text-foreground">{store.area}, {store.city}</span></p>
-                      <p className="flex justify-between py-1 border-b border-border/40"><span className="text-muted-foreground font-semibold">Pincode:</span> <span className="font-extrabold text-foreground">{store.pincode}</span></p>
-                      <p className="flex justify-between py-1 border-b border-border/40"><span className="text-muted-foreground font-semibold">Mobile:</span> <span className="font-extrabold text-primary">{store.businessMobile || "+91 98765 43210"}</span></p>
-                      <p className="flex justify-between py-1"><span className="text-muted-foreground font-semibold">Operating Hours:</span> <span className="font-extrabold text-emerald-600">Mon–Sat 10:00 AM – 9:30 PM</span></p>
+                      <p className="flex justify-between py-1 border-b border-border/40"><span className="text-muted-foreground font-semibold">Category:</span> <span className="font-extrabold text-foreground capitalize">{store.primaryCategory || "General"}</span></p>
+                      <p className="flex justify-between py-1 border-b border-border/40"><span className="text-muted-foreground font-semibold">Business Type:</span> <span className="font-extrabold text-foreground">{store.businessType || "Retail Store"}</span></p>
+                      <p className="flex justify-between py-1 border-b border-border/40"><span className="text-muted-foreground font-semibold">Area:</span> <span className="font-extrabold text-foreground">{store.area ? `${store.area}, ` : ""}{store.city || "—"}</span></p>
+                      <p className="flex justify-between py-1 border-b border-border/40"><span className="text-muted-foreground font-semibold">Pincode:</span> <span className="font-extrabold text-foreground">{store.pincode || "—"}</span></p>
+                      <p className="flex justify-between py-1 border-b border-border/40"><span className="text-muted-foreground font-semibold">Mobile:</span> <span className="font-extrabold text-primary">{store.businessMobile || "Not provided"}</span></p>
+                      <p className="flex justify-between py-1"><span className="text-muted-foreground font-semibold">Operating Hours:</span> <span className={`font-extrabold ${openInfo.open ? "text-emerald-600" : "text-amber-600"}`}>{formatStoreHours(store)}</span></p>
                     </div>
 
                     {store.description && (
@@ -651,7 +814,7 @@ function StorePage() {
                   <div className="space-y-4">
                     <div className="rounded-3xl bg-card p-6 border border-border text-center space-y-3 shadow-xs">
                       <Star className="h-10 w-10 text-amber-500 mx-auto fill-amber-500" />
-                      <h3 className="text-lg font-black">{store.rating ? `${store.rating} out of 5 Stars` : "No Ratings Yet"}</h3>
+                      <h3 className="text-lg font-black">{store.rating && store.rating > 0 ? `${store.rating.toFixed(1)} out of 5 Stars` : "No Ratings Yet"}</h3>
                       <p className="text-xs text-muted-foreground">Based on {store.reviewCount || 0} verified buyer ratings on Omeetso.</p>
                       <button
                         onClick={() => setReviewOpen(true)}

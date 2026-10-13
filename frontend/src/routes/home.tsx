@@ -18,7 +18,7 @@ import { CATEGORIES, PRODUCTS, STORES, getAd, formatINR } from "@/lib/mock";
 import { getRecentlyViewed } from "@/lib/saved";
 import { cn } from "@/lib/utils";
 
-import { fetchLivePublicListings, listListings } from "@/lib/listings";
+import { fetchLivePublicListings, listListings, isListingActiveAndPublic } from "@/lib/listings";
 import { serveAdsApi } from "@/api/adCampaigns.api";
 import { API_BASE } from "@/config/api";
 
@@ -583,7 +583,9 @@ function Home() {
         if (items && items.length > 0) {
           const userLocationObj = loc ? { area: loc.area, pincode: loc.pincode, city: activeCity } : undefined;
 
-          const mapped = items.map((item: any) => {
+          const mapped = items
+            .filter((item: any) => isListingActiveAndPublic(item))
+            .map((item: any) => {
             const calculatedDist = calculateDistanceBetweenLocations(
               userLocationObj,
               { area: item.area || item.location, pincode: item.pincode, city: item.city }
@@ -825,6 +827,7 @@ function Home() {
   const organic = useMemo(() => {
     const activeCity = resolveCityFromLocation(loc) || loc?.city;
     const local = listListings().filter((item) => {
+      if (!isListingActiveAndPublic(item)) return false;
       if (!activeCity) return true;
       const itemCity = resolveCityFromLocation(item) || item.city;
       return !itemCity || itemCity.toLowerCase() === activeCity.toLowerCase();

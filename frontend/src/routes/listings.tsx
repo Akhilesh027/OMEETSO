@@ -5,7 +5,7 @@ import { LocationTopBar } from "@/components/omeetso/TopBar";
 import { BottomNav } from "@/components/omeetso/BottomNav";
 import { EmptyState } from "@/components/omeetso/EmptyState";
 import { ListingCard } from "@/components/sell/ListingCard";
-import { listListings, listDrafts, getAnalytics, fetchLiveUserListings, subscribe, type ListingStatus, type Listing, timeAgo } from "@/lib/listings";
+import { listListings, listDrafts, getAnalytics, fetchLiveUserListings, subscribe, type ListingStatus, type Listing, timeAgo, isListingSold } from "@/lib/listings";
 import { Package, Plus } from "lucide-react";
 
 export const Route = createFileRoute("/listings")({
@@ -18,26 +18,28 @@ const TABS: { key: string; label: string; match: (l: Listing) => boolean }[] = [
     key: "active",
     label: "Active",
     match: (l) =>
-      l.status === "active" ||
+      !isListingSold(l) &&
+      (l.status === "active" ||
       l.status === "approved" ||
       l.status === "APPROVED" ||
       l.status === "paused" ||
-      l.status === "requires_changes",
+      l.status === "requires_changes"),
   },
   {
     key: "review",
     label: "Under Review",
     match: (l) =>
-      l.status === "under_review" ||
+      !isListingSold(l) &&
+      (l.status === "under_review" ||
       l.status === "submitted" ||
       l.status === "pending_review" ||
       l.status === "SUBMITTED" ||
-      l.status === "PENDING_REVIEW",
+      l.status === "PENDING_REVIEW"),
   },
   { key: "drafts", label: "Drafts", match: () => false },
-  { key: "sold", label: "Sold", match: (l) => l.status === "sold" || l.status === "SOLD" || (l as any).sold === true || (l as any).isSold === true },
-  { key: "expired", label: "Expired", match: (l) => l.status === "expired" || l.status === "EXPIRED" },
-  { key: "rejected", label: "Rejected", match: (l) => l.status === "rejected" || l.status === "REJECTED" },
+  { key: "sold", label: "Sold", match: (l) => isListingSold(l) || l.status === "sold" || l.status === "SOLD" || (l as any).sold === true || (l as any).isSold === true },
+  { key: "expired", label: "Expired", match: (l) => !isListingSold(l) && (l.status === "expired" || l.status === "EXPIRED") },
+  { key: "rejected", label: "Rejected", match: (l) => !isListingSold(l) && (l.status === "rejected" || l.status === "REJECTED") },
 ];
 
 function MyListings() {

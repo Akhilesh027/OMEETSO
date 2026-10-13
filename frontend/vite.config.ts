@@ -37,7 +37,11 @@ export default defineConfig({
   },
   plugins: [
     crawlerOpenGraphPlugin(),
-    TanStackRouterVite({ target: "react", autoCodeSplitting: false }),
+    TanStackRouterVite({
+      target: "react",
+      autoCodeSplitting: false,
+      routeFileIgnorePattern: ".*employer-jobs.*",
+    }),
     react(),
     tailwindcss(),
   ],

@@ -371,11 +371,20 @@ function Conversation() {
               className="flex min-w-0 flex-1 items-center gap-2.5 rounded-xl px-1 py-1 hover:bg-secondary/40 transition-colors"
             >
               <div className="relative shrink-0">
-                <img
-                  src={getCleanAvatar(thread.peerAvatar, thread.peerName)}
-                  alt=""
-                  className="h-9 w-9 rounded-full object-cover shrink-0"
-                />
+                {thread.peerType === "store" && !thread.peerAvatar ? (
+                  <div className="grid h-9 w-9 place-items-center rounded-full bg-gradient-to-br from-primary to-indigo-800 text-white font-black text-xs uppercase shadow-xs shrink-0">
+                    {thread.peerName?.charAt(0) || <StoreIcon className="h-4 w-4" />}
+                  </div>
+                ) : (
+                  <img
+                    src={thread.peerType === "store" && thread.peerAvatar ? thread.peerAvatar : getCleanAvatar(thread.peerAvatar, thread.peerName)}
+                    alt={thread.peerName}
+                    onError={(e) => {
+                      (e.currentTarget as HTMLImageElement).src = getCleanAvatar(null, thread.peerName);
+                    }}
+                    className="h-9 w-9 rounded-full object-cover shrink-0 border border-border"
+                  />
+                )}
                 {isPeerOnline && thread.peerType !== "store" && (
                   <span className="absolute -right-0.5 -top-0.5 h-2.5 w-2.5 rounded-full border-2 border-card bg-emerald-500" />
                 )}
@@ -504,15 +513,25 @@ function Conversation() {
                   <Wrench className="h-3.5 w-3.5" /> Service
                 </Link>
               ) : (
-                !listingUnavailable && thread?.role !== "selling" && (
+                <div className="flex items-center gap-1.5 shrink-0">
                   <button
                     type="button"
-                    onClick={() => setOfferOpen(true)}
-                    className="flex items-center gap-1 rounded-full border border-border px-3 py-1.5 text-[11px] font-bold hover:bg-secondary transition-colors shrink-0"
+                    onClick={() => setReviewOpen(true)}
+                    className="flex items-center gap-1 rounded-full bg-amber-500/10 border border-amber-500/30 px-2.5 py-1.5 text-[11px] font-bold text-amber-700 hover:bg-amber-500 hover:text-white transition-colors shrink-0"
+                    title="Leave a Review"
                   >
-                    <HandCoins className="h-3.5 w-3.5" /> Offer
+                    <Star className="h-3.5 w-3.5 fill-amber-400 text-amber-500" /> Review
                   </button>
-                )
+                  {!listingUnavailable && thread?.role !== "selling" && (
+                    <button
+                      type="button"
+                      onClick={() => setOfferOpen(true)}
+                      className="flex items-center gap-1 rounded-full border border-border px-3 py-1.5 text-[11px] font-bold hover:bg-secondary transition-colors shrink-0"
+                    >
+                      <HandCoins className="h-3.5 w-3.5" /> Offer
+                    </button>
+                  )}
+                </div>
               )}
             </div>
           )}
@@ -644,11 +663,21 @@ function Conversation() {
                         )}
 
                         {status === "ACCEPTED" && (
-                          <div className="mt-2 border-t border-border/60 pt-2 flex justify-between items-center text-xs">
+                          <div className="mt-2 border-t border-border/60 pt-2 flex flex-wrap justify-between items-center gap-2 text-xs">
                             <span className="font-semibold text-emerald-700">✓ Offer Accepted</span>
-                            <Link to="/transaction/$offerId" params={{ offerId }} className="font-bold text-navy underline">
-                              View Settlement →
-                            </Link>
+                            <div className="flex items-center gap-2">
+                              <button
+                                type="button"
+                                onClick={() => setReviewOpen(true)}
+                                className="flex items-center gap-1 rounded-full bg-amber-500/10 border border-amber-500/30 px-2.5 py-1 text-[11px] font-bold text-amber-700 hover:bg-amber-500 hover:text-white transition-colors"
+                              >
+                                <Star className="h-3 w-3 fill-amber-400 text-amber-500" />
+                                Rate & Review
+                              </button>
+                              <Link to="/transaction/$offerId" params={{ offerId }} className="font-bold text-navy underline">
+                                View Settlement →
+                              </Link>
+                            </div>
                           </div>
                         )}
                       </div>
@@ -798,6 +827,7 @@ function Conversation() {
           onArchive={doArchive} onBlock={doBlockToggle} onReport={() => { setMenuOpen(false); setReportOpen(true); }}
           onClear={() => { setMenuOpen(false); setConfirmClear(true); }}
           onDelete={() => { setMenuOpen(false); setConfirmDelete(true); }}
+          onReview={() => { setMenuOpen(false); setReviewOpen(true); }}
         />
         <ConfirmSheet
           open={confirmClear} onClose={() => setConfirmClear(false)}
@@ -818,6 +848,10 @@ function Conversation() {
           targetType={thread.peerType === "store" ? "STORE" : "SELLER"}
           targetName={thread.peerName}
           listingId={thread.productId}
+          listingTitle={conversation?.listingTitle}
+          onSuccess={() => {
+            sendTextMessage(id, "⭐ I just submitted a verified rating & review for our deal!");
+          }}
         />
         </div>
       </div>
@@ -827,14 +861,14 @@ function Conversation() {
 
 function MoreMenu({
   open, onClose, thread, muted, archived, blocked, isJob, isService,
-  onMute, onUnmute, onArchive, onBlock, onReport, onClear, onDelete,
+  onMute, onUnmute, onArchive, onBlock, onReport, onClear, onDelete, onReview,
 }: {
   open: boolean; onClose: () => void;
   thread: Thread; muted: boolean; archived: boolean; blocked: boolean;
   isJob?: boolean; isService?: boolean;
   onMute: (h: number | "always") => void; onUnmute: () => void;
   onArchive: () => void; onBlock: () => void; onReport: () => void;
-  onClear: () => void; onDelete: () => void;
+  onClear: () => void; onDelete: () => void; onReview?: () => void;
 }) {
   return (
     <BottomSheet open={open} onClose={onClose} title="Chat options">
@@ -844,6 +878,11 @@ function MoreMenu({
         {!isJob && !isService && thread.productId && (
           <Row icon={Package} label="View product" to="/product/$id" params={{ id: String(thread.productId) }} onNav={onClose} />
         )}
+        <Row
+          icon={Star}
+          label={thread.peerType === "store" ? "Rate & Review Store" : "Rate & Review Seller"}
+          onClick={onReview}
+        />
         <Row icon={Search} label="Search in conversation" onClick={() => { toast("Message search coming soon"); onClose(); }} />
         {muted ? (
           <Row icon={Bell} label="Unmute notifications" onClick={onUnmute} />

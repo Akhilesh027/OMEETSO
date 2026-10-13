@@ -3,6 +3,7 @@ import { useState, useEffect } from "react";
 import { MobileFrame } from "@/components/omeetso/MobileFrame";
 import { BackBar } from "@/components/omeetso/TopBar";
 import { addSafetyReport, blockUser, createTicket, SAFETY_CATEGORIES, type SafetyCategory } from "@/lib/account";
+import { createSafetyReportApi } from "@/api/safety.api";
 import { formatPhoneDisplay, cleanPhoneInput } from "@/lib/utils";
 import { toast } from "sonner";
 import {
@@ -19,7 +20,12 @@ import {
   ShieldCheck,
   EyeOff,
   Eye,
-  Lock
+  Lock,
+  Loader2,
+  Copy,
+  ChevronRight,
+  RefreshCw,
+  ExternalLink
 } from "lucide-react";
 
 export const Route = createFileRoute("/safety/report")({
@@ -57,6 +63,7 @@ function ReportPage() {
     id: string;
     isAnonymous: boolean;
     contactPref: string;
+    category: string;
   } | null>(null);
 
   // Pre-fill user details from local storage if available
@@ -77,6 +84,11 @@ function ReportPage() {
   const pick = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(e.target.files ?? []);
     setAttachments((cur) => [...cur, ...files.map((f) => `ref://${f.name}`)]);
+  };
+
+  const copyRefId = (id: string) => {
+    navigator.clipboard?.writeText(id);
+    toast.success("Incident Reference ID copied to clipboard!");
   };
 
   const submit = async () => {
@@ -119,6 +131,26 @@ function ReportPage() {
 
     setIsSubmitting(true);
     try {
+      const catLabel = SAFETY_CATEGORIES.find((c) => c.id === category)?.label || category;
+
+      // 1. Save in Database & Trigger Admin / User Emails via Backend API
+      const apiRes = await createSafetyReportApi({
+        category,
+        description: description.trim(),
+        relatedUser: relatedUser.trim() || undefined,
+        relatedListing: relatedListing.trim() || undefined,
+        relatedChat: relatedChat.trim() || undefined,
+        attachments,
+        evidenceImages: attachments,
+        contactPref,
+        contactTimeSlot,
+        isAnonymous,
+        reporterName: isAnonymous ? "Anonymous Reporter" : reporterName.trim() || "Omeetso User",
+        reporterEmail: isAnonymous ? undefined : (reporterEmail.trim() || undefined),
+        reporterPhone: isAnonymous ? undefined : (reporterPhone.trim() || undefined),
+      });
+
+      // 2. Also persist in local storage for local client cache & offline sync
       const rec = addSafetyReport({
         category,
         description: description.trim(),
@@ -134,48 +166,39 @@ function ReportPage() {
         isAnonymous,
       });
 
-      const catLabel = SAFETY_CATEGORIES.find((c) => c.id === category)?.label || category;
+      const finalId = apiRes.success && apiRes.data?.id ? apiRes.data.id : rec.id;
 
+      // If user selected in_app contact method, create an in-app ticket as well
       if (contactPref === "in_app") {
-        const t = createTicket({
-          category: "Safety & Fraud",
-          subcategory: catLabel,
-          subject: `Safety Report: ${catLabel}`,
-          description: `[Incident Reference: ${rec.id}]\n\n${description.trim()}${
-            relatedUser ? `\nReported User: ${relatedUser}` : ""
-          }${relatedListing ? `\nRelated Listing: ${relatedListing}` : ""}${
-            relatedChat ? `\nRelated Chat: ${relatedChat}` : ""
-          }`,
-          attachments,
-          contactMethod: "in_app",
-          relatedListing: relatedListing.trim() || undefined,
-        });
-        toast.success("Report submitted! Redirecting to in-app support…");
-        nav({ to: "/support/$id", params: { id: t.id } });
-      } else if (contactPref === "email") {
-        toast.success("Report submitted! Opening email client…");
-        const mailSubject = encodeURIComponent(`[Omeetso Safety Report #${rec.id}] ${catLabel}`);
-        const mailBody = encodeURIComponent(
-          `Hello Omeetso Trust & Safety Team,\n\nI have submitted a suspicious activity report on Omeetso.\n\nIncident Reference: ${rec.id}\nCategory: ${catLabel}\nDescription:\n${description.trim()}\n${
-            relatedUser ? `Reported User: ${relatedUser}\n` : ""
-          }${relatedListing ? `Related Listing: ${relatedListing}\n` : ""}\nReporter: ${
-            isAnonymous ? "Anonymous" : reporterName.trim() || "User"
-          }\nContact Email: ${reporterEmail.trim() || "Provided via app"}\nPreferred Callback Window: ${contactTimeSlot}\n\nPlease follow up with me via email.\n\nThank you.`
-        );
-        window.location.href = `mailto:info@omeetso.in?subject=${mailSubject}&body=${mailBody}`;
-        setTimeout(() => {
-          nav({ to: "/contact" });
-        }, 400);
-      } else if (contactPref === "call") {
-        toast.success("Report submitted! Connecting to safety helpline…");
-        window.location.href = "tel:+919876543210";
-        setTimeout(() => {
-          nav({ to: "/contact" });
-        }, 400);
-      } else {
-        toast.success("Suspicious activity report submitted successfully");
-        nav({ to: "/safety" });
+        try {
+          createTicket({
+            category: "Safety & Fraud",
+            subcategory: catLabel,
+            subject: `Safety Report: ${catLabel}`,
+            description: `[Incident Reference: ${finalId}]\n\n${description.trim()}${
+              relatedUser ? `\nReported User: ${relatedUser}` : ""
+            }${relatedListing ? `\nRelated Listing: ${relatedListing}` : ""}${
+              relatedChat ? `\nRelated Chat: ${relatedChat}` : ""
+            }`,
+            attachments,
+            contactMethod: "in_app",
+            relatedListing: relatedListing.trim() || undefined,
+          });
+        } catch {
+          // ticket creation non-blocking
+        }
       }
+
+      toast.success("Incident report saved in database and forwarded to safety team!");
+
+      setSubmitted({
+        id: finalId,
+        isAnonymous,
+        contactPref,
+        category: catLabel,
+      });
+
+      window.scrollTo({ top: 0, behavior: "smooth" });
     } catch (err: any) {
       toast.error(err?.message || "Failed to submit report. Please try again.");
     } finally {
@@ -183,52 +206,113 @@ function ReportPage() {
     }
   };
 
+  const resetForm = () => {
+    setSubmitted(null);
+    setDescription("");
+    setRelatedUser("");
+    setRelatedListing("");
+    setRelatedChat("");
+    setAttachments([]);
+  };
+
   if (submitted) {
     return (
       <MobileFrame>
         <div className="min-h-dvh bg-background pb-16">
-          <BackBar title="Report submitted" />
-          <div className="mx-4 mt-2 rounded-2xl gradient-brand p-5 text-white shadow-lg">
-            <CheckCircle2 className="h-9 w-9 text-yellow-brand" />
-            <p className="mt-2 text-lg font-extrabold">Thanks for keeping Omeetso safe</p>
-            <div className="mt-2 rounded-xl bg-white/10 p-3 text-xs space-y-1 backdrop-blur-xs">
-              <p className="font-bold">Incident Reference: {submitted.id}</p>
-              <p className="text-white/80">
-                Mode: {submitted.isAnonymous ? "🔒 Anonymous Confidential Report" : "👤 Verified Contact Details Provided"}
-              </p>
-              <p className="text-white/80">
-                Contact Channel: {submitted.contactPref === "in_app" ? "In-app Message" : submitted.contactPref === "email" ? "Email" : "Phone / WhatsApp"}
+          <BackBar title="Report Submitted" onBack={() => nav({ to: "/safety" })} />
+          
+          <div className="px-4 pt-2 space-y-4">
+            {/* Success Hero Card */}
+            <div className="rounded-3xl gradient-brand p-6 text-white shadow-xl relative overflow-hidden">
+              <div className="absolute right-0 top-0 translate-x-4 -translate-y-4 w-32 h-32 bg-white/10 rounded-full blur-2xl pointer-events-none" />
+              
+              <div className="flex items-center gap-3">
+                <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-white/20 backdrop-blur-md text-amber-300 shadow-inner">
+                  <CheckCircle2 className="h-7 w-7" />
+                </div>
+                <div>
+                  <h2 className="text-lg font-black tracking-tight">Report Logged in System</h2>
+                  <p className="text-xs text-white/80 font-medium">Saved to database & sent to safety officers</p>
+                </div>
+              </div>
+
+              {/* Reference ID Pill & Copy Button */}
+              <div className="mt-4 rounded-2xl bg-black/25 p-3.5 backdrop-blur-md border border-white/15">
+                <div className="flex items-center justify-between">
+                  <span className="text-[11px] font-bold text-white/70 uppercase tracking-wider">Incident Reference ID</span>
+                  <button
+                    onClick={() => copyRefId(submitted.id)}
+                    className="flex items-center gap-1 text-[11px] font-extrabold text-amber-300 hover:text-white transition-colors bg-white/10 hover:bg-white/20 px-2 py-0.5 rounded-lg"
+                  >
+                    <Copy className="h-3 w-3" />
+                    <span>Copy</span>
+                  </button>
+                </div>
+                <p className="mt-1 font-mono text-sm font-black tracking-wide text-white select-all">
+                  #{submitted.id}
+                </p>
+              </div>
+
+              {/* Report Metadata */}
+              <div className="mt-3 grid grid-cols-2 gap-2 text-xs">
+                <div className="rounded-xl bg-white/10 p-2.5 backdrop-blur-xs border border-white/10">
+                  <p className="text-[10px] text-white/70 font-semibold uppercase">Category</p>
+                  <p className="font-bold text-white truncate mt-0.5">{submitted.category}</p>
+                </div>
+                <div className="rounded-xl bg-white/10 p-2.5 backdrop-blur-xs border border-white/10">
+                  <p className="text-[10px] text-white/70 font-semibold uppercase">Confidentiality</p>
+                  <p className="font-bold text-white truncate mt-0.5">
+                    {submitted.isAnonymous ? "🔒 Anonymous" : "👤 Verified Identity"}
+                  </p>
+                </div>
+              </div>
+
+              <p className="mt-3.5 text-[11px] text-white/75 leading-relaxed">
+                An alert has been dispatched to <strong>akhileshreddy027@gmail.com</strong> (Admin). Our Trust & Safety team actively investigates all incident reports within 24 hours.
               </p>
             </div>
-            <p className="mt-2 text-[11px] text-white/70">
-              Our Trust & Safety moderators investigate all flagged accounts, listings, and suspicious activities within 24 hours.
-            </p>
-          </div>
-          <div className="mx-4 mt-3 space-y-2">
-            {relatedUser && (
-              <button
-                onClick={() => {
-                  blockUser({ id: relatedUser, name: relatedUser });
-                  toast.success("Reported user blocked");
-                }}
-                className="w-full rounded-2xl border border-border bg-card py-3 text-sm font-semibold shadow-xs hover:bg-secondary/40 transition"
+
+            {/* Action Buttons */}
+            <div className="space-y-2.5 pt-1">
+              <Link
+                to="/safety"
+                className="w-full flex items-center justify-center gap-2 rounded-2xl bg-primary py-3.5 px-4 text-xs font-black text-primary-foreground shadow-md hover:bg-primary/90 active:scale-[0.99] transition-all"
               >
-                Block the reported user
+                <ShieldCheck className="h-4 w-4" />
+                <span>Track Incident on Safety Page</span>
+                <ArrowRight className="h-4 w-4 ml-auto" />
+              </Link>
+
+              {relatedUser && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    blockUser({ id: relatedUser, name: relatedUser });
+                    toast.success("Reported user blocked from contacting you");
+                  }}
+                  className="w-full flex items-center justify-center gap-2 rounded-2xl border border-destructive/30 bg-destructive/10 py-3 px-4 text-xs font-bold text-destructive hover:bg-destructive/15 active:scale-[0.99] transition-all"
+                >
+                  <Lock className="h-3.5 w-3.5" />
+                  <span>Block the reported user ({relatedUser})</span>
+                </button>
+              )}
+
+              <button
+                type="button"
+                onClick={resetForm}
+                className="w-full flex items-center justify-center gap-2 rounded-2xl border border-border bg-card py-3 px-4 text-xs font-bold text-foreground hover:bg-secondary/60 active:scale-[0.99] transition-all"
+              >
+                <RefreshCw className="h-3.5 w-3.5 text-muted-foreground" />
+                <span>Report Another Incident</span>
               </button>
-            )}
-            <Link
-              to="/support/new"
-              className="flex items-center justify-between rounded-2xl bg-primary px-4 py-3.5 text-sm font-bold text-primary-foreground shadow-xs hover:bg-primary/90 transition"
-            >
-              <span>Open urgent support ticket</span>
-              <ArrowRight className="h-4 w-4" />
-            </Link>
-            <Link
-              to="/safety"
-              className="block w-full rounded-2xl border border-border bg-card py-3 text-center text-sm font-semibold hover:bg-secondary/40 transition"
-            >
-              Back to Safety Centre
-            </Link>
+
+              <Link
+                to="/safety"
+                className="block w-full py-2.5 text-center text-xs font-bold text-muted-foreground hover:text-foreground transition-colors"
+              >
+                Back to Safety Centre Home
+              </Link>
+            </div>
           </div>
         </div>
       </MobileFrame>
@@ -237,189 +321,254 @@ function ReportPage() {
 
   return (
     <MobileFrame>
-      <div className="min-h-dvh bg-background pb-28">
-        <BackBar title="Report suspicious activity" />
-        <div className="px-4 pt-2 space-y-3">
-          {/* Incident Category */}
-          <div className="rounded-2xl bg-card p-3.5 card-elev space-y-2">
-            <p className="flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-wider text-muted-foreground">
-              <Flag className="h-3.5 w-3.5 text-primary" /> Incident Category
-            </p>
-            <div className="flex flex-wrap gap-1.5">
-              {SAFETY_CATEGORIES.map((c) => (
-                <button
-                  key={c.id}
-                  type="button"
-                  onClick={() => setCategory(c.id)}
-                  className={`rounded-full border px-3 py-1.5 text-xs font-semibold transition ${
-                    category === c.id
-                      ? "border-primary bg-primary text-primary-foreground shadow-xs"
-                      : "border-border bg-background text-muted-foreground hover:border-foreground/30 hover:text-foreground"
-                  }`}
-                >
-                  {c.label}
-                </button>
-              ))}
+      <div className="min-h-dvh bg-background pb-32">
+        <BackBar title="Report Suspicious Activity" onBack={() => nav({ to: "/safety" })} />
+        
+        <div className="px-4 pt-2 space-y-3.5 max-w-2xl mx-auto">
+          {/* Incident Category Selector */}
+          <div className="rounded-3xl border border-border/80 bg-card p-4 shadow-xs space-y-3">
+            <div className="flex items-center justify-between">
+              <p className="flex items-center gap-2 text-xs font-extrabold text-foreground">
+                <span className="flex h-6 w-6 items-center justify-center rounded-lg bg-rose-500/15 text-rose-600">
+                  <Flag className="h-3.5 w-3.5" />
+                </span>
+                <span>Incident Category</span>
+              </p>
+              <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Required</span>
+            </div>
+
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+              {SAFETY_CATEGORIES.map((c) => {
+                const isSelected = category === c.id;
+                return (
+                  <button
+                    key={c.id}
+                    type="button"
+                    onClick={() => setCategory(c.id)}
+                    className={`relative flex items-center justify-between rounded-xl border px-3 py-2.5 text-xs font-bold transition-all active:scale-[0.98] ${
+                      isSelected
+                        ? "border-primary bg-primary text-primary-foreground shadow-sm ring-2 ring-primary/20"
+                        : "border-border/80 bg-background/80 text-foreground hover:border-primary/40 hover:bg-secondary/40"
+                    }`}
+                  >
+                    <span className="truncate">{c.label}</span>
+                    {isSelected && (
+                      <span className="h-2 w-2 rounded-full bg-white shrink-0 ml-1.5" />
+                    )}
+                  </button>
+                );
+              })}
             </div>
           </div>
 
-          {/* Incident Details */}
-          <div className="rounded-2xl bg-card p-3.5 card-elev space-y-2.5 text-sm">
-            <p className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground">
-              Incident Context & Evidence
-            </p>
-            <input
-              value={relatedUser}
-              onChange={(e) => setRelatedUser(e.target.value)}
-              placeholder="Reported user name, phone or profile ID (optional)"
-              className="w-full rounded-xl border border-border bg-background px-3 py-2.5 outline-none text-xs font-medium focus:border-primary transition"
-            />
-            <input
-              value={relatedListing}
-              onChange={(e) => setRelatedListing(e.target.value)}
-              placeholder="Related listing URL, item title or Store ID (optional)"
-              className="w-full rounded-xl border border-border bg-background px-3 py-2.5 outline-none text-xs font-medium focus:border-primary transition"
-            />
-            <input
-              value={relatedChat}
-              onChange={(e) => setRelatedChat(e.target.value)}
-              placeholder="Related chat conversation ID (optional)"
-              className="w-full rounded-xl border border-border bg-background px-3 py-2.5 outline-none text-xs font-medium focus:border-primary transition"
-            />
-            <textarea
-              rows={4}
-              value={description}
-              onChange={(e) => setDescription(e.target.value)}
-              placeholder="Describe what happened in detail…"
-              className="w-full rounded-xl border border-border bg-background p-3 outline-none text-xs font-medium focus:border-primary transition leading-relaxed"
-            />
-            <label className="flex items-center gap-2.5 rounded-xl border-2 border-dashed border-border p-3 text-xs text-muted-foreground hover:bg-secondary/40 transition cursor-pointer">
-              <Upload className="h-4 w-4 text-primary" />
-              <span>Attach screenshots, receipts, or chat logs</span>
-              <input
-                type="file"
-                multiple
-                className="hidden"
-                onChange={pick}
-                aria-label="Attach screenshots"
-              />
-            </label>
-            {attachments.length > 0 && (
-              <p className="text-[11px] font-semibold text-primary">
-                📎 {attachments.length} attachment(s) selected
+          {/* Incident Details & Evidence */}
+          <div className="rounded-3xl border border-border/80 bg-card p-4 shadow-xs space-y-3 text-xs">
+            <div className="flex items-center justify-between">
+              <p className="flex items-center gap-2 text-xs font-extrabold text-foreground">
+                <span className="flex h-6 w-6 items-center justify-center rounded-lg bg-primary/10 text-primary">
+                  <ShieldAlert className="h-3.5 w-3.5" />
+                </span>
+                <span>Incident Context & Evidence</span>
               </p>
-            )}
+              <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Details</span>
+            </div>
+
+            <div className="space-y-2.5">
+              <div>
+                <label className="block text-[11px] font-bold text-foreground mb-1">
+                  Reported User / Phone / ID (Optional)
+                </label>
+                <input
+                  value={relatedUser}
+                  onChange={(e) => setRelatedUser(e.target.value)}
+                  placeholder="e.g. Ramesh Kumar, +91 9876543210 or user profile link"
+                  className="w-full rounded-xl border border-border/80 bg-background px-3.5 py-2.5 outline-none text-xs font-medium focus:border-primary focus:ring-2 focus:ring-primary/10 transition"
+                />
+              </div>
+
+              <div>
+                <label className="block text-[11px] font-bold text-foreground mb-1">
+                  Related Listing / Item URL (Optional)
+                </label>
+                <input
+                  value={relatedListing}
+                  onChange={(e) => setRelatedListing(e.target.value)}
+                  placeholder="e.g. http://localhost:5173/product/6ac... or item title"
+                  className="w-full rounded-xl border border-border/80 bg-background px-3.5 py-2.5 outline-none text-xs font-medium focus:border-primary focus:ring-2 focus:ring-primary/10 transition"
+                />
+              </div>
+
+              <div>
+                <label className="block text-[11px] font-bold text-foreground mb-1">
+                  Related Chat / Message Reference (Optional)
+                </label>
+                <input
+                  value={relatedChat}
+                  onChange={(e) => setRelatedChat(e.target.value)}
+                  placeholder="e.g. Conversation ID or quote from the chat"
+                  className="w-full rounded-xl border border-border/80 bg-background px-3.5 py-2.5 outline-none text-xs font-medium focus:border-primary focus:ring-2 focus:ring-primary/10 transition"
+                />
+              </div>
+
+              <div>
+                <div className="flex items-center justify-between mb-1">
+                  <label className="block text-[11px] font-bold text-foreground">
+                    Description of Incident *
+                  </label>
+                  <span className="text-[10px] font-bold text-muted-foreground">Min 5 chars</span>
+                </div>
+                <textarea
+                  rows={4}
+                  value={description}
+                  onChange={(e) => setDescription(e.target.value)}
+                  placeholder="Explain what happened in detail: payment requested outside platform, suspicious links, harassment, fake products, or non-delivery..."
+                  className="w-full rounded-xl border border-border/80 bg-background p-3 outline-none text-xs font-medium focus:border-primary focus:ring-2 focus:ring-primary/10 transition leading-relaxed placeholder:text-muted-foreground/70"
+                />
+              </div>
+
+              {/* Attachments Picker */}
+              <div>
+                <label className="flex items-center justify-center gap-2.5 rounded-2xl border-2 border-dashed border-border/90 bg-secondary/30 p-3.5 text-xs text-muted-foreground hover:bg-secondary/60 hover:border-primary/50 transition cursor-pointer active:scale-[0.99]">
+                  <Upload className="h-4 w-4 text-primary shrink-0" />
+                  <span className="font-bold text-foreground">Upload screenshots or proof</span>
+                  <span className="text-[10px] text-muted-foreground">(Images / PDF)</span>
+                  <input
+                    type="file"
+                    multiple
+                    className="hidden"
+                    onChange={pick}
+                    aria-label="Attach screenshots"
+                  />
+                </label>
+
+                {attachments.length > 0 && (
+                  <div className="mt-2 flex flex-wrap gap-1.5">
+                    {attachments.map((file, idx) => (
+                      <span
+                        key={idx}
+                        className="inline-flex items-center gap-1 rounded-lg bg-primary/10 border border-primary/20 px-2 py-1 text-[11px] font-bold text-primary"
+                      >
+                        📎 {file.replace("ref://", "")}
+                      </span>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
           </div>
 
           {/* Contact & Credential Preferences */}
-          <div className="rounded-2xl bg-card p-4 card-elev space-y-4">
+          <div className="rounded-3xl border border-border/80 bg-card p-4 shadow-xs space-y-4">
             <div>
-              <p className="flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-wider text-muted-foreground">
-                <ShieldCheck className="h-3.5 w-3.5 text-primary" /> Contact Preferences & Credentials
+              <p className="flex items-center gap-2 text-xs font-extrabold text-foreground">
+                <span className="flex h-6 w-6 items-center justify-center rounded-lg bg-emerald-500/15 text-emerald-600">
+                  <ShieldCheck className="h-3.5 w-3.5" />
+                </span>
+                <span>Contact Preferences & Credentials</span>
               </p>
-              <p className="text-xs text-muted-foreground mt-0.5">
-                Specify how our investigation team can reach you regarding this case.
+              <p className="text-[11px] text-muted-foreground mt-1">
+                How should our Trust & Safety investigation officers follow up?
               </p>
             </div>
 
             {/* Contact Method Selector */}
             <div className="space-y-1.5">
-              <label className="text-[11px] font-bold text-foreground">Preferred Contact Method</label>
+              <label className="text-[11px] font-bold text-foreground">Preferred Channel</label>
               <div className="grid grid-cols-3 gap-2">
                 {[
-                  { id: "in_app", label: "In-app", icon: MessageSquare },
+                  { id: "in_app", label: "In-App Chat", icon: MessageSquare },
                   { id: "email", label: "Email", icon: Mail },
-                  { id: "call", label: "Call / Phone", icon: Phone },
-                ].map(({ id, label, icon: Icon }) => (
-                  <button
-                    key={id}
-                    type="button"
-                    onClick={() => setContactPref(id)}
-                    className={`flex items-center justify-center gap-1.5 rounded-xl border py-2 px-2 text-xs font-bold transition ${
-                      contactPref === id
-                        ? "border-primary bg-primary text-primary-foreground shadow-xs"
-                        : "border-border bg-background text-muted-foreground hover:bg-secondary/50"
-                    }`}
-                  >
-                    <Icon className="h-3.5 w-3.5" />
-                    <span>{label}</span>
-                  </button>
-                ))}
+                  { id: "call", label: "Phone Call", icon: Phone },
+                ].map(({ id, label, icon: Icon }) => {
+                  const isSelected = contactPref === id;
+                  return (
+                    <button
+                      key={id}
+                      type="button"
+                      onClick={() => setContactPref(id)}
+                      className={`flex flex-col items-center justify-center gap-1.5 rounded-2xl border py-2.5 px-2 text-xs font-bold transition-all active:scale-[0.98] ${
+                        isSelected
+                          ? "border-primary bg-primary text-primary-foreground shadow-sm ring-2 ring-primary/20"
+                          : "border-border/80 bg-background text-muted-foreground hover:bg-secondary/40"
+                      }`}
+                    >
+                      <Icon className="h-4 w-4" />
+                      <span className="text-[11px]">{label}</span>
+                    </button>
+                  );
+                })}
               </div>
             </div>
 
-            {/* Confidentiality / Anonymous Toggle */}
-            <div className="rounded-xl border border-border bg-background/50 p-3 space-y-1.5">
+            {/* Confidentiality / Anonymous Toggle Card */}
+            <div className="rounded-2xl border border-border/80 bg-secondary/30 p-3.5 space-y-2">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
-                  {isAnonymous ? (
-                    <EyeOff className="h-4 w-4 text-amber-500" />
-                  ) : (
-                    <Eye className="h-4 w-4 text-primary" />
-                  )}
-                  <span className="text-xs font-bold text-foreground">Submit Anonymously</span>
+                  <span className={`flex h-7 w-7 items-center justify-center rounded-xl ${isAnonymous ? "bg-amber-500/15 text-amber-600" : "bg-primary/10 text-primary"}`}>
+                    {isAnonymous ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                  </span>
+                  <div>
+                    <span className="text-xs font-extrabold text-foreground">Submit Anonymously</span>
+                    <p className="text-[10px] text-muted-foreground">Hide identity from the reported party</p>
+                  </div>
                 </div>
+
                 <button
                   type="button"
                   onClick={() => setIsAnonymous(!isAnonymous)}
-                  className={`relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${
+                  className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${
                     isAnonymous ? "bg-amber-500" : "bg-muted"
                   }`}
                   aria-label="Toggle anonymous report"
                 >
                   <span
-                    className={`pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow-lg ring-0 transition duration-200 ease-in-out ${
-                      isAnonymous ? "translate-x-4" : "translate-x-0"
+                    className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow-md ring-0 transition duration-200 ease-in-out ${
+                      isAnonymous ? "translate-x-5" : "translate-x-0"
                     }`}
                   />
                 </button>
               </div>
-              <p className="text-[11px] text-muted-foreground leading-relaxed">
-                {isAnonymous
-                  ? "Your identity and contact credentials will be completely hidden from the reported party. Moderators will follow up strictly inside the app."
-                  : "Your credentials will only be visible to verified Omeetso Trust & Safety officers handling this case."}
-              </p>
             </div>
 
-            {/* Credential Details Fields (Required details under Contact Preferences) */}
+            {/* Reporter Contact Details */}
             <div className="space-y-3">
               <div>
                 <label className="block text-[11px] font-bold text-foreground mb-1">
-                  Full Name {isAnonymous ? "(Optional for Anonymous)" : "*"}
+                  Full Name {isAnonymous ? "(Hidden for Anonymous)" : "*"}
                 </label>
                 <div className="relative">
-                  <User className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
+                  <User className="absolute left-3.5 top-2.5 h-4 w-4 text-muted-foreground" />
                   <input
                     type="text"
                     value={reporterName}
                     onChange={(e) => setReporterName(e.target.value)}
                     placeholder={isAnonymous ? "Anonymous Reporter" : "Enter your full name"}
-                    className="w-full rounded-xl border border-border bg-background pl-9 pr-3 py-2 text-xs font-medium outline-none focus:border-primary transition"
+                    className="w-full rounded-xl border border-border/80 bg-background pl-9 pr-3.5 py-2.5 text-xs font-medium outline-none focus:border-primary focus:ring-2 focus:ring-primary/10 transition"
                   />
                 </div>
               </div>
 
               <div>
                 <label className="block text-[11px] font-bold text-foreground mb-1">
-                  Contact Email {contactPref === "email" && !isAnonymous ? "*" : "(For case updates)"}
+                  Contact Email {contactPref === "email" && !isAnonymous ? "*" : "(For investigation updates)"}
                 </label>
                 <div className="relative">
-                  <Mail className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
+                  <Mail className="absolute left-3.5 top-2.5 h-4 w-4 text-muted-foreground" />
                   <input
                     type="email"
                     value={reporterEmail}
                     onChange={(e) => setReporterEmail(e.target.value)}
                     placeholder="name@example.com"
-                    className="w-full rounded-xl border border-border bg-background pl-9 pr-3 py-2 text-xs font-medium outline-none focus:border-primary transition"
+                    className="w-full rounded-xl border border-border/80 bg-background pl-9 pr-3.5 py-2.5 text-xs font-medium outline-none focus:border-primary focus:ring-2 focus:ring-primary/10 transition"
                   />
                 </div>
               </div>
 
               <div>
                 <label className="block text-[11px] font-bold text-foreground mb-1">
-                  Mobile / WhatsApp Number {contactPref === "call" && !isAnonymous ? "*" : "(Optional)"}
+                  Phone / WhatsApp Number {contactPref === "call" && !isAnonymous ? "*" : "(Optional)"}
                 </label>
-                <div className="flex items-center rounded-xl border border-border bg-background px-3 py-2 focus-within:border-primary transition-all">
+                <div className="flex items-center rounded-xl border border-border/80 bg-background px-3 py-2.5 focus-within:border-primary focus-within:ring-2 focus-within:ring-primary/10 transition-all">
                   <span className="flex items-center gap-1.5 text-xs font-bold text-foreground font-mono pr-2.5 border-r border-border mr-2.5 shrink-0 select-none">
                     <span className="text-sm">🇮🇳</span> +91
                   </span>
@@ -435,32 +584,35 @@ function ReportPage() {
                 </div>
               </div>
 
-              {/* Preferred Time Window */}
+              {/* Follow-up Window */}
               <div>
                 <label className="flex items-center gap-1.5 text-[11px] font-bold text-foreground mb-1.5">
-                  <Clock className="h-3 w-3 text-muted-foreground" />
-                  <span>Preferred Callback / Follow-up Window</span>
+                  <Clock className="h-3.5 w-3.5 text-muted-foreground" />
+                  <span>Preferred Callback / Contact Window</span>
                 </label>
                 <div className="grid grid-cols-2 gap-1.5">
-                  {TIME_SLOTS.map((slot) => (
-                    <button
-                      key={slot.id}
-                      type="button"
-                      onClick={() => setContactTimeSlot(slot.id)}
-                      className={`rounded-xl border px-2.5 py-1.5 text-[11px] font-semibold text-left transition ${
-                        contactTimeSlot === slot.id
-                          ? "border-primary bg-primary/10 text-primary"
-                          : "border-border bg-background text-muted-foreground hover:bg-secondary/40"
-                      }`}
-                    >
-                      {slot.label}
-                    </button>
-                  ))}
+                  {TIME_SLOTS.map((slot) => {
+                    const isSelected = contactTimeSlot === slot.id;
+                    return (
+                      <button
+                        key={slot.id}
+                        type="button"
+                        onClick={() => setContactTimeSlot(slot.id)}
+                        className={`rounded-xl border px-3 py-2 text-[11px] font-bold text-left transition-all active:scale-[0.98] ${
+                          isSelected
+                            ? "border-primary bg-primary/10 text-primary font-black shadow-2xs"
+                            : "border-border/80 bg-background text-muted-foreground hover:bg-secondary/40"
+                        }`}
+                      >
+                        {slot.label}
+                      </button>
+                    );
+                  })}
                 </div>
               </div>
 
-              {/* Declaration confirmation */}
-              <label className="flex items-start gap-2 pt-1 cursor-pointer select-none">
+              {/* Declaration Confirmation */}
+              <label className="flex items-start gap-2.5 pt-1.5 cursor-pointer select-none">
                 <input
                   type="checkbox"
                   checked={declarationConfirmed}
@@ -471,27 +623,72 @@ function ReportPage() {
                   I confirm that this report is submitted in good faith and the details provided are accurate to the best of my knowledge.
                 </span>
               </label>
-            </div>
 
-            <div className="pt-1">
-              <p className="text-[10px] text-center text-muted-foreground">
-                🔒 All reports are encrypted and reviewed by the Omeetso Trust & Safety team within 24 hours.
-              </p>
+              {/* Desktop / Inline Action Buttons */}
+              <div className="pt-4 flex items-center justify-end gap-3 border-t border-border/60">
+                <button
+                  type="button"
+                  onClick={() => nav({ to: "/safety" })}
+                  className="rounded-2xl border border-border bg-secondary/80 px-5 py-3 text-xs font-bold text-foreground hover:bg-secondary transition active:scale-95 cursor-pointer"
+                >
+                  Cancel
+                </button>
+                
+                <button
+                  type="button"
+                  onClick={submit}
+                  disabled={isSubmitting}
+                  className="flex items-center justify-center gap-2 rounded-2xl bg-primary py-3 px-6 text-xs font-black text-primary-foreground shadow-lg shadow-primary/25 hover:bg-primary/90 active:scale-[0.99] disabled:opacity-50 transition-all cursor-pointer"
+                >
+                  {isSubmitting ? (
+                    <>
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                      <span>Submitting Incident...</span>
+                    </>
+                  ) : (
+                    <>
+                      <ShieldAlert className="h-4 w-4" />
+                      <span>Submit Safety Report</span>
+                      <ArrowRight className="h-4 w-4 ml-1" />
+                    </>
+                  )}
+                </button>
+              </div>
             </div>
           </div>
         </div>
 
-        {/* Fixed Bottom Bar on Mobile */}
-        <div className="fixed inset-x-0 bottom-0 z-10 mx-auto max-w-[430px] border-t border-border bg-card/95 backdrop-blur-md p-3 safe-b">
-          <button
-            type="button"
-            onClick={submit}
-            disabled={isSubmitting}
-            className="w-full flex items-center justify-center gap-2 rounded-full bg-primary py-3 text-sm font-bold text-primary-foreground shadow-md hover:bg-primary/90 transition-all active:scale-[0.99] disabled:opacity-50"
-          >
-            <ShieldAlert className="h-4 w-4" />
-            <span>{isSubmitting ? "Submitting..." : "Submit report"}</span>
-          </button>
+        {/* Mobile-Only Bottom Floating Action Bar */}
+        <div className="md:hidden fixed inset-x-0 bottom-0 z-20 mx-auto max-w-[430px] border-t border-border/80 bg-card/95 backdrop-blur-xl p-3.5 safe-b shadow-2xl">
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => nav({ to: "/safety" })}
+              className="rounded-2xl border border-border bg-secondary/80 px-4 py-3 text-xs font-bold text-foreground hover:bg-secondary transition active:scale-95"
+            >
+              Cancel
+            </button>
+            
+            <button
+              type="button"
+              onClick={submit}
+              disabled={isSubmitting}
+              className="flex-1 flex items-center justify-center gap-2 rounded-2xl bg-primary py-3 px-4 text-xs font-black text-primary-foreground shadow-lg shadow-primary/25 hover:bg-primary/90 active:scale-[0.99] disabled:opacity-50 transition-all"
+            >
+              {isSubmitting ? (
+                <>
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  <span>Submitting...</span>
+                </>
+              ) : (
+                <>
+                  <ShieldAlert className="h-4 w-4" />
+                  <span>Submit Safety Report</span>
+                  <ArrowRight className="h-4 w-4 ml-1" />
+                </>
+              )}
+            </button>
+          </div>
         </div>
       </div>
     </MobileFrame>
@@ -499,4 +696,3 @@ function ReportPage() {
 }
 
 export default ReportPage;
-

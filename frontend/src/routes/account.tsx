@@ -21,7 +21,8 @@ import { SectionTitle, MenuGroup, MenuRow, Stat, VerifBadge, ConfirmModal } from
 import { toast } from "sonner";
 
 import { getUserAccessToken, refreshUserSession } from "@/api/auth.api";
-import { listListings, fetchLiveUserListings, type Listing, toggleListingNearbyChanges } from "@/lib/listings";
+import { listListings, fetchLiveUserListings, type Listing, toggleListingNearbyChanges, fetchLiveListingById, isListingDeletedLocally, markListingDeletedLocally, unmarkListingDeletedLocally, deleteListing } from "@/lib/listings";
+import { getProduct } from "@/lib/mock";
 import { uploadImageToCloudinary } from "@/lib/upload";
 import { API_BASE } from "@/config/api";
 
@@ -572,10 +573,55 @@ function Account() {
                       {nearbyNotifs.length > 0 ? (
                         <div className="space-y-1.5">
                           {nearbyNotifs.slice(0, 3).map((notif) => (
-                            <Link
+                            <div
                               key={notif.id}
-                              to={notif.destination || "/notifications"}
-                              className="p-2.5 rounded-xl bg-secondary/30 hover:bg-secondary/60 transition-colors border border-border text-xs flex items-center justify-between gap-3"
+                              role="button"
+                              tabIndex={0}
+                              onClick={async () => {
+                                let targetLink = notif.destination || "/notifications";
+                                try {
+                                  if (targetLink.startsWith("http://") || targetLink.startsWith("https://")) {
+                                    const urlObj = new URL(targetLink);
+                                    targetLink = urlObj.pathname + urlObj.search + urlObj.hash;
+                                  }
+                                } catch { }
+
+                                if (targetLink.startsWith("/product/") || targetLink.includes("/product/")) {
+                                  const match = targetLink.match(/\/product\/([a-zA-Z0-9_-]+)/);
+                                  const prodId = match ? match[1].trim() : targetLink.replace("/product/", "").split("?")[0].split("#")[0].trim();
+
+                                  if (!prodId) {
+                                    toast.error("This product is no longer available.");
+                                    return;
+                                  }
+
+                                  try {
+                                    const live = await fetchLiveListingById(prodId);
+                                    if (!live || live.unavailable || live.status === "deleted" || live.status === "removed" || (live as any).isDeleted) {
+                                      const local = getProduct(prodId);
+                                      if (!local) {
+                                        markListingDeletedLocally(prodId);
+                                        toast.error("This product is no longer available.");
+                                        return;
+                                      }
+                                    } else {
+                                      unmarkListingDeletedLocally(prodId);
+                                    }
+                                    nav({ to: "/product/$id", params: { id: prodId } });
+                                  } catch (err) {
+                                    console.warn("Product verification warning:", err);
+                                    nav({ to: "/product/$id", params: { id: prodId } });
+                                  }
+                                  return;
+                                }
+
+                                if (targetLink.startsWith("/")) {
+                                  nav({ to: targetLink as any });
+                                } else {
+                                  window.location.href = targetLink;
+                                }
+                              }}
+                              className="p-2.5 rounded-xl bg-secondary/30 hover:bg-secondary/60 transition-colors border border-border text-xs flex items-center justify-between gap-3 cursor-pointer"
                             >
                               <div className="flex items-center gap-2.5 min-w-0">
                                 {notif.thumbnail && (
@@ -592,7 +638,7 @@ function Account() {
                               {!notif.read && (
                                 <span className="h-2 w-2 rounded-full bg-rose-500 shrink-0" />
                               )}
-                            </Link>
+                            </div>
                           ))}
                         </div>
                       ) : (
