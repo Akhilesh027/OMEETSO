@@ -1,3 +1,4 @@
+import mongoose from "mongoose";
 import { Response, NextFunction } from "express";
 import { User } from "../../users/models/User";
 import { Listing } from "../../listings/models/Listing";

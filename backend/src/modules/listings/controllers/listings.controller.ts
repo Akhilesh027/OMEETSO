@@ -379,7 +379,7 @@ export async function getPublicListings(req: Request, res: Response, next: NextF
         ? { $in: [statusQuery, statusQuery.toLowerCase(), statusQuery.toUpperCase()] }
         : {
             $in: [ListingStatus.APPROVED, ListingStatus.ACTIVE, "APPROVED", "ACTIVE", "approved", "active"],
-            $nin: [ListingStatus.SOLD, "SOLD", "sold", ListingStatus.DELETED, "DELETED", "deleted", ListingStatus.PAUSED, "PAUSED", "paused", ListingStatus.REJECTED, "REJECTED", "rejected"]
+            $nin: [ListingStatus.SOLD, "SOLD", "sold", ListingStatus.REMOVED, "DELETED", "deleted", ListingStatus.PAUSED, "PAUSED", "paused", ListingStatus.REJECTED, "REJECTED", "rejected"]
           }
     };
 
@@ -867,7 +867,7 @@ export async function getMyListings(req: AuthenticatedUserRequest, res: Response
       if (s === "ACTIVE") {
         query.status = {
           $in: [ListingStatus.APPROVED, ListingStatus.ACTIVE, "APPROVED", "ACTIVE", "approved", "active", "PAUSED", "paused", "requires_changes"],
-          $nin: [ListingStatus.SOLD, "SOLD", "sold", ListingStatus.DELETED, "DELETED", "deleted"]
+          $nin: [ListingStatus.SOLD, "SOLD", "sold", ListingStatus.REMOVED, "DELETED", "deleted"]
         };
       } else if (s === "SOLD") {
         query.status = { $in: [ListingStatus.SOLD, "SOLD", "sold"] };
@@ -1175,7 +1175,7 @@ export async function deleteListing(req: AuthenticatedUserRequest, res: Response
       }
     }
 
-    listing.status = ListingStatus.DELETED;
+    listing.status = ListingStatus.REMOVED;
     (listing as any).isDeleted = true;
     await listing.save();
 
