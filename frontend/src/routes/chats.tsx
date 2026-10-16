@@ -52,8 +52,15 @@ function Chats() {
   }, [loadConversations]);
 
   // Convert API conversations to Thread-compatible objects for the UI
+  // Filter out any conversation where there has been NO conversation between user and seller (no messages sent)
   const threads = useMemo(
-    () => conversations.map((c) => conversationToThread(c)),
+    () =>
+      conversations
+        .filter((c) => {
+          const preview = (c.lastMessagePreview || "").trim();
+          return preview !== "" && preview !== "No messages yet" && preview !== "Start the conversation";
+        })
+        .map((c) => conversationToThread(c)),
     [conversations]
   );
 
@@ -92,7 +99,7 @@ function Chats() {
       const first = threads.filter((t) => !isArchived(t.id)).sort((a, b) => b.updatedAt - a.updatedAt)[0];
       if (first) nav({ to: "/chat/$id", params: { id: first.id }, replace: true });
     }
-  }, [threads, nav]);
+  }, [threads.length, nav]);
 
   return (
     <MobileFrame>
@@ -333,7 +340,7 @@ function ChatCard({ t, conv }: { t: ReturnType<typeof conversationToThread>; con
           </div>
           <span className="shrink-0 text-[11px] text-muted-foreground">{formatChatTime(t.updatedAt)}</span>
         </div>
-        {conv?.listingTitle && !conv.listingTitle.includes("Royal Enfield") && conv.listingTitle !== "Product Listing" && conv.listingTitle !== "Marketplace Conversation" && (
+        {conv?.contextType !== "USER" && conv?.contextType !== "PEER" && conv?.listingTitle && !conv.listingTitle.includes("Royal Enfield") && conv.listingTitle !== "Product Listing" && conv.listingTitle !== "Marketplace Conversation" && (
           <p className="line-clamp-1 text-[11px] text-muted-foreground">
             {conv.listingTitle}
             {conv.salaryText

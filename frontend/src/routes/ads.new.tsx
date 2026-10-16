@@ -633,6 +633,149 @@ function NewCampaign() {
                   <input type="checkbox" checked={c.schedule.startNow} onChange={(e) => setSchedule({ startNow: e.target.checked, startAt: Date.now() })} />
                   Start immediately
                 </label>
+
+                {!c.schedule.startNow && (
+                  <div className="pt-2 border-t border-border/60 space-y-2">
+                    <p className="text-[11px] font-bold text-foreground">Scheduled Release Date & Time</p>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                      <div>
+                        <label className="block text-[10px] font-medium text-muted-foreground mb-1">Release Date</label>
+                        <input
+                          type="date"
+                          min={new Date().toISOString().split("T")[0]}
+                          value={new Date(c.schedule.startAt).toISOString().split("T")[0]}
+                          onChange={(e) => {
+                            const [y, m, d] = e.target.value.split("-").map(Number);
+                            const cur = new Date(c.schedule.startAt);
+                            cur.setFullYear(y, m - 1, d);
+                            setSchedule({ startAt: cur.getTime() });
+                          }}
+                          className="w-full rounded-xl border border-border bg-card p-2 text-xs font-semibold"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-[10px] font-medium text-muted-foreground mb-1">Release Time & Period</label>
+                        <div className="flex items-center gap-1">
+                          <select
+                            value={(() => {
+                              const h24 = new Date(c.schedule.startAt).getHours();
+                              const h12 = h24 % 12 || 12;
+                              return h12;
+                            })()}
+                            onChange={(e) => {
+                              const newH12 = Number(e.target.value);
+                              const cur = new Date(c.schedule.startAt);
+                              const isPm = cur.getHours() >= 12;
+                              let h24 = newH12 % 12;
+                              if (isPm) h24 += 12;
+                              cur.setHours(h24);
+                              setSchedule({ startAt: cur.getTime() });
+                            }}
+                            className="rounded-xl border border-border bg-card p-2 text-xs font-semibold flex-1"
+                          >
+                            {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12].map((h) => (
+                              <option key={h} value={h}>{String(h).padStart(2, "0")} hr</option>
+                            ))}
+                          </select>
+                          <select
+                            value={new Date(c.schedule.startAt).getMinutes()}
+                            onChange={(e) => {
+                              const cur = new Date(c.schedule.startAt);
+                              cur.setMinutes(Number(e.target.value));
+                              setSchedule({ startAt: cur.getTime() });
+                            }}
+                            className="rounded-xl border border-border bg-card p-2 text-xs font-semibold flex-1"
+                          >
+                            {[0, 15, 30, 45].map((m) => (
+                              <option key={m} value={m}>{String(m).padStart(2, "0")} min</option>
+                            ))}
+                          </select>
+                          <div className="flex rounded-xl border border-border p-0.5 bg-card">
+                            <button
+                              type="button"
+                              onClick={() => {
+                                const cur = new Date(c.schedule.startAt);
+                                if (cur.getHours() >= 12) cur.setHours(cur.getHours() - 12);
+                                setSchedule({ startAt: cur.getTime() });
+                              }}
+                              className={cn(
+                                "px-2 py-1 text-[11px] font-bold rounded-lg transition-colors cursor-pointer",
+                                new Date(c.schedule.startAt).getHours() < 12 ? "bg-primary text-primary-foreground" : "text-muted-foreground"
+                              )}
+                            >
+                              AM
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                const cur = new Date(c.schedule.startAt);
+                                if (cur.getHours() < 12) cur.setHours(cur.getHours() + 12);
+                                setSchedule({ startAt: cur.getTime() });
+                              }}
+                              className={cn(
+                                "px-2 py-1 text-[11px] font-bold rounded-lg transition-colors cursor-pointer",
+                                new Date(c.schedule.startAt).getHours() >= 12 ? "bg-primary text-primary-foreground" : "text-muted-foreground"
+                              )}
+                            >
+                              PM
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                    {/* Quick Presets */}
+                    <div className="flex flex-wrap gap-1.5 items-center pt-1">
+                      <span className="text-[10px] font-bold text-muted-foreground">Quick Presets:</span>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const d = new Date(Date.now() + 86400000);
+                          d.setHours(9, 0, 0, 0);
+                          setSchedule({ startAt: d.getTime() });
+                        }}
+                        className="px-2 py-0.5 rounded-lg bg-card border border-border text-[10px] font-bold text-foreground hover:bg-secondary transition cursor-pointer"
+                      >
+                        Tomorrow 9 AM
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const d = new Date(Date.now() + 86400000);
+                          d.setHours(18, 0, 0, 0);
+                          setSchedule({ startAt: d.getTime() });
+                        }}
+                        className="px-2 py-0.5 rounded-lg bg-card border border-border text-[10px] font-bold text-foreground hover:bg-secondary transition cursor-pointer"
+                      >
+                        Tomorrow 6 PM
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const d = new Date(Date.now() + 2 * 86400000);
+                          d.setHours(10, 0, 0, 0);
+                          setSchedule({ startAt: d.getTime() });
+                        }}
+                        className="px-2 py-0.5 rounded-lg bg-card border border-border text-[10px] font-bold text-foreground hover:bg-secondary transition cursor-pointer"
+                      >
+                        In 2 Days (10 AM)
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const d = new Date(Date.now() + 7 * 86400000);
+                          d.setHours(9, 0, 0, 0);
+                          setSchedule({ startAt: d.getTime() });
+                        }}
+                        className="px-2 py-0.5 rounded-lg bg-card border border-border text-[10px] font-bold text-foreground hover:bg-secondary transition cursor-pointer"
+                      >
+                        In 1 Week (9 AM)
+                      </button>
+                    </div>
+                    <p className="text-[11px] text-muted-foreground">
+                      Scheduled for: <b className="text-foreground">{new Date(c.schedule.startAt).toLocaleString("en-IN", { weekday: "short", day: "numeric", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" })}</b>
+                    </p>
+                  </div>
+                )}
               </div>
               <div className="rounded-2xl bg-secondary/40 p-3 text-xs">
                 <p className="text-[10px] font-bold uppercase text-muted-foreground">Estimated performance</p>

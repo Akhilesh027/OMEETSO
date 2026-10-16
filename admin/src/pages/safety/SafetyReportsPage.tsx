@@ -222,10 +222,17 @@ export default function SafetyReportsPage() {
                         </button>
                         <button
                           onClick={() => {
-                            navigate("/admin/chat-monitoring");
+                            const query = new URLSearchParams({
+                              reportId: r.id,
+                              targetId: r.targetId || "",
+                              targetType: r.targetType || "user",
+                              userName: r.reportedUser?.name || r.reporter?.name || "",
+                              ...(r.conversationId ? { convId: r.conversationId } : {})
+                            }).toString();
+                            navigate(`/admin/chat-monitoring?${query}`);
                           }}
                           className="p-1.5 text-slate-500 hover:text-[#3547D4] hover:bg-slate-100 rounded-lg flex items-center gap-1"
-                          title="Open Live Chat Monitor"
+                          title="Open Relevant Conversation in Live Chat Monitor"
                         >
                           <MessageSquare className="w-4 h-4" />
                           <ExternalLink className="w-3 h-3" />
@@ -264,6 +271,21 @@ export default function SafetyReportsPage() {
               </div>
             </div>
             <div className="pt-3 border-t border-[#E2E8F0] space-y-2">
+              <button
+                onClick={() => {
+                  const query = new URLSearchParams({
+                    reportId: selectedReport.id,
+                    targetId: selectedReport.targetId || "",
+                    targetType: selectedReport.targetType || "user",
+                    userName: selectedReport.reportedUser?.name || selectedReport.reporter?.name || "",
+                    ...(selectedReport.conversationId ? { convId: selectedReport.conversationId } : {})
+                  }).toString();
+                  navigate(`/admin/chat-monitoring?${query}`);
+                }}
+                className="w-full py-2.5 bg-[#3547D4] text-white font-bold rounded-xl text-xs hover:bg-[#2b3aa8] flex items-center justify-center gap-1.5 transition-colors shadow-sm"
+              >
+                <MessageSquare className="w-3.5 h-3.5" /> Inspect Conversation / Message Reported Person
+              </button>
               <div className="text-xs font-bold text-[#111827]">Resolution Actions:</div>
               <div className="grid grid-cols-2 gap-2">
                 <button

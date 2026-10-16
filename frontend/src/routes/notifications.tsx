@@ -15,7 +15,7 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
-import { fetchLiveListingById, isListingDeletedLocally, markListingDeletedLocally, unmarkListingDeletedLocally, deleteListing } from "@/lib/listings";
+import { fetchLiveListingById, isListingDeletedLocally, markListingDeletedLocally, unmarkListingDeletedLocally, deleteListing, isListingNearbyChangesEnabled } from "@/lib/listings";
 import { getProduct } from "@/lib/mock";
 import { InfinityLoader } from "@/components/omeetso/InfinityLoader";
 
@@ -92,29 +92,71 @@ function NotifList() {
       createdAt: new Date(n.time).toISOString(),
     }));
 
-    // Merge server & local, deduping by id and title+body fingerprint
-    const map = new Map<string, NotificationItem>();
-    const seenContent = new Set<string>();
+    // Merge server & local items
+    const rawItems: NotificationItem[] = [...serverItems, ...localMapped];
 
-    serverItems.forEach((n) => {
-      const fp = `${(n.title || "").trim().toLowerCase()}__${(n.body || "").trim().toLowerCase()}`;
-      if (!seenContent.has(fp)) {
-        seenContent.add(fp);
-        map.set(n.id, n);
+    // First pass: identify listings that have a submission/creation notification
+    const submittedListingKeys = new Set<string>();
+    for (const n of rawItems) {
+      const titleLower = (n.title || "").trim().toLowerCase();
+      if (titleLower.startsWith("listing submitted:") || titleLower.startsWith("listing created:")) {
+        const linkMatch = n.link ? n.link.match(/\/(?:product|listing)\/([a-zA-Z0-9_-]+)/) : null;
+        const listingId = linkMatch ? linkMatch[1] : null;
+        const cleanTitleSuffix = titleLower.replace(/^(listing submitted|listing created):\s*/, "");
+        if (listingId) submittedListingKeys.add(`lid_${listingId}`);
+        if (cleanTitleSuffix) submittedListingKeys.add(`title_${cleanTitleSuffix}`);
       }
-    });
+    }
 
-    localMapped.forEach((n) => {
-      const fp = `${(n.title || "").trim().toLowerCase()}__${(n.body || "").trim().toLowerCase()}`;
-      if (!map.has(n.id) && !seenContent.has(fp)) {
-        seenContent.add(fp);
-        map.set(n.id, n);
-      }
-    });
-
-    const merged = Array.from(map.values()).sort(
+    // Sort newest first
+    const sorted = [...rawItems].sort(
       (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
     );
+
+    const seenIds = new Set<string>();
+    const seenFingerprints = new Set<string>();
+    const seenSubmissionKeys = new Set<string>();
+
+    const merged = sorted.filter((n) => {
+      if (seenIds.has(n.id)) return false;
+      seenIds.add(n.id);
+
+      const linkMatch = n.link ? n.link.match(/\/(?:product|listing)\/([a-zA-Z0-9_-]+)/) : null;
+      const listingId = linkMatch ? linkMatch[1] : null;
+
+      // Filter locally deleted listings
+      if (listingId && isListingDeletedLocally(listingId)) return false;
+      if (n.id) {
+        const match = n.id.match(/(?:nearby-notif|listing-created|listing)-([a-zA-Z0-9_-]+)/);
+        if (match && isListingDeletedLocally(match[1])) return false;
+      }
+
+      const titleLower = (n.title || "").trim().toLowerCase();
+      const isSubmission = titleLower.startsWith("listing submitted:") || titleLower.startsWith("listing created:");
+      const isNearby = n.type === "nearby_changes" || titleLower.startsWith("nearby changes:");
+
+      // Normalize listing title suffix
+      const cleanTitleSuffix = titleLower.replace(/^(listing submitted|listing created|nearby changes):\s*/, "");
+      const submissionKey = listingId ? `lid_${listingId}` : cleanTitleSuffix ? `title_${cleanTitleSuffix}` : null;
+
+      // Only perform and show nearby changes notification if seller activated nearby changes for this listing
+      if (isNearby && listingId && !isListingNearbyChangesEnabled(listingId)) {
+        return false;
+      }
+
+      // Allow only ONE submission notification per listing (prefer "Listing Submitted")
+      if (isSubmission && submissionKey) {
+        if (seenSubmissionKeys.has(submissionKey)) return false;
+        seenSubmissionKeys.add(submissionKey);
+      }
+
+      // General fingerprint deduplication
+      const fp = `${titleLower}__${(n.body || "").trim().toLowerCase()}`;
+      if (seenFingerprints.has(fp)) return false;
+      seenFingerprints.add(fp);
+
+      return true;
+    });
 
     setNotifications(merged);
     setUnreadCount(merged.filter((item) => !item.isRead).length);

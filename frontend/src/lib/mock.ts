@@ -359,13 +359,25 @@ export const SUBCATEGORIES: Record<string, string[]> = {
 };
 
 export function getSubcategoriesForCategory(catId: string): { id: string; name: string }[] {
-  const key = (catId || "mobiles").toLowerCase();
-  const raw = SUBCATEGORIES[key] || SUBCATEGORIES[key.replace(/-/g, "")] || ["General"];
+  const key = (catId || "mobiles").toLowerCase().trim();
+  const keyNorm = key.replace(/[^a-z0-9]/g, "");
+  let raw: string[] | undefined = SUBCATEGORIES[key] || SUBCATEGORIES[key.replace(/-/g, "")] || SUBCATEGORIES[key.replace(/_/g, "-")];
+  if (!raw) {
+    for (const [k, v] of Object.entries(SUBCATEGORIES)) {
+      if (k.toLowerCase() === key || k.replace(/[^a-z0-9]/g, "") === keyNorm) {
+        raw = v;
+        break;
+      }
+    }
+  }
+  if (!raw || raw.length === 0) {
+    raw = ["General"];
+  }
   return raw.map((item: any) => {
     if (typeof item === "string") {
       return { id: item.toLowerCase().replace(/\s+/g, "_"), name: item };
     }
-    return { id: item.id || item.name.toLowerCase().replace(/\s+/g, "_"), name: item.name };
+    return { id: item.id || (item.name || "").toLowerCase().replace(/\s+/g, "_"), name: item.name };
   });
 }
 

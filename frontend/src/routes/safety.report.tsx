@@ -2,7 +2,8 @@ import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useState, useEffect } from "react";
 import { MobileFrame } from "@/components/omeetso/MobileFrame";
 import { BackBar } from "@/components/omeetso/TopBar";
-import { addSafetyReport, blockUser, createTicket, SAFETY_CATEGORIES, type SafetyCategory } from "@/lib/account";
+import { addSafetyReport, blockUser as blockAccountUser, listBlocked, createTicket, SAFETY_CATEGORIES, type SafetyCategory } from "@/lib/account";
+import { blockUser as blockChatUser, isBlocked as isChatBlocked } from "@/lib/chat";
 import { createSafetyReportApi } from "@/api/safety.api";
 import { formatPhoneDisplay, cleanPhoneInput } from "@/lib/utils";
 import { toast } from "sonner";
@@ -58,6 +59,7 @@ function ReportPage() {
   const [contactTimeSlot, setContactTimeSlot] = useState("anytime");
   const [declarationConfirmed, setDeclarationConfirmed] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isUserBlocked, setIsUserBlocked] = useState(false);
   
   const [submitted, setSubmitted] = useState<{
     id: string;
@@ -65,6 +67,31 @@ function ReportPage() {
     contactPref: string;
     category: string;
   } | null>(null);
+
+  // Sync blocked status for related user
+  useEffect(() => {
+    const trimmed = relatedUser.trim();
+    if (trimmed) {
+      const blockedInAccount = listBlocked().some((u) => u.id === trimmed || u.name === trimmed);
+      const blockedInChat = isChatBlocked(trimmed);
+      setIsUserBlocked(blockedInAccount || blockedInChat);
+    } else {
+      setIsUserBlocked(false);
+    }
+  }, [relatedUser]);
+
+  const handleBlockUser = () => {
+    const target = relatedUser.trim();
+    if (!target) return;
+    blockAccountUser({
+      id: target,
+      name: target,
+      reason: `Reported in safety incident: ${submitted?.category || category}`
+    });
+    blockChatUser(target);
+    setIsUserBlocked(true);
+    toast.success(`User "${target}" has been blocked and cannot contact you.`);
+  };
 
   // Pre-fill user details from local storage if available
   useEffect(() => {
@@ -268,7 +295,7 @@ function ReportPage() {
               </div>
 
               <p className="mt-3.5 text-[11px] text-white/75 leading-relaxed">
-                An alert has been dispatched to <strong>akhileshreddy027@gmail.com</strong> (Admin). Our Trust & Safety team actively investigates all incident reports within 24 hours.
+                An alert has been dispatched to <strong>info@omeetso.in</strong> (Trust &amp; Safety Desk). Our Trust &amp; Safety team actively investigates all incident reports within 24 hours.
               </p>
             </div>
 
@@ -283,18 +310,49 @@ function ReportPage() {
                 <ArrowRight className="h-4 w-4 ml-auto" />
               </Link>
 
+              <a
+                href={`mailto:info@omeetso.in?subject=${encodeURIComponent(
+                  `[Incident #${submitted.id}] Safety Incident Report: ${submitted.category}`
+                )}&body=${encodeURIComponent(
+                  `Dear Omeetso Trust & Safety Team,\n\nI have submitted an incident report regarding ${submitted.category}.\n\nIncident Reference ID: #${submitted.id}\nCategory: ${submitted.category}\n${relatedUser ? `Reported User: ${relatedUser}\n` : ""}${relatedListing ? `Related Listing: ${relatedListing}\n` : ""}\nIncident Description:\n${description}\n\nPlease take appropriate action.\n\nReporter: ${isAnonymous ? "Anonymous Reporter" : reporterName || "Omeetso User"}\nEmail: ${reporterEmail || "Not provided"}\nPhone: ${reporterPhone || "Not provided"}`
+                )}`}
+                className="w-full flex items-center justify-center gap-2 rounded-2xl border border-sky-500/30 bg-sky-500/10 py-3 px-4 text-xs font-bold text-sky-600 dark:text-sky-400 hover:bg-sky-500/15 active:scale-[0.99] transition-all"
+              >
+                <Mail className="h-3.5 w-3.5" />
+                <span>Email Trust &amp; Safety (info@omeetso.in)</span>
+                <ExternalLink className="h-3 w-3 ml-auto opacity-70" />
+              </a>
+
               {relatedUser && (
-                <button
-                  type="button"
-                  onClick={() => {
-                    blockUser({ id: relatedUser, name: relatedUser });
-                    toast.success("Reported user blocked from contacting you");
-                  }}
-                  className="w-full flex items-center justify-center gap-2 rounded-2xl border border-destructive/30 bg-destructive/10 py-3 px-4 text-xs font-bold text-destructive hover:bg-destructive/15 active:scale-[0.99] transition-all"
-                >
-                  <Lock className="h-3.5 w-3.5" />
-                  <span>Block the reported user ({relatedUser})</span>
-                </button>
+                <div className="space-y-1.5">
+                  <button
+                    type="button"
+                    onClick={handleBlockUser}
+                    disabled={isUserBlocked}
+                    className={`w-full flex items-center justify-center gap-2 rounded-2xl py-3 px-4 text-xs font-bold transition-all ${
+                      isUserBlocked
+                        ? "border border-emerald-500/40 bg-emerald-500/15 text-emerald-700 dark:text-emerald-300 cursor-default"
+                        : "border border-destructive/30 bg-destructive/10 text-destructive hover:bg-destructive/15 active:scale-[0.99] cursor-pointer"
+                    }`}
+                  >
+                    {isUserBlocked ? (
+                      <>
+                        <CheckCircle2 className="h-4 w-4 text-emerald-500" />
+                        <span>✓ Reported user ({relatedUser}) is blocked</span>
+                      </>
+                    ) : (
+                      <>
+                        <Lock className="h-3.5 w-3.5" />
+                        <span>Block the reported user ({relatedUser})</span>
+                      </>
+                    )}
+                  </button>
+                  {isUserBlocked && (
+                    <p className="text-[11px] text-center text-muted-foreground">
+                      This user cannot send you messages or view your private contact details.
+                    </p>
+                  )}
+                </div>
               )}
 
               <button
@@ -498,6 +556,27 @@ function ReportPage() {
                   );
                 })}
               </div>
+
+              {contactPref === "email" && (
+                <div className="rounded-2xl bg-sky-500/10 border border-sky-500/20 p-3 space-y-2 text-xs">
+                  <div className="flex items-center justify-between">
+                    <span className="flex items-center gap-1.5 font-bold text-sky-700 dark:text-sky-300">
+                      <Mail className="h-4 w-4" />
+                      <span>Trust &amp; Safety Official Email</span>
+                    </span>
+                    <a
+                      href="mailto:info@omeetso.in?subject=Safety%20Incident%20Report"
+                      className="inline-flex items-center gap-1 rounded-xl bg-sky-600 hover:bg-sky-700 text-white px-2.5 py-1 text-[11px] font-bold shadow-2xs transition active:scale-95"
+                    >
+                      <span>Open Mail App</span>
+                      <ExternalLink className="h-3 w-3" />
+                    </a>
+                  </div>
+                  <p className="text-[11px] text-muted-foreground leading-relaxed">
+                    Official incident updates will be dispatched to and from <strong className="text-foreground">info@omeetso.in</strong>. You can also contact our Trust &amp; Safety desk directly.
+                  </p>
+                </div>
+              )}
             </div>
 
             {/* Confidentiality / Anonymous Toggle Card */}

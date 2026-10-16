@@ -113,10 +113,15 @@ export async function authenticateUser(
       return;
     }
 
-    if (user.status === UserStatus.PERMANENTLY_SUSPENDED || user.status === UserStatus.DELETED) {
+    if (user.status === UserStatus.PERMANENTLY_SUSPENDED || user.status === UserStatus.DELETED || user.status === UserStatus.DEACTIVATED) {
       res.status(403).json({
         success: false,
-        error: { code: "ACCOUNT_SUSPENDED", message: "This account has been deleted or suspended." }
+        error: {
+          code: user.status === UserStatus.DEACTIVATED ? "ACCOUNT_DEACTIVATED" : "ACCOUNT_SUSPENDED",
+          message: user.status === UserStatus.DEACTIVATED
+            ? "Your account has been deactivated. Please contact support at info@omeetso.in to reactivate."
+            : "This account has been deleted or suspended."
+        }
       });
       return;
     }

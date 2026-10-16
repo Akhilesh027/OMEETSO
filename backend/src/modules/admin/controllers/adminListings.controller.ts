@@ -513,10 +513,18 @@ export async function deleteAdminListing(req: AuthenticatedAdminRequest, res: Re
     // Permanently remove product listing from MongoDB
     await Listing.findByIdAndDelete(targetId);
 
-    // Clean up associated moderation entries and revisions
+    // Clean up associated moderation entries, revisions, and notifications (including Nearby Changes)
     await Promise.allSettled([
       ListingModeration.deleteMany({ listingId: targetId }),
-      ListingRevision.deleteMany({ listingId: targetId })
+      ListingRevision.deleteMany({ listingId: targetId }),
+      Notification.deleteMany({
+        $or: [
+          { "metadata.listingId": targetId.toString() },
+          { link: { $regex: targetId.toString() } },
+          ...(listing.slug ? [{ link: { $regex: listing.slug } }] : []),
+          ...(targetTitle ? [{ title: { $regex: targetTitle.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), $options: "i" } }] : [])
+        ]
+      })
     ]);
 
     // Create Audit Log

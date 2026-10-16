@@ -66,14 +66,17 @@ export async function requestOtp(req: Request, res: Response, next: NextFunction
       return;
     }
 
-    // Check if account was deleted or permanently suspended
+    // Check if account was deleted, deactivated, or permanently suspended
     const existingUser = await User.findOne({ phone: normalizedPhone });
-    if (existingUser && (existingUser.status === UserStatus.DELETED || existingUser.status === UserStatus.PERMANENTLY_SUSPENDED)) {
+    if (existingUser && (existingUser.status === UserStatus.DELETED || existingUser.status === UserStatus.PERMANENTLY_SUSPENDED || existingUser.status === UserStatus.DEACTIVATED)) {
+      const isDeactivated = existingUser.status === UserStatus.DEACTIVATED;
       res.status(403).json({
         success: false,
         error: {
-          code: "ACCOUNT_DELETED",
-          message: "This account has been deleted or permanently suspended. Please contact support for assistance."
+          code: isDeactivated ? "ACCOUNT_DEACTIVATED" : "ACCOUNT_DELETED",
+          message: isDeactivated
+            ? "This account has been deactivated. Please contact support at info@omeetso.in to reactivate your account."
+            : "This account has been deleted or permanently suspended. Please contact support for assistance."
         }
       });
       return;
@@ -158,12 +161,15 @@ export async function verifyOtp(req: Request, res: Response, next: NextFunction)
     let user = await User.findOne({ phone: normalizedPhone });
     let isNewUser = false;
 
-    if (user && (user.status === UserStatus.DELETED || user.status === UserStatus.PERMANENTLY_SUSPENDED)) {
+    if (user && (user.status === UserStatus.DELETED || user.status === UserStatus.PERMANENTLY_SUSPENDED || user.status === UserStatus.DEACTIVATED)) {
+      const isDeactivated = user.status === UserStatus.DEACTIVATED;
       res.status(403).json({
         success: false,
         error: {
-          code: "ACCOUNT_DELETED",
-          message: "This account has been deleted or permanently suspended and cannot be accessed."
+          code: isDeactivated ? "ACCOUNT_DEACTIVATED" : "ACCOUNT_DELETED",
+          message: isDeactivated
+            ? "This account has been deactivated. Please contact support at info@omeetso.in to reactivate your account."
+            : "This account has been deleted or permanently suspended and cannot be accessed."
         }
       });
       return;
@@ -263,11 +269,15 @@ export async function refreshUserSession(req: Request, res: Response, next: Next
     }
 
     const user = await User.findById(session.userId);
-    if (!user || user.status === UserStatus.DELETED || user.status === UserStatus.PERMANENTLY_SUSPENDED) {
+
+    if (!user || user.status === UserStatus.DELETED || user.status === UserStatus.PERMANENTLY_SUSPENDED || user.status === UserStatus.DEACTIVATED) {
       res.clearCookie(USER_REFRESH_COOKIE, { path: "/api/v1/auth" });
       res.status(403).json({
         success: false,
-        error: { code: "ACCOUNT_SUSPENDED", message: "Account unavailable" }
+        error: {
+          code: user?.status === UserStatus.DEACTIVATED ? "ACCOUNT_DEACTIVATED" : "ACCOUNT_SUSPENDED",
+          message: user?.status === UserStatus.DEACTIVATED ? "Account has been deactivated. Please contact support." : "Account unavailable"
+        }
       });
       return;
     }

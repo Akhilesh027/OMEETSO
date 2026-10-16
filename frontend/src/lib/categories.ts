@@ -200,8 +200,16 @@ export function getCachedCategories(): LiveCategory[] {
 }
 
 export function getLiveSubcategories(catId: string): { id: string; name: string }[] {
+  const cleanId = (catId || "mobiles").toLowerCase().trim();
+  const cleanNorm = cleanId.replace(/[^a-z0-9]/g, "");
   const cats = getCachedCategories();
-  const found = cats.find((c) => c.id.toLowerCase() === (catId || "").toLowerCase());
+  const found = cats.find((c) => {
+    const cId = (c.id || "").toLowerCase().trim();
+    const cIdNorm = cId.replace(/[^a-z0-9]/g, "");
+    const cName = (c.name || "").toLowerCase().trim();
+    const cNameNorm = cName.replace(/[^a-z0-9]/g, "");
+    return cId === cleanId || cIdNorm === cleanNorm || cName === cleanId || cNameNorm === cleanNorm;
+  });
   if (found && Array.isArray(found.subcategories) && found.subcategories.length > 0) {
     return found.subcategories.map((item: any) => {
       if (typeof item === "string") {

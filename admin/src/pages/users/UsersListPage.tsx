@@ -64,8 +64,9 @@ export default function UsersListPage() {
       return [];
     }
   });
-  const [activeTab, setActiveTab] = useState<"all" | "buyer" | "seller" | "business" | "suspended" | "banned">("all");
+  const [activeTab, setActiveTab] = useState<"all" | "buyer" | "seller" | "business" | "suspended" | "banned" | "deactivated">("all");
   const [searchTerm, setSearchTerm] = useState("");
+  const [deactivations, setDeactivations] = useState<any[]>([]);
 
   // Modals state
   const [selectedUser, setSelectedUser] = useState<PlatformUser | null>(null);
@@ -91,12 +92,19 @@ export default function UsersListPage() {
       const json = await res.json();
       if (json.success && Array.isArray(json.data)) {
         setUsers(json.data);
-        return;
       }
     } catch (err) {
       clearTimeout(timer);
       console.warn("MongoDB users fetch warning:", err);
     }
+
+    try {
+      const dRes = await fetch(`${API_BASE}/users/admin/deactivations`);
+      const dJson = await dRes.json();
+      if (dJson.success && Array.isArray(dJson.data)) {
+        setDeactivations(dJson.data);
+      }
+    } catch {}
   };
 
   useEffect(() => {
@@ -265,6 +273,7 @@ export default function UsersListPage() {
               { id: "business", label: "Business Accounts" },
               { id: "suspended", label: "Suspended / Flagged" },
               { id: "banned", label: "Banned" },
+              { id: "deactivated", label: `Exit Surveys / Deactivated (${deactivations.length})` },
             ].map((tab) => (
               <button
                 key={tab.id}
@@ -291,8 +300,71 @@ export default function UsersListPage() {
           </div>
         </div>
 
-        {/* Data Table */}
-        <div className="overflow-x-auto">
+        {/* Data Table / Exit Surveys View */}
+        {activeTab === "deactivated" ? (
+          <div className="overflow-x-auto">
+            <table className="w-full text-left text-xs">
+              <thead className="bg-[#F5F7FC] text-[#64748B] font-bold uppercase text-[10px] border-b border-[#E2E8F0]">
+                <tr>
+                  <th className="p-3">User & Contact</th>
+                  <th className="p-3">Departure Reason</th>
+                  <th className="p-3">Additional Feedback</th>
+                  <th className="p-3">Action Type</th>
+                  <th className="p-3">Date & Time</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-[#E2E8F0]">
+                {deactivations.length === 0 ? (
+                  <tr>
+                    <td colSpan={5} className="p-8 text-center text-slate-400">
+                      No account deactivation or exit survey records found.
+                    </td>
+                  </tr>
+                ) : (
+                  deactivations.map((d: any) => (
+                    <tr key={d._id} className="hover:bg-slate-50 transition-colors">
+                      <td className="p-3">
+                        <div className="font-bold text-[#111827]">{d.userName || "Omeetso User"}</div>
+                        <div className="text-[11px] text-[#64748B]">{d.phone || "—"}</div>
+                        {d.email && <div className="text-[10px] text-slate-400">{d.email}</div>}
+                        <div className="text-[10px] text-slate-400 font-mono mt-0.5">ID: #{String(d.userId).slice(-8)}</div>
+                      </td>
+                      <td className="p-3">
+                        <span className="inline-block px-2.5 py-1 rounded-lg text-[11px] font-bold bg-amber-50 text-amber-700 border border-amber-200">
+                          {d.reason}
+                        </span>
+                      </td>
+                      <td className="p-3 max-w-xs">
+                        <p className="text-xs text-slate-700 leading-snug">
+                          {d.customFeedback || <span className="text-slate-400 italic">None provided</span>}
+                        </p>
+                      </td>
+                      <td className="p-3">
+                        <span className={`inline-block px-2 py-0.5 rounded-full text-[10px] font-black ${
+                          d.actionType === "DELETE"
+                            ? "bg-rose-50 text-rose-700 border border-rose-200"
+                            : "bg-blue-50 text-blue-700 border border-blue-200"
+                        }`}>
+                          {d.actionType === "DELETE" ? "DELETED" : "DEACTIVATED"}
+                        </span>
+                      </td>
+                      <td className="p-3 text-[11px] text-slate-500 font-medium">
+                        {new Date(d.createdAt).toLocaleString("en-IN", {
+                          day: "numeric",
+                          month: "short",
+                          year: "numeric",
+                          hour: "2-digit",
+                          minute: "2-digit"
+                        })}
+                      </td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
+        ) : (
+          <div className="overflow-x-auto">
           <table className="w-full text-left text-xs">
             <thead className="bg-[#F5F7FC] text-[#64748B] font-bold uppercase text-[10px] border-b border-[#E2E8F0]">
               <tr>
@@ -446,7 +518,8 @@ export default function UsersListPage() {
             </tbody>
           </table>
         </div>
-      </div>
+      )}
+    </div>
 
       {/* VIEW DETAILS MODAL */}
       {isDetailOpen && selectedUser && (

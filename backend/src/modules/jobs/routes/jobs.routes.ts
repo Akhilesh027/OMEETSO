@@ -8,6 +8,7 @@ import {
   duplicateJobListing,
   renewJobListing,
   closeJobListing,
+  deleteEmployerJob,
   applyToJob,
   withdrawApplication,
   getCandidateApplications,
@@ -36,6 +37,8 @@ jobsRouter.patch("/applicants/:applicationId/status", authenticateUser, updateAp
 jobsRouter.post("/:id/duplicate", authenticateUser, duplicateJobListing);
 jobsRouter.post("/:id/renew", authenticateUser, renewJobListing);
 jobsRouter.post("/:id/close", authenticateUser, closeJobListing);
+jobsRouter.delete("/:id", authenticateUser, deleteEmployerJob);
+jobsRouter.post("/:id/delete", authenticateUser, deleteEmployerJob);
 
 // Public routes
 jobsRouter.get("/categories", getJobCategories);

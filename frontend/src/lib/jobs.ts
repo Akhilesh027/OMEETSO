@@ -297,6 +297,7 @@ export const SEED_JOBS: JobItem[] = [];
 
 export async function fetchPublicJobs(params?: Record<string, string>): Promise<JobItem[]> {
   let serverJobs: JobItem[] = [];
+  let serverFetchSuccess = false;
   try {
     const qStr = params ? new URLSearchParams(params).toString() : "";
     const res = await fetchWithTimeout(`${API_BASE}/jobs?${qStr}`, {}, 5000);
@@ -304,13 +305,40 @@ export async function fetchPublicJobs(params?: Record<string, string>): Promise<
       const json = await res.json();
       if (json.success && Array.isArray(json.data)) {
         serverJobs = json.data;
+        serverFetchSuccess = true;
       }
     }
   } catch { /* ignore offline */ }
 
+  // 1. If server jobs returned, update the local cache with the latest authoritative server status
+  if (serverJobs.length > 0) {
+    try {
+      const currentCached = getLocal<JobItem[]>(LS_JOBS, []);
+      let cacheChanged = false;
+      const updatedCached = currentCached.map((c) => {
+        const cId = String(c.id || (c as any)._id || "");
+        const serverMatch = serverJobs.find(
+          (s) => String(s.id || (s as any)._id || "") === cId
+        );
+        if (serverMatch && serverMatch.status !== c.status) {
+          cacheChanged = true;
+          return { ...c, ...serverMatch, id: cId, status: serverMatch.status };
+        }
+        return c;
+      });
+      if (cacheChanged) {
+        setLocal(LS_JOBS, updatedCached);
+        if (typeof window !== "undefined") {
+          window.dispatchEvent(new CustomEvent("omeetso_jobs_changed"));
+        }
+      }
+    } catch {}
+  }
+
   const cached = getLocal<JobItem[]>(LS_JOBS, []);
   
-  // Merge server and local jobs, prioritizing latest postings
+  // Merge server and local jobs:
+  // Server jobs are authoritative for status and public visibility!
   const mergedMap = new Map<string, JobItem>();
   
   // Add server jobs first
@@ -319,15 +347,26 @@ export async function fetchPublicJobs(params?: Record<string, string>): Promise<
     if (id) mergedMap.set(String(id), { ...j, id: String(id) });
   }
 
-  // Add/overwrite with local jobs (user's own newly posted jobs will take precedence and be up to date)
+  // Merge local jobs: DO NOT resurrect deleted jobs!
   for (const j of cached) {
     const id = j.id || (j as any)._id;
-    if (id) mergedMap.set(String(id), { ...j, id: String(id) });
+    if (!id) continue;
+    const strId = String(id);
+    if (mergedMap.has(strId)) {
+      const serverJob = mergedMap.get(strId)!;
+      mergedMap.set(strId, { ...j, ...serverJob, id: strId, status: serverJob.status });
+    } else {
+      // If server responded successfully and this is a MongoDB ID not in server jobs, it was deleted!
+      if (serverFetchSuccess && /^[0-9a-fA-F]{24}$/.test(strId)) {
+        continue;
+      }
+      mergedMap.set(strId, { ...j, id: strId });
+    }
   }
 
   let list = Array.from(mergedMap.values()).filter(j => {
     const st = (j.status || "").toUpperCase();
-    return st === "APPROVED" || st === "ACTIVE" || st === "PUBLISHED" || st === "SUBMITTED";
+    return st === "APPROVED" || st === "ACTIVE" || st === "PUBLISHED";
   });
 
   // Sort newest first
@@ -361,23 +400,47 @@ export async function fetchPublicJobs(params?: Record<string, string>): Promise<
 }
 
 export async function fetchJobById(id: string): Promise<JobItem | null> {
+  const cleanId = (id || "").trim();
+  if (!cleanId) return null;
+
   try {
-    const res = await fetchWithTimeout(`${API_BASE}/jobs/${id}`, {}, 4000);
+    const res = await fetchWithTimeout(`${API_BASE}/jobs/${cleanId}?_t=${Date.now()}`, {}, 4000);
     if (res.ok) {
       const json = await res.json();
       if (json.success && json.data) {
-        return json.data;
+        const liveJob: JobItem = {
+          ...json.data,
+          id: String(json.data.id || json.data._id || cleanId)
+        };
+        // Immediately sync live status back into LS_JOBS!
+        try {
+          const currentCached = getLocal<JobItem[]>(LS_JOBS, []);
+          const idx = currentCached.findIndex((j) => String(j.id || (j as any)._id) === liveJob.id);
+          if (idx !== -1) {
+            if (currentCached[idx].status !== liveJob.status) {
+              currentCached[idx] = { ...currentCached[idx], ...liveJob, status: liveJob.status };
+              setLocal(LS_JOBS, currentCached);
+              if (typeof window !== "undefined") {
+                window.dispatchEvent(new CustomEvent("omeetso_jobs_changed"));
+              }
+            }
+          } else {
+            currentCached.unshift(liveJob);
+            setLocal(LS_JOBS, currentCached);
+          }
+        } catch {}
+        return liveJob;
       }
     }
   } catch { /* ignore offline or timeout */ }
 
   const all = getLocal<JobItem[]>(LS_JOBS, []);
-  const found = all.find(j => j.id === id);
+  const found = all.find(j => String(j.id || (j as any)._id) === cleanId);
   if (found) {
     return {
       ...found,
-      similarJobs: all.filter(j => j.id !== id && j.jobCategoryId === found.jobCategoryId).slice(0, 4),
-      companyJobs: all.filter(j => j.id !== id && j.companyName === found.companyName).slice(0, 4)
+      similarJobs: all.filter(j => String(j.id || (j as any)._id) !== cleanId && j.jobCategoryId === found.jobCategoryId).slice(0, 4),
+      companyJobs: all.filter(j => String(j.id || (j as any)._id) !== cleanId && j.companyName === found.companyName).slice(0, 4)
     };
   }
   return null;
@@ -651,16 +714,18 @@ export function createJobLocal(job: JobItem): JobItem {
 
 export async function fetchEmployerJobs(userId?: string, token?: string | null): Promise<JobItem[]> {
   let serverJobs: JobItem[] = [];
+  let serverFetchSuccess = false;
   try {
     const authToken = token || (typeof window !== "undefined" ? localStorage.getItem("omeetso_user_token") : null);
     const authHeaders: Record<string, string> = authToken ? { Authorization: `Bearer ${authToken}` } : {};
-    const res = await fetchWithTimeout(`${API_BASE}/jobs/employer/my-jobs`, {
+    const res = await fetchWithTimeout(`${API_BASE}/jobs/employer/my-jobs?_t=${Date.now()}`, {
       headers: authHeaders
     }, 5000);
     if (res.ok) {
       const json = await res.json();
       if (json.success && Array.isArray(json.data)) {
         serverJobs = json.data;
+        serverFetchSuccess = true;
       }
     }
   } catch { /* offline or timeout fallback */ }
@@ -672,26 +737,175 @@ export async function fetchEmployerJobs(userId?: string, token?: string | null):
   });
 
   const merged = new Map<string, JobItem>();
+  const serverJobIds = new Set<string>();
   for (const j of serverJobs) {
-    const id = j.id || (j as any)._id;
-    if (id) merged.set(String(id), { ...j, id: String(id) });
-  }
-  for (const j of matchingCached) {
-    const id = j.id || (j as any)._id;
-    if (id && !merged.has(String(id))) {
-      merged.set(String(id), { ...j, id: String(id) });
+    const id = String(j.id || (j as any)._id);
+    if (id) {
+      merged.set(id, { ...j, id });
+      serverJobIds.add(id);
     }
   }
 
-  return Array.from(merged.values());
+  const confirmedDeletedIds = new Set<string>();
+
+  // Check live status for any cached jobs that are pending or missing from serverJobs
+  const pendingOrMissingCached = matchingCached.filter((j) => {
+    const id = String(j.id || (j as any)._id || "");
+    const inServer = merged.get(id);
+    const s = (inServer?.status || j.status || "").toUpperCase();
+    return !inServer || s === "SUBMITTED" || s === "PENDING" || s === "PENDING APPROVAL";
+  });
+
+  if (pendingOrMissingCached.length > 0) {
+    await Promise.allSettled(
+      pendingOrMissingCached.slice(0, 15).map(async (j) => {
+        const id = String(j.id || (j as any)._id || "");
+        if (!id || id.startsWith("PREVIEW")) return;
+        try {
+          const res = await fetchWithTimeout(`${API_BASE}/jobs/${id}?_t=${Date.now()}`, {}, 3000);
+          if (res.status === 404 || res.status === 410) {
+            confirmedDeletedIds.add(id);
+            merged.delete(id);
+            return;
+          }
+          if (res.ok) {
+            const data = await res.json();
+            if (data.success && data.data) {
+              const liveJob: JobItem = {
+                ...data.data,
+                id: String(data.data.id || data.data._id || id)
+              };
+              merged.set(id, liveJob);
+            } else if (data.success === false) {
+              confirmedDeletedIds.add(id);
+              merged.delete(id);
+            }
+          }
+        } catch {}
+      })
+    );
+  }
+
+  for (const j of matchingCached) {
+    const id = String(j.id || (j as any)._id || "");
+    if (!id || confirmedDeletedIds.has(id)) continue;
+    // If backend returned a valid serverJobs list and this job has a 24-character hexadecimal MongoDB ID,
+    // and was NOT in serverJobs, it was deleted on the server!
+    if (serverFetchSuccess && /^[0-9a-fA-F]{24}$/.test(id) && !serverJobIds.has(id)) {
+      confirmedDeletedIds.add(id);
+      merged.delete(id);
+      continue;
+    }
+    if (!merged.has(id)) {
+      merged.set(id, { ...j, id });
+    }
+  }
+
+  // Purge confirmed deleted jobs from LS_JOBS and applicants storage!
+  if (confirmedDeletedIds.size > 0) {
+    try {
+      const remainingCached = cached.filter((c) => {
+        const cId = String(c.id || (c as any)._id || "");
+        return !confirmedDeletedIds.has(cId);
+      });
+      setLocal(LS_JOBS, remainingCached);
+      for (const dId of confirmedDeletedIds) {
+        if (typeof localStorage !== "undefined") {
+          localStorage.removeItem(`omeetso_employer_applicants_${dId}`);
+        }
+      }
+      if (typeof window !== "undefined") {
+        window.dispatchEvent(new CustomEvent("omeetso_jobs_changed"));
+      }
+    } catch {}
+  }
+
+  const finalJobs = Array.from(merged.values());
+
+  // Sync latest authoritative status of user's jobs back to LS_JOBS!
+  if (finalJobs.length > 0) {
+    try {
+      let cacheChanged = false;
+      const updatedCached = cached.map((c) => {
+        const cId = String(c.id || (c as any)._id || "");
+        const match = merged.get(cId);
+        if (match && match.status !== c.status) {
+          cacheChanged = true;
+          return { ...c, ...match, id: cId, status: match.status };
+        }
+        return c;
+      });
+      if (cacheChanged) {
+        setLocal(LS_JOBS, updatedCached);
+        if (typeof window !== "undefined") {
+          window.dispatchEvent(new CustomEvent("omeetso_jobs_changed"));
+        }
+      }
+    } catch {}
+  }
+
+  return finalJobs;
+}
+
+export async function deleteEmployerJob(jobId: string, token?: string | null): Promise<boolean> {
+  const cleanId = String(jobId || "").trim();
+  if (!cleanId) return false;
+
+  // 1. Purge from local cache immediately
+  try {
+    const cached = getLocal<JobItem[]>(LS_JOBS, []);
+    const filtered = cached.filter(j => {
+      const id = String(j.id || (j as any)._id || "");
+      return id !== cleanId;
+    });
+    setLocal(LS_JOBS, filtered);
+    if (typeof localStorage !== "undefined") {
+      localStorage.removeItem(`omeetso_employer_applicants_${cleanId}`);
+    }
+    if (typeof window !== "undefined") {
+      window.dispatchEvent(new CustomEvent("omeetso_jobs_changed"));
+    }
+  } catch {}
+
+  // 2. Call backend DELETE endpoint
+  try {
+    const authToken = token || (typeof window !== "undefined" ? localStorage.getItem("omeetso_user_token") : null);
+    const authHeaders: Record<string, string> = authToken ? { Authorization: `Bearer ${authToken}` } : {};
+    await fetchWithTimeout(`${API_BASE}/jobs/${cleanId}`, {
+      method: "DELETE",
+      headers: authHeaders
+    }, 5000);
+  } catch {}
+
+  return true;
+}
+
+function safeExtractJobId(a: any): string {
+  if (!a) return "";
+  if (typeof a === "string") return a.trim();
+  if (typeof a.jobId === "string") return a.jobId.trim();
+  if (a.jobId && typeof a.jobId === "object") {
+    const id = a.jobId._id || a.jobId.id;
+    if (id) return String(id).trim();
+  }
+  if (a.job) {
+    const id = a.job.id || (a.job as any)?._id;
+    if (id) return String(id).trim();
+  }
+  if (a.jobSnapshot) {
+    const id = (a.jobSnapshot as any)?._id || (a.jobSnapshot as any)?.id;
+    if (id) return String(id).trim();
+  }
+  return "";
 }
 
 export async function fetchEmployerJobApplicants(jobId: string, token?: string | null, jobTitle?: string): Promise<JobApplicationItem[]> {
+  const cleanTargetId = String(jobId || "").trim();
   let serverApps: JobApplicationItem[] = [];
   try {
     const authToken = token || (typeof window !== "undefined" ? localStorage.getItem("omeetso_user_token") : null);
     const authHeaders: Record<string, string> = authToken ? { Authorization: `Bearer ${authToken}` } : {};
-    const res = await fetchWithTimeout(`${API_BASE}/jobs/${jobId}/applicants`, {
+    const res = await fetchWithTimeout(`${API_BASE}/jobs/${cleanTargetId}/applicants?_t=${Date.now()}`, {
       headers: authHeaders
     }, 5000);
     if (res.ok) {
@@ -699,14 +913,15 @@ export async function fetchEmployerJobApplicants(jobId: string, token?: string |
       if (json.success && Array.isArray(json.data)) {
         serverApps = json.data.map((item: any) => ({
           ...item,
-          id: item.id || item._id?.toString() || item._id
+          id: String(item.id || item._id?.toString() || item._id || ""),
+          jobId: safeExtractJobId(item) || cleanTargetId
         }));
       }
     }
   } catch { /* offline or timeout fallback */ }
 
   // 1. Gather all local sources
-  const empJobApps = getLocal<JobApplicationItem[]>(`omeetso_employer_applicants_${jobId}`, []);
+  const empJobApps = getLocal<JobApplicationItem[]>(`omeetso_employer_applicants_${cleanTargetId}`, []);
   const globalApps = getLocal<JobApplicationItem[]>(LS_APPLICATIONS, []);
   const candApps = listCandidateApplicationsLocal();
 
@@ -716,7 +931,7 @@ export async function fetchEmployerJobApplicants(jobId: string, token?: string |
     try {
       for (let i = 0; i < localStorage.length; i++) {
         const k = localStorage.key(i);
-        if (k && (k.startsWith("omeetso_candidate_applications_") || k === "omeetso_candidate_applied_jobs")) {
+        if (k && (k.startsWith("omeetso_candidate_applications_") || k === "omeetso_candidate_applied_jobs" || k.startsWith("omeetso_employer_applicants_"))) {
           const raw = localStorage.getItem(k);
           if (raw) {
             const parsed = JSON.parse(raw);
@@ -727,12 +942,20 @@ export async function fetchEmployerJobApplicants(jobId: string, token?: string |
     } catch {}
   }
 
+  const cleanTitle = (t?: string) => (t || "").toLowerCase().replace(/[^a-z0-9]/g, "");
+  const targetTitleNorm = cleanTitle(jobTitle);
+
   const allLocal = [...empJobApps, ...globalApps, ...candApps, ...extraLocalApps];
   const matchingLocal = allLocal.filter(a => {
-    const aId = String(a.jobId || a.job?.id || (a.job as any)?._id || "");
-    const targetId = String(jobId || "");
-    if (aId && targetId && (aId === targetId || aId.toLowerCase() === targetId.toLowerCase())) return true;
-    if (jobTitle && a.job?.title && a.job.title.toLowerCase().trim() === jobTitle.toLowerCase().trim()) return true;
+    if (!a) return false;
+    const aId = safeExtractJobId(a);
+    if (aId && cleanTargetId && (aId === cleanTargetId || aId.toLowerCase() === cleanTargetId.toLowerCase())) {
+      return true;
+    }
+    const candTitleNorm = cleanTitle(a.job?.title || (a as any).jobSnapshot?.title);
+    if (targetTitleNorm && candTitleNorm && targetTitleNorm === candTitleNorm) {
+      return true;
+    }
     return false;
   });
 
@@ -742,11 +965,14 @@ export async function fetchEmployerJobApplicants(jobId: string, token?: string |
 
   // 1. Process server apps first
   for (const app of serverApps) {
-    const dedupeKey = app.id || `${app.jobId}_${app.applicantId || app.applicantProfileSnapshot?.phone || app.applicantProfileSnapshot?.name}`;
+    const appId = String(app.id || (app as any)._id || "");
+    const jId = safeExtractJobId(app) || cleanTargetId;
+    const dedupeKey = appId || `${jId}_${app.applicantId || app.applicantProfileSnapshot?.phone || app.applicantProfileSnapshot?.name}`;
     
     // Look for matching local app to enrich missing resumeUrl or snapshot details
     const localMatch = matchingLocal.find(l => {
-      if (l.id && app.id && l.id === app.id) return true;
+      const lId = String(l.id || (l as any)._id || "");
+      if (lId && appId && lId === appId) return true;
       if (l.applicantProfileSnapshot?.phone && app.applicantProfileSnapshot?.phone && l.applicantProfileSnapshot.phone === app.applicantProfileSnapshot.phone) return true;
       if (l.applicantProfileSnapshot?.email && app.applicantProfileSnapshot?.email && l.applicantProfileSnapshot.email === app.applicantProfileSnapshot.email) return true;
       if (l.applicantProfileSnapshot?.name && app.applicantProfileSnapshot?.name && l.applicantProfileSnapshot.name.toLowerCase() === app.applicantProfileSnapshot.name.toLowerCase()) return true;
@@ -754,6 +980,13 @@ export async function fetchEmployerJobApplicants(jobId: string, token?: string |
     });
 
     const mergedSnapshot = {
+      name: app.applicantProfileSnapshot?.name || localMatch?.applicantProfileSnapshot?.name || "Candidate",
+      phone: app.applicantProfileSnapshot?.phone || localMatch?.applicantProfileSnapshot?.phone || "",
+      email: app.applicantProfileSnapshot?.email || localMatch?.applicantProfileSnapshot?.email || "",
+      city: app.applicantProfileSnapshot?.city || localMatch?.applicantProfileSnapshot?.city || "Hyderabad",
+      currentRole: app.applicantProfileSnapshot?.currentRole || app.applicantProfileSnapshot?.title || localMatch?.applicantProfileSnapshot?.currentRole || "",
+      experience: app.applicantProfileSnapshot?.experience || localMatch?.applicantProfileSnapshot?.experience || "Fresher",
+      noticePeriod: app.applicantProfileSnapshot?.noticePeriod || localMatch?.applicantProfileSnapshot?.noticePeriod || "Immediate",
       ...(localMatch?.applicantProfileSnapshot || {}),
       ...(app.applicantProfileSnapshot || {}),
       resumeUrl: app.applicantProfileSnapshot?.resumeUrl || localMatch?.applicantProfileSnapshot?.resumeUrl || (candidateProfile?.resumeUrl ? candidateProfile.resumeUrl : undefined),
@@ -766,6 +999,8 @@ export async function fetchEmployerJobApplicants(jobId: string, token?: string |
 
     const enrichedApp: JobApplicationItem = {
       ...app,
+      id: appId,
+      jobId: jId,
       applicantProfileSnapshot: mergedSnapshot as any
     };
 
@@ -774,22 +1009,41 @@ export async function fetchEmployerJobApplicants(jobId: string, token?: string |
 
   // 2. Merge local apps that are not yet on server
   for (const localApp of matchingLocal) {
-    const dedupeKey = localApp.id || `${localApp.jobId}_${localApp.applicantId || localApp.applicantProfileSnapshot?.phone || localApp.applicantProfileSnapshot?.name}`;
+    const localId = String(localApp.id || (localApp as any)._id || "");
+    const localJobId = safeExtractJobId(localApp) || cleanTargetId;
+    const dedupeKey = localId || `${localJobId}_${localApp.applicantId || localApp.applicantProfileSnapshot?.phone || localApp.applicantProfileSnapshot?.name}`;
     if (!seenMap.has(dedupeKey)) {
       const mergedSnapshot = {
+        name: localApp.applicantProfileSnapshot?.name || "Candidate",
+        phone: localApp.applicantProfileSnapshot?.phone || "",
+        email: localApp.applicantProfileSnapshot?.email || "",
+        city: localApp.applicantProfileSnapshot?.city || "Hyderabad",
+        currentRole: localApp.applicantProfileSnapshot?.currentRole || localApp.applicantProfileSnapshot?.title || "",
+        experience: localApp.applicantProfileSnapshot?.experience || "Fresher",
+        noticePeriod: localApp.applicantProfileSnapshot?.noticePeriod || "Immediate",
         ...(localApp.applicantProfileSnapshot || {}),
         resumeUrl: localApp.applicantProfileSnapshot?.resumeUrl || (candidateProfile?.resumeUrl ? candidateProfile.resumeUrl : undefined),
         resumeFileName: localApp.applicantProfileSnapshot?.resumeFileName || (candidateProfile?.resumeFileName ? candidateProfile.resumeFileName : undefined),
       };
-      seenMap.set(dedupeKey, { ...localApp, applicantProfileSnapshot: mergedSnapshot as any });
+      seenMap.set(dedupeKey, { ...localApp, id: localId || `APP-${Date.now()}`, jobId: localJobId, applicantProfileSnapshot: mergedSnapshot as any });
     }
   }
 
   const result = Array.from(seenMap.values());
   // Save combined to employer job applicants cache for instantaneous subsequent loads
-  if (result.length > 0) {
-    setLocal(`omeetso_employer_applicants_${jobId}`, result);
+  if (cleanTargetId) {
+    setLocal(`omeetso_employer_applicants_${cleanTargetId}`, result);
   }
+
+  // Update applicationsCount on the cached job in LS_JOBS so cards stay in sync
+  try {
+    const jobs = getLocal<JobItem[]>(LS_JOBS, []);
+    const jIdx = jobs.findIndex(j => String(j.id || (j as any)._id) === cleanTargetId);
+    if (jIdx !== -1 && jobs[jIdx].applicationsCount !== result.length) {
+      jobs[jIdx].applicationsCount = result.length;
+      setLocal(LS_JOBS, jobs);
+    }
+  } catch {}
 
   return result;
 }

@@ -23,6 +23,7 @@ export interface IAIAudit {
 
 export interface IListing extends Document {
   _id: mongoose.Types.ObjectId;
+  slug?: string;
   sellerId: mongoose.Types.ObjectId;
   storeId?: mongoose.Types.ObjectId;
   categoryId: string;
@@ -59,12 +60,21 @@ export interface IListing extends Document {
   rejection?: IListingRejection;
   analytics: IListingAnalytics;
   aiAudit?: IAIAudit;
+  nearbyChanges?: {
+    enabled: boolean;
+    radiusKm?: number;
+    deliveryFee?: number;
+    freeDeliveryAbove?: number;
+    customNote?: string;
+    updatedAt?: Date;
+  };
   createdAt: Date;
   updatedAt: Date;
 }
 
 const ListingSchema = new Schema<IListing>(
   {
+    slug: { type: String, sparse: true, index: true },
     sellerId: { type: Schema.Types.ObjectId, ref: "User", required: true, index: true },
     storeId: { type: Schema.Types.ObjectId, ref: "Store", index: true },
     categoryId: { type: String, required: true, index: true },
@@ -114,6 +124,14 @@ const ListingSchema = new Schema<IListing>(
       resolution: { type: String, default: "1920x1080 (HD)" },
       noPhoneText: { type: Boolean, default: true },
       watermarkPassed: { type: Boolean, default: true }
+    },
+    nearbyChanges: {
+      enabled: { type: Boolean, default: false },
+      radiusKm: { type: Number, default: 10 },
+      deliveryFee: { type: Number, default: 0 },
+      freeDeliveryAbove: { type: Number, default: 0 },
+      customNote: { type: String },
+      updatedAt: { type: Date }
     }
   },
   { timestamps: true }

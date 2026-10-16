@@ -8,13 +8,14 @@ import {
   LogOut, ChevronRight, User, FileText, Eye, CreditCard, Receipt, Gift, PieChart, BadgeCheck,
   Users, Flag, Lock, LifeBuoy, MessagesSquare, HandCoins, CheckCircle, Star, X, Camera,
   Wrench, Briefcase, Plus, Calendar, Building, ArrowRight, Mail, IdCard, MapPin, Smartphone, Sparkles,
-  Radio, BellRing
+  Radio, BellRing, PowerOff
 } from "lucide-react";
+import { PermanentLogoutModal } from "@/components/omeetso/account/PermanentLogoutModal";
 import {
   getProfile, setProfile, completionPct, unreadCount, subscribeAccount,
   getBusinessProfile, getVerifications, getTrustScore, logout, logoutMock, DEFAULT_AVATARS,
   listNearbyChangesNotifications, pushNotification, formatLocationDisplay, listReviews,
-  formatRegistrationDayAndDate
+  formatRegistrationDayAndDate, removeNotificationsForListing
 } from "@/lib/account";
 import { getCleanAvatar } from "@/lib/avatarSvgs";
 import { SectionTitle, MenuGroup, MenuRow, Stat, VerifBadge, ConfirmModal } from "@/components/omeetso/account";
@@ -80,6 +81,7 @@ function Account() {
   const [loading, setLoading] = useState(true);
   const [authenticated, setAuthenticated] = useState(true);
   const [confirmLogout, setConfirmLogout] = useState(false);
+  const [showPermanentModal, setShowPermanentModal] = useState(false);
   const [activeTab, setActiveTab] = useState("overview");
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [showNearbyModal, setShowNearbyModal] = useState(false);
@@ -232,7 +234,7 @@ function Account() {
   const savedCount = typeof window !== "undefined" ? (() => { try { return JSON.parse(localStorage.getItem("omeetso_saved_items") || "[]").length; } catch { return 0; } })() : 0;
   const reviewsCount = typeof window !== "undefined" ? listReviews().filter((r) => r.moderation === "published").length : 0;
 
-  const nearbyChangesListings = myListings.filter((l) => l.nearbyChanges?.enabled);
+  const nearbyChangesListings = myListings.filter((l) => l.nearbyChanges?.enabled && !isListingDeletedLocally(l.id));
   const nearbyNotifs = listNearbyChangesNotifications();
 
   const sectionLinks = [
@@ -306,6 +308,12 @@ function Account() {
                   className="flex items-center gap-2.5 rounded-xl px-3 py-2 text-left text-[13px] font-semibold text-rose-700 hover:bg-rose-50"
                 >
                   <LogOut className="h-4 w-4" /> Logout
+                </button>
+                <button
+                  onClick={() => setShowPermanentModal(true)}
+                  className="flex items-center gap-2.5 rounded-xl px-3 py-2 text-left text-[13px] font-semibold text-amber-700 dark:text-amber-400 hover:bg-amber-50 dark:hover:bg-amber-950/30"
+                >
+                  <PowerOff className="h-4 w-4" /> Deactivate Account
                 </button>
               </nav>
             </div>
@@ -601,6 +609,7 @@ function Account() {
                                       const local = getProduct(prodId);
                                       if (!local) {
                                         markListingDeletedLocally(prodId);
+                                        removeNotificationsForListing(prodId);
                                         toast.error("This product is no longer available.");
                                         return;
                                       }
@@ -777,11 +786,15 @@ function Account() {
                 </section>
               )}
 
-              <div className="md:hidden">
-                <SectionTitle>Session</SectionTitle>
+              <div className="md:hidden space-y-2">
+                <SectionTitle>Session &amp; Account</SectionTitle>
                 <button onClick={() => setConfirmLogout(true)}
                   className="flex w-full items-center justify-center gap-2 rounded-2xl border border-border bg-card py-3 text-sm font-semibold text-rose-700">
                   <LogOut className="h-4 w-4" /> Logout
+                </button>
+                <button onClick={() => setShowPermanentModal(true)}
+                  className="flex w-full items-center justify-center gap-2 rounded-2xl border border-amber-500/30 bg-amber-500/5 py-3 text-sm font-semibold text-amber-700 dark:text-amber-400">
+                  <PowerOff className="h-4 w-4" /> Deactivate / Permanent Logout
                 </button>
               </div>
               <p className="pb-2 pt-1 text-center text-[11px] text-muted-foreground">Omeetso v1.0 • Buy Nearby. Sell Quickly.</p>
@@ -801,6 +814,11 @@ function Account() {
             toast.success("Logged out successfully");
             nav({ to: "/login" });
           }} />
+
+        <PermanentLogoutModal
+          open={showPermanentModal}
+          onClose={() => setShowPermanentModal(false)}
+        />
 
         <EditProfileModal
           open={isEditModalOpen}
@@ -830,7 +848,8 @@ function EditProfileModal({ open, onClose, profile, onSaved }: { open: boolean; 
   const [area, setArea] = useState(profile.area && profile.area !== "Madhapur" ? profile.area : "");
   const [pincode, setPincode] = useState(profile.pincode || "");
   const [bio, setBio] = useState(profile.bio || "");
-  const [avatar, setAvatar] = useState(getCleanAvatar(profile.avatar));
+  const [avatar, setAvatar] = useState(profile.avatar || "");
+  const [isResetAvatar, setIsResetAvatar] = useState(false);
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
@@ -840,7 +859,8 @@ function EditProfileModal({ open, onClose, profile, onSaved }: { open: boolean; 
     setArea(profile.area && profile.area !== "Madhapur" ? profile.area : "");
     setPincode(profile.pincode || "");
     setBio(profile.bio || "");
-    setAvatar(getCleanAvatar(profile.avatar));
+    setAvatar(profile.avatar || "");
+    setIsResetAvatar(false);
   }, [profile, open]);
 
   if (!open) return null;
@@ -854,11 +874,13 @@ function EditProfileModal({ open, onClose, profile, onSaved }: { open: boolean; 
     try {
       const url = await uploadImageToCloudinary(f, "profile");
       setAvatar(url);
+      setIsResetAvatar(false);
       toast.success("Profile photo uploaded!");
     } catch {
       const r = new FileReader();
       r.onload = () => {
         setAvatar(String(r.result));
+        setIsResetAvatar(false);
       };
       r.readAsDataURL(f);
     }
@@ -871,7 +893,7 @@ function EditProfileModal({ open, onClose, profile, onSaved }: { open: boolean; 
       return;
     }
     setSaving(true);
-    const finalAvatar = avatar || DEFAULT_AVATARS.other;
+    const finalAvatar = isResetAvatar ? "" : (avatar || "");
     const token = typeof window !== "undefined" ? (getUserAccessToken() || localStorage.getItem("omeetso_user_token")) : null;
 
     if (token) {
@@ -901,19 +923,30 @@ function EditProfileModal({ open, onClose, profile, onSaved }: { open: boolean; 
       }
     }
 
-    setProfile({ name: name.trim(), email: emailTrimmed, city, pincode, area, bio, avatar: finalAvatar });
-
     if (typeof window !== "undefined") {
       try {
         const raw = localStorage.getItem("omeetso_user");
         if (raw) {
           const u = JSON.parse(raw);
           if (!u.profile) u.profile = {};
+          u.profile.name = name.trim();
           u.profile.avatar = finalAvatar;
+          u.profile.city = city;
+          u.profile.area = area;
+          u.profile.pincode = pincode;
+          u.profile.bio = bio;
           u.avatar = finalAvatar;
+          if (emailTrimmed) u.email = emailTrimmed;
           localStorage.setItem("omeetso_user", JSON.stringify(u));
         }
       } catch { }
+    }
+
+    setProfile({ name: name.trim(), email: emailTrimmed, city, pincode, area, bio, avatar: finalAvatar });
+
+    if (typeof window !== "undefined") {
+      window.dispatchEvent(new CustomEvent("omeetso_account_updated"));
+      window.dispatchEvent(new CustomEvent("omeetso_auth_changed"));
     }
 
     setSaving(false);
@@ -935,18 +968,24 @@ function EditProfileModal({ open, onClose, profile, onSaved }: { open: boolean; 
         <div className="mt-4 space-y-4">
           <div className="flex flex-col items-center">
             <label className="relative cursor-pointer">
-              <img src={avatar || getCleanAvatar(null, name)} alt="Profile" className="h-20 w-20 rounded-full object-cover border-4 border-card shadow-md" />
+              <img
+                src={isResetAvatar || !avatar ? getCleanAvatar(null, name) : avatar}
+                alt="Profile"
+                className="h-20 w-20 rounded-full object-cover border-4 border-card shadow-md"
+              />
               <span className="absolute -bottom-1 -right-1 grid h-7 w-7 place-items-center rounded-full bg-navy text-white shadow">
                 <Camera className="h-3.5 w-3.5" />
               </span>
               <input type="file" accept="image/*" className="hidden" onChange={pickAvatar} />
             </label>
-            {avatar && (
+            {((avatar && !isResetAvatar) || (profile.avatar && !isResetAvatar)) && (
               <div className="mt-2 flex items-center justify-center">
                 <button
                   type="button"
                   onClick={() => {
-                    setAvatar(getCleanAvatar(null, name));
+                    setIsResetAvatar(true);
+                    setAvatar("");
+                    toast.info("Avatar reset to default");
                   }}
                   className="rounded-full px-3 py-1 text-[11px] font-bold bg-secondary text-muted-foreground hover:bg-secondary/80 transition-all cursor-pointer"
                 >

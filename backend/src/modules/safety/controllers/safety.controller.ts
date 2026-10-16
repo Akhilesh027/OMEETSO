@@ -84,7 +84,7 @@ export async function createSafetyReport(req: AuthenticatedUserRequest, res: Res
 
     const reportIdStr = report._id.toString();
     const formattedDate = new Date().toLocaleString("en-IN", { timeZone: "Asia/Kolkata" });
-    const adminEmail = env.ADMIN_NOTIFICATION_EMAIL || "akhileshreddy027@gmail.com";
+    const adminEmail = env.ADMIN_NOTIFICATION_EMAIL || "info@omeetso.in";
     const adminUrl = `${env.CLIENT_ADMIN_URL}/admin/safety-reports`;
 
     // 1. Send Alert Email to Admin

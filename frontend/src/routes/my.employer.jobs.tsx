@@ -4,12 +4,13 @@ import {
   ArrowLeft, Plus, Users, Eye, CheckCircle2, Clock, Calendar, Search, Filter,
   FileText, MessageCircle, MoreVertical, Copy, RefreshCw, XCircle, ShieldCheck, Lock,
   Briefcase, Phone, Mail, MapPin, GraduationCap, Award, Sparkles, ExternalLink,
-  Globe, Linkedin, Github, X, Download, User, Maximize2
+  Globe, Linkedin, Github, X, Download, User, Maximize2, Trash2
 } from "lucide-react";
 import { MobileFrame } from "@/components/omeetso/MobileFrame";
 import {
   fetchEmployerJobs,
   fetchEmployerJobApplicants,
+  deleteEmployerJob,
   listCandidateApplicationsLocal,
   getLocal,
   JobItem,
@@ -45,6 +46,56 @@ function getApplicantResumeFileName(app: JobApplicationItem): string {
   const snap = app.applicantProfileSnapshot as any;
   if (!snap) return (app as any).resumeFileName || "Candidate_Resume.pdf";
   return snap.resumeFileName || (app as any).resumeFileName || (snap.savedResumes && snap.savedResumes[0]?.name) || "Candidate_Resume.pdf";
+}
+
+function renderJobStatusBadge(status?: string) {
+  const s = (status || "").toUpperCase().trim();
+  if (s === "APPROVED" || s === "ACTIVE" || s === "PUBLISHED") {
+    return (
+      <span className="text-[10px] font-black uppercase px-2.5 py-0.5 rounded-full bg-emerald-100 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-300 border border-emerald-300/40">
+        APPROVED
+      </span>
+    );
+  }
+  if (s === "FILLED") {
+    return (
+      <span className="text-[10px] font-black uppercase px-2.5 py-0.5 rounded-full bg-rose-100 text-rose-800 dark:bg-rose-900/30 dark:text-rose-300 border border-rose-300/40">
+        FILLED
+      </span>
+    );
+  }
+  if (s === "REJECTED") {
+    return (
+      <span className="text-[10px] font-black uppercase px-2.5 py-0.5 rounded-full bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300 border border-red-300/40">
+        REJECTED
+      </span>
+    );
+  }
+  if (s === "PAUSED") {
+    return (
+      <span className="text-[10px] font-black uppercase px-2.5 py-0.5 rounded-full bg-zinc-100 text-zinc-800 dark:bg-zinc-800 dark:text-zinc-300 border border-zinc-300/40">
+        PAUSED
+      </span>
+    );
+  }
+  if (s === "DRAFT") {
+    return (
+      <span className="text-[10px] font-black uppercase px-2.5 py-0.5 rounded-full bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300 border border-slate-300/40">
+        DRAFT
+      </span>
+    );
+  }
+  // Default for SUBMITTED, PENDING, PENDING APPROVAL, UNDER_REVIEW, or any newly submitted/unapproved state
+  return (
+    <span className="text-[10px] font-black uppercase px-2.5 py-0.5 rounded-full bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-300 border border-amber-300/40">
+      PENDING APPROVAL
+    </span>
+  );
+}
+
+function isJobPendingApproval(status?: string): boolean {
+  const s = (status || "").toUpperCase().trim();
+  return !s || s === "SUBMITTED" || s === "PENDING" || s === "PENDING APPROVAL" || s === "UNDER_REVIEW" || s === "UNDER REVIEW";
 }
 
 function EmployerJobsDashboardPage() {
@@ -108,7 +159,9 @@ function EmployerJobsDashboardPage() {
         const activeJ = myJobs.find((j) => j.id === targetId) || myJobs[0];
         const jobApps = await fetchEmployerJobApplicants(targetId, token, activeJ.title);
         setApplicants(jobApps);
-      } else if (userCachedJobs.length === 0) {
+      } else {
+        setJobs([]);
+        setSelectedJobId(null);
         setApplicants([]);
       }
     } catch {
@@ -124,8 +177,10 @@ function EmployerJobsDashboardPage() {
     // Listen for real-time application submissions and job changes
     const handleAppSubmitted = (e: any) => {
       const newApp = e?.detail;
-      if (newApp && newApp.jobId) {
-        if (newApp.jobId === selectedJobId) {
+      if (newApp) {
+        const appJobId = String(newApp.jobId || newApp.job?.id || (newApp.job as any)?._id || "").trim();
+        const curSelected = String(selectedJobId || "").trim();
+        if (appJobId && curSelected && (appJobId === curSelected || appJobId.toLowerCase() === curSelected.toLowerCase())) {
           setApplicants((prev) => {
             if (prev.some((a) => a.id === newApp.id)) return prev;
             return [newApp, ...prev];
@@ -141,14 +196,20 @@ function EmployerJobsDashboardPage() {
       }
     };
 
+    const handleFocus = () => {
+      loadData(true);
+    };
+
     window.addEventListener("omeetso_job_application_submitted", handleAppSubmitted);
     window.addEventListener("omeetso_jobs_changed", () => loadData(true));
     window.addEventListener("storage", handleStorageChange);
+    window.addEventListener("focus", handleFocus);
 
     return () => {
       window.removeEventListener("omeetso_job_application_submitted", handleAppSubmitted);
       window.removeEventListener("omeetso_jobs_changed", () => loadData(true));
       window.removeEventListener("storage", handleStorageChange);
+      window.removeEventListener("focus", handleFocus);
     };
   }, [selectedJobId]);
 
@@ -169,6 +230,39 @@ function EmployerJobsDashboardPage() {
     const clickedJob = jobs.find((j) => j.id === jobId);
     const jobApps = await fetchEmployerJobApplicants(jobId, token, clickedJob?.title);
     setApplicants(jobApps);
+  };
+
+  const handleDeleteJob = async (jobId: string, jobTitle: string) => {
+    if (!window.confirm(`Are you sure you want to permanently delete "${jobTitle}"? This cannot be undone.`)) {
+      return;
+    }
+    try {
+      let token: string | null = null;
+      try {
+        token = localStorage.getItem("omeetso_user_token");
+      } catch {}
+      await deleteEmployerJob(jobId, token);
+      toast.success(`Job "${jobTitle}" permanently deleted.`);
+      const remaining = jobs.filter((j) => String(j.id || (j as any)._id) !== jobId);
+      setJobs(remaining);
+      if (remaining.length > 0) {
+        handleSelectJob(remaining[0].id);
+      } else {
+        setSelectedJobId(null);
+        setApplicants([]);
+      }
+    } catch {
+      toast.error("Failed to delete job");
+    }
+  };
+
+  const getJobApplicantsCount = (j: JobItem) => {
+    const jId = String(j.id || (j as any)._id || "");
+    if (jId === selectedJobId) {
+      return applicants.length;
+    }
+    const cached = getLocal<JobApplicationItem[]>(`omeetso_employer_applicants_${jId}`, []);
+    return Math.max(cached.length, j.applicationsCount || 0);
   };
 
   const activeJob = jobs.find((j) => j.id === selectedJobId) || jobs[0];
@@ -441,20 +535,12 @@ function EmployerJobsDashboardPage() {
                       >
                         <div className="flex items-center justify-between">
                           <span className="text-[10px] font-black uppercase text-indigo-brand">{job.jobType}</span>
-                          <span className={`text-[10px] font-black uppercase px-2 py-0.5 rounded-full ${
-                            (job.status || "").toUpperCase() === "SUBMITTED" || (job.status || "").toUpperCase() === "PENDING"
-                              ? "bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-300"
-                              : (job.status || "").toUpperCase() === "FILLED"
-                              ? "bg-rose-100 text-rose-800 dark:bg-rose-900/30 dark:text-rose-300"
-                              : "bg-emerald-100 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-300"
-                          }`}>
-                            {job.status}
-                          </span>
+                          {renderJobStatusBadge(job.status)}
                         </div>
                         <h3 className="text-sm font-extrabold text-foreground truncate mt-1">{job.title}</h3>
                         <p className="text-xs text-muted-foreground font-semibold truncate">{job.location?.area || job.location?.city}</p>
                         <div className="flex items-center justify-between mt-3 pt-2 border-t border-border text-[11px] font-bold text-muted-foreground">
-                          <span>👥 {job.id === selectedJobId ? applicants.length : (job.applicationsCount || 0)} Applicants</span>
+                          <span>👥 {getJobApplicantsCount(job)} Applicant{getJobApplicantsCount(job) === 1 ? "" : "s"}</span>
                           <span>{new Date(job.createdAt).toLocaleDateString("en-IN", { month: "short", day: "numeric" })}</span>
                         </div>
                       </div>
@@ -473,6 +559,7 @@ function EmployerJobsDashboardPage() {
                         <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black bg-indigo-500/15 text-indigo-600">
                           {activeJob.openingsCount} Opening{activeJob.openingsCount > 1 ? "s" : ""}
                         </span>
+                        {renderJobStatusBadge(activeJob.status)}
                       </div>
                       <p className="text-xs text-muted-foreground font-semibold mt-0.5">
                         {activeJob.location?.area}, {activeJob.location?.city} • {activeJob.jobType}
@@ -487,8 +574,27 @@ function EmployerJobsDashboardPage() {
                       >
                         <Eye className="h-3.5 w-3.5 text-indigo-brand" /> View Public Post
                       </Link>
+                      <button
+                        onClick={() => handleDeleteJob(activeJob.id, activeJob.title)}
+                        className="px-3 py-1.5 rounded-xl border border-rose-300/40 bg-rose-50 hover:bg-rose-100 text-rose-700 dark:bg-rose-950/30 dark:text-rose-400 font-bold text-xs flex items-center gap-1.5 shadow-xs transition-colors"
+                        title="Permanently Delete Job"
+                      >
+                        <Trash2 className="h-3.5 w-3.5 text-rose-600" /> Delete Job
+                      </button>
                     </div>
                   </div>
+
+                  {isJobPendingApproval(activeJob.status) && (
+                    <div className="flex items-start gap-3 p-3.5 rounded-2xl bg-amber-500/10 border border-amber-500/25 text-amber-800 dark:text-amber-300 text-xs">
+                      <span className="text-base leading-none mt-0.5">⏳</span>
+                      <div>
+                        <p className="font-extrabold text-xs">Pending Admin Moderation Approval</p>
+                        <p className="text-[11px] text-amber-700/90 dark:text-amber-300/80 font-medium mt-0.5">
+                          This job posting is awaiting admin review and is not yet visible to candidates on the public board. Once approved, you will receive an email confirmation and it will go live immediately.
+                        </p>
+                      </div>
+                    </div>
+                  )}
 
                   {/* Pipeline Status Filter Buttons */}
                   <div className="flex flex-wrap items-center justify-between gap-3">

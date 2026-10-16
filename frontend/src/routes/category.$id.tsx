@@ -16,7 +16,7 @@ import { EmptyState } from "@/components/omeetso/EmptyState";
 import { InfinityLoader } from "@/components/omeetso/InfinityLoader";
 import { serveAdsApi } from "@/api/adCampaigns.api";
 import { fetchLiveListingById } from "@/lib/listings";
-import { fetchLiveCategories, getCachedCategories, resolveElectronicsSubcategory, type LiveCategory } from "@/lib/categories";
+import { fetchLiveCategories, getCachedCategories, getLiveSubcategories, resolveElectronicsSubcategory, type LiveCategory } from "@/lib/categories";
 import { calculateDistanceBetweenLocations, resolveCityFromLocation } from "@/lib/location";
 import { getPublicListingsApi } from "@/api/listings.api";
 import { getPublicStoresApi } from "@/api/stores.api";
@@ -128,9 +128,8 @@ const CONDITIONS = [
 function normalizeSubcategoryStr(str?: string): string {
   return (str || "")
     .toLowerCase()
-    .replace(/['’]/g, "'")
-    .replace(/[\-_]/g, " ")
-    .replace(/\s+/g, " ")
+    .replace(/['’]/g, "")
+    .replace(/[^a-z0-9]/g, "")
     .trim();
 }
 
@@ -178,7 +177,13 @@ function CategoryPage() {
     setMaxPInput(search.maxP ?? "");
   }, [search.q, search.minP, search.maxP]);
 
-  const subs = SUBCATEGORIES[category.id.toLowerCase()] ?? [];
+  const subs = useMemo(() => {
+    const liveSubs = getLiveSubcategories(category.id);
+    if (liveSubs && liveSubs.length > 0) {
+      return Array.from(new Set(liveSubs.map((s) => s.name)));
+    }
+    return SUBCATEGORIES[category.id.toLowerCase()] ?? [];
+  }, [category.id]);
 
   const [activeLoc, setActiveLoc] = useState<any>(() => {
     try {
@@ -451,16 +456,30 @@ function CategoryPage() {
     const q = search.q?.toLowerCase() ?? "";
     if (search.sub) {
       const targetSubNorm = normalizeSubcategoryStr(search.sub);
+      const targetWords = (search.sub || "")
+        .toLowerCase()
+        .replace(/['’]/g, "")
+        .split(/[^a-z0-9]+/)
+        .filter((w) => w.length > 2 && w !== "and" && w !== "for" && w !== "with" && w !== "clothing" && w !== "wear");
+
       list = list.filter((p) => {
         const pSubNorm = normalizeSubcategoryStr(p.subcategory || "");
         if (pSubNorm === targetSubNorm) return true;
-        if (pSubNorm.includes(targetSubNorm) || targetSubNorm.includes(pSubNorm)) return true;
+        if (pSubNorm && targetSubNorm && (pSubNorm.includes(targetSubNorm) || targetSubNorm.includes(pSubNorm))) return true;
 
         const titleLower = (p.title || "").toLowerCase();
         const descLower = (p.description || "").toLowerCase();
         const pSpecs = (p as any).specs || {};
         const gender = String(pSpecs["Gender / Target"] || pSpecs["Gender"] || "").toLowerCase();
         const itemType = String(pSpecs["Item Type"] || "").toLowerCase();
+
+        // Check if any word from target subcategory matches product subcategory or itemType
+        if (targetWords.length > 0) {
+          const pSubLower = (p.subcategory || "").toLowerCase();
+          if (targetWords.some((w) => pSubLower.includes(w) || itemType.includes(w))) {
+            return true;
+          }
+        }
 
         // Electronics subcategory expansion
         if (targetSubNorm.includes("gaming") || targetSubNorm.includes("console") || targetSubNorm.includes("ps5") || targetSubNorm.includes("xbox")) {
@@ -493,7 +512,7 @@ function CategoryPage() {
           ) {
             return true;
           }
-        } else if (targetSubNorm.includes("audio") || targetSubNorm.includes("headphone")) {
+        } else if (targetSubNorm.includes("audio") || targetSubNorm.includes("headphone") || targetSubNorm.includes("speaker")) {
           if (
             pSubNorm.includes("audio") || pSubNorm.includes("headphone") || pSubNorm.includes("speaker") ||
             titleLower.includes("headphone") || titleLower.includes("earphone") || titleLower.includes("airpod") || titleLower.includes("speaker") || titleLower.includes("soundbar")
@@ -511,6 +530,16 @@ function CategoryPage() {
           if (
             pSubNorm.includes("monitor") || pSubNorm.includes("accessory") ||
             titleLower.includes("monitor") || titleLower.includes("keyboard") || titleLower.includes("mouse") || titleLower.includes("graphic card")
+          ) {
+            return true;
+          }
+        }
+
+        // Vehicles & Mobiles common mapping
+        if (targetSubNorm.includes("smartphone") || targetSubNorm.includes("mobile") || targetSubNorm.includes("phone")) {
+          if (
+            pSubNorm.includes("smartphone") || pSubNorm.includes("mobile") || pSubNorm.includes("phone") ||
+            titleLower.includes("iphone") || titleLower.includes("galaxy") || titleLower.includes("pixel") || titleLower.includes("oneplus") || titleLower.includes("redmi") || titleLower.includes("xiaomi")
           ) {
             return true;
           }
@@ -545,9 +574,8 @@ function CategoryPage() {
           }
         }
 
-        // General keyword mapping from target subcategory (e.g. "Footwear", "Watches", "Laptops")
-        const keywords = targetSubNorm.split(" ").filter((k) => k.length > 3 && k !== "clothing" && k !== "wear");
-        if (keywords.length > 0 && keywords.some((k) => titleLower.includes(k) || pSubNorm.includes(k) || itemType.includes(k))) {
+        // General keyword mapping from target subcategory (e.g. "Footwear", "Watches", "Laptops", "Sedan", "SUV")
+        if (targetWords.length > 0 && targetWords.some((k) => titleLower.includes(k) || pSubNorm.includes(k) || itemType.includes(k))) {
           return true;
         }
 
@@ -760,6 +788,35 @@ function CategoryPage() {
               </button>
             </div>
           </div>
+          {/* Mobile Subcategories Carousel */}
+          {subs.length > 0 && (
+            <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar border-t border-border/60 bg-muted/20 px-3 py-2">
+              <button
+                onClick={() => nav({ search: (p: S) => ({ ...p, sub: undefined }) })}
+                className={`shrink-0 rounded-full px-3 py-1 text-xs font-bold transition-all border ${!search.sub
+                  ? "bg-primary text-primary-foreground border-primary shadow-xs"
+                  : "bg-background text-muted-foreground border-border hover:text-foreground"
+                  }`}
+              >
+                All
+              </button>
+              {subs.map((s) => {
+                const isSelected = Boolean(search.sub && normalizeSubcategoryStr(search.sub) === normalizeSubcategoryStr(s));
+                return (
+                  <button
+                    key={s}
+                    onClick={() => nav({ search: (p: S) => ({ ...p, sub: isSelected ? undefined : s }) })}
+                    className={`shrink-0 rounded-full px-3 py-1 text-xs font-bold transition-all border ${isSelected
+                      ? "bg-primary text-primary-foreground border-primary shadow-xs"
+                      : "bg-background text-foreground border-border hover:bg-secondary"
+                      }`}
+                  >
+                    {s}
+                  </button>
+                );
+              })}
+            </div>
+          )}
         </header>
 
         {/* Desktop Breadcrumb + Summary Header */}

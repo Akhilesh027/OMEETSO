@@ -81,28 +81,77 @@ export async function getAuditLogsApi(params?: Record<string, any>): Promise<{
   }
 }
 
-export interface PlatformAnalyticsData {
-  monthlyVolume: number;
-  registeredUsers: number;
-  activeListings: number;
-  verifiedStores: string;
-  verificationRate: string;
-  cities: {
-    city: string;
-    activeListings: number;
-    verifiedStores: string;
-    monthlyGMV: number;
-    adBoostVolume: number;
-  }[];
+export interface RegionalListing {
+  id: string;
+  title: string;
+  priceInPaise: number;
+  categoryId: string;
+  city: string;
+  area: string;
+  status: string;
+  sellerName: string;
+  sellerPhone: string;
+  image: string;
+  createdAt: string;
 }
 
-export async function getPlatformAnalyticsApi(): Promise<{
+export interface RegionalUser {
+  id: string;
+  name: string;
+  phone: string;
+  email: string;
+  city: string;
+  area: string;
+  accountType: string;
+  createdAt: string;
+}
+
+export interface RegionalSeller {
+  id: string;
+  name: string;
+  ownerName: string;
+  city: string;
+  area: string;
+  primaryCategory: string;
+  businessMobile: string;
+  status: string;
+  isStore: boolean;
+  rating: number;
+  createdAt: string;
+}
+
+export interface RegionalCityStat {
+  city: string;
+  area: string;
+  activeListings: number;
+  verifiedStores: number;
+  registeredUsers: number;
+}
+
+export interface PlatformAnalyticsData {
+  totalListingsInArea: number;
+  totalUsersInArea: number;
+  totalSellersInArea: number;
+  selectedCity: string;
+  selectedArea: string;
+  cities: RegionalCityStat[];
+  listings: RegionalListing[];
+  users: RegionalUser[];
+  sellers: RegionalSeller[];
+}
+
+export async function getPlatformAnalyticsApi(params?: { city?: string; area?: string }): Promise<{
   success: boolean;
   data?: PlatformAnalyticsData;
   error?: string;
 }> {
   try {
-    const res = await fetch(`${API_BASE}/analytics`, {
+    const query = new URLSearchParams();
+    if (params?.city) query.set("city", params.city);
+    if (params?.area) query.set("area", params.area);
+
+    const url = query.toString() ? `${API_BASE}/analytics?${query.toString()}` : `${API_BASE}/analytics`;
+    const res = await fetch(url, {
       headers: getHeaders(),
       credentials: "include"
     });

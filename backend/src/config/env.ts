@@ -36,7 +36,7 @@ const EnvSchema = z.object({
   SMTP_PASS: z.string().optional().default("Dlns@2021"),
   SMTP_FROM: z.string().optional().default("info@omeetso.in"),
   SMTP_FROM_NAME: z.string().optional().default("Omeetso"),
-  ADMIN_NOTIFICATION_EMAIL: z.string().optional().default("akhileshreddy027@gmail.com")
+  ADMIN_NOTIFICATION_EMAIL: z.string().optional().default("info@omeetso.in")
 });
 
 export const env = EnvSchema.parse(process.env);

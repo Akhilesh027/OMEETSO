@@ -446,12 +446,21 @@ function JobDetailPage() {
             {/* Quick Action Buttons */}
             <div className="flex flex-wrap items-center gap-3 pt-2">
               {isOwner ? (
-                <Link
-                  to="/my/employer/jobs"
-                  className="flex-1 min-w-[160px] h-12 rounded-2xl font-extrabold text-sm flex items-center justify-center gap-2 shadow-md transition-all bg-indigo-brand text-white hover:bg-indigo-brand/90"
-                >
-                  <Building2 className="h-5 w-5" /> Manage Job & Applicants
-                </Link>
+                <div className="flex-1 flex gap-2">
+                  <Link
+                    to="/my/employer/jobs"
+                    className="flex-1 min-w-[140px] h-12 rounded-2xl font-extrabold text-sm flex items-center justify-center gap-2 shadow-md transition-all bg-indigo-brand text-white hover:bg-indigo-brand/90"
+                  >
+                    <Building2 className="h-5 w-5" /> Manage Job & Applicants
+                  </Link>
+                  <button
+                    onClick={() => setApplyModalOpen(true)}
+                    className="px-4 h-12 rounded-2xl font-extrabold text-xs flex items-center justify-center gap-1.5 border border-indigo-500/30 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 dark:bg-indigo-950/40 dark:text-indigo-300 transition-all shadow-xs"
+                    title="Test submitting an application for this job"
+                  >
+                    Test Apply
+                  </button>
+                </div>
               ) : (
                 <button
                   onClick={() => {

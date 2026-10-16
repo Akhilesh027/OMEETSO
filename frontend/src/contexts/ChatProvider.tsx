@@ -284,7 +284,11 @@ export function ChatProvider({ children }: { children: React.ReactNode }) {
     try {
       const res = await getConversationsApi();
       if (res.success && Array.isArray(res.data)) {
-        setConversations(res.data);
+        setConversations((prev) => {
+          const serverIds = new Set((res.data || []).map((c: ConversationItem) => c.id));
+          const unpersisted = prev.filter((c) => !serverIds.has(c.id));
+          return [...(res.data || []), ...unpersisted];
+        });
         setConversationsError(null);
         try {
           window.dispatchEvent(new CustomEvent("omeetso_chat_updated"));

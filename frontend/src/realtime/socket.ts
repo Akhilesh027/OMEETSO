@@ -8,7 +8,11 @@ export function getSocket(): Socket | null {
 }
 
 export function connectSocket(token: string): Socket {
-  if (socket?.connected) {
+  if (socket) {
+    if (!socket.connected && token) {
+      socket.auth = { token };
+      socket.connect();
+    }
     return socket;
   }
 

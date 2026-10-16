@@ -262,7 +262,7 @@ function SellerPage() {
       return;
     }
     try {
-      const res = await startConversationApi("LISTING", currentSeller.id, currentSeller.id);
+      const res = await startConversationApi("USER", currentSeller.id, currentSeller.id);
       if (res.success && res.data?.id) {
         nav({ to: "/chat/$id", params: { id: res.data.id } });
       } else {

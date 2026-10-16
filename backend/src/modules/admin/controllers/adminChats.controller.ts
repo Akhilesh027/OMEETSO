@@ -1,4 +1,5 @@
 import { Response, NextFunction } from "express";
+import mongoose from "mongoose";
 import { Conversation } from "../../chat/models/Conversation";
 import { Message } from "../../chat/models/Message";
 import { Notification } from "../../notifications/models/Notification";
@@ -11,9 +12,18 @@ export async function getAdminConversations(req: AuthenticatedAdminRequest, res:
     const limit = Math.min(100, Math.max(1, parseInt(req.query.limit as string) || 20));
     const skip = (page - 1) * limit;
 
-    const { contextType, q, flaggedOnly } = req.query;
+    const { contextType, q, flaggedOnly, convId, conversationId, targetId, userId } = req.query;
 
     const filter: Record<string, any> = {};
+
+    const specificConvId = (conversationId || convId) as string;
+    if (specificConvId && mongoose.Types.ObjectId.isValid(specificConvId)) {
+      filter._id = new mongoose.Types.ObjectId(specificConvId);
+    } else {
+      // Only include conversations that actually have messages exchanged between members
+      const activeConversationIds = await Message.distinct("conversationId");
+      filter._id = { $in: activeConversationIds };
+    }
 
     if (contextType && contextType !== "ALL") {
       filter.contextType = (contextType as string).toUpperCase();
@@ -23,9 +33,26 @@ export async function getAdminConversations(req: AuthenticatedAdminRequest, res:
       filter.isFlagged = true;
     }
 
-    // Only include conversations that actually have messages exchanged between members
-    const activeConversationIds = await Message.distinct("conversationId");
-    filter._id = { $in: activeConversationIds };
+    const specificUserId = (userId || targetId) as string;
+    if (specificUserId && mongoose.Types.ObjectId.isValid(specificUserId)) {
+      filter.participantIds = new mongoose.Types.ObjectId(specificUserId);
+    }
+
+    if (q && typeof q === "string" && q.trim()) {
+      const qTrim = q.trim();
+      const qRegex = new RegExp(qTrim, "i");
+      if (mongoose.Types.ObjectId.isValid(qTrim)) {
+        filter.$or = [
+          { _id: new mongoose.Types.ObjectId(qTrim) },
+          { participantIds: new mongoose.Types.ObjectId(qTrim) },
+          { listingTitle: qRegex }
+        ];
+      } else {
+        filter.$or = [
+          { listingTitle: qRegex }
+        ];
+      }
+    }
 
     const totalConversations = await Conversation.countDocuments(filter);
 

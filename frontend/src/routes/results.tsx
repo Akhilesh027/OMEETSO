@@ -128,13 +128,16 @@ function Results() {
             { area: item.area || item.location, pincode: item.pincode, city: item.city }
           );
 
+          const itemCat = (item.category || item.categoryId || "other").toLowerCase();
           return {
             id: item.id || item._id,
             title: item.title,
             price: item.priceInPaise ? item.priceInPaise / 100 : item.price || 0,
             negotiable: item.negotiable,
-            category: (item.category || item.categoryId || "electronics").toLowerCase(),
-            subcategory: resolveElectronicsSubcategory(item.subcategory || item.subcategoryId, item.title, item.specs),
+            category: itemCat,
+            subcategory: itemCat === "electronics"
+              ? resolveElectronicsSubcategory(item.subcategory || item.subcategoryId, item.title, item.specs)
+              : (item.subcategory || item.subcategoryId || "General"),
             condition: item.condition || "good",
             area: item.area || item.location || "",
             city: item.city || activeCity,
@@ -192,33 +195,38 @@ function Results() {
           return timeB - timeA;
         });
 
-        const localItems: Product[] = listListings().filter(isListingActiveAndPublic).map((item) => ({
-          id: item.id,
-          title: item.title,
-          price: item.price,
-          negotiable: item.negotiable,
-          category: (item.category || "electronics").toLowerCase(),
-          subcategory: resolveElectronicsSubcategory(item.subcategory, item.title, item.specs),
-          condition: item.condition || "good",
-          area: item.area || activeLoc?.area || "Local",
-          city: item.city || activeCity,
-          pincode: item.pincode || "",
-          distanceKm: 0.5,
-          postedAgo: "Recently",
-          image: item.images?.[item.cover || 0] || item.images?.[0] || "https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=400",
-          images: item.images,
-          verified: true,
-          sellerName: item.sellerName || "You",
-          sellerType: item.sellerType || "individual",
-          sellerId: item.sellerId || "u_seller",
-          rating: 4.8,
-          reviewCount: 5,
-          description: item.description,
-          specs: item.specs || {},
-          method: item.method || "detailed",
-          quickSale: item.method === "quick" || Boolean(item.quickSale || item.isQuickSell),
-          isQuickSell: item.method === "quick" || Boolean(item.quickSale || item.isQuickSell),
-        }));
+        const localItems: Product[] = listListings().filter(isListingActiveAndPublic).map((item) => {
+          const itemCat = (item.category || "other").toLowerCase();
+          return {
+            id: item.id,
+            title: item.title,
+            price: item.price,
+            negotiable: item.negotiable,
+            category: itemCat,
+            subcategory: itemCat === "electronics"
+              ? resolveElectronicsSubcategory(item.subcategory, item.title, item.specs)
+              : (item.subcategory || "General"),
+            condition: item.condition || "good",
+            area: item.area || activeLoc?.area || "Local",
+            city: item.city || activeCity,
+            pincode: item.pincode || "",
+            distanceKm: 0.5,
+            postedAgo: "Recently",
+            image: item.images?.[item.cover || 0] || item.images?.[0] || "https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=400",
+            images: item.images,
+            verified: true,
+            sellerName: item.sellerName || "You",
+            sellerType: item.sellerType || "individual",
+            sellerId: item.sellerId || "u_seller",
+            rating: 4.8,
+            reviewCount: 5,
+            description: item.description,
+            specs: item.specs || {},
+            method: item.method || "detailed",
+            quickSale: item.method === "quick" || Boolean(item.quickSale || item.isQuickSell),
+            isQuickSell: item.method === "quick" || Boolean(item.quickSale || item.isQuickSell),
+          };
+        });
 
         const seenIds = new Set<string>();
         const merged: Product[] = [];
@@ -230,23 +238,62 @@ function Results() {
         }
         setAllProducts(merged);
       } else {
-        const localItems: Product[] = listListings().filter(isListingActiveAndPublic).map((item) => ({
+        const localItems: Product[] = listListings().filter(isListingActiveAndPublic).map((item) => {
+          const itemCat = (item.category || "other").toLowerCase();
+          return {
+            id: item.id,
+            title: item.title,
+            price: item.price,
+            negotiable: item.negotiable,
+            category: itemCat,
+            subcategory: itemCat === "electronics"
+              ? resolveElectronicsSubcategory(item.subcategory, item.title, item.specs)
+              : (item.subcategory || "General"),
+            condition: item.condition || "good",
+            area: item.area || activeLoc?.area || "Local",
+            city: item.city || activeCity,
+            pincode: item.pincode || "",
+            distanceKm: 0.5,
+            postedAgo: "Recently",
+            image: item.images?.[item.cover || 0] || item.images?.[0] || "https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=400",
+            images: item.images,
+            verified: true,
+            sellerName: item.sellerName || "You",
+            sellerType: item.sellerType || "individual",
+            sellerId: item.sellerId || "u_seller",
+            rating: 4.8,
+            reviewCount: 5,
+            description: item.description,
+            specs: item.specs || {},
+            method: item.method || "detailed",
+            quickSale: item.method === "quick" || Boolean(item.quickSale || item.isQuickSell),
+            isQuickSell: item.method === "quick" || Boolean(item.quickSale || item.isQuickSell),
+          };
+        });
+        setAllProducts(localItems);
+      }
+    }).catch(() => {
+      const localItems: Product[] = listListings().filter(isListingActiveAndPublic).map((item) => {
+        const itemCat = (item.category || "other").toLowerCase();
+        return {
           id: item.id,
           title: item.title,
           price: item.price,
           negotiable: item.negotiable,
-          category: (item.category || "electronics").toLowerCase(),
-          subcategory: resolveElectronicsSubcategory(item.subcategory, item.title, item.specs),
+          category: itemCat,
+          subcategory: itemCat === "electronics"
+            ? resolveElectronicsSubcategory(item.subcategory, item.title, item.specs)
+            : (item.subcategory || "General"),
           condition: item.condition || "good",
           area: item.area || activeLoc?.area || "Local",
           city: item.city || activeCity,
           pincode: item.pincode || "",
-          distanceKm: 0.5,
-          postedAgo: "Recently",
+          distanceKm: 1.5,
+          postedAgo: "Just now",
           image: item.images?.[item.cover || 0] || item.images?.[0] || "https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=400",
           images: item.images,
-          verified: true,
-          sellerName: item.sellerName || "You",
+          verified: false,
+          sellerName: item.sellerName || "Local Seller",
           sellerType: item.sellerType || "individual",
           sellerId: item.sellerId || "u_seller",
           rating: 4.8,
@@ -254,39 +301,10 @@ function Results() {
           description: item.description,
           specs: item.specs || {},
           method: item.method || "detailed",
-          quickSale: item.method === "quick" || Boolean(item.quickSale || item.isQuickSell),
-          isQuickSell: item.method === "quick" || Boolean(item.quickSale || item.isQuickSell),
-        }));
-        setAllProducts(localItems);
-      }
-    }).catch(() => {
-      const localItems: Product[] = listListings().filter(isListingActiveAndPublic).map((item) => ({
-        id: item.id,
-        title: item.title,
-        price: item.price,
-        negotiable: item.negotiable,
-        category: (item.category || "electronics").toLowerCase(),
-        subcategory: resolveElectronicsSubcategory(item.subcategory, item.title, item.specs),
-        condition: item.condition || "good",
-        area: item.area || activeLoc?.area || "Local",
-        city: item.city || activeCity,
-        pincode: item.pincode || "",
-        distanceKm: 1.5,
-        postedAgo: "Just now",
-        image: item.images?.[item.cover || 0] || item.images?.[0] || "https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=400",
-        images: item.images,
-        verified: false,
-        sellerName: item.sellerName || "Local Seller",
-        sellerType: item.sellerType || "individual",
-        sellerId: item.sellerId || "u_seller",
-        rating: 4.8,
-        reviewCount: 5,
-        description: item.description,
-        specs: item.specs || {},
-        method: item.method || "detailed",
-        quickSale: item.method === "quick",
-        isQuickSell: item.method === "quick",
-      }));
+          quickSale: item.method === "quick",
+          isQuickSell: item.method === "quick",
+        };
+      });
       setAllProducts(localItems);
     });
 
@@ -339,14 +357,31 @@ function Results() {
     }
 
     if (search.sub) {
-      const targetSubNorm = search.sub.toLowerCase().replace(/['’]/g, "'").replace(/[\-_]/g, " ").trim();
+      const targetSubNorm = search.sub.toLowerCase().replace(/['’]/g, "").replace(/[^a-z0-9]/g, "").trim();
+      const targetWords = (search.sub || "")
+        .toLowerCase()
+        .replace(/['’]/g, "")
+        .split(/[^a-z0-9]+/)
+        .filter((w) => w.length > 2 && w !== "and" && w !== "for" && w !== "with" && w !== "clothing" && w !== "wear");
+
       list = list.filter((p) => {
-        const pSubNorm = (p.subcategory || "").toLowerCase().replace(/['’]/g, "'").replace(/[\-_]/g, " ").trim();
+        const pSubNorm = (p.subcategory || "").toLowerCase().replace(/['’]/g, "").replace(/[^a-z0-9]/g, "").trim();
         if (pSubNorm === targetSubNorm) return true;
-        if (pSubNorm.includes(targetSubNorm) || targetSubNorm.includes(pSubNorm)) return true;
+        if (pSubNorm && targetSubNorm && (pSubNorm.includes(targetSubNorm) || targetSubNorm.includes(pSubNorm))) return true;
 
         const titleLower = (p.title || "").toLowerCase();
         const descLower = (p.description || "").toLowerCase();
+        const pSpecs = (p as any).specs || {};
+        const gender = String(pSpecs["Gender / Target"] || pSpecs["Gender"] || "").toLowerCase();
+        const itemType = String(pSpecs["Item Type"] || "").toLowerCase();
+
+        // Check if any word from target subcategory matches product subcategory or itemType
+        if (targetWords.length > 0) {
+          const pSubLower = (p.subcategory || "").toLowerCase();
+          if (targetWords.some((w) => pSubLower.includes(w) || itemType.includes(w))) {
+            return true;
+          }
+        }
 
         // Electronics subcategory expansion
         if (targetSubNorm.includes("gaming") || targetSubNorm.includes("console") || targetSubNorm.includes("ps5") || targetSubNorm.includes("xbox")) {
@@ -379,7 +414,7 @@ function Results() {
           ) {
             return true;
           }
-        } else if (targetSubNorm.includes("audio") || targetSubNorm.includes("headphone")) {
+        } else if (targetSubNorm.includes("audio") || targetSubNorm.includes("headphone") || targetSubNorm.includes("speaker")) {
           if (
             pSubNorm.includes("audio") || pSubNorm.includes("headphone") || pSubNorm.includes("speaker") ||
             titleLower.includes("headphone") || titleLower.includes("earphone") || titleLower.includes("airpod") || titleLower.includes("speaker") || titleLower.includes("soundbar")
@@ -402,9 +437,50 @@ function Results() {
           }
         }
 
-        if (targetSubNorm.includes("women") && (titleLower.includes("women") || titleLower.includes("kurti") || titleLower.includes("saree") || titleLower.includes("dress"))) {
+        // Vehicles & Mobiles common mapping
+        if (targetSubNorm.includes("smartphone") || targetSubNorm.includes("mobile") || targetSubNorm.includes("phone")) {
+          if (
+            pSubNorm.includes("smartphone") || pSubNorm.includes("mobile") || pSubNorm.includes("phone") ||
+            titleLower.includes("iphone") || titleLower.includes("galaxy") || titleLower.includes("pixel") || titleLower.includes("oneplus") || titleLower.includes("redmi") || titleLower.includes("xiaomi")
+          ) {
+            return true;
+          }
+        }
+
+        // Women's clothing / fashion category mapping (e.g. Women's Kurti, Saree, Lehengas, Dresses, Tops)
+        if (targetSubNorm.includes("women")) {
+          if (
+            gender.includes("women") ||
+            titleLower.includes("women") ||
+            titleLower.includes("kurti") ||
+            titleLower.includes("kurtis") ||
+            titleLower.includes("saree") ||
+            titleLower.includes("dress") ||
+            titleLower.includes("lehenga") ||
+            pSubNorm.includes("ethnic") ||
+            pSubNorm.includes("kurti") ||
+            itemType.includes("dress") ||
+            descLower.includes("kurti")
+          ) {
+            return true;
+          }
+        }
+
+        // Men's clothing / fashion category mapping
+        if (targetSubNorm.includes("men") && !targetSubNorm.includes("women")) {
+          if (
+            gender.includes("men") ||
+            /\bmen\b|\bmens\b|shirt|t-shirt|trouser|kurta/i.test(titleLower)
+          ) {
+            return true;
+          }
+        }
+
+        // General keyword mapping from target subcategory (e.g. "Footwear", "Watches", "Laptops", "Sedan", "SUV")
+        if (targetWords.length > 0 && targetWords.some((k) => titleLower.includes(k) || pSubNorm.includes(k) || itemType.includes(k))) {
           return true;
         }
+
         return false;
       });
     }

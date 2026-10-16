@@ -114,11 +114,21 @@ export function SellerSummary({
       {/* 3 Metric Chips */}
       <div className="grid grid-cols-3 gap-2 rounded-2xl bg-surface-2 p-2.5 text-center border border-border/60">
         <div>
-          <div className="flex items-center justify-center gap-0.5 text-amber-500 font-black text-xs sm:text-sm">
-            <Star className="h-3.5 w-3.5 fill-amber-400 text-amber-400" /> {realRating}
+          <div className="flex items-center justify-center gap-0.5 font-black text-xs sm:text-sm">
+            {ratingNum > 0 ? (
+              <>
+                <Star className="h-3.5 w-3.5 fill-amber-400 text-amber-400" />
+                <span className="text-amber-500">{realRating}</span>
+              </>
+            ) : (
+              <>
+                <Star className="h-3.5 w-3.5 text-muted-foreground" />
+                <span className="text-muted-foreground text-xs">Unrated</span>
+              </>
+            )}
           </div>
           <div className="text-[10px] font-bold text-muted-foreground mt-0.5">
-            {realReviews > 0 ? `${realReviews} reviews` : "Unrated"}
+            {realReviews > 0 ? `${realReviews} reviews` : "No ratings"}
           </div>
         </div>
 
@@ -133,13 +143,8 @@ export function SellerSummary({
         </div>
       </div>
 
-      {/* Response Speed & Verification Badges */}
-      <div className="flex flex-wrap items-center justify-between text-[11px] font-medium text-muted-foreground pt-1 gap-1.5">
-        <span className="inline-flex items-center gap-1.5">
-          <Zap className="h-3.5 w-3.5 text-amber-500 fill-amber-500 shrink-0" />
-          Replies: <strong className="text-foreground font-extrabold">{realResponseTime}</strong>
-        </span>
-
+      {/* Verification & View Profile Link */}
+      <div className="flex items-center justify-end text-[11px] font-medium text-muted-foreground pt-1">
         <Link
           to="/seller/$id"
           params={{ id: String(seller.id || "u_seller") }}

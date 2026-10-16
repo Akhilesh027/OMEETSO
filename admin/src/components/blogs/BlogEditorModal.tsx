@@ -184,6 +184,25 @@ export const BlogEditorModal: React.FC<BlogEditorModalProps> = ({
   const [activeTab, setActiveTab] = useState<"edit" | "preview">("edit");
   const [showSchedulePicker, setShowSchedulePicker] = useState(false);
   const [scheduledDateTime, setScheduledDateTime] = useState<string>(getDefaultScheduledDate());
+  const [scheduleDate, setScheduleDate] = useState<string>(() => {
+    const d = new Date(Date.now() + 86400000);
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+  });
+  const [scheduleHour, setScheduleHour] = useState<number>(9);
+  const [scheduleMinute, setScheduleMinute] = useState<number>(0);
+  const [scheduleAmPm, setScheduleAmPm] = useState<"AM" | "PM">("AM");
+
+  const getCombinedScheduledDate = (
+    dStr = scheduleDate,
+    h12 = scheduleHour,
+    min = scheduleMinute,
+    period = scheduleAmPm
+  ): Date => {
+    const [y, m, d] = dStr.split("-").map(Number);
+    let h24 = h12 % 12;
+    if (period === "PM") h24 += 12;
+    return new Date(y, m - 1, d, h24, min, 0, 0);
+  };
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isUploadingImage, setIsUploadingImage] = useState(false);
   const [errorMsg, setErrorMsg] = useState("");
@@ -343,6 +362,21 @@ export const BlogEditorModal: React.FC<BlogEditorModalProps> = ({
         } catch {}
       }
 
+      const d = blog.scheduledAt ? new Date(blog.scheduledAt) : new Date(Date.now() + 86400000);
+      const year = d.getFullYear();
+      const month = String(d.getMonth() + 1).padStart(2, "0");
+      const day = String(d.getDate()).padStart(2, "0");
+      const dStr = `${year}-${month}-${day}`;
+      const h24 = d.getHours();
+      const period: "AM" | "PM" = h24 >= 12 ? "PM" : "AM";
+      let h12 = h24 % 12;
+      if (h12 === 0) h12 = 12;
+      const min = Math.round(d.getMinutes() / 5) * 5 % 60;
+      setScheduleDate(dStr);
+      setScheduleHour(h12);
+      setScheduleMinute(min);
+      setScheduleAmPm(period);
+
       setFormData({
         ...blog,
         author: {
@@ -362,6 +396,15 @@ export const BlogEditorModal: React.FC<BlogEditorModalProps> = ({
       setTagsInput(Array.isArray(blog.tags) ? blog.tags.join(", ") : "");
     } else {
       const defaultDate = getDefaultScheduledDate();
+      const d = new Date(Date.now() + 86400000);
+      const year = d.getFullYear();
+      const month = String(d.getMonth() + 1).padStart(2, "0");
+      const day = String(d.getDate()).padStart(2, "0");
+      setScheduleDate(`${year}-${month}-${day}`);
+      setScheduleHour(9);
+      setScheduleMinute(0);
+      setScheduleAmPm("AM");
+
       setFormData({
         title: "",
         slug: "",
@@ -424,13 +467,20 @@ export const BlogEditorModal: React.FC<BlogEditorModalProps> = ({
     }));
   };
 
-  const applyPreset = (daysAhead: number, hour: number = 9) => {
-    const d = new Date();
-    d.setDate(d.getDate() + daysAhead);
-    d.setHours(hour, 0, 0, 0);
-    const val = formatLocalDateTime(d);
-    setScheduledDateTime(val);
-    setFormData((prev) => ({ ...prev, scheduledAt: val }));
+  const applyPreset = (daysAhead: number, h12 = 9, min = 0, period: "AM" | "PM" = "AM") => {
+    const d = new Date(Date.now() + daysAhead * 86400000);
+    const year = d.getFullYear();
+    const month = String(d.getMonth() + 1).padStart(2, "0");
+    const day = String(d.getDate()).padStart(2, "0");
+    const dateStr = `${year}-${month}-${day}`;
+    setScheduleDate(dateStr);
+    setScheduleHour(h12);
+    setScheduleMinute(min);
+    setScheduleAmPm(period);
+    const combined = getCombinedScheduledDate(dateStr, h12, min, period);
+    const iso = combined.toISOString();
+    setScheduledDateTime(iso);
+    setFormData((prev) => ({ ...prev, scheduledAt: iso }));
   };
 
   const handleSubmit = async (targetStatus?: "DRAFT" | "PUBLISHED" | "SCHEDULED") => {
@@ -450,13 +500,9 @@ export const BlogEditorModal: React.FC<BlogEditorModalProps> = ({
     const finalStatus = targetStatus || formData.status || "DRAFT";
 
     if (finalStatus === "SCHEDULED") {
-      if (!scheduledDateTime) {
-        setErrorMsg("Please select a date and time to schedule publication");
-        return;
-      }
-      const selected = new Date(scheduledDateTime);
-      if (selected <= new Date()) {
-        setErrorMsg("Scheduled time must be in the future");
+      const selected = getCombinedScheduledDate();
+      if (selected.getTime() <= Date.now()) {
+        setErrorMsg("Scheduled time must be in the future. Please pick a future date and time.");
         return;
       }
     }
@@ -486,12 +532,14 @@ export const BlogEditorModal: React.FC<BlogEditorModalProps> = ({
         );
       }
 
+      const scheduledIso = getCombinedScheduledDate().toISOString();
+
       const payload: Partial<BlogItem> = {
         ...formData,
         coverImage: finalCover,
         galleryImages: finalGallery,
         status: finalStatus,
-        scheduledAt: finalStatus === "SCHEDULED" ? new Date(scheduledDateTime).toISOString() : undefined,
+        scheduledAt: finalStatus === "SCHEDULED" ? scheduledIso : undefined,
         tags: tagsInput.split(",").map((t) => t.trim()).filter(Boolean)
       };
       await onSave(payload);
@@ -1051,47 +1099,171 @@ export const BlogEditorModal: React.FC<BlogEditorModalProps> = ({
                     </button>
                   </div>
 
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 items-center">
-                    <div>
-                      <label className="block text-[11px] font-bold text-purple-900 mb-1">
-                        Release Date & Time *
-                      </label>
-                      <input
-                        type="datetime-local"
-                        value={scheduledDateTime}
-                        onChange={(e) => {
-                          setScheduledDateTime(e.target.value);
-                          setFormData((prev) => ({ ...prev, scheduledAt: e.target.value }));
-                        }}
-                        className="w-full h-10 rounded-xl border border-purple-300 bg-white px-3 text-xs font-bold text-purple-950 outline-none focus:border-purple-600 shadow-xs"
-                      />
+                  <div className="space-y-3">
+                    <div className="grid grid-cols-1 sm:grid-cols-12 gap-3 items-end">
+                      {/* Date Picker */}
+                      <div className="sm:col-span-5">
+                        <label className="block text-[11px] font-bold text-purple-900 mb-1">
+                          Release Date *
+                        </label>
+                        <input
+                          type="date"
+                          min={new Date().toISOString().split("T")[0]}
+                          value={scheduleDate}
+                          onChange={(e) => {
+                            const newDate = e.target.value;
+                            setScheduleDate(newDate);
+                            const combined = getCombinedScheduledDate(newDate, scheduleHour, scheduleMinute, scheduleAmPm);
+                            const iso = combined.toISOString();
+                            setScheduledDateTime(iso);
+                            setFormData((prev) => ({ ...prev, scheduledAt: iso }));
+                          }}
+                          className="w-full h-10 rounded-xl border border-purple-300 bg-white px-3 text-xs font-bold text-purple-950 outline-none focus:border-purple-600 shadow-xs cursor-pointer"
+                        />
+                      </div>
+
+                      {/* 12-Hour Time & AM/PM Selector */}
+                      <div className="sm:col-span-7">
+                        <label className="block text-[11px] font-bold text-purple-900 mb-1">
+                          Release Time (AM / PM) *
+                        </label>
+                        <div className="flex items-center gap-1.5">
+                          {/* Hour */}
+                          <select
+                            value={scheduleHour}
+                            onChange={(e) => {
+                              const newH = Number(e.target.value);
+                              setScheduleHour(newH);
+                              const combined = getCombinedScheduledDate(scheduleDate, newH, scheduleMinute, scheduleAmPm);
+                              const iso = combined.toISOString();
+                              setScheduledDateTime(iso);
+                              setFormData((prev) => ({ ...prev, scheduledAt: iso }));
+                            }}
+                            className="h-10 rounded-xl border border-purple-300 bg-white px-2.5 text-xs font-bold text-purple-950 outline-none focus:border-purple-600 shadow-xs cursor-pointer flex-1"
+                          >
+                            {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12].map((h) => (
+                              <option key={h} value={h}>
+                                {String(h).padStart(2, "0")} hr
+                              </option>
+                            ))}
+                          </select>
+
+                          <span className="text-purple-900 font-bold">:</span>
+
+                          {/* Minute */}
+                          <select
+                            value={scheduleMinute}
+                            onChange={(e) => {
+                              const newM = Number(e.target.value);
+                              setScheduleMinute(newM);
+                              const combined = getCombinedScheduledDate(scheduleDate, scheduleHour, newM, scheduleAmPm);
+                              const iso = combined.toISOString();
+                              setScheduledDateTime(iso);
+                              setFormData((prev) => ({ ...prev, scheduledAt: iso }));
+                            }}
+                            className="h-10 rounded-xl border border-purple-300 bg-white px-2.5 text-xs font-bold text-purple-950 outline-none focus:border-purple-600 shadow-xs cursor-pointer flex-1"
+                          >
+                            {[0, 5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 55].map((m) => (
+                              <option key={m} value={m}>
+                                {String(m).padStart(2, "0")} min
+                              </option>
+                            ))}
+                          </select>
+
+                          {/* AM / PM Toggle */}
+                          <div className="flex items-center rounded-xl border border-purple-300 p-0.5 bg-white shadow-xs shrink-0">
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setScheduleAmPm("AM");
+                                const combined = getCombinedScheduledDate(scheduleDate, scheduleHour, scheduleMinute, "AM");
+                                const iso = combined.toISOString();
+                                setScheduledDateTime(iso);
+                                setFormData((prev) => ({ ...prev, scheduledAt: iso }));
+                              }}
+                              className={`px-3 py-1.5 text-xs font-black rounded-lg transition-colors ${
+                                scheduleAmPm === "AM"
+                                  ? "bg-purple-700 text-white shadow-2xs"
+                                  : "text-purple-800 hover:bg-purple-100"
+                              }`}
+                            >
+                              AM
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setScheduleAmPm("PM");
+                                const combined = getCombinedScheduledDate(scheduleDate, scheduleHour, scheduleMinute, "PM");
+                                const iso = combined.toISOString();
+                                setScheduledDateTime(iso);
+                                setFormData((prev) => ({ ...prev, scheduledAt: iso }));
+                              }}
+                              className={`px-3 py-1.5 text-xs font-black rounded-lg transition-colors ${
+                                scheduleAmPm === "PM"
+                                  ? "bg-purple-700 text-white shadow-2xs"
+                                  : "text-purple-800 hover:bg-purple-100"
+                              }`}
+                            >
+                              PM
+                            </button>
+                          </div>
+                        </div>
+                      </div>
                     </div>
 
-                    <div className="space-y-1">
-                      <span className="block text-[11px] font-bold text-purple-900">Quick Presets:</span>
-                      <div className="flex flex-wrap gap-1.5">
-                        <button
-                          type="button"
-                          onClick={() => applyPreset(1, 9)}
-                          className="px-2.5 py-1 rounded-lg bg-white border border-purple-200 text-[11px] font-bold text-purple-800 hover:bg-purple-100 transition shadow-2xs cursor-pointer"
-                        >
-                          Tomorrow 9 AM
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => applyPreset(2, 10)}
-                          className="px-2.5 py-1 rounded-lg bg-white border border-purple-200 text-[11px] font-bold text-purple-800 hover:bg-purple-100 transition shadow-2xs cursor-pointer"
-                        >
-                          In 2 Days
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => applyPreset(7, 9)}
-                          className="px-2.5 py-1 rounded-lg bg-white border border-purple-200 text-[11px] font-bold text-purple-800 hover:bg-purple-100 transition shadow-2xs cursor-pointer"
-                        >
-                          In 1 Week
-                        </button>
+                    {/* Live Confirmation Banner */}
+                    <div className="p-2.5 rounded-xl bg-purple-100/70 border border-purple-200 flex flex-wrap items-center justify-between gap-2 text-xs">
+                      <div className="flex items-center space-x-1.5 text-purple-950 font-bold">
+                        <Clock className="w-3.5 h-3.5 text-purple-700 shrink-0" />
+                        <span>
+                          Release on:{" "}
+                          <span className="underline decoration-purple-400 font-black">
+                            {getCombinedScheduledDate().toLocaleDateString("en-IN", {
+                              weekday: "short",
+                              day: "numeric",
+                              month: "short",
+                              year: "numeric"
+                            })}{" "}
+                            at {String(scheduleHour).padStart(2, "0")}:{String(scheduleMinute).padStart(2, "0")} {scheduleAmPm} (Local Time)
+                          </span>
+                        </span>
                       </div>
+                      <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-purple-200 text-purple-900">
+                        Auto-Publish Active
+                      </span>
+                    </div>
+
+                    {/* Quick Presets */}
+                    <div className="flex flex-wrap gap-1.5 items-center pt-1">
+                      <span className="text-[11px] font-bold text-purple-900">Quick Presets:</span>
+                      <button
+                        type="button"
+                        onClick={() => applyPreset(1, 9, 0, "AM")}
+                        className="px-2.5 py-1 rounded-lg bg-white border border-purple-200 text-[11px] font-bold text-purple-800 hover:bg-purple-100 transition shadow-2xs cursor-pointer"
+                      >
+                        Tomorrow 9:00 AM
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => applyPreset(1, 6, 0, "PM")}
+                        className="px-2.5 py-1 rounded-lg bg-white border border-purple-200 text-[11px] font-bold text-purple-800 hover:bg-purple-100 transition shadow-2xs cursor-pointer"
+                      >
+                        Tomorrow 6:00 PM
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => applyPreset(2, 10, 0, "AM")}
+                        className="px-2.5 py-1 rounded-lg bg-white border border-purple-200 text-[11px] font-bold text-purple-800 hover:bg-purple-100 transition shadow-2xs cursor-pointer"
+                      >
+                        In 2 Days (10 AM)
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => applyPreset(7, 9, 0, "AM")}
+                        className="px-2.5 py-1 rounded-lg bg-white border border-purple-200 text-[11px] font-bold text-purple-800 hover:bg-purple-100 transition shadow-2xs cursor-pointer"
+                      >
+                        In 1 Week (9 AM)
+                      </button>
                     </div>
                   </div>
                 </div>
@@ -1108,7 +1280,7 @@ export const BlogEditorModal: React.FC<BlogEditorModalProps> = ({
                   </span>
                   {showSchedulePicker && (
                     <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-purple-100 text-purple-800 text-[10px] font-black uppercase">
-                      <Clock className="h-3 w-3" /> Scheduled for {new Date(scheduledDateTime).toLocaleString("en-IN", { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" })}
+                      <Clock className="h-3 w-3" /> Scheduled for {getCombinedScheduledDate().toLocaleString("en-IN", { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" })}
                     </span>
                   )}
                 </div>

@@ -3,6 +3,7 @@ import { Store } from "../../stores/models/Store";
 import { AuditLog } from "../models/AuditLog";
 import { AuthenticatedAdminRequest } from "../../../middleware/authenticateAdmin";
 import { StoreStatus } from "../../../contracts";
+import { sendStoreVerificationApprovalEmail } from "../../auth/services/email.service";
 
 export async function getAdminStores(req: AuthenticatedAdminRequest, res: Response, next: NextFunction): Promise<void> {
   try {
@@ -69,7 +70,7 @@ export async function approveStore(req: AuthenticatedAdminRequest, res: Response
     }
 
     const { storeId } = req.params;
-    const store = await Store.findById(storeId);
+    const store = await Store.findById(storeId).populate("ownerId", "profile.name email phone");
 
     if (!store) {
       res.status(404).json({ success: false, error: { code: "NOT_FOUND", message: "Store not found" } });
@@ -94,6 +95,29 @@ export async function approveStore(req: AuthenticatedAdminRequest, res: Response
       ipAddress: req.ip,
       userAgent: req.get("user-agent")
     });
+
+    // Send automated store verification approval email
+    const ownerEmail = store.email || (store.ownerId as any)?.email || (store.ownerId as any)?.profile?.email;
+    const ownerName = (store.ownerId as any)?.profile?.name || store.name;
+    if (ownerEmail) {
+      sendStoreVerificationApprovalEmail({
+        ownerEmail,
+        ownerName,
+        storeName: store.name,
+        storeId: store._id.toString(),
+        slug: store.slug,
+        gstin: store.gstin,
+        category: store.primaryCategory,
+        location: [store.area, store.city].filter(Boolean).join(", "),
+        verifiedAt: new Date().toLocaleDateString("en-IN", {
+          day: "numeric",
+          month: "short",
+          year: "numeric"
+        })
+      }).catch((err) => {
+        console.error("[approveStore] Failed to send verification approval email:", err);
+      });
+    }
 
     res.status(200).json({
       success: true,

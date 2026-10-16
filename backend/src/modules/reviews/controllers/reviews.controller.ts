@@ -58,7 +58,7 @@ export async function createReview(req: Request, res: Response, next: NextFuncti
       const totalCount = allStoreReviews.length;
       const avgRating = totalCount > 0
         ? Number((allStoreReviews.reduce((acc, r) => acc + r.rating, 0) / totalCount).toFixed(1))
-        : 4.9;
+        : 0;
 
       await Store.findByIdAndUpdate(targetId, {
         rating: avgRating,
@@ -117,64 +117,6 @@ export async function getPublicReviews(req: Request, res: Response, next: NextFu
 
 export async function getAdminReviews(req: Request, res: Response, next: NextFunction): Promise<void> {
   try {
-    const totalCount = await Review.countDocuments();
-    if (totalCount === 0) {
-      // Seed initial high-quality reviews into MongoDB so desk is not blank
-      const seedUserId = new mongoose.Types.ObjectId();
-      await Review.insertMany([
-        {
-          buyerId: seedUserId,
-          buyerName: "Ravi Kumar",
-          targetId: "store_apple_kondapur",
-          targetName: "AppleWorld Hyderabad",
-          targetType: "STORE",
-          rating: 5,
-          comment: "Excellent original iPhone with genuine warranty bill! Fast local pickup in Kondapur.",
-          tags: ["Verified Buyer", "Great Store", "Quick Communication"],
-          isReported: false,
-          status: "APPROVED"
-        },
-        {
-          buyerId: seedUserId,
-          buyerName: "Meera Sharma",
-          targetId: "store_furnicraft",
-          targetName: "Furnicraft Studio",
-          targetType: "STORE",
-          rating: 1,
-          comment: "Delivery was delayed by 3 days and sofa wood had scratches. Unresponsive seller.",
-          tags: ["Delayed Delivery", "Damaged Item"],
-          isReported: true,
-          reportReason: "Fake feedback / delivery dispute",
-          status: "PENDING"
-        },
-        {
-          buyerId: seedUserId,
-          buyerName: "Suspicious Seller",
-          targetId: "listing_royal_enfield",
-          targetName: "Royal Enfield Classic 350",
-          targetType: "SELLER",
-          rating: 1,
-          comment: "Fake seller! Tried to ask off-platform advance payment via GPay before showing bike.",
-          tags: ["Off-Platform Payment Risk"],
-          isReported: true,
-          reportReason: "Off-platform payment attempt reported",
-          status: "PENDING"
-        },
-        {
-          buyerId: seedUserId,
-          buyerName: "Ananya Rao",
-          targetId: "store_apple_kondapur",
-          targetName: "AppleWorld Hyderabad",
-          targetType: "STORE",
-          rating: 4,
-          comment: "Good pricing on accessories, store staff was polite and verified GSTIN invoice.",
-          tags: ["Verified Buyer", "Item as Described"],
-          isReported: false,
-          status: "APPROVED"
-        }
-      ]);
-    }
-
     const status = req.query.status as string;
     const query: Record<string, any> = {};
     if (status && status !== "ALL") {

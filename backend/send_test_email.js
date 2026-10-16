@@ -7,7 +7,7 @@ const {
   verifySmtpConnection
 } = require("./dist/modules/auth/services/email.service");
 
-const TARGET_EMAIL = process.argv[2] || "akhileshreddy027@gmail.com";
+const TARGET_EMAIL = process.argv[2] || "info@omeetso.in";
 
 async function main() {
   console.log(`\n==============================================`);

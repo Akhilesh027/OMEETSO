@@ -270,3 +270,6 @@ export function Stat({
 
   return <div className={baseClasses}>{content}</div>;
 }
+
+export { PermanentLogoutModal, PERMANENT_LEAVE_REASONS } from "./PermanentLogoutModal";
+

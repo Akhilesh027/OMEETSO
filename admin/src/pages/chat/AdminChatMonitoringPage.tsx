@@ -29,16 +29,24 @@ import {
   Send
 } from "lucide-react";
 import { useToast } from "@/contexts/ToastContext";
+import { useSearchParams, useNavigate } from "react-router-dom";
 import { io, Socket } from "socket.io-client";
 
 export default function AdminChatMonitoringPage() {
+  const [searchParams] = useSearchParams();
+  const navigate = useNavigate();
+  const targetConvId = searchParams.get("convId");
+  const targetId = searchParams.get("targetId");
+  const reportId = searchParams.get("reportId");
+  const targetUserName = searchParams.get("userName");
+
   const [conversations, setConversations] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
-  const [searchTerm, setSearchTerm] = useState("");
+  const [searchTerm, setSearchTerm] = useState(targetUserName || targetId || "");
   const [selectedContext, setSelectedContext] = useState<"ALL" | "LISTING" | "STORE" | "FLAGGED">("ALL");
 
   // Selected conversation for transcript inspection
-  const [activeConvId, setActiveConvId] = useState<string | null>(null);
+  const [activeConvId, setActiveConvId] = useState<string | null>(targetConvId || null);
   const [activeMessages, setActiveMessages] = useState<any[]>([]);
   const [messagesLoading, setMessagesLoading] = useState(false);
 
@@ -64,6 +72,12 @@ export default function AdminChatMonitoringPage() {
     if (selectedContext === "FLAGGED") {
       params.flaggedOnly = "true";
     }
+    if (targetConvId) {
+      params.convId = targetConvId;
+    }
+    if (targetId) {
+      params.targetId = targetId;
+    }
 
     const res = await getAdminConversationsApi(params);
     setLoading(false);
@@ -76,7 +90,15 @@ export default function AdminChatMonitoringPage() {
       );
       setConversations(validConvs);
       if (validConvs.length > 0) {
-        if (!activeConvId || !validConvs.some((c: any) => c.id === activeConvId)) {
+        if (targetConvId && validConvs.some((c: any) => c.id === targetConvId)) {
+          setActiveConvId(targetConvId);
+        } else if (targetId) {
+          const matched = validConvs.find((c: any) =>
+            c.contextId === targetId ||
+            (c.participants || []).some((p: any) => p.id === targetId || (targetUserName && p.name?.toLowerCase().includes(targetUserName.toLowerCase())))
+          );
+          setActiveConvId(matched ? matched.id : validConvs[0].id);
+        } else if (!activeConvId || !validConvs.some((c: any) => c.id === activeConvId)) {
           setActiveConvId(validConvs[0].id);
         }
       } else {
@@ -85,7 +107,7 @@ export default function AdminChatMonitoringPage() {
     } else {
       showError("Failed to Load Chats", res.error || "Could not fetch conversations");
     }
-  }, [selectedContext, activeConvId, showError]);
+  }, [selectedContext, activeConvId, targetConvId, targetId, targetUserName, showError]);
 
   // Load messages for selected conversation
   const loadMessages = useCallback(async (convId: string) => {
@@ -260,6 +282,47 @@ export default function AdminChatMonitoringPage() {
         badge={socketConnected ? `Live Gateway Active (${liveEventsCount} events)` : "Connecting Sockets..."}
         badgeColor={socketConnected ? "success" : "warning"}
       />
+
+      {/* Active Safety Investigation Incident Alert Bar */}
+      {(reportId || targetId) && (
+        <div className="mb-4 p-4 bg-amber-500/10 border border-amber-500/30 rounded-2xl flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-sm">
+          <div className="flex items-center gap-3">
+            <div className="p-2.5 rounded-xl bg-amber-500/20 text-amber-700 shrink-0">
+              <ShieldAlert className="w-5 h-5" />
+            </div>
+            <div>
+              <div className="text-xs font-black text-amber-900 uppercase tracking-wide">
+                Active Safety Investigation {reportId ? `· Incident #${reportId}` : ""}
+              </div>
+              <div className="text-xs font-semibold text-amber-800">
+                Auditing conversation associated with reported person:{" "}
+                <strong className="font-black text-foreground">{targetUserName || targetId || "Reported Party"}</strong>
+              </div>
+            </div>
+          </div>
+          <div className="flex items-center gap-2 shrink-0">
+            <button
+              onClick={() => {
+                if (activeConvId) {
+                  setWarningText(`Official Admin Notice: Your account is subject to active review under Safety Incident #${reportId || "REVIEW"}. Please ensure compliance with Omeetso community terms.`);
+                  setIsWarningModalOpen(true);
+                } else {
+                  showError("No Active Conversation", "Select a conversation to send an official administrative notice.");
+                }
+              }}
+              className="px-3.5 py-2 bg-amber-600 hover:bg-amber-700 text-white rounded-xl text-xs font-bold flex items-center gap-1.5 shadow-xs transition-colors"
+            >
+              <AlertTriangle className="w-3.5 h-3.5" /> Direct Warning to Reported Person
+            </button>
+            <button
+              onClick={() => navigate("/admin/safety-reports")}
+              className="px-3 py-2 bg-white border border-slate-300 hover:bg-slate-50 text-slate-700 rounded-xl text-xs font-bold transition-colors"
+            >
+              Back to Reports
+            </button>
+          </div>
+        </div>
+      )}
 
       <div className="space-y-4">
         {/* Top Controls & Search Bar */}

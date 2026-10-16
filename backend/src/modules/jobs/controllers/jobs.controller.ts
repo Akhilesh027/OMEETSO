@@ -6,7 +6,13 @@ import { CandidateProfile } from "../models/CandidateProfile";
 import { JobCategory } from "../models/JobCategory";
 import { AuthenticatedUserRequest } from "../../../middleware/authenticateUser";
 import { Notification } from "../../notifications/models/Notification";
-import { sendAdminAlertEmail } from "../../auth/services/email.service";
+import { User } from "../../users/models/User";
+import {
+  sendAdminAlertEmail,
+  sendJobSubmissionConfirmationEmail,
+  sendJobApplicationConfirmationEmail,
+  sendNewJobApplicationNotificationEmail
+} from "../../auth/services/email.service";
 import { env } from "../../../config/env";
 
 // DEFAULT JOB CATEGORIES SEED DATA
@@ -61,7 +67,7 @@ export async function getPublicJobs(req: Request, res: Response, next: NextFunct
     const skip = (page - 1) * limit;
 
     const query: Record<string, any> = {
-      status: { $in: ["ACTIVE", "APPROVED", "PUBLISHED", "active", "approved", "published", "SUBMITTED", "submitted"] }
+      status: { $in: ["ACTIVE", "APPROVED", "PUBLISHED", "active", "approved", "published"] }
     };
 
     if (req.query.q) {
@@ -259,8 +265,26 @@ export async function createJobListing(req: AuthenticatedUserRequest, res: Respo
       isUrgent: Boolean(body.isUrgent),
       isFeatured: Boolean(body.isFeatured),
       screeningQuestions: Array.isArray(body.screeningQuestions) ? body.screeningQuestions : [],
-      status: body.status || "APPROVED"
+      status: body.status === "DRAFT" ? "DRAFT" : "SUBMITTED"
     });
+
+    // Send confirmation email to employer confirming job submission is awaiting admin review
+    const employerEmail = req.user.email || (req.user.profile as any)?.email || body.contactEmail || body.employerEmail;
+    if (employerEmail) {
+      sendJobSubmissionConfirmationEmail({
+        employerEmail,
+        employerName: req.user.profile?.name,
+        jobTitle: job.title,
+        companyName: job.companyName,
+        jobCategory: job.jobCategoryId,
+        jobType: job.jobType,
+        location: `${job.location?.area || ""}, ${job.location?.city || "Hyderabad"}`,
+        submittedAt: new Date().toLocaleString("en-IN", { timeZone: "Asia/Kolkata" }),
+        jobId: job._id.toString()
+      }).catch((err) => {
+        console.warn("[Email] Failed to dispatch job submission confirmation email:", err?.message || err);
+      });
+    }
 
     // Dispatch instant alert to admin
     sendAdminAlertEmail({
@@ -376,6 +400,54 @@ export async function closeJobListing(req: AuthenticatedUserRequest, res: Respon
       { new: true }
     );
     res.status(200).json({ success: true, data: job });
+  } catch (err) {
+    next(err);
+  }
+}
+
+export async function deleteEmployerJob(req: AuthenticatedUserRequest, res: Response, next: NextFunction): Promise<void> {
+  try {
+    if (!req.user) {
+      res.status(401).json({ success: false, error: { message: "Unauthorized" } });
+      return;
+    }
+    const id = String(req.params.id);
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      res.status(400).json({ success: false, error: { message: "Invalid job ID" } });
+      return;
+    }
+
+    const userIds: any[] = [req.user._id];
+    if (mongoose.Types.ObjectId.isValid(req.user._id)) {
+      userIds.push(new mongoose.Types.ObjectId(req.user._id));
+    }
+    userIds.push(String(req.user._id));
+    if (req.user.id) {
+      userIds.push(req.user.id);
+      if (mongoose.Types.ObjectId.isValid(req.user.id)) {
+        userIds.push(new mongoose.Types.ObjectId(req.user.id));
+      }
+    }
+
+    const filter: Record<string, any> = {
+      _id: id,
+      ...((req.user as any)?.role === "admin" ? {} : { employerId: { $in: userIds } })
+    };
+
+    const job = await Job.findOneAndDelete(filter);
+    if (!job) {
+      res.status(404).json({ success: false, error: { message: "Job not found or access denied" } });
+      return;
+    }
+
+    await JobApplication.deleteMany({
+      $or: [
+        { jobId: id },
+        ...(mongoose.Types.ObjectId.isValid(id) ? [{ jobId: new mongoose.Types.ObjectId(id) }] : [])
+      ]
+    }).catch(() => {});
+
+    res.status(200).json({ success: true, message: "Job permanently deleted", id });
   } catch (err) {
     next(err);
   }
@@ -545,7 +617,7 @@ export async function applyToJob(req: AuthenticatedUserRequest, res: Response, n
 
     await Job.findByIdAndUpdate(job._id, { $inc: { applicationsCount: 1 } });
 
-    // Candidate notification
+    // Candidate in-app notification
     await Notification.create({
       userId: req.user._id,
       type: "job_application",
@@ -554,16 +626,86 @@ export async function applyToJob(req: AuthenticatedUserRequest, res: Response, n
       link: "/my/jobs"
     }).catch(() => {});
 
-    // Employer notification
-    if (targetEmployerId && String(targetEmployerId) !== String(req.user._id)) {
-      await Notification.create({
-        userId: targetEmployerId,
-        type: "job_application",
-        title: `New Applicant: ${job.title}`,
-        body: `${application.applicantProfileSnapshot?.name || "A candidate"} applied for ${job.title}.`,
-        link: "/my/employer/jobs"
-      }).catch(() => {});
+    // 1. Dispatch automated confirmation and follow-up email to candidate
+    if (applicantEmail) {
+      sendJobApplicationConfirmationEmail({
+        candidateEmail: applicantEmail,
+        candidateName: applicantName,
+        candidatePhone: applicantPhone,
+        jobTitle: job.title,
+        companyName: job.companyName,
+        appliedDate: new Date().toLocaleString("en-IN", { timeZone: "Asia/Kolkata" }),
+        status: "APPLIED",
+        jobId: job._id.toString(),
+        resumeFileName: application.applicantProfileSnapshot?.resumeFileName,
+        experience: String(candidateExp),
+        noticePeriod: application.applicantProfileSnapshot?.noticePeriod,
+        jobLocation: `${job.location?.area || ""}, ${job.location?.city || ""}`
+      }).catch((err) => {
+        console.warn("[Email] Failed to dispatch job application confirmation to candidate:", err?.message || err);
+      });
     }
+
+    // 2. Dispatch comprehensive application email with resume and all details to employer
+    (async () => {
+      try {
+        let empEmail = "";
+        let empName = job.companyName;
+
+        if (targetEmployerId) {
+          const empUser = await User.findById(targetEmployerId).select("email profile phone").lean();
+          empEmail = empUser?.email || (empUser?.profile as any)?.email || "";
+          if (empUser?.profile?.name) empName = empUser.profile.name;
+        }
+
+        if (!empEmail) {
+          empEmail = (job as any).employerEmail || (job as any).contactEmail || (job as any).email || env.SMTP_USER || "info@omeetso.in";
+        }
+
+        if (targetEmployerId) {
+          await Notification.create({
+            userId: targetEmployerId,
+            type: "job_application",
+            title: `New Applicant: ${job.title}`,
+            body: `${application.applicantProfileSnapshot?.name || "A candidate"} applied for ${job.title}.`,
+            link: "/my/employer/jobs"
+          }).catch(() => {});
+        }
+
+        if (empEmail) {
+          await sendNewJobApplicationNotificationEmail({
+            employerEmail: empEmail,
+            employerName: empName,
+            jobTitle: job.title,
+            companyName: job.companyName,
+            candidateName: applicantName,
+            candidatePhone: applicantPhone,
+            candidateEmail: applicantEmail,
+            candidateExperience: String(candidateExp),
+            appliedDate: new Date().toLocaleString("en-IN", { timeZone: "Asia/Kolkata" }),
+            jobId: job._id.toString(),
+            resumeUrl: application.applicantProfileSnapshot?.resumeUrl,
+            resumeFileName: application.applicantProfileSnapshot?.resumeFileName,
+            city: application.applicantProfileSnapshot?.city,
+            area: application.applicantProfileSnapshot?.area,
+            currentRole: application.applicantProfileSnapshot?.currentRole,
+            currentCompany: application.applicantProfileSnapshot?.currentCompany,
+            currentSalary: application.applicantProfileSnapshot?.currentSalary,
+            expectedSalary: application.applicantProfileSnapshot?.expectedSalary,
+            noticePeriod: application.applicantProfileSnapshot?.noticePeriod,
+            education: application.applicantProfileSnapshot?.education,
+            skills: application.applicantProfileSnapshot?.skills,
+            summary: application.applicantProfileSnapshot?.summary,
+            screeningAnswers: screeningAnswers || [],
+            portfolioUrl: application.applicantProfileSnapshot?.portfolioUrl,
+            linkedinUrl: application.applicantProfileSnapshot?.linkedinUrl,
+            githubUrl: application.applicantProfileSnapshot?.githubUrl
+          });
+        }
+      } catch (err: any) {
+        console.warn("[Email] Failed to dispatch new job application email to employer:", err?.message || err);
+      }
+    })();
 
     res.status(201).json({ success: true, data: { ...application.toObject(), id: application._id.toString() } });
   } catch (err: any) {
@@ -700,7 +842,12 @@ export async function getEmployerJobs(req: AuthenticatedUserRequest, res: Respon
       return;
     }
 
-    const jobs = await Job.find({ employerId: req.user._id }).sort({ createdAt: -1 }).lean();
+    const userConditions: any[] = [{ employerId: req.user._id }];
+    const idStr = req.user._id?.toString?.() || String(req.user._id || "");
+    if (idStr && mongoose.Types.ObjectId.isValid(idStr)) {
+      userConditions.push({ employerId: new mongoose.Types.ObjectId(idStr) });
+    }
+    const jobs = await Job.find({ $or: userConditions }).sort({ createdAt: -1 }).lean();
     res.status(200).json({
       success: true,
       data: jobs.map((j: any) => ({ ...j, id: j._id.toString() }))
@@ -717,8 +864,20 @@ export async function getJobApplicants(req: AuthenticatedUserRequest, res: Respo
       return;
     }
 
-    const rawJobId = req.params.jobId ? String(req.params.jobId) : "";
+    const rawJobId = req.params.jobId ? String(req.params.jobId).trim() : "";
     const { status, q, sort } = req.query;
+
+    const userIds: any[] = [req.user._id];
+    if (mongoose.Types.ObjectId.isValid(req.user._id)) {
+      userIds.push(new mongoose.Types.ObjectId(req.user._id));
+    }
+    userIds.push(String(req.user._id));
+    if (req.user.id) {
+      userIds.push(req.user.id);
+      if (mongoose.Types.ObjectId.isValid(req.user.id)) {
+        userIds.push(new mongoose.Types.ObjectId(req.user.id));
+      }
+    }
 
     const query: Record<string, any> = {};
 
@@ -732,14 +891,15 @@ export async function getJobApplicants(req: AuthenticatedUserRequest, res: Respo
         : await Job.findOne({ $or: [{ slug: rawJobId }, { title: rawJobId }] }).select("_id").lean();
       if (targetJob) {
         jobQueryIds.push(targetJob._id);
+        jobQueryIds.push(targetJob._id.toString());
       }
       query.jobId = { $in: jobQueryIds };
     } else {
       // Find all jobs posted by this employer
-      const employerJobs = await Job.find({ employerId: req.user._id }).select("_id").lean();
+      const employerJobs = await Job.find({ employerId: { $in: userIds } }).select("_id").lean();
       const employerJobIds = employerJobs.map(j => j._id);
       query.$or = [
-        { employerId: req.user._id },
+        { employerId: { $in: userIds } },
         { jobId: { $in: employerJobIds } }
       ];
     }
@@ -764,7 +924,8 @@ export async function getJobApplicants(req: AuthenticatedUserRequest, res: Respo
     const seenApplicant = new Set<string>();
     const uniqueApps: any[] = [];
     for (const app of applications) {
-      const appKey = `${app.jobId}_${app.applicantId || app.applicantProfileSnapshot?.phone || app.applicantProfileSnapshot?.name}`;
+      const jIdStr = app.jobId?.toString() || String(app.jobId);
+      const appKey = `${jIdStr}_${app.applicantId || app.applicantProfileSnapshot?.phone || app.applicantProfileSnapshot?.name}`;
       if (!seenApplicant.has(appKey)) {
         seenApplicant.add(appKey);
         uniqueApps.push(app);
@@ -773,7 +934,14 @@ export async function getJobApplicants(req: AuthenticatedUserRequest, res: Respo
 
     res.status(200).json({
       success: true,
-      data: uniqueApps.map((a: any) => ({ ...a, id: a._id.toString() }))
+      data: uniqueApps.map((a: any) => ({
+        ...a,
+        id: a._id?.toString() || a.id,
+        _id: a._id?.toString() || a.id,
+        jobId: a.jobId?.toString() || a.jobId,
+        applicantId: a.applicantId?.toString() || a.applicantId,
+        employerId: a.employerId?.toString() || a.employerId
+      }))
     });
   } catch (err) {
     next(err);

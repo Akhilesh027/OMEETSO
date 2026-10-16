@@ -65,11 +65,24 @@ export const BlogsPage: React.FC = () => {
   const [editingBlog, setEditingBlog] = useState<BlogItem | null>(null);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
 
-  // Quick Schedule Modal state
+  // Quick Schedule Modal state with AM/PM Support & Timezone Precision
   const [quickScheduleBlog, setQuickScheduleBlog] = useState<BlogItem | null>(null);
-  const [quickScheduledDate, setQuickScheduledDate] = useState<string>("");
+  const [quickDate, setQuickDate] = useState<string>(() => {
+    const d = new Date(Date.now() + 86400000);
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+  });
+  const [quickHour, setQuickHour] = useState<number>(9);
+  const [quickMinute, setQuickMinute] = useState<number>(0);
+  const [quickAmPm, setQuickAmPm] = useState<"AM" | "PM">("AM");
   const [isScheduling, setIsScheduling] = useState(false);
   const [isSyncingCloudinary, setIsSyncingCloudinary] = useState(false);
+
+  const getCombinedQuickDate = (dStr = quickDate, h12 = quickHour, min = quickMinute, period = quickAmPm): Date => {
+    const [y, m, d] = dStr.split("-").map(Number);
+    let h24 = h12 % 12;
+    if (period === "PM") h24 += 12;
+    return new Date(y, m - 1, d, h24, min, 0, 0);
+  };
 
   const liveBlogHubUrl = `${getFrontendBaseUrl()}/blogs`;
 
@@ -299,14 +312,9 @@ export const BlogsPage: React.FC = () => {
     e.preventDefault();
     if (!quickScheduleBlog) return;
 
-    if (!quickScheduledDate) {
-      alert("Please select a date and time to schedule");
-      return;
-    }
-
-    const selected = new Date(quickScheduledDate);
-    if (selected <= new Date()) {
-      alert("Scheduled time must be in the future");
+    const selected = getCombinedQuickDate();
+    if (selected.getTime() <= Date.now()) {
+      alert("Scheduled time must be in the future. Please pick a future date and time.");
       return;
     }
 
@@ -326,7 +334,7 @@ export const BlogsPage: React.FC = () => {
         })
       });
       if (res.ok) {
-        showToast(`Article scheduled for ${selected.toLocaleString("en-IN", { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" })}!`);
+        showToast(`Article scheduled for ${selected.toLocaleDateString("en-IN", { month: "short", day: "numeric" })} at ${String(quickHour).padStart(2, "0")}:${String(quickMinute).padStart(2, "0")} ${quickAmPm}!`);
         setQuickScheduleBlog(null);
         fetchBlogs();
       }
@@ -338,28 +346,21 @@ export const BlogsPage: React.FC = () => {
   };
 
   const openQuickScheduleModal = (blog: BlogItem) => {
-    const formatLocalDateTime = (d: Date) => {
-      const year = d.getFullYear();
-      const month = String(d.getMonth() + 1).padStart(2, "0");
-      const day = String(d.getDate()).padStart(2, "0");
-      const hours = String(d.getHours()).padStart(2, "0");
-      const minutes = String(d.getMinutes()).padStart(2, "0");
-      return `${year}-${month}-${day}T${hours}:${minutes}`;
-    };
+    const d = blog.scheduledAt ? new Date(blog.scheduledAt) : new Date(Date.now() + 86400000);
+    const year = d.getFullYear();
+    const month = String(d.getMonth() + 1).padStart(2, "0");
+    const day = String(d.getDate()).padStart(2, "0");
+    const dStr = `${year}-${month}-${day}`;
+    const h24 = d.getHours();
+    const period: "AM" | "PM" = h24 >= 12 ? "PM" : "AM";
+    let h12 = h24 % 12;
+    if (h12 === 0) h12 = 12;
+    const min = Math.round(d.getMinutes() / 5) * 5 % 60;
 
-    let initDate = "";
-    if (blog.scheduledAt) {
-      try {
-        initDate = formatLocalDateTime(new Date(blog.scheduledAt));
-      } catch {}
-    }
-    if (!initDate) {
-      const tomorrow = new Date();
-      tomorrow.setDate(tomorrow.getDate() + 1);
-      tomorrow.setHours(9, 0, 0, 0);
-      initDate = formatLocalDateTime(tomorrow);
-    }
-    setQuickScheduledDate(initDate);
+    setQuickDate(dStr);
+    setQuickHour(h12);
+    setQuickMinute(min);
+    setQuickAmPm(period);
     setQuickScheduleBlog(blog);
   };
 
@@ -998,48 +999,174 @@ export const BlogsPage: React.FC = () => {
             </div>
 
             <form onSubmit={handleQuickScheduleSubmit} className="space-y-4">
-              <div>
-                <label className="block text-xs font-bold text-slate-700 mb-1.5">
-                  Publishing Date & Time *
-                </label>
-                <input
-                  type="datetime-local"
-                  required
-                  value={quickScheduledDate}
-                  onChange={(e) => setQuickScheduledDate(e.target.value)}
-                  className="w-full h-11 rounded-xl border border-purple-300 bg-white px-3.5 text-xs font-bold text-admin-text outline-none focus:border-purple-600 focus:ring-2 focus:ring-purple-600/20 shadow-xs"
-                />
-                <div className="mt-2 flex flex-wrap gap-1.5 items-center">
+              <div className="space-y-3">
+                <div className="grid grid-cols-1 sm:grid-cols-12 gap-3 items-end">
+                  {/* Date Picker */}
+                  <div className="sm:col-span-5">
+                    <label className="block text-xs font-bold text-slate-700 mb-1.5">
+                      Release Date *
+                    </label>
+                    <input
+                      type="date"
+                      required
+                      min={new Date().toISOString().split("T")[0]}
+                      value={quickDate}
+                      onChange={(e) => setQuickDate(e.target.value)}
+                      className="w-full h-11 rounded-xl border border-purple-300 bg-white px-3 text-xs font-bold text-admin-text outline-none focus:border-purple-600 focus:ring-2 focus:ring-purple-600/20 shadow-xs cursor-pointer"
+                    />
+                  </div>
+
+                  {/* 12-Hour Time & AM/PM */}
+                  <div className="sm:col-span-7">
+                    <label className="block text-xs font-bold text-slate-700 mb-1.5">
+                      Release Time (AM / PM) *
+                    </label>
+                    <div className="flex items-center gap-1.5">
+                      {/* Hour */}
+                      <select
+                        value={quickHour}
+                        onChange={(e) => setQuickHour(Number(e.target.value))}
+                        className="h-11 rounded-xl border border-purple-300 bg-white px-2.5 text-xs font-bold text-admin-text outline-none focus:border-purple-600 focus:ring-2 focus:ring-purple-600/20 shadow-xs cursor-pointer flex-1"
+                      >
+                        {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12].map((h) => (
+                          <option key={h} value={h}>
+                            {String(h).padStart(2, "0")} hr
+                          </option>
+                        ))}
+                      </select>
+
+                      <span className="text-purple-900 font-bold">:</span>
+
+                      {/* Minute */}
+                      <select
+                        value={quickMinute}
+                        onChange={(e) => setQuickMinute(Number(e.target.value))}
+                        className="h-11 rounded-xl border border-purple-300 bg-white px-2.5 text-xs font-bold text-admin-text outline-none focus:border-purple-600 focus:ring-2 focus:ring-purple-600/20 shadow-xs cursor-pointer flex-1"
+                      >
+                        {[0, 5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 55].map((m) => (
+                          <option key={m} value={m}>
+                            {String(m).padStart(2, "0")} min
+                          </option>
+                        ))}
+                      </select>
+
+                      {/* AM / PM Toggle */}
+                      <div className="flex items-center rounded-xl border border-purple-300 p-0.5 bg-white shadow-xs shrink-0">
+                        <button
+                          type="button"
+                          onClick={() => setQuickAmPm("AM")}
+                          className={`px-3 py-2 text-xs font-black rounded-lg transition-colors ${
+                            quickAmPm === "AM"
+                              ? "bg-purple-700 text-white shadow-2xs"
+                              : "text-purple-800 hover:bg-purple-100"
+                          }`}
+                        >
+                          AM
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setQuickAmPm("PM")}
+                          className={`px-3 py-2 text-xs font-black rounded-lg transition-colors ${
+                            quickAmPm === "PM"
+                              ? "bg-purple-700 text-white shadow-2xs"
+                              : "text-purple-800 hover:bg-purple-100"
+                          }`}
+                        >
+                          PM
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Live Confirmation Banner */}
+                <div className="p-2.5 rounded-xl bg-purple-50 border border-purple-200 flex flex-wrap items-center justify-between gap-2 text-xs">
+                  <div className="flex items-center space-x-1.5 text-purple-950 font-bold">
+                    <Clock className="w-3.5 h-3.5 text-purple-700 shrink-0" />
+                    <span>
+                      Scheduled:{" "}
+                      <span className="underline decoration-purple-400 font-black">
+                        {getCombinedQuickDate().toLocaleDateString("en-IN", {
+                          weekday: "short",
+                          day: "numeric",
+                          month: "short",
+                          year: "numeric"
+                        })}{" "}
+                        at {String(quickHour).padStart(2, "0")}:{String(quickMinute).padStart(2, "0")} {quickAmPm} (Local Time)
+                      </span>
+                    </span>
+                  </div>
+                  <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-purple-200 text-purple-900">
+                    Auto-Publish Active
+                  </span>
+                </div>
+
+                {/* Presets */}
+                <div className="flex flex-wrap gap-1.5 items-center pt-1">
                   <span className="text-[11px] font-bold text-slate-500">Presets:</span>
                   <button
                     type="button"
                     onClick={() => {
-                      const d = new Date();
-                      d.setDate(d.getDate() + 1);
-                      d.setHours(9, 0, 0, 0);
+                      const d = new Date(Date.now() + 86400000);
                       const year = d.getFullYear();
                       const month = String(d.getMonth() + 1).padStart(2, "0");
                       const day = String(d.getDate()).padStart(2, "0");
-                      setQuickScheduledDate(`${year}-${month}-${day}T09:00`);
+                      setQuickDate(`${year}-${month}-${day}`);
+                      setQuickHour(9);
+                      setQuickMinute(0);
+                      setQuickAmPm("AM");
                     }}
                     className="px-2.5 py-1 rounded-lg bg-purple-50 border border-purple-200 text-[11px] font-bold text-purple-700 hover:bg-purple-100 cursor-pointer"
                   >
-                    Tomorrow 9 AM
+                    Tomorrow 9:00 AM
                   </button>
                   <button
                     type="button"
                     onClick={() => {
-                      const d = new Date();
-                      d.setDate(d.getDate() + 2);
-                      d.setHours(10, 0, 0, 0);
+                      const d = new Date(Date.now() + 86400000);
                       const year = d.getFullYear();
                       const month = String(d.getMonth() + 1).padStart(2, "0");
                       const day = String(d.getDate()).padStart(2, "0");
-                      setQuickScheduledDate(`${year}-${month}-${day}T10:00`);
+                      setQuickDate(`${year}-${month}-${day}`);
+                      setQuickHour(6);
+                      setQuickMinute(0);
+                      setQuickAmPm("PM");
                     }}
                     className="px-2.5 py-1 rounded-lg bg-purple-50 border border-purple-200 text-[11px] font-bold text-purple-700 hover:bg-purple-100 cursor-pointer"
                   >
-                    In 2 Days
+                    Tomorrow 6:00 PM
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const d = new Date(Date.now() + 2 * 86400000);
+                      const year = d.getFullYear();
+                      const month = String(d.getMonth() + 1).padStart(2, "0");
+                      const day = String(d.getDate()).padStart(2, "0");
+                      setQuickDate(`${year}-${month}-${day}`);
+                      setQuickHour(10);
+                      setQuickMinute(0);
+                      setQuickAmPm("AM");
+                    }}
+                    className="px-2.5 py-1 rounded-lg bg-purple-50 border border-purple-200 text-[11px] font-bold text-purple-700 hover:bg-purple-100 cursor-pointer"
+                  >
+                    In 2 Days (10 AM)
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const d = new Date(Date.now() + 7 * 86400000);
+                      const year = d.getFullYear();
+                      const month = String(d.getMonth() + 1).padStart(2, "0");
+                      const day = String(d.getDate()).padStart(2, "0");
+                      setQuickDate(`${year}-${month}-${day}`);
+                      setQuickHour(9);
+                      setQuickMinute(0);
+                      setQuickAmPm("AM");
+                    }}
+                    className="px-2.5 py-1 rounded-lg bg-purple-50 border border-purple-200 text-[11px] font-bold text-purple-700 hover:bg-purple-100 cursor-pointer"
+                  >
+                    In 1 Week (9 AM)
                   </button>
                 </div>
               </div>

@@ -188,74 +188,221 @@ export async function getAuditLogs(req: AuthenticatedAdminRequest, res: Response
 
 export async function getPlatformAnalytics(req: AuthenticatedAdminRequest, res: Response, next: NextFunction): Promise<void> {
   try {
+    const selectedCity = (req.query.city as string)?.trim() || "";
+    const selectedArea = (req.query.area as string)?.trim() || "";
+
+    // City and Area filter conditions
+    const listingQuery: Record<string, any> = { isDeleted: { $ne: true } };
+    const userQuery: Record<string, any> = {};
+    const storeQuery: Record<string, any> = {};
+
+    if (selectedCity && selectedCity.toLowerCase() !== "all") {
+      listingQuery.city = { $regex: new RegExp(`^${selectedCity}$`, "i") };
+      userQuery["profile.city"] = { $regex: new RegExp(`^${selectedCity}$`, "i") };
+      storeQuery.city = { $regex: new RegExp(`^${selectedCity}$`, "i") };
+    }
+
+    if (selectedArea && selectedArea.toLowerCase() !== "all") {
+      listingQuery.area = { $regex: new RegExp(`^${selectedArea}$`, "i") };
+      userQuery["profile.area"] = { $regex: new RegExp(`^${selectedArea}$`, "i") };
+      storeQuery.area = { $regex: new RegExp(`^${selectedArea}$`, "i") };
+    }
+
     const [
-      totalUsers,
-      activeListings,
-      totalStores,
-      verifiedStores,
-      volumeAgg,
-      cityStats,
-      storeCityStats
+      cityListingStats,
+      cityStoreStats,
+      cityUserStats,
+      listingsData,
+      usersData,
+      storesData,
+      totalListingsCount,
+      totalUsersCount,
+      totalStoresCount
     ] = await Promise.all([
-      User.countDocuments(),
-      Listing.countDocuments({ isDeleted: { $ne: true }, status: { $in: [ListingStatus.APPROVED, ListingStatus.ACTIVE, "APPROVED", "ACTIVE", "approved", "active"] } }),
-      Store.countDocuments(),
-      Store.countDocuments({ status: { $in: [StoreStatus.APPROVED, "APPROVED", "VERIFIED", "approved", "verified"] } }),
-      Listing.aggregate([
-        { $match: { isDeleted: { $ne: true } } },
-        { $group: { _id: null, totalPaise: { $sum: "$priceInPaise" } } }
-      ]),
       Listing.aggregate([
         { $match: { isDeleted: { $ne: true } } },
         {
           $group: {
-            _id: { $ifNull: ["$city", "Hyderabad"] },
-            activeListings: { $sum: 1 },
-            totalVolumeInPaise: { $sum: "$priceInPaise" }
+            _id: {
+              city: { $ifNull: ["$city", "Hyderabad"] },
+              area: { $ifNull: ["$area", "General Area"] }
+            },
+            count: { $sum: 1 }
           }
         },
-        { $sort: { activeListings: -1 } },
-        { $limit: 10 }
+        { $sort: { count: -1 } }
       ]),
       Store.aggregate([
         {
           $group: {
-            _id: { $ifNull: ["$city", "Hyderabad"] },
-            storesCount: { $sum: 1 }
+            _id: {
+              city: { $ifNull: ["$city", "Hyderabad"] },
+              area: { $ifNull: ["$area", "General Area"] }
+            },
+            count: { $sum: 1 }
           }
-        }
-      ])
+        },
+        { $sort: { count: -1 } }
+      ]),
+      User.aggregate([
+        {
+          $group: {
+            _id: {
+              city: { $ifNull: ["$profile.city", "Hyderabad"] },
+              area: { $ifNull: ["$profile.area", "General Area"] }
+            },
+            count: { $sum: 1 }
+          }
+        },
+        { $sort: { count: -1 } }
+      ]),
+      Listing.find(listingQuery)
+        .populate("sellerId", "profile.name email phone")
+        .sort({ createdAt: -1 })
+        .limit(100)
+        .lean(),
+      User.find(userQuery)
+        .sort({ createdAt: -1 })
+        .limit(100)
+        .lean(),
+      Store.find(storeQuery)
+        .populate("ownerId", "profile.name email phone")
+        .sort({ createdAt: -1 })
+        .limit(100)
+        .lean(),
+      Listing.countDocuments(listingQuery),
+      User.countDocuments(userQuery),
+      Store.countDocuments(storeQuery)
     ]);
 
-    const storeCityMap = new Map(storeCityStats.map((s: any) => [(s._id || "").toString().toLowerCase(), s.storesCount]));
-    const totalVolume = volumeAgg[0]?.totalPaise ? Math.round(volumeAgg[0].totalPaise / 100) : 0;
+    // Build consolidated city/area directory
+    const regionalMap = new Map<string, { city: string; area: string; activeListings: number; verifiedStores: number; registeredUsers: number }>();
 
-    const cities = cityStats.map((c: any) => {
-      const cityName = c._id || "Hyderabad";
-      const storesCount = storeCityMap.get(cityName.toLowerCase()) || Math.max(Math.floor(c.activeListings * 0.15), 1);
-      const volume = c.totalVolumeInPaise ? Math.round(c.totalVolumeInPaise / 100) : 0;
-      const adBoost = Math.round(volume * 0.05);
+    const getOrInit = (city: string, area: string) => {
+      const key = `${city.toLowerCase()}__${area.toLowerCase()}`;
+      if (!regionalMap.has(key)) {
+        regionalMap.set(key, {
+          city,
+          area,
+          activeListings: 0,
+          verifiedStores: 0,
+          registeredUsers: 0
+        });
+      }
+      return regionalMap.get(key)!;
+    };
 
-      return {
-        city: cityName,
-        activeListings: c.activeListings,
-        verifiedStores: `${storesCount} Stores`,
-        monthlyGMV: volume,
-        adBoostVolume: adBoost
-      };
+    cityListingStats.forEach((c: any) => {
+      const city = c._id?.city || "Hyderabad";
+      const area = c._id?.area || "All Areas";
+      const item = getOrInit(city, area);
+      item.activeListings += c.count || 0;
+    });
+
+    cityStoreStats.forEach((s: any) => {
+      const city = s._id?.city || "Hyderabad";
+      const area = s._id?.area || "All Areas";
+      const item = getOrInit(city, area);
+      item.verifiedStores += s.count || 0;
+    });
+
+    cityUserStats.forEach((u: any) => {
+      const city = u._id?.city || "Hyderabad";
+      const area = u._id?.area || "All Areas";
+      const item = getOrInit(city, area);
+      item.registeredUsers += u.count || 0;
+    });
+
+    const regionsList = Array.from(regionalMap.values()).sort(
+      (a, b) => b.activeListings + b.verifiedStores + b.registeredUsers - (a.activeListings + a.verifiedStores + a.registeredUsers)
+    );
+
+    // Format listings
+    const formattedListings = listingsData.map((l: any) => ({
+      id: l._id.toString(),
+      title: l.title,
+      priceInPaise: l.priceInPaise,
+      categoryId: l.categoryId,
+      city: l.city || "Hyderabad",
+      area: l.area || "City Wide",
+      status: l.status,
+      sellerName: (l.sellerId as any)?.profile?.name || (l.sellerId as any)?.name || "Seller",
+      sellerPhone: (l.sellerId as any)?.phone || l.sellerPhone || "",
+      image: l.images && l.images.length > 0 ? l.images[0] : "",
+      createdAt: l.createdAt
+    }));
+
+    // Format users
+    const formattedUsers = usersData.map((u: any) => ({
+      id: u._id.toString(),
+      name: u.profile?.name || (u as any).name || "Omeetso Member",
+      phone: u.phone,
+      email: u.email || "",
+      city: u.profile?.city || "Hyderabad",
+      area: u.profile?.area || "City Wide",
+      accountType: u.accountType || "individual",
+      createdAt: u.createdAt
+    }));
+
+    // Format sellers & stores (merchants with stores + active sellers from listings)
+    const seenSellerKeys = new Set<string>();
+    const formattedSellers: any[] = [];
+
+    storesData.forEach((s: any) => {
+      const phone = (s.businessMobile || (s.ownerId as any)?.phone || "").trim();
+      const key = `${s.name.toLowerCase()}_${phone.toLowerCase()}`;
+      seenSellerKeys.add(key);
+      formattedSellers.push({
+        id: s._id.toString(),
+        name: s.name,
+        ownerName: (s.ownerId as any)?.profile?.name || (s.ownerId as any)?.name || "Store Owner",
+        city: s.city || "Hyderabad",
+        area: s.area || "City Wide",
+        primaryCategory: s.primaryCategory || "General Retail",
+        businessMobile: phone,
+        status: s.status || "APPROVED",
+        isStore: true,
+        rating: s.rating || 5,
+        createdAt: s.createdAt
+      });
+    });
+
+    // Also include sellers who have active listings in this area
+    listingsData.forEach((l: any) => {
+      const seller = l.sellerId as any;
+      const phone = (seller?.phone || l.sellerPhone || "").trim();
+      const name = seller?.profile?.name || seller?.name || "Marketplace Seller";
+      const key = `${name.toLowerCase()}_${phone.toLowerCase()}`;
+      if (!seenSellerKeys.has(key)) {
+        seenSellerKeys.add(key);
+        formattedSellers.push({
+          id: (seller?._id || l._id).toString(),
+          name: name,
+          ownerName: name,
+          city: l.city || "Hyderabad",
+          area: l.area || "City Wide",
+          primaryCategory: l.categoryId || "Marketplace Seller",
+          businessMobile: phone,
+          status: "ACTIVE",
+          isStore: false,
+          rating: 5,
+          createdAt: l.createdAt
+        });
+      }
     });
 
     res.status(200).json({
       success: true,
       data: {
-        monthlyVolume: totalVolume,
-        registeredUsers: totalUsers,
-        activeListings,
-        verifiedStores: `${verifiedStores || totalStores} Stores`,
-        verificationRate: totalStores > 0 ? `${((verifiedStores / totalStores) * 100).toFixed(1)}%` : "100%",
-        cities: cities.length > 0 ? cities : [
-          { city: "Hyderabad (HITEC City, Madhapur, Gachibowli)", activeListings, verifiedStores: `${totalStores} Stores`, monthlyGMV: totalVolume, adBoostVolume: Math.round(totalVolume * 0.05) }
-        ]
+        totalListingsInArea: totalListingsCount,
+        totalUsersInArea: totalUsersCount,
+        totalSellersInArea: formattedSellers.length,
+        selectedCity: selectedCity || "All Cities",
+        selectedArea: selectedArea || "All Areas",
+        cities: regionsList,
+        listings: formattedListings,
+        users: formattedUsers,
+        sellers: formattedSellers
       }
     });
   } catch (error) {

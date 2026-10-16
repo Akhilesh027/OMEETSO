@@ -14,6 +14,10 @@ import {
   Trash2,
   Star,
   XCircle,
+  Clock,
+  ShieldCheck,
+  ShieldAlert,
+  RotateCcw,
 } from "lucide-react";
 import { useToast } from "@/contexts/ToastContext";
 import { API_BASE } from "@/config/api";
@@ -38,7 +42,7 @@ export default function StoresListPage() {
       ownerName: item.ownerName || item.email || "Merchant",
       category: item.category || item.primaryCategory || "General",
       businessType: item.businessType || "Retailer",
-      rating: item.rating || 4.8,
+      rating: typeof item.rating === "number" ? item.rating : 0,
       reviewCount: item.reviewCount || 0,
       productCount: 0,
       productsCount: item.productsCount || 0,
@@ -79,7 +83,7 @@ export default function StoresListPage() {
           ownerName: item.owner?.name || item.email || "Merchant",
           category: item.primaryCategory || "General",
           businessType: item.businessType || "Retailer",
-          rating: item.rating || 4.8,
+          rating: typeof item.rating === "number" ? item.rating : 0,
           reviewCount: item.reviewCount || 0,
           productCount: 0,
           productsCount: item.productsCount || 0,
@@ -113,7 +117,7 @@ export default function StoresListPage() {
           ownerName: item.email || "Store Owner",
           category: item.primaryCategory || "General",
           businessType: item.businessType || "Retailer",
-          rating: item.rating || 4.8,
+          rating: typeof item.rating === "number" ? item.rating : 0,
           reviewCount: item.reviewCount || 0,
           productCount: 0,
           productsCount: item.productsCount || 0,
@@ -303,27 +307,109 @@ export default function StoresListPage() {
                     <td className="p-3 text-slate-500">{s.location?.city || "Hyderabad"} ({s.location?.pincode})</td>
                     <td className="p-3 text-slate-600">
                       <div>Products: <span className="font-bold text-[#111827]">{s.productsCount}</span></div>
-                      <div className="flex items-center space-x-1 text-[11px] text-amber-600">
-                        <Star className="w-3 h-3 fill-amber-400 text-amber-400" />
-                        <span className="font-bold">{s.rating}</span>
-                        <span className="text-slate-400">({s.followers} followers)</span>
-                      </div>
+                      {s.rating && s.rating > 0 ? (
+                        <div className="flex items-center space-x-1 text-[11px] text-amber-600">
+                          <Star className="w-3 h-3 fill-amber-400 text-amber-400" />
+                          <span className="font-bold">{s.rating}</span>
+                          <span className="text-slate-400">({s.followers || 0} followers)</span>
+                        </div>
+                      ) : (
+                        <div className="flex items-center space-x-1 text-[11px] text-slate-400">
+                          <span>Unrated</span>
+                          <span>• {s.followers || 0} followers</span>
+                        </div>
+                      )}
                     </td>
                     <td className="p-3">
-                      <span
-                        className={`inline-flex items-center space-x-1 px-2.5 py-0.5 rounded-full font-bold text-[10px] capitalize ${s.verification === "verified"
-                          ? "bg-emerald-100 text-[#16A36A]"
-                          : s.verification === "under_review"
-                            ? "bg-amber-100 text-amber-900"
-                            : "bg-red-100 text-[#DC3545]"
-                          }`}
-                      >
-                        {s.verification === "verified" && <BadgeCheck className="w-3 h-3" />}
-                        <span>{(s.verification || "under_review").replace("_", " ")}</span>
-                      </span>
+                      {s.verification === "verified" ? (
+                        <div className="inline-flex flex-col">
+                          <span className="inline-flex items-center space-x-1 px-2.5 py-1 rounded-full font-bold text-[11px] bg-emerald-50 text-emerald-700 border border-emerald-200 shadow-2xs">
+                            <ShieldCheck className="w-3.5 h-3.5 text-emerald-600" />
+                            <span>Verified Store</span>
+                          </span>
+                          <span className="text-[10px] text-emerald-600 font-medium pl-1 mt-0.5">Badge Granted</span>
+                        </div>
+                      ) : s.verification === "under_review" ? (
+                        <div className="inline-flex flex-col">
+                          <span className="inline-flex items-center space-x-1 px-2.5 py-1 rounded-full font-bold text-[11px] bg-amber-50 text-amber-800 border border-amber-200">
+                            <Clock className="w-3.5 h-3.5 text-amber-600" />
+                            <span>Under Review</span>
+                          </span>
+                          <span className="text-[10px] text-amber-600 font-medium pl-1 mt-0.5">Requires Verification</span>
+                        </div>
+                      ) : (
+                        <div className="inline-flex flex-col">
+                          <span className="inline-flex items-center space-x-1 px-2.5 py-1 rounded-full font-bold text-[11px] bg-rose-50 text-rose-700 border border-rose-200">
+                            <XCircle className="w-3.5 h-3.5 text-rose-600" />
+                            <span>Rejected</span>
+                          </span>
+                          <span className="text-[10px] text-rose-500 font-medium pl-1 mt-0.5">Application Denied</span>
+                        </div>
+                      )}
                     </td>
                     <td className="p-3 text-right">
                       <div className="flex items-center justify-end space-x-1.5">
+                        {/* DISTINCT STATUS-DRIVEN PRIMARY ACTION BUTTONS */}
+                        {s.verification === "under_review" ? (
+                          <>
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleVerificationChange(s.id, "verified", "Approved GSTIN verification");
+                              }}
+                              className="inline-flex items-center space-x-1 px-2.5 py-1.5 text-xs font-bold bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl shadow-xs transition-colors"
+                              title="Verify Store & Grant Verified Badge"
+                            >
+                              <BadgeCheck className="w-3.5 h-3.5" />
+                              <span>Verify & Badge</span>
+                            </button>
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                const reason = window.prompt("Reason for rejecting store application:", "Incomplete documentation");
+                                if (reason !== null) {
+                                  handleVerificationChange(s.id, "rejected", reason);
+                                }
+                              }}
+                              className="inline-flex items-center space-x-1 px-2 py-1.5 text-xs font-semibold bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 rounded-xl transition-colors"
+                              title="Reject Verification Application"
+                            >
+                              <XCircle className="w-3.5 h-3.5" />
+                              <span>Reject</span>
+                            </button>
+                          </>
+                        ) : s.verification === "verified" ? (
+                          <>
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                if (window.confirm(`Revoke verified badge for ${s.name}?`)) {
+                                  handleVerificationChange(s.id, "under_review", "Badge revoked by administrator for re-verification");
+                                }
+                              }}
+                              className="inline-flex items-center space-x-1 px-2 py-1.5 text-[11px] font-semibold bg-slate-100 hover:bg-amber-50 hover:text-amber-800 text-slate-600 rounded-xl transition-colors border border-slate-200"
+                              title="Revoke Verified Badge"
+                            >
+                              <ShieldAlert className="w-3 h-3 text-amber-600" />
+                              <span>Revoke</span>
+                            </button>
+                          </>
+                        ) : (
+                          <>
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleVerificationChange(s.id, "verified", "Re-verified store application");
+                              }}
+                              className="inline-flex items-center space-x-1 px-2.5 py-1.5 text-xs font-bold bg-indigo-50 hover:bg-[#3547D4] hover:text-white text-[#3547D4] rounded-xl transition-colors border border-indigo-200"
+                              title="Re-verify Store & Grant Badge"
+                            >
+                              <RotateCcw className="w-3.5 h-3.5" />
+                              <span>Re-verify</span>
+                            </button>
+                          </>
+                        )}
+
                         <button
                           onClick={(e) => {
                             e.stopPropagation();
@@ -333,7 +419,7 @@ export default function StoresListPage() {
                           title="View Full Store Workspace"
                         >
                           <Eye className="w-3.5 h-3.5" />
-                          <span>View Details</span>
+                          <span>View</span>
                         </button>
                         <button
                           onClick={(e) => {
@@ -347,7 +433,8 @@ export default function StoresListPage() {
                           <Eye className="w-4 h-4" />
                         </button>
                         <button
-                          onClick={() => {
+                          onClick={(e) => {
+                            e.stopPropagation();
                             setSelectedStore(s);
                             setFormData(s);
                             setIsEditOpen(true);
@@ -358,8 +445,11 @@ export default function StoresListPage() {
                           <Edit2 className="w-4 h-4" />
                         </button>
                         <button
-                          onClick={() => handleDeleteStore(s.id)}
-                          className="p-1.5 text-rose-500 hover:text-rose-700 hover:bg-rose-50 dark:text-rose-400 dark:hover:text-rose-300 dark:hover:bg-rose-950/40 rounded-lg transition-colors inline-flex items-center justify-center"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleDeleteStore(s.id);
+                          }}
+                          className="p-1.5 text-rose-500 hover:text-rose-700 hover:bg-rose-50 rounded-lg transition-colors inline-flex items-center justify-center"
                           title="Delete Store"
                         >
                           <Trash2 className="w-4 h-4" />

@@ -98,6 +98,10 @@ export async function startConversation(req: AuthenticatedUserRequest, res: Resp
       } else {
         entityContextId = isOid ? new mongoose.Types.ObjectId(targetId) : toDeterministicObjectId(targetId);
       }
+    } else if (normalizedContext === "USER" || normalizedContext === "PEER") {
+      sellerId = recipientId || targetId;
+      entityContextId = mongoose.Types.ObjectId.isValid(targetId) ? new mongoose.Types.ObjectId(targetId) : toDeterministicObjectId(targetId);
+      refListingId = undefined;
     } else {
       const isOid = mongoose.Types.ObjectId.isValid(targetId);
       let listing = isOid ? await Listing.findById(targetId) : await Listing.findOne({ $or: [{ id: targetId }, { slug: targetId }] });
@@ -300,15 +304,17 @@ function formatConversationItem(c: any, userId: any) {
     }
   }
 
+  const isUserDirect = c.contextType === "USER" || c.contextType === "PEER";
+
   return {
     id: c._id.toString(),
-    contextType: isJob ? "JOB" : isStore ? "STORE" : "LISTING",
+    contextType: isUserDirect ? "USER" : isJob ? "JOB" : isStore ? "STORE" : (c.contextType || "LISTING"),
     contextId: c.contextId?.toString(),
-    listingId: c.listingId?._id?.toString() || c.jobId?._id?.toString() || c.storeId?._id?.toString(),
-    listingTitle: title,
-    listingPriceInPaise: priceInPaise,
+    listingId: isUserDirect ? undefined : (c.listingId?._id?.toString() || c.jobId?._id?.toString() || c.storeId?._id?.toString()),
+    listingTitle: isUserDirect ? "" : title,
+    listingPriceInPaise: isUserDirect ? 0 : priceInPaise,
     salaryText: salaryText,
-    listingImage: image,
+    listingImage: isUserDirect ? "" : image,
     otherParty: {
       id: otherPartyId,
       name: otherPartyName,
@@ -317,7 +323,7 @@ function formatConversationItem(c: any, userId: any) {
     lastMessagePreview: c.lastMessagePreview || "No messages yet",
     lastMessageType: c.lastMessageType || "TEXT",
     lastMessageAt: c.lastMessageAt || c.createdAt,
-    unreadCount: userUnreadObj?.count || 0
+    unreadCount: (c.lastSenderId && c.lastSenderId.toString() === userId.toString()) ? 0 : Math.max(0, userUnreadObj?.count || 0)
   };
 }
 
@@ -374,9 +380,14 @@ export async function getConversations(req: AuthenticatedUserRequest, res: Respo
     }
 
     const userId = req.user._id;
+    // Only return conversations where there has actually been a conversation (messages exchanged between user and seller)
     const conversations = await Conversation.find({
       participantIds: userId,
-      status: "ACTIVE"
+      status: "ACTIVE",
+      $or: [
+        { lastMessageId: { $exists: true, $ne: null } },
+        { lastMessagePreview: { $exists: true, $nin: [null, "", "No messages yet", "Start the conversation"] } }
+      ]
     })
       .populate("listingId", "title priceInPaise images status")
       .populate("storeId", "name logo cover ownerId")
@@ -440,6 +451,18 @@ export async function getMessages(req: AuthenticatedUserRequest, res: Response, 
     const hasMore = messages.length > limit;
     const itemsRaw = hasMore ? messages.slice(0, limit) : messages;
     const nextCursor = hasMore ? itemsRaw[itemsRaw.length - 1]._id.toString() : null;
+
+    // Automatically clear unread state when the user views the conversation messages
+    const currentUserId = req.user._id;
+    Message.updateMany(
+      { conversationId: conversation._id, senderId: { $ne: currentUserId }, status: { $ne: "READ" } },
+      { $set: { status: "READ", readAt: new Date() } }
+    ).catch(() => {});
+
+    Conversation.updateOne(
+      { _id: conversation._id, "unreadCounts.userId": currentUserId },
+      { $set: { "unreadCounts.$.count": 0 } }
+    ).catch(() => {});
 
     const items = itemsRaw.reverse().map((m: any) => ({
       id: m._id.toString(),

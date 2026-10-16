@@ -233,10 +233,7 @@ export function LocationSelector({
       } catch {}
     };
 
-    if (!area || !city || !pincode) {
-      syncFromStorage();
-    }
-
+    // Listen to explicit location changes (e.g. user picking location in top bar or modal)
     window.addEventListener("omeetso_location_changed", syncFromStorage);
     return () => window.removeEventListener("omeetso_location_changed", syncFromStorage);
   }, []);

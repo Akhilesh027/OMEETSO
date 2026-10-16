@@ -11,7 +11,7 @@ import type { ConversationItem } from "@/api/chat.api";
 type Tab = "All" | "Buying" | "Selling" | "Stores" | "Archived";
 const TABS: Tab[] = ["All", "Buying", "Selling", "Stores", "Archived"];
 
-export function ThreadListPane({ activeId }: { activeId?: string }) {
+export function ThreadListPane({ activeId, onSelect }: { activeId?: string; onSelect?: () => void }) {
   const [tab, setTab] = useState<Tab>("All");
   const [q, setQ] = useState("");
 
@@ -28,8 +28,15 @@ export function ThreadListPane({ activeId }: { activeId?: string }) {
     }
   }, [conversations.length, loadConversations]);
 
+  // Filter out any conversation where there has been NO conversation between user and seller
   const threads = useMemo(
-    () => conversations.map((c) => conversationToThread(c)),
+    () =>
+      conversations
+        .filter((c) => {
+          const preview = (c.lastMessagePreview || "").trim();
+          return preview !== "" && preview !== "No messages yet" && preview !== "Start the conversation";
+        })
+        .map((c) => conversationToThread(c)),
     [conversations]
   );
 
@@ -132,7 +139,7 @@ export function ThreadListPane({ activeId }: { activeId?: string }) {
               const conv = conversations.find((c) => c.id === t.id);
               return (
                 <li key={t.id}>
-                  <ThreadRow t={t} conv={conv} active={t.id === activeId} />
+                  <ThreadRow t={t} conv={conv} active={t.id === activeId} onSelect={onSelect} />
                 </li>
               );
             })}
@@ -143,7 +150,7 @@ export function ThreadListPane({ activeId }: { activeId?: string }) {
   );
 }
 
-function ThreadRow({ t, conv, active }: { t: ReturnType<typeof conversationToThread>; conv?: ConversationItem; active: boolean }) {
+function ThreadRow({ t, conv, active, onSelect }: { t: ReturnType<typeof conversationToThread>; conv?: ConversationItem; active: boolean; onSelect?: () => void }) {
   const { isUserOnline } = useChatContext();
   const muted = isMuted(t.id);
   const blocked = isBlocked(t.peerId);
@@ -163,6 +170,7 @@ function ThreadRow({ t, conv, active }: { t: ReturnType<typeof conversationToThr
     <Link
       to="/chat/$id"
       params={{ id: t.id }}
+      onClick={() => onSelect?.()}
       className={`flex items-start gap-3 px-3 py-3 transition-colors ${active ? "bg-navy/[0.06]" : "hover:bg-secondary/60"}`}
     >
       <div className="relative shrink-0">
@@ -198,7 +206,7 @@ function ThreadRow({ t, conv, active }: { t: ReturnType<typeof conversationToThr
           </div>
           <span className="shrink-0 text-[10px] text-muted-foreground">{formatChatTime(t.updatedAt)}</span>
         </div>
-        {conv?.listingTitle && !conv.listingTitle.includes("Royal Enfield") && conv.listingTitle !== "Product Listing" && conv.listingTitle !== "Marketplace Conversation" && (
+        {conv?.contextType !== "USER" && conv?.contextType !== "PEER" && conv?.listingTitle && !conv.listingTitle.includes("Royal Enfield") && conv.listingTitle !== "Product Listing" && conv.listingTitle !== "Marketplace Conversation" && (
           <p className="line-clamp-1 text-[10px] text-muted-foreground">
             {conv.listingTitle}
             {conv.salaryText

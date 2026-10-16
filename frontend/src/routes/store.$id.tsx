@@ -135,8 +135,8 @@ export const Route = createFileRoute("/store/$id")({
           email: `store.${sample.slug || sample.id}@omeetso.com`,
           logo: sample.logo,
           cover: sample.cover,
-          rating: sample.rating || 4.9,
-          reviewCount: sample.reviews || 38,
+          rating: typeof sample.rating === "number" ? sample.rating : 0,
+          reviewCount: typeof sample.reviews === "number" ? sample.reviews : 0,
           followersCount: 0,
           status: "approved" as any,
           createdAt: Date.now() - 30 * 86400000,
@@ -603,8 +603,17 @@ function StorePage() {
                     icon={Navigation}
                     variant="secondary"
                     onClick={() => {
-                      const dest = store.address || `${store.name} ${store.area || ""} ${store.city || ""}`;
-                      window.open(`https://maps.google.com/?q=${encodeURIComponent(dest)}`);
+                      const parts = [
+                        store.name,
+                        store.address,
+                        store.landmark,
+                        store.area,
+                        store.city,
+                        store.pincode
+                      ].filter((p): p is string => Boolean(p && typeof p === "string" && p.trim().length > 0));
+                      const query = parts.length > 0 ? parts.join(", ") : `${store.name || "Store"}, Hyderabad`;
+                      const mapUrl = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(query)}`;
+                      window.open(mapUrl, "_blank", "noopener,noreferrer");
                     }}
                   >
                     Map
@@ -636,25 +645,6 @@ function StorePage() {
                   </div>
                 )}
               </div>
-
-              {/* Store Owner Boost Announcement Banner */}
-              <div className="rounded-3xl bg-gradient-to-br from-blue-900 via-indigo-950 to-slate-950 text-white p-5 border border-blue-500/30 shadow-lg space-y-3">
-                <div className="flex items-center gap-2 text-amber-400 font-extrabold text-xs">
-                  <Zap className="h-4 w-4 fill-amber-400" /> Merchant Tools
-                </div>
-                <h4 className="text-sm font-black leading-snug">Own this store? Boost your items to #1!</h4>
-                <p className="text-xs text-blue-100/90 leading-relaxed font-normal">
-                  Feature your products on the homepage carousel and top category search spots.
-                </p>
-                <Link
-                  to="/ads/new"
-                  search={{ id: "", kind: "store", step: 1 }}
-                  className="block text-center w-full py-2.5 rounded-2xl bg-amber-500 hover:bg-amber-400 text-slate-950 font-black text-xs shadow-md transition-all"
-                >
-                  Boost Storefront ⚡
-                </Link>
-              </div>
-
             </aside>
 
             {/* Right Main Content Area (Tabs & Product Grid - 8 cols out of 12) */}

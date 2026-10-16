@@ -328,7 +328,7 @@ export async function logoutUserApi(): Promise<void> {
   }
 }
 
-export async function deleteUserAccountApi(): Promise<{ success: boolean; error?: string }> {
+export async function deleteUserAccountApi(payload?: { reason?: string; customFeedback?: string }): Promise<{ success: boolean; error?: string }> {
   try {
     const token = getUserAccessToken();
     const res = await fetch(`${ROOT_API}/users/me`, {
@@ -337,11 +337,34 @@ export async function deleteUserAccountApi(): Promise<{ success: boolean; error?
         "Content-Type": "application/json",
         ...(token ? { Authorization: `Bearer ${token}` } : {})
       },
-      credentials: "include"
+      credentials: "include",
+      body: JSON.stringify(payload || {})
     });
     const json = await res.json();
     if (!res.ok || !json.success) {
       return { success: false, error: json.error?.message || "Failed to delete account" };
+    }
+    return { success: true };
+  } catch (error) {
+    return { success: false, error: "Network error: Unable to connect to server" };
+  }
+}
+
+export async function deactivateUserAccountApi(payload?: { reason?: string; customFeedback?: string }): Promise<{ success: boolean; error?: string }> {
+  try {
+    const token = getUserAccessToken();
+    const res = await fetch(`${ROOT_API}/users/me/deactivate`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        ...(token ? { Authorization: `Bearer ${token}` } : {})
+      },
+      credentials: "include",
+      body: JSON.stringify(payload || {})
+    });
+    const json = await res.json();
+    if (!res.ok || !json.success) {
+      return { success: false, error: json.error?.message || "Failed to deactivate account" };
     }
     return { success: true };
   } catch (error) {

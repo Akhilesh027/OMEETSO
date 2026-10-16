@@ -464,7 +464,13 @@ function ProductPage() {
         if (addConversation) {
           addConversation(res.data);
         }
-        nav({ to: "/chat/$id", params: { id: res.data.id } });
+        try {
+          if (typeof sessionStorage !== "undefined") {
+            sessionStorage.setItem(`omeetso_chat_prod_${res.data.id}`, String(targetListingId));
+            sessionStorage.setItem(`omeetso_chat_just_initiated_${res.data.id}`, "1");
+          }
+        } catch {}
+        nav({ to: "/chat/$id", params: { id: res.data.id }, search: { fromProduct: "1" } as any });
       } else {
         const errMsg = res.error?.message || "Could not start chat";
         if (
@@ -1168,11 +1174,7 @@ function ProductPage() {
                   </div>
                 )}
 
-                {!isOwner && isNumberHidden && (
-                  <div className="flex items-center justify-center gap-1.5 rounded-2xl bg-secondary border border-border py-2.5 px-3 text-xs font-bold text-muted-foreground">
-                    <ShieldCheck className="h-3.5 w-3.5 text-blue-600" /> Mobile number hidden • Chat only
-                  </div>
-                )}
+
 
                 <div className="flex items-center justify-between pt-2 text-xs text-muted-foreground font-semibold">
                   <button onClick={toggle} className="inline-flex items-center gap-1.5 hover:text-foreground cursor-pointer">

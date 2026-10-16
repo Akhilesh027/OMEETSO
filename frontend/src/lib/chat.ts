@@ -178,9 +178,24 @@ const rid = (p = "id") => `${p}_${Date.now().toString(36)}${Math.random().toStri
 // -------- getters --------
 export function getThreads(): Thread[] {
   const list = read<Thread[]>(K_THREADS, []);
-  // Ensure legacy seeded mock threads don't retain fake unread counts
-  if (list.some((t) => (t.id.startsWith("th_") || t.id.startsWith("mock_")) && t.unread > 0)) {
-    const cleaned = list.map((t) => ((t.id.startsWith("th_") || t.id.startsWith("mock_")) ? { ...t, unread: 0 } : t));
+  const allMsgs = read<Record<string, Message[]>>(K_MESSAGES, {});
+  let changed = false;
+  const cleaned = list.map((t) => {
+    // If it's a legacy or mock thread, force 0
+    if ((t.id.startsWith("th_") || t.id.startsWith("mock_")) && t.unread > 0) {
+      changed = true;
+      return { ...t, unread: 0 };
+    }
+    // Check if there are actually any unread incoming messages from the other party
+    const msgs = allMsgs[t.id] || [];
+    const hasUnreadIncoming = msgs.some((m) => m.from === "them" && m.status !== "read");
+    if (!hasUnreadIncoming && t.unread > 0) {
+      changed = true;
+      return { ...t, unread: 0 };
+    }
+    return t;
+  });
+  if (changed) {
     saveThreads(cleaned);
     return cleaned;
   }

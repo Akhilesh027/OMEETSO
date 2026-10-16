@@ -42,6 +42,9 @@ export interface IUser extends Document {
   verificationSummary: IVerificationSummary;
   savedLocations: ISavedLocation[];
   blockedUserIds: mongoose.Types.ObjectId[];
+  deactivationReason?: string;
+  deactivationFeedback?: string;
+  deactivatedAt?: Date;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -54,6 +57,9 @@ const UserSchema = new Schema<IUser>(
     passwordHash: { type: String },
     accountType: { type: String, enum: ["individual", "business"], default: "individual" },
     status: { type: String, enum: Object.values(UserStatus), default: UserStatus.ACTIVE, index: true },
+    deactivationReason: { type: String },
+    deactivationFeedback: { type: String },
+    deactivatedAt: { type: Date },
     profile: {
       name: { type: String, required: true, default: "Omeetso User" },
       businessName: { type: String },

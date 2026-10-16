@@ -380,6 +380,7 @@ function QuickSellPage() {
           method: "quick",
           quickSale: true,
           isQuickSell: true,
+          nearbyChanges: data.nearbyChanges?.enabled ? data.nearbyChanges : { enabled: false }
         });
 
         if (!res.success && res.error) {
@@ -400,7 +401,9 @@ function QuickSellPage() {
       }
 
       setPublishProgress(85);
-      setPublishStep(`Broadcasting nearby alerts in ${data.area || "your area"}...`);
+      setPublishStep(data.nearbyChanges?.enabled
+        ? `Broadcasting nearby alerts in ${data.area || "your area"}...`
+        : "Finalizing listing submission...");
 
       const isHidden = data.contactPref === "hide_number";
       const isChat = data.contactPref === "chat_only";
@@ -427,7 +430,7 @@ function QuickSellPage() {
         status: "under_review", createdAt: now, updatedAt: now, method: "quick",
         quickSale: true,
         isQuickSell: true,
-        nearbyChanges: data.nearbyChanges,
+        nearbyChanges: data.nearbyChanges?.enabled ? data.nearbyChanges : { enabled: false },
       };
 
       upsertListing(listing);
@@ -440,32 +443,6 @@ function QuickSellPage() {
       } catch { }
 
       const coverImgSafe = (uploadedImages && uploadedImages[data.cover || 0]) || uploadedImages[0] || (data.images && data.images[0]) || "";
-
-      // 1. Listing Created Notification
-      pushNotification({
-        id: `listing-created-${listing.id}-${Date.now()}`,
-        category: "listings",
-        title: `Listing Created: ${listing.title}`,
-        body: `Your listing "${listing.title}" was submitted and is pending review.`,
-        destination: `/product/${listing.id}`,
-        destinationLabel: "View Listing",
-        read: false,
-        time: now,
-        thumbnail: coverImgSafe
-      });
-
-      // 2. Nearby Changes Notification
-      pushNotification({
-        id: `nearby-notif-${listing.id}-${Date.now()}`,
-        category: "nearby_changes",
-        title: `Nearby Changes: ${listing.title}`,
-        body: `Nearby changes and local broadcast enabled for "${listing.title}" within ${data.nearbyChanges?.radiusKm || 10} km of ${data.area || "your area"}.`,
-        destination: `/product/${listing.id}`,
-        destinationLabel: "View Listing",
-        read: false,
-        time: now,
-        thumbnail: coverImgSafe
-      });
 
       pushRecentCategory(listing.category);
       localStorage.removeItem(DRAFT_KEY);
@@ -653,7 +630,15 @@ function QuickSellPage() {
                       </div>
                     ) : (
                       <select
-                        value={data.subcategory ?? ""}
+                        value={(() => {
+                          const liveSubs = getLiveSubcategories(data.category ?? categories[0]?.id ?? "mobiles");
+                          const subNorm = (data.subcategory || "").toLowerCase().replace(/[^a-z0-9]/g, "");
+                          const matchedSub = liveSubs.find(s => 
+                            (s.name || "").toLowerCase().replace(/[^a-z0-9]/g, "") === subNorm || 
+                            (s.id || "").toLowerCase().replace(/[^a-z0-9]/g, "") === subNorm
+                          );
+                          return matchedSub ? matchedSub.name : (data.subcategory || "");
+                        })()}
                         onChange={(e) => {
                           const val = e.target.value;
                           if (val === "__custom__") {
@@ -663,16 +648,16 @@ function QuickSellPage() {
                             patch({ subcategory: val });
                           }
                         }}
-                        className="w-full h-11 rounded-2xl border border-border bg-background px-3 text-xs font-bold text-foreground outline-none focus:border-indigo-brand"
+                        className="w-full h-11 rounded-2xl border border-border bg-background px-3 text-xs font-bold text-foreground outline-none focus:border-indigo-brand cursor-pointer"
                       >
                         <option value="">Select Subcategory…</option>
                         {getLiveSubcategories(data.category ?? categories[0]?.id ?? "mobiles").map((s) => (
-                          <option key={s.id} value={s.id}>{s.name}</option>
+                          <option key={s.id} value={s.name}>{s.name}</option>
                         ))}
-                        <option value="__custom__">➕ Type Custom Subcategory...</option>
-                        {data.subcategory && !getLiveSubcategories(data.category ?? categories[0]?.id ?? "mobiles").some(s => s.id === data.subcategory || s.name === data.subcategory) && (
+                        {data.subcategory && !getLiveSubcategories(data.category ?? categories[0]?.id ?? "mobiles").some(s => (s.name || "").toLowerCase().replace(/[^a-z0-9]/g, "") === (data.subcategory || "").toLowerCase().replace(/[^a-z0-9]/g, "")) && (
                           <option value={data.subcategory}>{data.subcategory} (Custom)</option>
                         )}
+                        <option value="__custom__">➕ Type Custom Subcategory...</option>
                       </select>
                     )}
                     {errors.subcategory && <p className="text-xs font-bold text-rose-600 mt-1">{errors.subcategory}</p>}

@@ -127,10 +127,10 @@ export function PostJobForm() {
 
       setFormData((prev) => ({
         ...prev,
-        city: detectedCity || prev.city || "Hyderabad",
-        area: detectedArea || prev.area || "Uppal",
-        pincode: detectedPin || prev.pincode || "500039",
-        remoteScope: detectedCity || prev.remoteScope || "Hyderabad"
+        city: detectedCity || prev.city || "",
+        area: detectedArea || prev.area || "",
+        pincode: detectedPin || prev.pincode || "",
+        remoteScope: detectedCity || prev.remoteScope || ""
       }));
     } catch { }
   };
@@ -428,7 +428,7 @@ export function PostJobForm() {
         isUrgent: Boolean(formData.isUrgent),
         isFeatured: Boolean(formData.isFeatured),
         screeningQuestions: typeof formData.screeningQuestions === "string" ? formData.screeningQuestions.split("\n").map(q => q.trim()).filter(Boolean) : [],
-        status: "APPROVED"
+        status: "SUBMITTED"
       };
 
       const res = await fetch(`${API_BASE}/jobs`, {
@@ -457,7 +457,7 @@ export function PostJobForm() {
           ...previewJobItem,
           id: createdId,
           employerId: realEmployerId,
-          status: "APPROVED",
+          status: "SUBMITTED",
           candidateCriteria: {
             ...previewJobItem.candidateCriteria,
             experience: formData.experience || "Fresher / Entry Level"
@@ -472,8 +472,8 @@ export function PostJobForm() {
           } catch {}
         }
 
-        toast.success("Job listed successfully! Redirecting to Jobs section...");
-        nav({ to: "/jobs" });
+        toast.success("Job submitted for approval! It will go live once reviewed by our team.");
+        nav({ to: "/my/employer/jobs" });
       } else {
         const errorMsg = json.error?.message || "Failed to create job on server";
         toast.error(errorMsg);
@@ -481,15 +481,15 @@ export function PostJobForm() {
     } catch (err: any) {
       setIsSubmitting(false);
       console.error("Job publishing error:", err);
-      const fallbackCreated = createJobLocal({ ...previewJobItem, status: "APPROVED" });
+      const fallbackCreated = createJobLocal({ ...previewJobItem, status: "SUBMITTED" });
       if (typeof window !== "undefined") {
         try {
           window.dispatchEvent(new CustomEvent("omeetso_jobs_changed"));
           localStorage.setItem("omeetso_jobs_last_update", String(Date.now()));
         } catch {}
       }
-      toast.success("Job listed successfully! Redirecting to Jobs section...");
-      nav({ to: "/jobs" });
+      toast.success("Job submitted for approval! It will go live once reviewed by our team.");
+      nav({ to: "/my/employer/jobs" });
     }
   };
 

@@ -9,18 +9,22 @@ import {
   getAdminUsersList,
   updateUserAdmin,
   deleteUserAdmin,
-  deleteMyAccount
+  deleteMyAccount,
+  deactivateMyAccount,
+  getAdminDeactivationsList
 } from "../controllers/users.controller";
 import { authenticateUser } from "../../../middleware/authenticateUser";
 
 export const usersRouter = Router();
 
 usersRouter.get("/admin/all", getAdminUsersList);
+usersRouter.get("/admin/deactivations", getAdminDeactivationsList);
 usersRouter.patch("/admin/:userId", updateUserAdmin);
 usersRouter.delete("/admin/:userId", deleteUserAdmin);
 
 usersRouter.get("/me", authenticateUser, getMyProfile);
 usersRouter.patch("/me", authenticateUser, updateMyProfile);
+usersRouter.post("/me/deactivate", authenticateUser, deactivateMyAccount);
 usersRouter.delete("/me", authenticateUser, deleteMyAccount);
 usersRouter.get("/me/locations", authenticateUser, getSavedLocations);
 usersRouter.post("/me/locations", authenticateUser, addSavedLocation);

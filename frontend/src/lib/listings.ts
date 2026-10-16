@@ -192,6 +192,30 @@ export function markListingDeletedLocally(id: string): void {
       list.push(cleanId);
       localStorage.setItem(DELETED_LISTINGS_KEY, JSON.stringify(list));
     }
+
+    // Purge related notifications immediately across all keys
+    const notifKeys = ["omeetso_notifications", "omeetso_notifications_guest"];
+    for (let i = 0; i < localStorage.length; i++) {
+      const k = localStorage.key(i);
+      if (k && (k.startsWith("omeetso_notifications_") || k === "omeetso_notifications")) {
+        if (!notifKeys.includes(k)) notifKeys.push(k);
+      }
+    }
+    for (const key of notifKeys) {
+      const stored = localStorage.getItem(key);
+      if (!stored) continue;
+      const notifs = JSON.parse(stored);
+      if (!Array.isArray(notifs)) continue;
+      const filtered = notifs.filter((n: any) => {
+        if (n.link && (n.link.includes(cleanId) || n.link.includes(`/listing/${cleanId}`) || n.link.includes(`/product/${cleanId}`))) return false;
+        if (n.destination && (n.destination.includes(cleanId) || n.destination.includes(`/listing/${cleanId}`) || n.destination.includes(`/product/${cleanId}`))) return false;
+        if (n.id && (n.id.includes(cleanId) || n.id.includes(`listing-${cleanId}`) || n.id.includes(`nearby-notif-${cleanId}`))) return false;
+        if (n.metadata?.listingId === cleanId) return false;
+        return true;
+      });
+      localStorage.setItem(key, JSON.stringify(filtered));
+    }
+    window.dispatchEvent(new CustomEvent("omeetso_notifications_changed"));
   } catch { }
 }
 
@@ -451,6 +475,7 @@ export async function fetchLiveUserListings(forceRefresh = false): Promise<Listi
             method: item.method || (item.quickSale || item.isQuickSell || itemId?.startsWith("Q-") || itemId?.includes("quick") ? "quick" : "detailed"),
             quickSale: item.method === "quick" || Boolean(item.quickSale || item.isQuickSell),
             isQuickSell: item.method === "quick" || Boolean(item.quickSale || item.isQuickSell),
+            nearbyChanges: item.nearbyChanges,
             createdAt: new Date(item.createdAt || item.publishedAt || Date.now()).getTime(),
             updatedAt: new Date(item.createdAt || item.publishedAt || Date.now()).getTime()
           };
@@ -547,6 +572,7 @@ export async function fetchLiveListingById(id: string): Promise<Listing | null> 
         method: item.method || (item.quickSale || item.isQuickSell || item.id?.startsWith("Q-") || item.id?.includes("quick") ? "quick" : "detailed"),
         quickSale: item.method === "quick" || Boolean(item.quickSale || item.isQuickSell),
         isQuickSell: item.method === "quick" || Boolean(item.quickSale || item.isQuickSell),
+        nearbyChanges: item.nearbyChanges,
         createdAt: new Date(item.createdAt || item.publishedAt || Date.now()).getTime(),
         updatedAt: new Date(item.createdAt || item.publishedAt || Date.now()).getTime()
       } as any;
@@ -572,6 +598,25 @@ export async function fetchLiveListingById(id: string): Promise<Listing | null> 
 }
 export function getListing(id: string): Listing | undefined {
   return listListings().find((l) => l.id === id);
+}
+export function isListingNearbyChangesEnabled(id: string): boolean {
+  if (!id || typeof window === "undefined") return false;
+  const l = getListing(id);
+  if (l) return Boolean(l.nearbyChanges?.enabled);
+  try {
+    const uid = getCurrentUserId();
+    const keys = [uid ? `omeetso_user_listings_${uid}` : null, "omeetso_user_listings"].filter(Boolean) as string[];
+    for (const k of keys) {
+      const raw = localStorage.getItem(k);
+      if (!raw) continue;
+      const list = JSON.parse(raw);
+      if (Array.isArray(list)) {
+        const found = list.find((item: any) => item && (item.id === id || item._id === id));
+        if (found) return Boolean(found.nearbyChanges?.enabled);
+      }
+    }
+  } catch {}
+  return false;
 }
 export function upsertListing(l: Listing) {
   invalidateUserListingsCache();
@@ -787,6 +832,17 @@ export function toggleListingNearbyChanges(
     }
   };
   upsertListing(updated);
+  const token = typeof window !== "undefined" ? (getUserAccessToken() || localStorage.getItem("omeetso_user_token")) : null;
+  if (token) {
+    fetch(`${API_BASE}/listings/${id}`, {
+      method: "PATCH",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`
+      },
+      body: JSON.stringify({ nearbyChanges: updated.nearbyChanges })
+    }).catch((err) => console.warn("Backend toggleListingNearbyChanges sync deferred:", err));
+  }
   return updated;
 }
 

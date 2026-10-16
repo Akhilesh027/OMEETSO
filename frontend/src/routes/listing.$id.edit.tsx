@@ -66,7 +66,8 @@ function EditListing() {
       if (live) {
         setL(live);
         const liveSubs = getLiveSubcategories(live.category);
-        if (live.subcategory && !liveSubs.some(s => s.id === live.subcategory || s.name === live.subcategory)) {
+        const subNorm = (live.subcategory || "").toLowerCase().replace(/[^a-z0-9]/g, "");
+        if (live.subcategory && !liveSubs.some(s => (s.id || "").toLowerCase().replace(/[^a-z0-9]/g, "") === subNorm || (s.name || "").toLowerCase().replace(/[^a-z0-9]/g, "") === subNorm)) {
           setIsManualSubcategory(true);
         }
       }
@@ -75,7 +76,8 @@ function EditListing() {
       if (cached) {
         setL(cached);
         const liveSubs = getLiveSubcategories(cached.category);
-        if (cached.subcategory && !liveSubs.some(s => s.id === cached.subcategory || s.name === cached.subcategory)) {
+        const subNorm = (cached.subcategory || "").toLowerCase().replace(/[^a-z0-9]/g, "");
+        if (cached.subcategory && !liveSubs.some(s => (s.id || "").toLowerCase().replace(/[^a-z0-9]/g, "") === subNorm || (s.name || "").toLowerCase().replace(/[^a-z0-9]/g, "") === subNorm)) {
           setIsManualSubcategory(true);
         }
       }
@@ -161,31 +163,7 @@ function EditListing() {
       editHistory: hist
     });
 
-    pushNotification({
-      id: `listing-updated-${id}-${Date.now()}`,
-      category: "listings",
-      title: `Listing Updated: ${l!.title}`,
-      body: `Your changes to "${l!.title}" have been saved.`,
-      destination: `/product/${id}`,
-      destinationLabel: "View Listing",
-      read: false,
-      time: Date.now(),
-      thumbnail: l!.images?.[0]
-    });
 
-    if (l!.nearbyChanges?.enabled) {
-      pushNotification({
-        id: `nearby-updated-${id}-${Date.now()}`,
-        category: "nearby_changes",
-        title: `Nearby Changes: ${l!.title}`,
-        body: `Nearby changes broadcast updated for "${l!.title}".`,
-        destination: `/product/${id}`,
-        destinationLabel: "View Listing",
-        read: false,
-        time: Date.now(),
-        thumbnail: l!.images?.[0]
-      });
-    }
 
     setSaving(false);
     toast.success("Listing changes saved successfully");
@@ -323,7 +301,15 @@ function EditListing() {
                     </div>
                   ) : (
                     <select
-                      value={l.subcategory ?? ""}
+                      value={(() => {
+                        const liveSubs = getLiveSubcategories(l.category);
+                        const subNorm = (l.subcategory || "").toLowerCase().replace(/[^a-z0-9]/g, "");
+                        const matchedSub = liveSubs.find(s => 
+                          (s.name || "").toLowerCase().replace(/[^a-z0-9]/g, "") === subNorm || 
+                          (s.id || "").toLowerCase().replace(/[^a-z0-9]/g, "") === subNorm
+                        );
+                        return matchedSub ? matchedSub.name : (l.subcategory || "");
+                      })()}
                       onChange={(e) => {
                         const val = e.target.value;
                         if (val === "__custom__") {
@@ -333,14 +319,14 @@ function EditListing() {
                           patch({ subcategory: val });
                         }
                       }}
-                      className="w-full h-12 rounded-2xl border border-border bg-background px-3 text-xs font-extrabold outline-none focus:border-indigo-brand transition-all"
+                      className="w-full h-12 rounded-2xl border border-border bg-background px-3 text-xs font-extrabold outline-none focus:border-indigo-brand transition-all cursor-pointer"
                     >
                       <option value="">Select Subcategory</option>
                       {getLiveSubcategories(l.category).map((s) => <option key={s.id} value={s.name}>{s.name}</option>)}
-                      <option value="__custom__">➕ Type Custom Subcategory...</option>
-                      {l.subcategory && !getLiveSubcategories(l.category).some(s => s.id === l.subcategory || s.name === l.subcategory) && (
+                      {l.subcategory && !getLiveSubcategories(l.category).some(s => (s.name || "").toLowerCase().replace(/[^a-z0-9]/g, "") === (l.subcategory || "").toLowerCase().replace(/[^a-z0-9]/g, "")) && (
                         <option value={l.subcategory}>{l.subcategory} (Custom)</option>
                       )}
+                      <option value="__custom__">➕ Type Custom Subcategory...</option>
                     </select>
                   )}
                   {errors.subcategory && <p className="text-xs font-bold text-rose-600 mt-1">{errors.subcategory}</p>}

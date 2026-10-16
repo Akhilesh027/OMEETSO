@@ -34,8 +34,8 @@ export const Route = createFileRoute("/reviews/new")({
   head: () => ({ meta: [{ title: "Write a review — Omeetso" }] }),
   validateSearch: (s: Record<string, unknown>) => ({
     kind: ((s.kind as string) as ReviewKind) ?? "seller",
-    targetId: (s.targetId as string) ?? "u2",
-    targetName: (s.targetName as string) ?? "Sanjay P.",
+    targetId: (s.targetId as string) ?? "",
+    targetName: (s.targetName as string) ?? "",
     productRef: (s.productRef as string) ?? "",
   }),
   component: NewReview,

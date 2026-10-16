@@ -196,7 +196,15 @@ export async function createListing(req: AuthenticatedUserRequest, res: Response
       method: safeMethod,
       status: ListingStatus.SUBMITTED,
       publishedAt: undefined,
-      expiresAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000)
+      expiresAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
+      nearbyChanges: req.body.nearbyChanges?.enabled ? {
+        enabled: true,
+        radiusKm: Number(req.body.nearbyChanges.radiusKm) || 10,
+        deliveryFee: Number(req.body.nearbyChanges.deliveryFee) || 0,
+        freeDeliveryAbove: Number(req.body.nearbyChanges.freeDeliveryAbove) || 0,
+        customNote: req.body.nearbyChanges.customNote || "",
+        updatedAt: new Date()
+      } : { enabled: false }
     });
 
     // Asynchronously convert any data URIs to Cloudinary CDN URLs in background
@@ -1057,6 +1065,28 @@ export async function updateListing(req: AuthenticatedUserRequest, res: Response
     }
     if (bestContactTime) (listing as any).bestContactTime = bestContactTime;
 
+    if (req.body.nearbyChanges !== undefined) {
+      const isNearbyEnabled = Boolean(req.body.nearbyChanges?.enabled);
+      listing.nearbyChanges = {
+        enabled: isNearbyEnabled,
+        radiusKm: Number(req.body.nearbyChanges?.radiusKm) || 10,
+        deliveryFee: Number(req.body.nearbyChanges?.deliveryFee) || 0,
+        freeDeliveryAbove: Number(req.body.nearbyChanges?.freeDeliveryAbove) || 0,
+        customNote: req.body.nearbyChanges?.customNote || "",
+        updatedAt: new Date()
+      };
+      if (isNearbyEnabled) {
+        Notification.create({
+          userId: req.user._id,
+          type: "nearby_changes",
+          title: `Nearby Changes: ${listing.title}`,
+          body: `Nearby broadcast updated for "${listing.title}".`,
+          link: `/product/${listing._id}`,
+          thumbnail: listing.images?.[0]
+        }).catch(() => { });
+      }
+    }
+
     await listing.save();
 
     await Notification.create({
@@ -1068,16 +1098,6 @@ export async function updateListing(req: AuthenticatedUserRequest, res: Response
       thumbnail: listing.images?.[0]
     }).catch(() => { });
 
-    if (req.body.nearbyChanges?.enabled) {
-      await Notification.create({
-        userId: req.user._id,
-        type: "nearby_changes",
-        title: `Nearby Changes: ${listing.title}`,
-        body: `Nearby broadcast updated for "${listing.title}".`,
-        link: `/product/${listing._id}`,
-        thumbnail: listing.images?.[0]
-      }).catch(() => { });
-    }
 
     res.status(200).json({
       success: true,
@@ -1175,6 +1195,10 @@ export async function deleteListing(req: AuthenticatedUserRequest, res: Response
       }
     }
 
+    const targetId = listing._id.toString();
+    const targetSlug = listing.slug;
+    const targetTitle = listing.title;
+
     listing.status = ListingStatus.REMOVED;
     (listing as any).isDeleted = true;
     await listing.save();
@@ -1183,9 +1207,27 @@ export async function deleteListing(req: AuthenticatedUserRequest, res: Response
       await Listing.findByIdAndDelete(listing._id);
     } catch {}
 
+    // Cascade delete associated notifications including Nearby Changes
+    try {
+      const { Notification } = await import("../../notifications/models/Notification");
+      const filterConditions: any[] = [
+        { "metadata.listingId": targetId },
+        { link: { $regex: targetId } },
+      ];
+      if (targetSlug) {
+        filterConditions.push({ link: { $regex: targetSlug } });
+      }
+      if (targetTitle) {
+        filterConditions.push({ title: { $regex: escapeRegex(targetTitle), $options: "i" } });
+      }
+      await Notification.deleteMany({ $or: filterConditions });
+    } catch (e) {
+      console.error("[deleteListing] Error cascade deleting notifications:", e);
+    }
+
     res.status(200).json({
       success: true,
-      data: { id: listing._id.toString(), status: "deleted" }
+      data: { id: targetId, status: "deleted" }
     });
   } catch (error) {
     next(error);

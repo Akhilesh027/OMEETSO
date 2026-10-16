@@ -4,7 +4,7 @@ import { MobileFrame } from "@/components/omeetso/MobileFrame";
 import {
   Phone, MoreVertical, Send, Smile, HandCoins, Paperclip, ArrowLeft,
   BadgeCheck, Search, VolumeX, Bell, Archive as ArchiveIcon, Ban, Flag, ShieldCheck,
-  UserCircle2, Package, X, Trash2, Eraser, Loader2, WifiOff, Star, Briefcase, Wrench,
+  UserCircle2, Package, X, Trash2, Eraser, Loader2, WifiOff, Star, Briefcase, Wrench, MessageCircle,
 } from "lucide-react";
 import { ReviewModal } from "@/components/omeetso/chat/ReviewModal";
 import { formatINR, type Product } from "@/lib/mock";
@@ -28,7 +28,14 @@ import { useChatContext } from "@/contexts/ChatProvider";
 import { getUserAccessToken } from "@/api/auth.api";
 import { groupMessagesByDay } from "@/lib/chat-adapter";
 
+type ChatSearchParams = {
+  fromProduct?: string;
+};
+
 export const Route = createFileRoute("/chat/$id")({
+  validateSearch: (s: Record<string, unknown>): ChatSearchParams => ({
+    fromProduct: typeof s.fromProduct === "string" ? s.fromProduct : undefined,
+  }),
   loader: ({ params }) => {
     return { threadId: params.id };
   },
@@ -61,10 +68,21 @@ const SERVICE_SUGGESTIONS = [
 
 function Conversation() {
   const nav = useNavigate();
+  const search = Route.useSearch();
   const { id } = Route.useParams();
   const [draft, setDraftState] = useState("");
   const [safetyOpen, setSafetyOpen] = useState(false);
   const [suggestionsShown, setSuggestionsShown] = useState(true);
+
+  // Only show product header if actively initiated from a product inquiry or has active messages
+  const [justInitiatedFromProduct] = useState(() => {
+    if (search.fromProduct === "1") return true;
+    if (typeof sessionStorage === "undefined") return false;
+    const key = `omeetso_chat_just_initiated_${id}`;
+    const val = sessionStorage.getItem(key) === "1";
+    if (val) sessionStorage.removeItem(key); // consume once
+    return val;
+  });
   const [offerOpen, setOfferOpen] = useState(false);
   const [attachOpen, setAttachOpen] = useState(false);
   const [reviewOpen, setReviewOpen] = useState(false);
@@ -74,6 +92,7 @@ function Conversation() {
   const [reportMsgId, setReportMsgId] = useState<string | null>(null);
   const [confirmClear, setConfirmClear] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
+  const [mobileListOpen, setMobileListOpen] = useState(false);
 
   const {
     status: connectionStatus,
@@ -150,6 +169,7 @@ function Conversation() {
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth", block: "end" });
   }, [messages.length]);
+
 
   const isPeerOnline = Boolean(
     conversation?.otherParty?.id
@@ -302,7 +322,7 @@ function Conversation() {
   }, [isLoading, canLoadMore, loadMoreMessages, id]);
 
   // Loading state
-  if (!thread && (!fetchAttempted || fetchingConversation || conversationsLoading)) {
+  if (!thread && (!fetchAttempted || fetchingConversation)) {
     return (
       <MobileFrame fullHeight>
         <div className="flex h-full min-h-dvh flex-col items-center justify-center gap-3">
@@ -347,19 +367,26 @@ function Conversation() {
           <div className="flex items-center gap-2 px-2 py-2">
             <button
               type="button"
-              aria-label="Back"
+              aria-label="Back to chats"
               onClick={(e) => {
                 e.preventDefault();
                 e.stopPropagation();
-                if (typeof window !== "undefined" && window.history.length > 1) {
-                  window.history.back();
-                } else {
-                  nav({ to: "/chats" });
-                }
+                nav({ to: "/chats" });
               }}
               className="relative z-20 grid h-10 w-10 shrink-0 place-items-center rounded-full hover:bg-secondary active:scale-95 transition-transform cursor-pointer"
+              title="All Conversations"
             >
               <ArrowLeft className="h-5 w-5 pointer-events-none" />
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setMobileListOpen(true)}
+              className="md:hidden flex items-center gap-1.5 rounded-xl border border-border bg-secondary/80 hover:bg-secondary px-2.5 py-1.5 text-xs font-bold text-foreground shrink-0 transition-all active:scale-95 cursor-pointer shadow-2xs"
+              title="View all conversations"
+            >
+              <MessageCircle className="h-3.5 w-3.5 text-primary" />
+              <span>Chats</span>
             </button>
 
             <Link
@@ -436,105 +463,122 @@ function Conversation() {
           </div>
 
           {/* Context Header Card */}
-          {conversation && (conversation.listingTitle || (conversation.listingImage && !conversation.listingImage.includes("photo-1526738549149"))) && (isJob || isService || (conversation.contextId && conversation.contextId !== "null" && conversation.listingTitle && conversation.listingTitle !== "Product Listing" && !conversation.listingTitle.includes("Royal Enfield"))) && (
-            <div className="shrink-0 flex items-center gap-3 border-t border-border bg-card px-3 py-2">
-              {conversation.listingImage && !conversation.listingImage.includes("photo-1526738549149") ? (
-                <img src={conversation.listingImage} alt="" className="h-10 w-10 rounded-xl object-cover shrink-0" />
-              ) : isJob ? (
-                <div className="grid h-10 w-10 place-items-center rounded-xl bg-blue-500/10 text-blue-600 shrink-0">
-                  <Briefcase className="h-5 w-5" />
-                </div>
-              ) : isService ? (
-                <div className="grid h-10 w-10 place-items-center rounded-xl bg-indigo-500/10 text-indigo-600 shrink-0">
-                  <Wrench className="h-5 w-5" />
-                </div>
-              ) : isStore ? (
-                <div className="grid h-10 w-10 place-items-center rounded-xl bg-indigo-50 text-indigo-600 dark:bg-indigo-950/40 shrink-0">
-                  <StoreIcon className="h-5 w-5" />
-                </div>
-              ) : (
-                <div className="grid h-10 w-10 place-items-center rounded-xl bg-secondary shrink-0">
-                  <Package className="h-5 w-5 text-muted-foreground" />
-                </div>
-              )}
-
-              <div className="min-w-0 flex-1">
-                {!isJob && !isService && (conversation.contextId || thread?.productId) ? (
-                  <Link
-                    to="/product/$id"
-                    params={{ id: String(conversation.contextId || thread?.productId) }}
-                    className="hover:underline block"
-                  >
-                    <p className="truncate text-xs font-bold text-foreground">
-                      {conversation.listingTitle || "Product Listing"}
-                    </p>
-                    {conversation.listingPriceInPaise && conversation.listingPriceInPaise > 0 ? (
-                      <p className="text-xs font-extrabold text-foreground">
-                        {formatINR(conversation.listingPriceInPaise / 100)}
-                      </p>
-                    ) : null}
-                  </Link>
+          {(() => {
+            const isUserDirectChat = conversation?.contextType === "USER" || conversation?.contextType === "PEER";
+            const shouldShowContext = Boolean(
+              conversation &&
+              !isUserDirectChat &&
+              (conversation.listingTitle || (conversation.listingImage && !conversation.listingImage.includes("photo-1526738549149"))) &&
+              (isJob || isService || isStore || (
+                conversation.contextId &&
+                conversation.contextId !== "null" &&
+                conversation.listingTitle &&
+                conversation.listingTitle !== "Product Listing" &&
+                !conversation.listingTitle.includes("Royal Enfield") &&
+                (messages.length > 0 || justInitiatedFromProduct)
+              ))
+            );
+            if (!shouldShowContext) return null;
+            return (
+              <div className="shrink-0 flex items-center gap-3 border-t border-border bg-card px-3 py-2">
+                {conversation.listingImage && !conversation.listingImage.includes("photo-1526738549149") ? (
+                  <img src={conversation.listingImage} alt="" className="h-10 w-10 rounded-xl object-cover shrink-0" />
+                ) : isJob ? (
+                  <div className="grid h-10 w-10 place-items-center rounded-xl bg-blue-500/10 text-blue-600 shrink-0">
+                    <Briefcase className="h-5 w-5" />
+                  </div>
+                ) : isService ? (
+                  <div className="grid h-10 w-10 place-items-center rounded-xl bg-indigo-500/10 text-indigo-600 shrink-0">
+                    <Wrench className="h-5 w-5" />
+                  </div>
+                ) : isStore ? (
+                  <div className="grid h-10 w-10 place-items-center rounded-xl bg-indigo-50 text-indigo-600 dark:bg-indigo-950/40 shrink-0">
+                    <StoreIcon className="h-5 w-5" />
+                  </div>
                 ) : (
-                  <>
-                    <p className="truncate text-xs font-bold text-foreground">
-                      {conversation.listingTitle || (isJob ? "Job Posting" : isService ? "Service Details" : "Product Listing")}
-                    </p>
-
-                    {isJob ? (
-                      <p className="text-xs font-semibold text-blue-600 dark:text-blue-400">
-                        {conversation.salaryText || "Verified Employer · Application Open"}
-                      </p>
-                    ) : isService ? (
-                      <p className="text-xs font-semibold text-indigo-600 dark:text-indigo-400">
-                        {conversation.servicePriceText || "Service Inquiry"}
-                      </p>
-                    ) : conversation.listingPriceInPaise && conversation.listingPriceInPaise > 0 ? (
-                      <p className="text-xs font-extrabold text-foreground">
-                        {formatINR(conversation.listingPriceInPaise / 100)}
-                      </p>
-                    ) : null}
-                  </>
+                  <div className="grid h-10 w-10 place-items-center rounded-xl bg-secondary shrink-0">
+                    <Package className="h-5 w-5 text-muted-foreground" />
+                  </div>
                 )}
-              </div>
 
-              {/* Action buttons on the right side of header */}
-              {isJob ? (
-                <Link
-                  to="/jobs"
-                  className="flex items-center gap-1 rounded-full bg-blue-500/10 border border-blue-500/30 px-3 py-1.5 text-[11px] font-bold text-blue-600 hover:bg-blue-500 hover:text-white transition-colors shrink-0"
-                >
-                  <Briefcase className="h-3.5 w-3.5" /> Job Info
-                </Link>
-              ) : isService ? (
-                <Link
-                  to="/services"
-                  className="flex items-center gap-1 rounded-full bg-indigo-500/10 border border-indigo-500/30 px-3 py-1.5 text-[11px] font-bold text-indigo-600 hover:bg-indigo-500 hover:text-white transition-colors shrink-0"
-                >
-                  <Wrench className="h-3.5 w-3.5" /> Service
-                </Link>
-              ) : (
-                <div className="flex items-center gap-1.5 shrink-0">
-                  <button
-                    type="button"
-                    onClick={() => setReviewOpen(true)}
-                    className="flex items-center gap-1 rounded-full bg-amber-500/10 border border-amber-500/30 px-2.5 py-1.5 text-[11px] font-bold text-amber-700 hover:bg-amber-500 hover:text-white transition-colors shrink-0"
-                    title="Leave a Review"
-                  >
-                    <Star className="h-3.5 w-3.5 fill-amber-400 text-amber-500" /> Review
-                  </button>
-                  {!listingUnavailable && thread?.role !== "selling" && (
-                    <button
-                      type="button"
-                      onClick={() => setOfferOpen(true)}
-                      className="flex items-center gap-1 rounded-full border border-border px-3 py-1.5 text-[11px] font-bold hover:bg-secondary transition-colors shrink-0"
+                <div className="min-w-0 flex-1">
+                  {!isJob && !isService && (conversation.contextId || thread?.productId) ? (
+                    <Link
+                      to="/product/$id"
+                      params={{ id: String(conversation.contextId || thread?.productId) }}
+                      className="hover:underline block"
                     >
-                      <HandCoins className="h-3.5 w-3.5" /> Offer
-                    </button>
+                      <p className="truncate text-xs font-bold text-foreground">
+                        {conversation.listingTitle || "Product Listing"}
+                      </p>
+                      {conversation.listingPriceInPaise && conversation.listingPriceInPaise > 0 ? (
+                        <p className="text-xs font-extrabold text-foreground">
+                          {formatINR(conversation.listingPriceInPaise / 100)}
+                        </p>
+                      ) : null}
+                    </Link>
+                  ) : (
+                    <>
+                      <p className="truncate text-xs font-bold text-foreground">
+                        {conversation.listingTitle || (isJob ? "Job Posting" : isService ? "Service Details" : "Product Listing")}
+                      </p>
+
+                      {isJob ? (
+                        <p className="text-xs font-semibold text-blue-600 dark:text-blue-400">
+                          {conversation.salaryText || "Verified Employer · Application Open"}
+                        </p>
+                      ) : isService ? (
+                        <p className="text-xs font-semibold text-indigo-600 dark:text-indigo-400">
+                          {conversation.servicePriceText || "Service Inquiry"}
+                        </p>
+                      ) : conversation.listingPriceInPaise && conversation.listingPriceInPaise > 0 ? (
+                        <p className="text-xs font-extrabold text-foreground">
+                          {formatINR(conversation.listingPriceInPaise / 100)}
+                        </p>
+                      ) : null}
+                    </>
                   )}
                 </div>
-              )}
-            </div>
-          )}
+
+                {/* Action buttons on the right side of header */}
+                {isJob ? (
+                  <Link
+                    to="/jobs"
+                    className="flex items-center gap-1 rounded-full bg-blue-500/10 border border-blue-500/30 px-3 py-1.5 text-[11px] font-bold text-blue-600 hover:bg-blue-500 hover:text-white transition-colors shrink-0"
+                  >
+                    <Briefcase className="h-3.5 w-3.5" /> Job Info
+                  </Link>
+                ) : isService ? (
+                  <Link
+                    to="/services"
+                    className="flex items-center gap-1 rounded-full bg-indigo-500/10 border border-indigo-500/30 px-3 py-1.5 text-[11px] font-bold text-indigo-600 hover:bg-indigo-500 hover:text-white transition-colors shrink-0"
+                  >
+                    <Wrench className="h-3.5 w-3.5" /> Service
+                  </Link>
+                ) : (
+                  <div className="flex items-center gap-1.5 shrink-0">
+                    <button
+                      type="button"
+                      onClick={() => setReviewOpen(true)}
+                      className="flex items-center gap-1 rounded-full bg-amber-500/10 border border-amber-500/30 px-2.5 py-1.5 text-[11px] font-bold text-amber-700 hover:bg-amber-500 hover:text-white transition-colors shrink-0"
+                      title="Leave a Review"
+                    >
+                      <Star className="h-3.5 w-3.5 fill-amber-400 text-amber-500" /> Review
+                    </button>
+                    {!listingUnavailable && thread?.role !== "selling" && (
+                      <button
+                        type="button"
+                        onClick={() => setOfferOpen(true)}
+                        className="flex items-center gap-1 rounded-full border border-border px-3 py-1.5 text-[11px] font-bold hover:bg-secondary transition-colors shrink-0"
+                      >
+                        <HandCoins className="h-3.5 w-3.5" /> Offer
+                      </button>
+                    )}
+                  </div>
+                )}
+              </div>
+            );
+          })()}
         </header>
 
         {/* Messages */}
@@ -855,6 +899,31 @@ function Conversation() {
         />
         </div>
       </div>
+
+      {/* Mobile Slide-Over Drawer for Left Conversation List */}
+      {mobileListOpen && (
+        <div className="fixed inset-0 z-50 flex md:hidden">
+          <div
+            className="fixed inset-0 bg-black/50 backdrop-blur-xs transition-opacity"
+            onClick={() => setMobileListOpen(false)}
+          />
+          <div className="relative z-10 flex h-full w-[85%] max-w-[340px] flex-col bg-card shadow-2xl animate-in slide-in-from-left duration-200">
+            <div className="flex items-center justify-between border-b border-border px-4 py-3">
+              <span className="text-sm font-extrabold text-foreground">Conversations</span>
+              <button
+                type="button"
+                onClick={() => setMobileListOpen(false)}
+                className="rounded-full p-1.5 text-muted-foreground hover:bg-secondary hover:text-foreground"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+            <div className="flex-1 min-h-0 overflow-y-auto">
+              <ThreadListPane activeId={id} onSelect={() => setMobileListOpen(false)} />
+            </div>
+          </div>
+        </div>
+      )}
     </MobileFrame>
   );
 }

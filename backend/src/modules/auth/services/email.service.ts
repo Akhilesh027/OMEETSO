@@ -4,11 +4,20 @@ import fs from "fs";
 import path from "path";
 import { env } from "../../../config/env";
 
+export interface EmailAttachment {
+  filename: string;
+  content?: Buffer | string;
+  path?: string;
+  contentType?: string;
+  encoding?: string;
+}
+
 export interface SendEmailOptions {
   to: string;
   subject: string;
   html: string;
   text?: string;
+  attachments?: EmailAttachment[];
 }
 
 export const OMEETSO_LOGO_URL = "https://omeetso.in/logo.png";
@@ -85,7 +94,8 @@ async function sendViaSmtpSocket(
   subject: string,
   html: string,
   authMethod: "LOGIN" | "PLAIN" = "LOGIN",
-  inlineLogoBase64?: string
+  inlineLogoBase64?: string,
+  attachments?: EmailAttachment[]
 ): Promise<{ success: boolean; messageId?: string; error?: string }> {
   return new Promise((resolve) => {
     let resolved = false;
@@ -255,7 +265,85 @@ async function sendViaSmtpSocket(
               const dateStr = new Date().toUTCString();
 
               let rawMail = "";
-              if (inlineLogoBase64 && html.includes("cid:omeetso-logo")) {
+              const hasAttachments = Boolean(attachments && attachments.length > 0);
+              const hasInlineLogo = Boolean(inlineLogoBase64 && html.includes("cid:omeetso-logo"));
+
+              if (hasAttachments) {
+                const mixedBoundary = `----=_Mixed_${Date.now()}_${Math.random().toString(36).slice(2)}`;
+                const relatedBoundary = `----=_Related_${Date.now()}_${Math.random().toString(36).slice(2)}`;
+
+                const headers = [
+                  `From: "${fromName}" <${from}>`,
+                  `To: <${to}>`,
+                  `Subject: =?UTF-8?B?${Buffer.from(subject).toString("base64")}?=`,
+                  `Date: ${dateStr}`,
+                  `Message-ID: ${messageId}`,
+                  `MIME-Version: 1.0`,
+                  `Content-Type: multipart/mixed; boundary="${mixedBoundary}"`,
+                  `X-Mailer: Omeetso Platform Mailer 1.0`
+                ].join("\r\n");
+
+                let htmlBodyPart = "";
+                if (hasInlineLogo) {
+                  htmlBodyPart = [
+                    `--${mixedBoundary}`,
+                    `Content-Type: multipart/related; boundary="${relatedBoundary}"`,
+                    ``,
+                    `--${relatedBoundary}`,
+                    `Content-Type: text/html; charset=UTF-8`,
+                    `Content-Transfer-Encoding: 8bit`,
+                    ``,
+                    html,
+                    ``,
+                    `--${relatedBoundary}`,
+                    `Content-Type: image/png; name="logo.png"`,
+                    `Content-Transfer-Encoding: base64`,
+                    `Content-ID: <omeetso-logo>`,
+                    `Content-Disposition: inline; filename="logo.png"`,
+                    ``,
+                    wrapBase64(inlineLogoBase64!),
+                    ``,
+                    `--${relatedBoundary}--`
+                  ].join("\r\n");
+                } else {
+                  const fallbackHtml = html.replace(/cid:omeetso-logo/g, OMEETSO_LOGO_URL);
+                  htmlBodyPart = [
+                    `--${mixedBoundary}`,
+                    `Content-Type: text/html; charset=UTF-8`,
+                    `Content-Transfer-Encoding: 8bit`,
+                    ``,
+                    fallbackHtml
+                  ].join("\r\n");
+                }
+
+                const attachmentParts: string[] = [];
+                for (const att of (attachments || [])) {
+                  let attBuf: Buffer | null = null;
+                  if (att.content) {
+                    attBuf = Buffer.isBuffer(att.content) ? att.content : Buffer.from(att.content, (att.encoding as any) || "utf-8");
+                  } else if (att.path && fs.existsSync(att.path)) {
+                    try {
+                      attBuf = fs.readFileSync(att.path);
+                    } catch {}
+                  }
+                  if (attBuf && attBuf.length > 0) {
+                    const cType = att.contentType || "application/octet-stream";
+                    const safeName = (att.filename || "attachment.pdf").replace(/["\r\n]/g, "_");
+                    attachmentParts.push([
+                      `--${mixedBoundary}`,
+                      `Content-Type: ${cType}; name="${safeName}"`,
+                      `Content-Transfer-Encoding: base64`,
+                      `Content-Disposition: attachment; filename="${safeName}"`,
+                      ``,
+                      wrapBase64(attBuf.toString("base64")),
+                      ``
+                    ].join("\r\n"));
+                  }
+                }
+
+                const allParts = [htmlBodyPart, ...attachmentParts].join("\r\n\r\n");
+                rawMail = `${headers}\r\n\r\n${allParts}\r\n--${mixedBoundary}--\r\n.\r\n`;
+              } else if (hasInlineLogo) {
                 const boundary = `----=_Part_${Date.now()}_${Math.random().toString(36).slice(2)}`;
                 const headers = [
                   `From: "${fromName}" <${from}>`,
@@ -281,7 +369,7 @@ async function sendViaSmtpSocket(
                   `Content-ID: <omeetso-logo>`,
                   `Content-Disposition: inline; filename="logo.png"`,
                   ``,
-                  wrapBase64(inlineLogoBase64),
+                  wrapBase64(inlineLogoBase64!),
                   ``,
                   `--${boundary}--`
                 ].join("\r\n");
@@ -396,7 +484,8 @@ export async function dispatchEmail(options: SendEmailOptions): Promise<{ succes
         options.subject,
         options.html,
         authMethod,
-        logoBase64
+        logoBase64,
+        options.attachments
       );
 
       if (result.success) {
@@ -778,7 +867,7 @@ export interface AdminAlertOptions {
 export async function sendAdminAlertEmail(
   options: AdminAlertOptions
 ): Promise<{ success: boolean; messageId?: string; error?: string }> {
-  const adminEmail = (env.ADMIN_NOTIFICATION_EMAIL || "akhileshreddy027@gmail.com").trim();
+  const adminEmail = (env.ADMIN_NOTIFICATION_EMAIL || "info@omeetso.in").trim();
   const portalUrl = (env.CLIENT_USER_URL || "https://omeetso.in").replace(/\/$/, "");
 
   const eventBadgeMap: Record<AdminAlertOptions["eventType"], { label: string; bg: string; border: string; color: string; icon: string }> = {
@@ -1187,6 +1276,892 @@ export async function sendListingApprovedEmail(
   `;
 
   return dispatchEmail({ to: options.toEmail, subject, html });
+}
+
+export interface JobSubmissionConfirmationEmailOptions {
+  employerEmail: string;
+  employerName?: string;
+  jobTitle: string;
+  companyName: string;
+  jobCategory?: string;
+  jobType?: string;
+  location?: string;
+  submittedAt?: string;
+  jobId?: string;
+}
+
+export async function sendJobSubmissionConfirmationEmail(
+  options: JobSubmissionConfirmationEmailOptions
+): Promise<{ success: boolean; messageId?: string; error?: string }> {
+  if (!options.employerEmail) return { success: false, error: "Employer email is required" };
+  const employerDisplayName = options.employerName?.trim() || "Valued Employer";
+  const subject = `Job Submission Received: "${options.jobTitle}" awaiting review`;
+  const portalUrl = (env.CLIENT_USER_URL || "https://omeetso.in").replace(/\/$/, "");
+
+  const headerHtml = renderEmailHeader({
+    portalUrl,
+    badgeText: "⏳ Submission Received",
+    badgeBg: "#fef3c7",
+    badgeBorder: "#fde68a",
+    badgeColor: "#b45309"
+  });
+
+  const footerHtml = renderEmailFooter({
+    portalUrl,
+    securityNote: "You received this email because you submitted a job vacancy on Omeetso. Our moderation team reviews all job postings to ensure safe, legitimate opportunities for our community."
+  });
+
+  const html = `
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Job Submission Received</title>
+</head>
+<body style="margin: 0; padding: 0; background-color: #f1f5f9; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; color: #0f172a; -webkit-font-smoothing: antialiased;">
+  <table role="presentation" border="0" cellpadding="0" cellspacing="0" width="100%" style="background-color: #f1f5f9; padding: 30px 12px;">
+    <tr>
+      <td align="center">
+        <table role="presentation" border="0" cellpadding="0" cellspacing="0" width="100%" style="max-width: 600px; background-color: #ffffff; border-radius: 20px; overflow: hidden; border: 1px solid #e2e8f0; box-shadow: 0 10px 30px rgba(0,0,0,0.06);">
+          <tr>
+            <td>
+              ${headerHtml}
+
+              <!-- Content Body -->
+              <table role="presentation" border="0" cellpadding="0" cellspacing="0" width="100%" style="padding: 34px 32px 28px 32px;">
+                <tr>
+                  <td>
+                    <h1 style="font-size: 22px; font-weight: 800; color: #0f172a; margin: 0 0 10px 0; text-align: center; line-height: 1.3;">
+                      Job Submission Received ⏳
+                    </h1>
+                    <p style="font-size: 14px; color: #475569; line-height: 1.6; margin: 0 0 24px 0; text-align: center;">
+                      Hello <strong>${employerDisplayName}</strong>, thank you for posting your job vacancy on Omeetso! Your job posting for <strong>${options.jobTitle}</strong> at <strong>${options.companyName}</strong> has been received and is currently under review by our admin moderation team.
+                    </p>
+
+                    <!-- Notice banner -->
+                    <table role="presentation" border="0" cellpadding="0" cellspacing="0" width="100%" style="background-color: #fffbeb; border: 1px solid #fde68a; border-radius: 14px; padding: 14px 18px; margin-bottom: 24px;">
+                      <tr>
+                        <td style="font-size: 13px; color: #92400e; line-height: 1.5;">
+                          <strong>Moderation in Progress:</strong> To maintain high hiring standards, our team reviews all listings before they go live. Once approved, your listing will be published immediately to candidates.
+                        </td>
+                      </tr>
+                    </table>
+
+                    <!-- Job Summary Card -->
+                    <table role="presentation" border="0" cellpadding="0" cellspacing="0" width="100%" style="background-color: #f8fafc; border: 1px solid #e2e8f0; border-radius: 16px; padding: 20px 22px; margin-bottom: 24px;">
+                      <tr>
+                        <td>
+                          <table role="presentation" border="0" cellpadding="0" cellspacing="0" width="100%">
+                            <tr>
+                              <td style="padding: 6px 0; font-size: 13px; color: #64748b; width: 140px; font-weight: 600;">Job Title:</td>
+                              <td style="padding: 6px 0; font-size: 14px; color: #0f172a; font-weight: 700;">${options.jobTitle}</td>
+                            </tr>
+                            <tr>
+                              <td style="padding: 6px 0; font-size: 13px; color: #64748b; font-weight: 600;">Company:</td>
+                              <td style="padding: 6px 0; font-size: 14px; color: #0f172a; font-weight: 700;">${options.companyName}</td>
+                            </tr>
+                            ${options.jobType ? `
+                            <tr>
+                              <td style="padding: 6px 0; font-size: 13px; color: #64748b; font-weight: 600;">Employment Type:</td>
+                              <td style="padding: 6px 0; font-size: 14px; color: #0f172a; font-weight: 600;">${options.jobType}</td>
+                            </tr>` : ""}
+                            ${options.location ? `
+                            <tr>
+                              <td style="padding: 6px 0; font-size: 13px; color: #64748b; font-weight: 600;">Location:</td>
+                              <td style="padding: 6px 0; font-size: 14px; color: #0f172a; font-weight: 600;">${options.location}</td>
+                            </tr>` : ""}
+                            <tr>
+                              <td style="padding: 6px 0; font-size: 13px; color: #64748b; font-weight: 600;">Submitted On:</td>
+                              <td style="padding: 6px 0; font-size: 14px; color: #0f172a; font-weight: 600;">${options.submittedAt || new Date().toLocaleString("en-IN", { timeZone: "Asia/Kolkata" })}</td>
+                            </tr>
+                            <tr>
+                              <td style="padding: 6px 0; font-size: 13px; color: #64748b; font-weight: 600;">Review Status:</td>
+                              <td style="padding: 6px 0; font-size: 13px;">
+                                <span style="display: inline-block; padding: 4px 10px; background-color: #fef3c7; color: #92400e; border: 1px solid #fde68a; border-radius: 9999px; font-weight: 700; font-size: 11px; letter-spacing: 0.5px;">PENDING APPROVAL</span>
+                              </td>
+                            </tr>
+                          </table>
+                        </td>
+                      </tr>
+                    </table>
+
+                    <!-- CTA Button -->
+                    <table role="presentation" border="0" cellpadding="0" cellspacing="0" width="100%" style="margin-top: 10px;">
+                      <tr>
+                        <td align="center">
+                          <a href="${portalUrl}/my/employer/jobs" target="_blank" style="display: inline-block; background: linear-gradient(135deg, #2563eb, #1d4ed8); color: #ffffff; text-decoration: none; font-size: 14px; font-weight: 700; padding: 14px 28px; border-radius: 12px; box-shadow: 0 4px 12px rgba(37,99,235,0.25);">
+                            View Employer Dashboard &rarr;
+                          </a>
+                        </td>
+                      </tr>
+                    </table>
+
+                  </td>
+                </tr>
+              </table>
+
+              ${footerHtml}
+            </td>
+          </tr>
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>
+  `;
+
+  return dispatchEmail({ to: options.employerEmail, subject, html });
+}
+
+export interface JobApprovalEmailOptions {
+  employerEmail: string;
+  employerName?: string;
+  jobTitle: string;
+  companyName: string;
+  jobId: string;
+  approvedAt?: string;
+  jobType?: string;
+  location?: string;
+}
+
+export async function sendJobApprovalEmail(
+  options: JobApprovalEmailOptions
+): Promise<{ success: boolean; messageId?: string; error?: string }> {
+  if (!options.employerEmail) return { success: false, error: "Employer email is required" };
+  const employerDisplayName = options.employerName?.trim() || "Valued Employer";
+  const subject = `🎉 Approved & Live: "${options.jobTitle}" is now active on Omeetso!`;
+  const portalUrl = (env.CLIENT_USER_URL || "https://omeetso.in").replace(/\/$/, "");
+
+  const headerHtml = renderEmailHeader({
+    portalUrl,
+    badgeText: "✅ Job Approved & Live",
+    badgeBg: "#f0fdf4",
+    badgeBorder: "#bbf7d0",
+    badgeColor: "#15803d"
+  });
+
+  const footerHtml = renderEmailFooter({
+    portalUrl,
+    securityNote: "You received this email because your job posting on Omeetso was verified and approved by our moderation team. You can manage applications anytime in your employer dashboard."
+  });
+
+  const jobLiveUrl = `${portalUrl}/job/${options.jobId}`;
+
+  const html = `
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Your Job Posting is Approved & Live!</title>
+</head>
+<body style="margin: 0; padding: 0; background-color: #f1f5f9; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; color: #0f172a; -webkit-font-smoothing: antialiased;">
+  <table role="presentation" border="0" cellpadding="0" cellspacing="0" width="100%" style="background-color: #f1f5f9; padding: 30px 12px;">
+    <tr>
+      <td align="center">
+        <table role="presentation" border="0" cellpadding="0" cellspacing="0" width="100%" style="max-width: 600px; background-color: #ffffff; border-radius: 20px; overflow: hidden; border: 1px solid #e2e8f0; box-shadow: 0 10px 30px rgba(0,0,0,0.06);">
+          <tr>
+            <td>
+              ${headerHtml}
+
+              <!-- Content Body -->
+              <table role="presentation" border="0" cellpadding="0" cellspacing="0" width="100%" style="padding: 34px 32px 28px 32px;">
+                <tr>
+                  <td>
+                    <h1 style="font-size: 22px; font-weight: 800; color: #0f172a; margin: 0 0 10px 0; text-align: center; line-height: 1.3;">
+                      Your Job is Live! 🎉
+                    </h1>
+                    <p style="font-size: 14px; color: #475569; line-height: 1.6; margin: 0 0 24px 0; text-align: center;">
+                      Hello <strong>${employerDisplayName}</strong>, great news! Your job listing for <strong>${options.jobTitle}</strong> at <strong>${options.companyName}</strong> has been approved by the Omeetso moderation team. It is now published live and actively receiving applications from candidates.
+                    </p>
+
+                    <!-- Job Summary Card -->
+                    <table role="presentation" border="0" cellpadding="0" cellspacing="0" width="100%" style="background-color: #f8fafc; border: 1px solid #e2e8f0; border-radius: 16px; padding: 20px 22px; margin-bottom: 24px;">
+                      <tr>
+                        <td>
+                          <table role="presentation" border="0" cellpadding="0" cellspacing="0" width="100%">
+                            <tr>
+                              <td style="padding: 6px 0; font-size: 13px; color: #64748b; width: 140px; font-weight: 600;">Job Title:</td>
+                              <td style="padding: 6px 0; font-size: 14px; color: #0f172a; font-weight: 700;">${options.jobTitle}</td>
+                            </tr>
+                            <tr>
+                              <td style="padding: 6px 0; font-size: 13px; color: #64748b; font-weight: 600;">Company:</td>
+                              <td style="padding: 6px 0; font-size: 14px; color: #0f172a; font-weight: 700;">${options.companyName}</td>
+                            </tr>
+                            ${options.location ? `
+                            <tr>
+                              <td style="padding: 6px 0; font-size: 13px; color: #64748b; font-weight: 600;">Location:</td>
+                              <td style="padding: 6px 0; font-size: 14px; color: #0f172a; font-weight: 600;">${options.location}</td>
+                            </tr>` : ""}
+                            <tr>
+                              <td style="padding: 6px 0; font-size: 13px; color: #64748b; font-weight: 600;">Approved On:</td>
+                              <td style="padding: 6px 0; font-size: 14px; color: #0f172a; font-weight: 600;">${options.approvedAt || new Date().toLocaleString("en-IN", { timeZone: "Asia/Kolkata" })}</td>
+                            </tr>
+                            <tr>
+                              <td style="padding: 6px 0; font-size: 13px; color: #64748b; font-weight: 600;">Status:</td>
+                              <td style="padding: 6px 0; font-size: 13px;">
+                                <span style="display: inline-block; padding: 4px 10px; background-color: #dcfce7; color: #166534; border: 1px solid #bbf7d0; border-radius: 9999px; font-weight: 700; font-size: 11px; letter-spacing: 0.5px;">ACTIVE & PUBLISHED</span>
+                              </td>
+                            </tr>
+                          </table>
+                        </td>
+                      </tr>
+                    </table>
+
+                    <!-- CTA Buttons -->
+                    <table role="presentation" border="0" cellpadding="0" cellspacing="0" width="100%" style="margin-top: 10px;">
+                      <tr>
+                        <td align="center">
+                          <a href="${jobLiveUrl}" target="_blank" style="display: inline-block; background: linear-gradient(135deg, #16a34a, #15803d); color: #ffffff; text-decoration: none; font-size: 14px; font-weight: 700; padding: 14px 28px; border-radius: 12px; box-shadow: 0 4px 12px rgba(22,163,74,0.25); margin-bottom: 12px;">
+                            View Live Job Listing &rarr;
+                          </a>
+                          <div style="margin-top: 8px;">
+                            <a href="${portalUrl}/my/employer/jobs" target="_blank" style="color: #2563eb; font-size: 13px; font-weight: 600; text-decoration: underline;">
+                              Open Employer Applicant Dashboard &rarr;
+                            </a>
+                          </div>
+                        </td>
+                      </tr>
+                    </table>
+
+                  </td>
+                </tr>
+              </table>
+
+              ${footerHtml}
+            </td>
+          </tr>
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>
+  `;
+
+  return dispatchEmail({ to: options.employerEmail, subject, html });
+}
+
+export interface JobApplicationConfirmationEmailOptions {
+  candidateEmail: string;
+  candidateName?: string;
+  candidatePhone?: string;
+  jobTitle: string;
+  companyName: string;
+  appliedDate?: string;
+  status?: string;
+  jobId?: string;
+  resumeFileName?: string;
+  experience?: string;
+  noticePeriod?: string;
+  jobLocation?: string;
+}
+
+export async function sendJobApplicationConfirmationEmail(
+  options: JobApplicationConfirmationEmailOptions
+): Promise<{ success: boolean; messageId?: string; error?: string }> {
+  if (!options.candidateEmail) return { success: false, error: "Candidate email is required" };
+  const candidateDisplayName = options.candidateName?.trim() || "Candidate";
+  const subject = `✅ Application Received & Follow-Up Guide: "${options.jobTitle}" at ${options.companyName}`;
+  const portalUrl = (env.CLIENT_USER_URL || "https://omeetso.in").replace(/\/$/, "");
+
+  const headerHtml = renderEmailHeader({
+    portalUrl,
+    badgeText: "📋 Application Received & Confirmed",
+    badgeBg: "#eff6ff",
+    badgeBorder: "#bfdbfe",
+    badgeColor: "#1d4ed8"
+  });
+
+  const footerHtml = renderEmailFooter({
+    portalUrl,
+    securityNote: "You received this email because you submitted an application for a vacancy on Omeetso. Track your application status anytime from your candidate portal."
+  });
+
+  const html = `
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Application Received & Follow-Up Guide</title>
+</head>
+<body style="margin: 0; padding: 0; background-color: #f1f5f9; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; color: #0f172a; -webkit-font-smoothing: antialiased;">
+  <table role="presentation" border="0" cellpadding="0" cellspacing="0" width="100%" style="background-color: #f1f5f9; padding: 30px 12px;">
+    <tr>
+      <td align="center">
+        <table role="presentation" border="0" cellpadding="0" cellspacing="0" width="100%" style="max-width: 620px; background-color: #ffffff; border-radius: 20px; overflow: hidden; border: 1px solid #e2e8f0; box-shadow: 0 10px 30px rgba(0,0,0,0.06);">
+          <tr>
+            <td>
+              ${headerHtml}
+
+              <!-- Content Body -->
+              <table role="presentation" border="0" cellpadding="0" cellspacing="0" width="100%" style="padding: 34px 32px 28px 32px;">
+                <tr>
+                  <td>
+                    <h1 style="font-size: 22px; font-weight: 800; color: #0f172a; margin: 0 0 10px 0; text-align: center; line-height: 1.3;">
+                      Application Successfully Submitted! 🎯
+                    </h1>
+                    <p style="font-size: 14px; color: #475569; line-height: 1.6; margin: 0 0 24px 0; text-align: center;">
+                      Hello <strong>${candidateDisplayName}</strong>, thank you for applying! Your application has been directly delivered to the hiring team at <strong>${options.companyName}</strong>.
+                    </p>
+
+                    <!-- Application Summary Card -->
+                    <table role="presentation" border="0" cellpadding="0" cellspacing="0" width="100%" style="background-color: #f8fafc; border: 1px solid #e2e8f0; border-radius: 16px; padding: 20px 22px; margin-bottom: 24px;">
+                      <tr>
+                        <td>
+                          <h3 style="margin: 0 0 14px 0; font-size: 13px; font-weight: 800; color: #0f172a; text-transform: uppercase; letter-spacing: 0.5px;">
+                            Application Receipt &amp; Details
+                          </h3>
+                          <table role="presentation" border="0" cellpadding="0" cellspacing="0" width="100%">
+                            <tr>
+                              <td style="padding: 6px 0; font-size: 13px; color: #64748b; width: 140px; font-weight: 600;">Position:</td>
+                              <td style="padding: 6px 0; font-size: 14px; color: #0f172a; font-weight: 700;">${options.jobTitle}</td>
+                            </tr>
+                            <tr>
+                              <td style="padding: 6px 0; font-size: 13px; color: #64748b; font-weight: 600;">Company:</td>
+                              <td style="padding: 6px 0; font-size: 14px; color: #0f172a; font-weight: 700;">${options.companyName}</td>
+                            </tr>
+                            ${options.jobLocation ? `
+                            <tr>
+                              <td style="padding: 6px 0; font-size: 13px; color: #64748b; font-weight: 600;">Location:</td>
+                              <td style="padding: 6px 0; font-size: 14px; color: #0f172a; font-weight: 600;">${options.jobLocation}</td>
+                            </tr>` : ""}
+                            <tr>
+                              <td style="padding: 6px 0; font-size: 13px; color: #64748b; font-weight: 600;">Applied Date:</td>
+                              <td style="padding: 6px 0; font-size: 14px; color: #0f172a; font-weight: 600;">${options.appliedDate || new Date().toLocaleString("en-IN", { timeZone: "Asia/Kolkata" })}</td>
+                            </tr>
+                            ${options.resumeFileName ? `
+                            <tr>
+                              <td style="padding: 6px 0; font-size: 13px; color: #64748b; font-weight: 600;">Resume Attached:</td>
+                              <td style="padding: 6px 0; font-size: 13px; color: #1e40af; font-weight: 700;">📄 ${options.resumeFileName}</td>
+                            </tr>` : ""}
+                            ${options.experience ? `
+                            <tr>
+                              <td style="padding: 6px 0; font-size: 13px; color: #64748b; font-weight: 600;">Experience / Notice:</td>
+                              <td style="padding: 6px 0; font-size: 14px; color: #0f172a; font-weight: 600;">${options.experience} • ${options.noticePeriod || "Immediate"}</td>
+                            </tr>` : ""}
+                            <tr>
+                              <td style="padding: 6px 0; font-size: 13px; color: #64748b; font-weight: 600;">Current Status:</td>
+                              <td style="padding: 6px 0; font-size: 13px;">
+                                <span style="display: inline-block; padding: 4px 12px; background-color: #dbeafe; color: #1e40af; border: 1px solid #bfdbfe; border-radius: 9999px; font-weight: 800; font-size: 11px; letter-spacing: 0.5px;">${options.status || "APPLIED"} (Under Review)</span>
+                              </td>
+                            </tr>
+                          </table>
+                        </td>
+                      </tr>
+                    </table>
+
+                    <!-- Follow-up Guide Section -->
+                    <table role="presentation" border="0" cellpadding="0" cellspacing="0" width="100%" style="background-color: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 16px; padding: 22px; margin-bottom: 26px;">
+                      <tr>
+                        <td>
+                          <h3 style="margin: 0 0 12px 0; font-size: 14px; font-weight: 800; color: #166534; display: flex; align-items: center; gap: 6px;">
+                            🚀 What Happens Next? Follow-Up Guide
+                          </h3>
+                          <ul style="margin: 0; padding-left: 20px; font-size: 13px; color: #14532d; line-height: 1.7;">
+                            <li style="margin-bottom: 8px;">
+                              <strong>1. Recruiter Review Timeline:</strong> Employers typically review incoming applications within <strong>24 to 72 business hours</strong>.
+                            </li>
+                            <li style="margin-bottom: 8px;">
+                              <strong>2. Keep Your Phone &amp; Email Active:</strong> If shortlisted, the hiring team may reach out to you via call, SMS, or WhatsApp on <strong>${options.candidatePhone || "your contact number"}</strong> for a preliminary phone interview.
+                            </li>
+                            <li style="margin-bottom: 8px;">
+                              <strong>3. Track Status in Real-Time:</strong> Check your live application progress in your Omeetso candidate dashboard anytime. You will receive an instant notification when your status updates to Shortlisted, Interview Scheduled, or Hired.
+                            </li>
+                            <li>
+                              <strong>4. Preparation Tip:</strong> Review the vacancy requirements, brush up on relevant key skills, and keep your past project achievements ready for discussion.
+                            </li>
+                          </ul>
+                        </td>
+                      </tr>
+                    </table>
+
+                    <!-- CTA Buttons -->
+                    <table role="presentation" border="0" cellpadding="0" cellspacing="0" width="100%" style="margin-top: 10px;">
+                      <tr>
+                        <td align="center">
+                          <a href="${portalUrl}/my/jobs" target="_blank" style="display: inline-block; background: linear-gradient(135deg, #2563eb, #1d4ed8); color: #ffffff; text-decoration: none; font-size: 14px; font-weight: 700; padding: 14px 28px; border-radius: 12px; box-shadow: 0 4px 12px rgba(37,99,235,0.25); margin: 6px;">
+                            Track Application in Dashboard &rarr;
+                          </a>
+                          <a href="${portalUrl}/jobs" target="_blank" style="display: inline-block; background-color: #f1f5f9; color: #1e293b; text-decoration: none; font-size: 14px; font-weight: 700; padding: 14px 24px; border-radius: 12px; border: 1px solid #cbd5e1; margin: 6px;">
+                            Explore More Jobs &rarr;
+                          </a>
+                        </td>
+                      </tr>
+                    </table>
+
+                  </td>
+                </tr>
+              </table>
+
+              ${footerHtml}
+            </td>
+          </tr>
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>
+  `;
+
+  return dispatchEmail({ to: options.candidateEmail, subject, html });
+}
+
+export interface NewJobApplicationNotificationEmailOptions {
+  employerEmail: string;
+  employerName?: string;
+  jobTitle: string;
+  companyName: string;
+  candidateName: string;
+  candidatePhone?: string;
+  candidateEmail?: string;
+  candidateExperience?: string;
+  appliedDate?: string;
+  jobId?: string;
+  resumeUrl?: string;
+  resumeFileName?: string;
+  city?: string;
+  area?: string;
+  currentRole?: string;
+  currentCompany?: string;
+  currentSalary?: number | string;
+  expectedSalary?: number | string;
+  noticePeriod?: string;
+  education?: string;
+  skills?: string[];
+  summary?: string;
+  screeningAnswers?: Array<{ questionText?: string; question?: string; answer: any }>;
+  portfolioUrl?: string;
+  linkedinUrl?: string;
+  githubUrl?: string;
+}
+
+export async function sendNewJobApplicationNotificationEmail(
+  options: NewJobApplicationNotificationEmailOptions
+): Promise<{ success: boolean; messageId?: string; error?: string }> {
+  if (!options.employerEmail) return { success: false, error: "Employer email is required" };
+  const employerDisplayName = options.employerName?.trim() || "Valued Employer";
+  const subject = `👤 New Application Received: ${options.candidateName} applied for "${options.jobTitle}"`;
+  const portalUrl = (env.CLIENT_USER_URL || "https://omeetso.in").replace(/\/$/, "");
+
+  // Prepare resume download URL
+  let resumeDownloadUrl = "";
+  if (options.resumeUrl) {
+    if (options.resumeUrl.startsWith("http://") || options.resumeUrl.startsWith("https://")) {
+      resumeDownloadUrl = options.resumeUrl;
+    } else if (options.resumeUrl.startsWith("/")) {
+      resumeDownloadUrl = `${portalUrl}${options.resumeUrl}`;
+    } else if (!options.resumeUrl.startsWith("data:")) {
+      resumeDownloadUrl = `${portalUrl}/${options.resumeUrl}`;
+    }
+  }
+
+  // Build file attachment if resume is accessible
+  const attachments: EmailAttachment[] = [];
+  if (options.resumeUrl) {
+    try {
+      const fileName = options.resumeFileName || "Candidate_Resume.pdf";
+      if (options.resumeUrl.startsWith("data:")) {
+        const parts = options.resumeUrl.split(",");
+        if (parts.length > 1) {
+          attachments.push({
+            filename: fileName,
+            content: Buffer.from(parts[1], "base64"),
+            contentType: "application/pdf"
+          });
+        }
+      } else if (options.resumeUrl.startsWith("http://") || options.resumeUrl.startsWith("https://")) {
+        try {
+          const res = await fetch(options.resumeUrl);
+          if (res.ok) {
+            const arr = await res.arrayBuffer();
+            attachments.push({
+              filename: fileName,
+              content: Buffer.from(arr),
+              contentType: "application/pdf"
+            });
+          }
+        } catch (fetchErr: any) {
+          console.warn("[Email] Warning: Unable to fetch remote resume for email attachment:", fetchErr?.message || fetchErr);
+        }
+      } else {
+        // Local file check
+        const candidatePaths = [
+          path.resolve(process.cwd(), options.resumeUrl.replace(/^\//, "")),
+          path.resolve(process.cwd(), "uploads", options.resumeUrl.replace(/^\/uploads\//, "")),
+          path.resolve(__dirname, "../../../../../frontend/public", options.resumeUrl.replace(/^\//, ""))
+        ];
+        for (const p of candidatePaths) {
+          if (fs.existsSync(p)) {
+            attachments.push({
+              filename: fileName,
+              path: p,
+              contentType: "application/pdf"
+            });
+            break;
+          }
+        }
+      }
+    } catch (attErr: any) {
+      console.warn("[Email] Warning: Failed to prepare resume attachment:", attErr?.message || attErr);
+    }
+  }
+
+  const headerHtml = renderEmailHeader({
+    portalUrl,
+    badgeText: "💼 New Candidate Application",
+    badgeBg: "#eef2ff",
+    badgeBorder: "#c7d2fe",
+    badgeColor: "#4338ca"
+  });
+
+  const footerHtml = renderEmailFooter({
+    portalUrl,
+    securityNote: "You received this email because a job seeker submitted an application to your active vacancy on Omeetso. Review and manage candidates directly in your employer portal."
+  });
+
+  const skillsHtml = (options.skills && options.skills.length > 0)
+    ? options.skills.map((s) => `<span style="display: inline-block; padding: 4px 10px; background-color: #e0e7ff; color: #3730a3; border-radius: 6px; font-weight: 700; margin: 3px; font-size: 11px;">${s}</span>`).join(" ")
+    : '<span style="color: #94a3b8; font-style: italic;">Not specified</span>';
+
+  const screeningHtml = (options.screeningAnswers && options.screeningAnswers.length > 0)
+    ? options.screeningAnswers.map((sa, idx) => `
+      <div style="padding: 10px 14px; background-color: #f8fafc; border: 1px solid #e2e8f0; border-radius: 10px; margin-bottom: 8px;">
+        <p style="margin: 0 0 4px 0; font-size: 12px; font-weight: 700; color: #334155;">Q${idx + 1}: ${sa.questionText || sa.question || "Screening Question"}</p>
+        <p style="margin: 0; font-size: 13px; color: #0f172a; font-weight: 600;">Answer: ${String(sa.answer || "N/A")}</p>
+      </div>
+    `).join("")
+    : "";
+
+  const html = `
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>New Job Application Received</title>
+</head>
+<body style="margin: 0; padding: 0; background-color: #f1f5f9; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; color: #0f172a; -webkit-font-smoothing: antialiased;">
+  <table role="presentation" border="0" cellpadding="0" cellspacing="0" width="100%" style="background-color: #f1f5f9; padding: 30px 12px;">
+    <tr>
+      <td align="center">
+        <table role="presentation" border="0" cellpadding="0" cellspacing="0" width="100%" style="max-width: 620px; background-color: #ffffff; border-radius: 20px; overflow: hidden; border: 1px solid #e2e8f0; box-shadow: 0 10px 30px rgba(0,0,0,0.06);">
+          <tr>
+            <td>
+              ${headerHtml}
+
+              <!-- Content Body -->
+              <table role="presentation" border="0" cellpadding="0" cellspacing="0" width="100%" style="padding: 34px 32px 28px 32px;">
+                <tr>
+                  <td>
+                    <h1 style="font-size: 22px; font-weight: 800; color: #0f172a; margin: 0 0 10px 0; text-align: center; line-height: 1.3;">
+                      New Candidate Application! 👤
+                    </h1>
+                    <p style="font-size: 14px; color: #475569; line-height: 1.6; margin: 0 0 24px 0; text-align: center;">
+                      Hello <strong>${employerDisplayName}</strong>, you have received a new application for your vacancy <strong>${options.jobTitle}</strong> at <strong>${options.companyName}</strong>.
+                    </p>
+
+                    <!-- Quick Action Card for Resume & Pipeline -->
+                    <table role="presentation" border="0" cellpadding="0" cellspacing="0" width="100%" style="background: linear-gradient(135deg, #1e1b4b, #312e81); border-radius: 16px; padding: 20px; margin-bottom: 24px; color: #ffffff;">
+                      <tr>
+                        <td align="center">
+                          <p style="margin: 0 0 12px 0; font-size: 14px; font-weight: 700; color: #e0e7ff;">
+                            Quick Candidate Actions:
+                          </p>
+                          ${resumeDownloadUrl ? `
+                          <a href="${resumeDownloadUrl}" target="_blank" style="display: inline-block; background-color: #ffffff; color: #312e81; text-decoration: none; font-size: 13px; font-weight: 800; padding: 12px 22px; border-radius: 10px; margin: 4px; box-shadow: 0 4px 12px rgba(0,0,0,0.15);">
+                            📄 View &amp; Download Resume (${options.resumeFileName || "PDF"}) &rarr;
+                          </a>` : ""}
+                          <a href="${portalUrl}/my/employer/jobs" target="_blank" style="display: inline-block; background-color: #4f46e5; color: #ffffff; text-decoration: none; font-size: 13px; font-weight: 800; padding: 12px 22px; border-radius: 10px; margin: 4px; border: 1px solid rgba(255,255,255,0.25);">
+                            👥 Open Candidate Dashboard &rarr;
+                          </a>
+                          ${attachments.length > 0 ? `
+                          <p style="margin: 12px 0 0 0; font-size: 11px; color: #c7d2fe; font-weight: 600;">
+                            📎 The candidate's resume has also been attached to this email as a PDF file.
+                          </p>` : ""}
+                        </td>
+                      </tr>
+                    </table>
+
+                    <!-- Complete Candidate Profile Dossier -->
+                    <table role="presentation" border="0" cellpadding="0" cellspacing="0" width="100%" style="background-color: #f8fafc; border: 1px solid #e2e8f0; border-radius: 16px; padding: 22px; margin-bottom: 24px;">
+                      <tr>
+                        <td>
+                          <h3 style="margin: 0 0 16px 0; font-size: 13px; font-weight: 800; color: #0f172a; text-transform: uppercase; letter-spacing: 0.5px;">
+                            Candidate Profile Snapshot
+                          </h3>
+                          <table role="presentation" border="0" cellpadding="0" cellspacing="0" width="100%">
+                            <tr>
+                              <td style="padding: 6px 0; font-size: 13px; color: #64748b; width: 140px; font-weight: 600;">Candidate Name:</td>
+                              <td style="padding: 6px 0; font-size: 15px; color: #0f172a; font-weight: 800;">${options.candidateName}</td>
+                            </tr>
+                            <tr>
+                              <td style="padding: 6px 0; font-size: 13px; color: #64748b; font-weight: 600;">Applied Position:</td>
+                              <td style="padding: 6px 0; font-size: 14px; color: #0f172a; font-weight: 700;">${options.jobTitle}</td>
+                            </tr>
+                            ${options.currentRole ? `
+                            <tr>
+                              <td style="padding: 6px 0; font-size: 13px; color: #64748b; font-weight: 600;">Current Role:</td>
+                              <td style="padding: 6px 0; font-size: 14px; color: #0f172a; font-weight: 600;">${options.currentRole} ${options.currentCompany ? `at ${options.currentCompany}` : ""}</td>
+                            </tr>` : ""}
+                            ${options.candidateExperience ? `
+                            <tr>
+                              <td style="padding: 6px 0; font-size: 13px; color: #64748b; font-weight: 600;">Experience:</td>
+                              <td style="padding: 6px 0; font-size: 14px; color: #0f172a; font-weight: 700;">${options.candidateExperience}</td>
+                            </tr>` : ""}
+                            ${options.noticePeriod ? `
+                            <tr>
+                              <td style="padding: 6px 0; font-size: 13px; color: #64748b; font-weight: 600;">Notice Period:</td>
+                              <td style="padding: 6px 0; font-size: 14px; color: #0f172a; font-weight: 600;">${options.noticePeriod}</td>
+                            </tr>` : ""}
+                            ${options.education ? `
+                            <tr>
+                              <td style="padding: 6px 0; font-size: 13px; color: #64748b; font-weight: 600;">Education:</td>
+                              <td style="padding: 6px 0; font-size: 14px; color: #0f172a; font-weight: 600;">${options.education}</td>
+                            </tr>` : ""}
+                            ${options.city ? `
+                            <tr>
+                              <td style="padding: 6px 0; font-size: 13px; color: #64748b; font-weight: 600;">Location:</td>
+                              <td style="padding: 6px 0; font-size: 14px; color: #0f172a; font-weight: 600;">${options.area ? `${options.area}, ` : ""}${options.city}</td>
+                            </tr>` : ""}
+                            ${(options.currentSalary || options.expectedSalary) ? `
+                            <tr>
+                              <td style="padding: 6px 0; font-size: 13px; color: #64748b; font-weight: 600;">Salary (Cur / Exp):</td>
+                              <td style="padding: 6px 0; font-size: 14px; color: #0f172a; font-weight: 600;">${options.currentSalary ? `₹${options.currentSalary}` : "N/A"} &rarr; ${options.expectedSalary ? `₹${options.expectedSalary}` : "Negotiable"}</td>
+                            </tr>` : ""}
+                            ${options.candidatePhone ? `
+                            <tr>
+                              <td style="padding: 6px 0; font-size: 13px; color: #64748b; font-weight: 600;">Phone Number:</td>
+                              <td style="padding: 6px 0; font-size: 14px; color: #0f172a; font-weight: 700;">
+                                <a href="tel:${options.candidatePhone.replace(/[^0-9+]/g, "")}" style="color: #2563eb; text-decoration: none;">📞 ${options.candidatePhone}</a>
+                              </td>
+                            </tr>` : ""}
+                            ${options.candidateEmail ? `
+                            <tr>
+                              <td style="padding: 6px 0; font-size: 13px; color: #64748b; font-weight: 600;">Email Address:</td>
+                              <td style="padding: 6px 0; font-size: 14px; color: #0f172a; font-weight: 700;">
+                                <a href="mailto:${options.candidateEmail}" style="color: #2563eb; text-decoration: none;">✉️ ${options.candidateEmail}</a>
+                              </td>
+                            </tr>` : ""}
+                            <tr>
+                              <td style="padding: 6px 0; font-size: 13px; color: #64748b; font-weight: 600;">Submitted On:</td>
+                              <td style="padding: 6px 0; font-size: 14px; color: #0f172a; font-weight: 600;">${options.appliedDate || new Date().toLocaleString("en-IN", { timeZone: "Asia/Kolkata" })}</td>
+                            </tr>
+                          </table>
+
+                          <!-- Skills -->
+                          <div style="margin-top: 14px; padding-top: 12px; border-top: 1px dashed #cbd5e1;">
+                            <p style="margin: 0 0 8px 0; font-size: 12px; font-weight: 700; color: #475569;">Key Candidate Skills:</p>
+                            <div>${skillsHtml}</div>
+                          </div>
+
+                          <!-- Candidate Summary Note -->
+                          ${options.summary ? `
+                          <div style="margin-top: 14px; padding-top: 12px; border-top: 1px dashed #cbd5e1;">
+                            <p style="margin: 0 0 4px 0; font-size: 12px; font-weight: 700; color: #475569;">Candidate Summary / Note:</p>
+                            <p style="margin: 0; font-size: 13px; color: #1e293b; line-height: 1.5; font-style: italic;">"${options.summary}"</p>
+                          </div>` : ""}
+
+                          <!-- Screening Questions -->
+                          ${screeningHtml ? `
+                          <div style="margin-top: 14px; padding-top: 12px; border-top: 1px dashed #cbd5e1;">
+                            <p style="margin: 0 0 8px 0; font-size: 12px; font-weight: 700; color: #475569;">Screening Questionnaire Responses:</p>
+                            ${screeningHtml}
+                          </div>` : ""}
+
+                          <!-- External Portfolio / Social Links -->
+                          ${(options.portfolioUrl || options.linkedinUrl || options.githubUrl) ? `
+                          <div style="margin-top: 14px; padding-top: 12px; border-top: 1px dashed #cbd5e1; font-size: 12px;">
+                            <p style="margin: 0 0 6px 0; font-weight: 700; color: #475569;">External Profiles:</p>
+                            ${options.portfolioUrl ? `<a href="${options.portfolioUrl}" target="_blank" style="margin-right: 12px; color: #2563eb; text-decoration: none; font-weight: 700;">🌐 Portfolio</a>` : ""}
+                            ${options.linkedinUrl ? `<a href="${options.linkedinUrl}" target="_blank" style="margin-right: 12px; color: #0a66c2; text-decoration: none; font-weight: 700;">💼 LinkedIn</a>` : ""}
+                            ${options.githubUrl ? `<a href="${options.githubUrl}" target="_blank" style="color: #0f172a; text-decoration: none; font-weight: 700;">🐙 GitHub</a>` : ""}
+                          </div>` : ""}
+
+                        </td>
+                      </tr>
+                    </table>
+
+                    <!-- Review in Dashboard CTA -->
+                    <table role="presentation" border="0" cellpadding="0" cellspacing="0" width="100%" style="margin-top: 10px;">
+                      <tr>
+                        <td align="center">
+                          <a href="${portalUrl}/my/employer/jobs" target="_blank" style="display: inline-block; background: linear-gradient(135deg, #4f46e5, #4338ca); color: #ffffff; text-decoration: none; font-size: 14px; font-weight: 700; padding: 14px 28px; border-radius: 12px; box-shadow: 0 4px 12px rgba(79,70,229,0.25);">
+                            Review &amp; Schedule Interview in Dashboard &rarr;
+                          </a>
+                        </td>
+                      </tr>
+                    </table>
+
+                  </td>
+                </tr>
+              </table>
+
+              ${footerHtml}
+            </td>
+          </tr>
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>
+  `;
+
+  return dispatchEmail({ to: options.employerEmail, subject, html, attachments });
+}
+
+
+export interface StoreVerificationApprovalEmailOptions {
+  ownerEmail: string;
+  ownerName?: string;
+  storeName: string;
+  storeId: string;
+  slug?: string;
+  gstin?: string;
+  category?: string;
+  location?: string;
+  verifiedAt?: string;
+}
+
+export async function sendStoreVerificationApprovalEmail(
+  options: StoreVerificationApprovalEmailOptions
+): Promise<{ success: boolean; messageId?: string; error?: string }> {
+  if (!options.ownerEmail) return { success: false, error: "Store owner email is required" };
+  const ownerDisplayName = options.ownerName?.trim() || "Store Owner";
+  const subject = `🎉 Congratulations! Your store "${options.storeName}" has been successfully verified on Omeetso`;
+  const portalUrl = (env.CLIENT_USER_URL || "https://omeetso.in").replace(/\/$/, "");
+
+  const headerHtml = renderEmailHeader({
+    portalUrl,
+    badgeText: "🛡️ Official Store Verified",
+    badgeBg: "#f0fdf4",
+    badgeBorder: "#bbf7d0",
+    badgeColor: "#15803d"
+  });
+
+  const footerHtml = renderEmailFooter({
+    portalUrl,
+    securityNote: "You received this email because your business verification documents were verified and approved by the Omeetso Merchant Moderation team."
+  });
+
+  const storePublicUrl = `${portalUrl}/store/${options.slug || options.storeId}`;
+  const storeManageUrl = `${portalUrl}/store/manage/${options.slug || options.storeId}`;
+
+  const html = `
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Your Store Has Been Successfully Verified!</title>
+</head>
+<body style="margin: 0; padding: 0; background-color: #f1f5f9; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; color: #0f172a; -webkit-font-smoothing: antialiased;">
+  <table role="presentation" border="0" cellpadding="0" cellspacing="0" width="100%" style="background-color: #f1f5f9; padding: 30px 12px;">
+    <tr>
+      <td align="center">
+        <table role="presentation" border="0" cellpadding="0" cellspacing="0" width="100%" style="max-width: 600px; background-color: #ffffff; border-radius: 20px; overflow: hidden; border: 1px solid #e2e8f0; box-shadow: 0 10px 30px rgba(0,0,0,0.06);">
+          <tr>
+            <td>
+              ${headerHtml}
+
+              <!-- Content Body -->
+              <table role="presentation" border="0" cellpadding="0" cellspacing="0" width="100%" style="padding: 34px 32px 28px 32px;">
+                <tr>
+                  <td>
+                    <h1 style="font-size: 22px; font-weight: 800; color: #0f172a; margin: 0 0 10px 0; text-align: center; line-height: 1.3;">
+                      Store Verified Successfully! 🎉
+                    </h1>
+                    <p style="font-size: 14px; color: #475569; line-height: 1.6; margin: 0 0 24px 0; text-align: center;">
+                      Dear <strong>${ownerDisplayName}</strong>, Congratulations! 🎉 We’re delighted to inform you that your store <strong>"${options.storeName}"</strong> has been successfully verified on Omeetso.
+                    </p>
+
+                    <!-- Trust Announcement Card -->
+                    <table role="presentation" border="0" cellpadding="0" cellspacing="0" width="100%" style="background-color: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 14px; padding: 16px 20px; margin-bottom: 24px;">
+                      <tr>
+                        <td>
+                          <div style="font-size: 13px; color: #166534; line-height: 1.5; font-weight: 600;">
+                            🛡️ <strong>Verified Store Badge Awarded:</strong> Your store now prominently displays the official blue Verified Store badge across all search results, neighborhood categories, and public storefront pages. Local buyers can now shop with complete trust!
+                          </div>
+                        </td>
+                      </tr>
+                    </table>
+
+                    <!-- Store Details Card -->
+                    <table role="presentation" border="0" cellpadding="0" cellspacing="0" width="100%" style="background-color: #f8fafc; border: 1px solid #e2e8f0; border-radius: 16px; padding: 20px 22px; margin-bottom: 24px;">
+                      <tr>
+                        <td>
+                          <table role="presentation" border="0" cellpadding="0" cellspacing="0" width="100%">
+                            <tr>
+                              <td style="padding: 6px 0; font-size: 13px; color: #64748b; width: 140px; font-weight: 600;">Store Name:</td>
+                              <td style="padding: 6px 0; font-size: 14px; color: #0f172a; font-weight: 700;">${options.storeName}</td>
+                            </tr>
+                            ${options.category ? `
+                            <tr>
+                              <td style="padding: 6px 0; font-size: 13px; color: #64748b; font-weight: 600;">Category:</td>
+                              <td style="padding: 6px 0; font-size: 14px; color: #0f172a; font-weight: 600;">${options.category}</td>
+                            </tr>` : ""}
+                            ${options.location ? `
+                            <tr>
+                              <td style="padding: 6px 0; font-size: 13px; color: #64748b; font-weight: 600;">Location:</td>
+                              <td style="padding: 6px 0; font-size: 14px; color: #0f172a; font-weight: 600;">${options.location}</td>
+                            </tr>` : ""}
+                            ${options.gstin ? `
+                            <tr>
+                              <td style="padding: 6px 0; font-size: 13px; color: #64748b; font-weight: 600;">GSTIN / Reg No:</td>
+                              <td style="padding: 6px 0; font-size: 14px; color: #0f172a; font-family: monospace; font-weight: 700;">${options.gstin}</td>
+                            </tr>` : ""}
+                            <tr>
+                              <td style="padding: 6px 0; font-size: 13px; color: #64748b; font-weight: 600;">Verified On:</td>
+                              <td style="padding: 6px 0; font-size: 14px; color: #0f172a; font-weight: 600;">${options.verifiedAt || new Date().toLocaleString("en-IN", { timeZone: "Asia/Kolkata" })}</td>
+                            </tr>
+                            <tr>
+                              <td style="padding: 6px 0; font-size: 13px; color: #64748b; font-weight: 600;">Status:</td>
+                              <td style="padding: 6px 0; font-size: 13px;">
+                                <span style="display: inline-block; padding: 4px 10px; background-color: #dcfce7; color: #166534; border: 1px solid #bbf7d0; border-radius: 9999px; font-weight: 700; font-size: 11px; letter-spacing: 0.5px;">VERIFIED STORE PARTNER</span>
+                              </td>
+                            </tr>
+                          </table>
+                        </td>
+                      </tr>
+                    </table>
+
+                    <!-- CTA Buttons -->
+                    <table role="presentation" border="0" cellpadding="0" cellspacing="0" width="100%" style="margin-top: 10px;">
+                      <tr>
+                        <td align="center">
+                          <a href="${storePublicUrl}" target="_blank" style="display: inline-block; background: linear-gradient(135deg, #16a34a, #15803d); color: #ffffff; text-decoration: none; font-size: 14px; font-weight: 700; padding: 14px 28px; border-radius: 12px; box-shadow: 0 4px 12px rgba(22,163,74,0.25); margin-bottom: 12px;">
+                            View Your Verified Storefront &rarr;
+                          </a>
+                          <div style="margin-top: 8px;">
+                            <a href="${storeManageUrl}" target="_blank" style="color: #2563eb; font-size: 13px; font-weight: 600; text-decoration: underline;">
+                              Open Store Management Dashboard &rarr;
+                            </a>
+                          </div>
+                        </td>
+                      </tr>
+                    </table>
+
+                  </td>
+                </tr>
+              </table>
+
+              ${footerHtml}
+            </td>
+          </tr>
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>
+  `;
+
+  return dispatchEmail({ to: options.ownerEmail, subject, html });
 }
 
 /**

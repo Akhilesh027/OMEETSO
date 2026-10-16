@@ -5,6 +5,7 @@ import { JobCategory } from "../models/JobCategory";
 import { User } from "../../users/models/User";
 import { JobApplication } from "../models/JobApplication";
 import { Notification } from "../../notifications/models/Notification";
+import { sendJobApprovalEmail } from "../../auth/services/email.service";
 
 let jobsQueryCache: Record<string, { data: any[]; total: number; expiresAt: number }> = {};
 let jobCategoriesCache: { data: any[]; expiresAt: number } | null = null;
@@ -123,7 +124,8 @@ export async function updateAdminJobStatus(req: Request, res: Response, next: Ne
 
     // Dispatch message / notification to the employer who posted
     if (job.employerId) {
-      const notifTitle = (status === "APPROVED" || status === "ACTIVE")
+      const isApproved = status === "APPROVED" || status === "ACTIVE";
+      const notifTitle = isApproved
         ? `Job Approved: "${job.title}"`
         : status === "REJECTED"
         ? `Job Notice: "${job.title}"`
@@ -139,6 +141,30 @@ export async function updateAdminJobStatus(req: Request, res: Response, next: Ne
         body: notifBody,
         link: `/my/employer/jobs`,
       }).catch(() => {});
+
+      // Dispatch automated Job Approval email to employer if approved
+      if (isApproved) {
+        (async () => {
+          try {
+            const empUser = await User.findById(job.employerId).select("email profile phone").lean();
+            const empEmail = empUser?.email || (empUser?.profile as any)?.email;
+            if (empEmail) {
+              await sendJobApprovalEmail({
+                employerEmail: empEmail,
+                employerName: empUser?.profile?.name || job.companyName,
+                jobTitle: job.title,
+                companyName: job.companyName,
+                jobId: job._id.toString(),
+                approvedAt: new Date().toLocaleString("en-IN", { timeZone: "Asia/Kolkata" }),
+                jobType: job.jobType,
+                location: `${job.location?.area || ""}, ${job.location?.city || ""}`
+              });
+            }
+          } catch (err: any) {
+            console.warn("[Email] Failed to dispatch job approval confirmation email:", err?.message || err);
+          }
+        })();
+      }
     }
 
     res.status(200).json({ success: true, data: { ...job.toObject(), id: job._id.toString() } });

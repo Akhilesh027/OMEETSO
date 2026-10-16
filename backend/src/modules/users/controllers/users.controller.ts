@@ -1,8 +1,9 @@
 import { Request, Response, NextFunction } from "express";
 import mongoose from "mongoose";
 import { User } from "../models/User";
+import { AccountDeactivationFeedback } from "../models/AccountDeactivationFeedback";
 import { UserSession } from "../../auth/models/UserSession";
-import { UserStatus } from "../../../contracts";
+import { UserStatus, ListingStatus } from "../../../contracts";
 import { AuthenticatedUserRequest } from "../../../middleware/authenticateUser";
 import { MALE_AVATAR_DATA_URI } from "../../../utils/avatarSvgs";
 
@@ -337,24 +338,106 @@ export async function deleteMyAccount(req: AuthenticatedUserRequest, res: Respon
     }
 
     const userId = req.user._id;
+    const { reason = "Permanent deletion requested", customFeedback = "" } = req.body || {};
 
-    // Mark user status as DELETED
+    // 1. Record Feedback in AccountDeactivationFeedback collection
+    await AccountDeactivationFeedback.create({
+      userId,
+      userName: req.user.profile?.name || (req.user as any).name || "Omeetso User",
+      phone: req.user.phone || "",
+      email: req.user.email || "",
+      reason,
+      customFeedback,
+      actionType: "DELETE"
+    }).catch((err) => console.error("Failed to record deactivation feedback:", err));
+
+    // 2. Mark user status as DELETED
     req.user.status = UserStatus.DELETED;
+    req.user.deactivationReason = reason;
+    req.user.deactivationFeedback = customFeedback;
+    req.user.deactivatedAt = new Date();
     await req.user.save();
 
-    // Revoke all active sessions for this user
+    // 3. Mark active listings as REMOVED
+    await Listing.updateMany(
+      { sellerId: userId },
+      { $set: { status: ListingStatus.REMOVED, isActive: false } }
+    ).catch(() => {});
+
+    // 4. Revoke all active sessions for this user
     await UserSession.updateMany(
       { userId, isRevoked: false },
       { $set: { isRevoked: true } }
     );
 
-    // Clear refresh cookie
+    // 5. Clear refresh cookie
     res.clearCookie("omeetso_user_refresh", { path: "/api/v1/auth" });
 
     res.status(200).json({
       success: true,
-      data: { message: "Your account has been deleted successfully and all sessions have been revoked." }
+      data: { message: "Your account has been deleted permanently and all active sessions have been revoked." }
     });
+  } catch (error) {
+    next(error);
+  }
+}
+
+export async function deactivateMyAccount(req: AuthenticatedUserRequest, res: Response, next: NextFunction): Promise<void> {
+  try {
+    if (!req.user) {
+      res.status(401).json({ success: false, error: { code: "UNAUTHORIZED", message: "User required" } });
+      return;
+    }
+
+    const userId = req.user._id;
+    const { reason = "Account deactivation requested", customFeedback = "" } = req.body || {};
+
+    // 1. Record Feedback in AccountDeactivationFeedback collection
+    await AccountDeactivationFeedback.create({
+      userId,
+      userName: req.user.profile?.name || (req.user as any).name || "Omeetso User",
+      phone: req.user.phone || "",
+      email: req.user.email || "",
+      reason,
+      customFeedback,
+      actionType: "DEACTIVATE"
+    }).catch((err) => console.error("Failed to record deactivation feedback:", err));
+
+    // 2. Mark user status as DEACTIVATED
+    req.user.status = UserStatus.DEACTIVATED;
+    req.user.deactivationReason = reason;
+    req.user.deactivationFeedback = customFeedback;
+    req.user.deactivatedAt = new Date();
+    await req.user.save();
+
+    // 3. Pause active listings so they are safely hidden
+    await Listing.updateMany(
+      { sellerId: userId, status: ListingStatus.ACTIVE },
+      { $set: { status: ListingStatus.PAUSED, isActive: false } }
+    ).catch(() => {});
+
+    // 4. Revoke all active sessions for this user
+    await UserSession.updateMany(
+      { userId, isRevoked: false },
+      { $set: { isRevoked: true } }
+    );
+
+    // 5. Clear refresh cookie
+    res.clearCookie("omeetso_user_refresh", { path: "/api/v1/auth" });
+
+    res.status(200).json({
+      success: true,
+      data: { message: "Your account has been deactivated. You can sign back in or contact support to reactivate." }
+    });
+  } catch (error) {
+    next(error);
+  }
+}
+
+export async function getAdminDeactivationsList(_req: Request, res: Response, next: NextFunction): Promise<void> {
+  try {
+    const list = await AccountDeactivationFeedback.find({}).sort({ createdAt: -1 }).lean();
+    res.status(200).json({ success: true, data: list });
   } catch (error) {
     next(error);
   }

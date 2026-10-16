@@ -4,6 +4,7 @@ import { PageHeader } from "@/components/layout/PageHeader";
 import { PageContainer } from "@/components/layout/PageContainer";
 import { MOCK_STORES } from "@/services/mockDataService";
 import { API_BASE } from "@/config/api";
+import { approveStoreApi, rejectStoreApi } from "@/api/adminStores.api";
 import type { Store } from "@/types";
 import {
   Store as StoreIcon,
@@ -65,7 +66,7 @@ const MOCK_STORE_PRODUCTS: MockStoreProduct[] = [];
 export default function StoreDetailPage() {
   const { storeId } = useParams();
   const navigate = useNavigate();
-  const { showSuccess } = useToast();
+  const { showSuccess, showError } = useToast();
 
   const [liveStore, setLiveStore] = useState<Store | null>(null);
   const [liveProducts, setLiveProducts] = useState<MockStoreProduct[]>([]);
@@ -101,8 +102,8 @@ export default function StoreDetailPage() {
             gstin: item.gstin || "36AABCU9603R1ZM",
             verificationStatus: item.status === "active" || item.status === "approved" ? "verified" : "under_review",
             status: item.status || "active",
-            rating: item.rating || 4.8,
-            reviewCount: item.reviewCount || 12,
+            rating: typeof item.rating === "number" ? item.rating : 0,
+            reviewCount: typeof item.reviewCount === "number" ? item.reviewCount : 0,
             logo: item.logo,
             cover: item.cover,
             workingHours: item.workingHours,
@@ -137,9 +138,28 @@ export default function StoreDetailPage() {
   ]);
   const [newNote, setNewNote] = useState("");
 
-  const handleUpdateVerification = (status: "verified" | "rejected") => {
+  const handleUpdateVerification = async (status: "verified" | "rejected") => {
+    if (!storeId) return;
+    try {
+      if (status === "verified") {
+        const res = await approveStoreApi(storeId, "Approved by administrator in Store Workspace");
+        if (res.success) {
+          showSuccess("Store Verified", "Store verified & approval email sent to owner.");
+        } else {
+          showError("Action Failed", res.error || "Failed to approve store");
+        }
+      } else {
+        const res = await rejectStoreApi(storeId, "Rejected by administrator in Store Workspace");
+        if (res.success) {
+          showSuccess("Store Application Rejected", "Store verification application marked as rejected.");
+        } else {
+          showError("Action Failed", res.error || "Failed to reject store");
+        }
+      }
+    } catch (err: any) {
+      showError("Network Error", err.message || "Failed to update store verification");
+    }
     setVerificationStatus(status);
-    showSuccess("Store Verification Updated", `Store verification status set to ${status}.`);
   };
 
   const handleAddNote = (e: React.FormEvent) => {
@@ -238,7 +258,11 @@ export default function StoreDetailPage() {
               </div>
               <div className="p-3 bg-[#F5F7FC] rounded-xl space-y-1">
                 <span className="text-slate-500 text-[10px]">Rating</span>
-                <div className="font-bold text-amber-600">★ {store.rating || 4.8} / 5 ({store.reviewCount || 12} Reviews)</div>
+                {store.rating && store.rating > 0 ? (
+                  <div className="font-bold text-amber-600">★ {store.rating} / 5 ({store.reviewCount || 0} Reviews)</div>
+                ) : (
+                  <div className="font-semibold text-slate-400">★ Unrated (0 Reviews)</div>
+                )}
               </div>
               <div className="p-3 bg-[#F5F7FC] rounded-xl space-y-1">
                 <span className="text-slate-500 text-[10px]">GSTIN Number</span>
@@ -441,9 +465,15 @@ export default function StoreDetailPage() {
         {activeTab === "reviews" && (
           <div className="space-y-3">
             <h3 className="text-sm font-bold text-[#111827]">13. Store Reviews & Ratings</h3>
-            <div className="p-3 bg-[#F5F7FC] rounded-xl border border-[#E2E8F0]">
-              <span className="font-bold text-amber-600">★ 4.8 / 5 Rating (140 Verified Customer Reviews)</span>
-            </div>
+            {store.rating && store.rating > 0 ? (
+              <div className="p-3 bg-[#F5F7FC] rounded-xl border border-[#E2E8F0]">
+                <span className="font-bold text-amber-600">★ {store.rating} / 5 Rating ({store.reviewCount || 0} Customer Reviews)</span>
+              </div>
+            ) : (
+              <div className="p-4 bg-[#F5F7FC] rounded-xl border border-[#E2E8F0] text-slate-500 text-xs italic">
+                No customer reviews have been submitted for this store yet.
+              </div>
+            )}
           </div>
         )}
 

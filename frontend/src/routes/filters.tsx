@@ -3,7 +3,7 @@ import { useEffect, useMemo, useState } from "react";
 import { ArrowLeft, ShieldCheck, X, MapPin, Zap, Video } from "lucide-react";
 import { MobileFrame } from "@/components/omeetso/MobileFrame";
 import { CATEGORIES as STATIC_CATEGORIES, SUBCATEGORIES, AREAS, PRODUCTS } from "@/lib/mock";
-import { fetchLiveCategories, getCachedCategories, type LiveCategory } from "@/lib/categories";
+import { fetchLiveCategories, getCachedCategories, getLiveSubcategories, type LiveCategory } from "@/lib/categories";
 
 type S = {
   q?: string; cat?: string; sub?: string;
@@ -45,12 +45,21 @@ function FiltersPage() {
   const toggle = (k: keyof S) => setState((p) => ({ ...p, [k]: p[k] ? undefined : "1" }));
 
   const activeCategoryObj = categories.find((c) => c.id.toLowerCase() === (state.cat || "").toLowerCase());
-  const subs = activeCategoryObj?.subcategories || (state.cat ? SUBCATEGORIES[state.cat] ?? [] : []);
+  const subs = useMemo(() => {
+    if (!state.cat) return [];
+    return getLiveSubcategories(state.cat);
+  }, [state.cat]);
 
   const preview = useMemo(() => {
     let list = PRODUCTS.filter((p) => !p.sponsored);
     if (state.cat) list = list.filter((p) => p.category === state.cat);
-    if (state.sub) list = list.filter((p) => p.subcategory === state.sub);
+    if (state.sub) {
+      const targetSubNorm = state.sub.toLowerCase().replace(/[^a-z0-9]/g, "");
+      list = list.filter((p) => {
+        const pSubNorm = (p.subcategory || "").toLowerCase().replace(/[^a-z0-9]/g, "");
+        return pSubNorm === targetSubNorm || pSubNorm.includes(targetSubNorm) || targetSubNorm.includes(pSubNorm);
+      });
+    }
     const min = state.minP ? Number(state.minP) : undefined;
     const max = state.maxP ? Number(state.maxP) : undefined;
     if (min !== undefined) list = list.filter((p) => p.price >= min);
@@ -97,11 +106,22 @@ function FiltersPage() {
           </Section>
 
           {subs.length > 0 && (
-            <Section title={`Subcategory · ${catObj?.name}`}>
+            <Section title={`Subcategory · ${catObj?.name || state.cat}`}>
               <div className="flex flex-wrap gap-2">
-                {subs.map((s) => (
-                  <Chip key={s} label={s} active={state.sub === s} onClick={() => set("sub", state.sub === s ? undefined : s)} />
-                ))}
+                {subs.map((s) => {
+                  const isSelected = Boolean(
+                    state.sub &&
+                    (state.sub === s.name || state.sub.toLowerCase().replace(/[^a-z0-9]/g, "") === s.name.toLowerCase().replace(/[^a-z0-9]/g, ""))
+                  );
+                  return (
+                    <Chip
+                      key={s.id || s.name}
+                      label={s.name}
+                      active={isSelected}
+                      onClick={() => set("sub", isSelected ? undefined : s.name)}
+                    />
+                  );
+                })}
               </div>
             </Section>
           )}

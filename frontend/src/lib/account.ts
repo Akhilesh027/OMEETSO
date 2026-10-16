@@ -204,13 +204,16 @@ export function getProfile(): Profile {
         ? (liveUser.phone.startsWith("+91") ? liveUser.phone : `+91${liveUser.phone.replace(/\D/g, "").slice(-10)}`)
         : "";
 
-      let resolvedAvatar =
-        (typeof liveUser.profile?.avatar === "string" ? liveUser.profile.avatar : null) ||
-        (typeof liveUser.avatar === "string" ? liveUser.avatar : null) ||
-        (validStored && typeof validStored.avatar === "string" ? validStored.avatar : null) ||
-        DEFAULT_AVATARS.other;
+      let resolvedAvatar = "";
+      if (liveUser.profile && typeof liveUser.profile.avatar === "string") {
+        resolvedAvatar = liveUser.profile.avatar;
+      } else if (typeof liveUser.avatar === "string") {
+        resolvedAvatar = liveUser.avatar;
+      } else if (validStored && typeof validStored.avatar === "string") {
+        resolvedAvatar = validStored.avatar;
+      }
 
-      resolvedAvatar = getCleanAvatar(resolvedAvatar);
+      resolvedAvatar = getCleanAvatar(resolvedAvatar || null, liveUser.profile?.name || validStored?.name);
 
       const rawArea = (typeof liveUser.profile?.area === "string" ? liveUser.profile.area : "") ||
                       (validStored && typeof validStored.area === "string" ? validStored.area : "") ||
@@ -499,6 +502,36 @@ function getNotifStorageKey(): string | null {
   return uid ? `omeetso_notifications_${uid}` : null;
 }
 
+function getListingIdFromNotification(n: Notification): string | null {
+  if ((n as any).metadata?.listingId) return String((n as any).metadata.listingId);
+  if (n.destination) {
+    const match = n.destination.match(/\/(?:product|listing)\/([a-zA-Z0-9_-]+)/);
+    if (match) return match[1];
+  }
+  if (n.link) {
+    const match = n.link.match(/\/(?:product|listing)\/([a-zA-Z0-9_-]+)/);
+    if (match) return match[1];
+  }
+  if (n.id) {
+    const match = n.id.match(/(?:nearby-notif|listing-created|listing)-([a-zA-Z0-9_-]+)/);
+    if (match) return match[1];
+  }
+  return null;
+}
+
+function isListingIdDeletedLocally(id: string): boolean {
+  if (typeof window === "undefined" || !id) return false;
+  try {
+    const raw = localStorage.getItem("omeetso_deleted_listings");
+    if (!raw) return false;
+    const list: string[] = JSON.parse(raw);
+    const cleanId = id.trim();
+    return Array.isArray(list) && (list.includes(cleanId) || list.includes(id));
+  } catch {
+    return false;
+  }
+}
+
 export function listNotifications(): Notification[] {
   if (!isUserLoggedInSync()) return [];
   const uid = getCurrentUserId();
@@ -523,12 +556,20 @@ export function listNotifications(): Notification[] {
     (n) =>
       n.userId === uid &&
       !n.id.startsWith("N") &&
+      !n.id.startsWith("listing-created-") &&
+      !n.id.startsWith("nearby-notif-") &&
+      !n.id.startsWith("nearby-updated-") &&
+      !n.id.startsWith("listing-updated-") &&
       !n.title?.includes("Ramesh Kumar") &&
       !n.title?.includes("Sanjay") &&
       !n.body?.includes("Wooden Sofa Set") &&
       !n.body?.includes("Satish Electronics") &&
       !n.body?.includes("Popular Boost") &&
-      !n.advertiser?.includes("Sample Advertiser")
+      !n.advertiser?.includes("Sample Advertiser") &&
+      (() => {
+        const lid = getListingIdFromNotification(n);
+        return !(lid && isListingIdDeletedLocally(lid));
+      })()
   );
 
   // Deduplicate items by ID and by title+body fingerprint
@@ -580,6 +621,56 @@ export function deleteNotification(id: string) {
   write(key, listNotifications().filter((n) => n.id !== id));
   emitNotifEvent();
 }
+export function removeNotificationsForListing(listingId: string) {
+  if (!listingId) return;
+  const cleanId = listingId.trim();
+  const keysToClean: string[] = [];
+
+  const uid = getCurrentUserId();
+  if (uid) keysToClean.push(`omeetso_notifications_${uid}`);
+  keysToClean.push("omeetso_notifications", "omeetso_notifications_guest");
+
+  if (typeof window !== "undefined") {
+    try {
+      for (let i = 0; i < localStorage.length; i++) {
+        const k = localStorage.key(i);
+        if (k && (k.startsWith("omeetso_notifications_") || k === "omeetso_notifications")) {
+          if (!keysToClean.includes(k)) keysToClean.push(k);
+        }
+      }
+    } catch {}
+  }
+
+  for (const key of keysToClean) {
+    try {
+      const raw = localStorage.getItem(key);
+      if (!raw) continue;
+      const notifs: Notification[] = JSON.parse(raw);
+      if (!Array.isArray(notifs)) continue;
+      const filtered = notifs.filter((n) => {
+        if (n.link && (n.link.includes(cleanId) || n.link.includes(`/listing/${cleanId}`) || n.link.includes(`/product/${cleanId}`))) {
+          return false;
+        }
+        if (n.destination && (n.destination.includes(cleanId) || n.destination.includes(`/listing/${cleanId}`) || n.destination.includes(`/product/${cleanId}`))) {
+          return false;
+        }
+        if (n.id && (n.id.includes(cleanId) || n.id.includes(`listing-${cleanId}`) || n.id.includes(`nearby-notif-${cleanId}`))) {
+          return false;
+        }
+        if ((n as any).metadata?.listingId === cleanId) {
+          return false;
+        }
+        const lid = getListingIdFromNotification(n);
+        if (lid && (lid === cleanId || isListingIdDeletedLocally(lid))) {
+          return false;
+        }
+        return true;
+      });
+      localStorage.setItem(key, JSON.stringify(filtered));
+    } catch {}
+  }
+  emitNotifEvent();
+}
 export function clearCategory(category: NotifCategory) {
   const key = getNotifStorageKey();
   if (!key) return;
@@ -621,8 +712,34 @@ export function pushNotification(n: Omit<Notification, "time"> & { time?: number
   return full;
 }
 
+function isListingNearbyChangesActive(id: string): boolean {
+  if (typeof window === "undefined" || !id) return false;
+  try {
+    const uid = getCurrentUserId();
+    const keys = [uid ? `omeetso_user_listings_${uid}` : null, "omeetso_user_listings"].filter(Boolean) as string[];
+    for (const k of keys) {
+      const raw = localStorage.getItem(k);
+      if (!raw) continue;
+      const list = JSON.parse(raw);
+      if (Array.isArray(list)) {
+        const found = list.find((item: any) => item && (item.id === id || item._id === id));
+        if (found) {
+          return Boolean(found.nearbyChanges?.enabled);
+        }
+      }
+    }
+  } catch {}
+  return false;
+}
+
 export function listNearbyChangesNotifications(): Notification[] {
-  return listNotifications().filter((n) => n.category === "nearby_changes");
+  return listNotifications().filter((n) => {
+    if (n.category !== "nearby_changes") return false;
+    const lid = getListingIdFromNotification(n);
+    if (lid && isListingIdDeletedLocally(lid)) return false;
+    if (lid && !isListingNearbyChangesActive(lid)) return false;
+    return true;
+  });
 }
 
 // ============== Notification preferences ==============
@@ -836,62 +953,22 @@ export type SupportTicket = {
   resolution?: string;
 };
 
-const DEFAULT_TICKETS: SupportTicket[] = [
-  {
-    id: "T1", number: "OMS-240718-001", category: "Selling",
-    subject: "Listing rejected after image update",
-    description: "My listing was rejected after I updated the images with better lighting. Please review the images and clarify what is not allowed.",
-    attachments: [], contactMethod: "in_app",
-    status: "in_progress", createdAt: new Date("2026-07-18").getTime(), updatedAt: Date.now() - 6 * 3600000,
-    messages: [
-      { id: "m1", author: "user", body: "Please review my updated listing images.", attachments: [], time: new Date("2026-07-18T10:15:00").getTime() },
-      { id: "m2", author: "support", body: "Thanks for reaching out. We are reviewing your listing images and will update within 24 hours.", attachments: [], time: new Date("2026-07-18T14:30:00").getTime() },
-    ],
-    timeline: [
-      { status: "open", time: new Date("2026-07-18T10:15:00").getTime() },
-      { status: "assigned", time: new Date("2026-07-18T12:00:00").getTime() },
-      { status: "in_progress", time: new Date("2026-07-18T14:30:00").getTime(), note: "Under review by trust team" },
-    ],
-  },
-  {
-    id: "T2", number: "OMS-240719-002", category: "Payments",
-    subject: "Promotion payment deducted twice",
-    description: "My promotion was paid twice today. Please refund the duplicate amount to my Omeetso Wallet.",
-    attachments: [], contactMethod: "in_app",
-    status: "waiting_user", createdAt: new Date("2026-07-19").getTime(), updatedAt: Date.now() - 12 * 3600000,
-    messages: [
-      { id: "m1", author: "user", body: "Please refund the duplicate amount.", attachments: [], time: new Date("2026-07-19T09:00:00").getTime() },
-      { id: "m2", author: "support", body: "Could you share the two transaction reference numbers so we can verify?", attachments: [], time: new Date("2026-07-19T11:00:00").getTime() },
-    ],
-    timeline: [
-      { status: "open", time: new Date("2026-07-19T09:00:00").getTime() },
-      { status: "waiting_user", time: new Date("2026-07-19T11:00:00").getTime(), note: "Waiting for user to share transaction references" },
-    ],
-  },
-  {
-    id: "T3", number: "OMS-240720-003", category: "Stores",
-    subject: "Unable to update store working hours",
-    description: "The working hours form does not save for Sunday.",
-    attachments: [], contactMethod: "in_app",
-    status: "resolved", createdAt: new Date("2026-07-20").getTime(), updatedAt: new Date("2026-07-21T15:00:00").getTime(),
-    messages: [
-      { id: "m1", author: "user", body: "Sunday hours won't save.", attachments: [], time: new Date("2026-07-20T10:00:00").getTime() },
-      { id: "m2", author: "support", body: "We have applied a fix. Please try updating your Sunday hours now.", attachments: [], time: new Date("2026-07-21T15:00:00").getTime() },
-    ],
-    timeline: [
-      { status: "open", time: new Date("2026-07-20T10:00:00").getTime() },
-      { status: "in_progress", time: new Date("2026-07-20T14:00:00").getTime() },
-      { status: "resolved", time: new Date("2026-07-21T15:00:00").getTime(), note: "Fix deployed" },
-    ],
-    resolution: "Applied fix to Sunday hour saving. If the issue recurs please reopen the ticket.",
-  },
-];
+const DEFAULT_TICKETS: SupportTicket[] = [];
 
 export function listTickets(): SupportTicket[] {
   const stored = read<SupportTicket[] | null>(AK.supportTickets, null);
-  if (stored && stored.length) return stored;
-  write(AK.supportTickets, DEFAULT_TICKETS);
-  return DEFAULT_TICKETS;
+  if (stored && Array.isArray(stored)) {
+    // Purge mock tickets T1, T2, T3 or legacy OMS-2407xx
+    const cleaned = stored.filter(
+      (t) => t.id !== "T1" && t.id !== "T2" && t.id !== "T3" && !t.number?.startsWith("OMS-2407")
+    );
+    if (cleaned.length !== stored.length) {
+      write(AK.supportTickets, cleaned);
+    }
+    return cleaned;
+  }
+  write(AK.supportTickets, []);
+  return [];
 }
 export const getTicket = (id: string) => listTickets().find((t) => t.id === id);
 export function createTicket(t: Omit<SupportTicket, "id" | "number" | "createdAt" | "updatedAt" | "messages" | "timeline" | "status">): SupportTicket {
@@ -941,25 +1018,19 @@ export type Review = {
   moderation: ReviewModeration; moderationNote?: string;
   reports?: { reason: string; time: number }[];
 };
-const DEFAULT_REVIEWS: Review[] = [
-  { id: "R1", kind: "seller", targetId: "u1", targetName: "Ramesh Kumar", reviewerName: "Sanjay P.",
-    overall: 5, categories: { communication: 5, product_accuracy: 5, behaviour: 5, punctuality: 4 },
-    comment: "Great seller, product exactly as described. Would buy again.", createdAt: Date.now() - 5 * 86400000,
-    verified: true, helpful: 4, moderation: "published" },
-  { id: "R2", kind: "store", targetId: "st1", targetName: "Satish Electronics", reviewerName: "Priya M.",
-    overall: 4, categories: { product_quality: 4, service: 5, communication: 4, store_accuracy: 4, delivery: 4 },
-    comment: "Good service, honest team. Store easy to find.", createdAt: Date.now() - 10 * 86400000,
-    verified: true, helpful: 12, moderation: "published" },
-  { id: "R3", kind: "buyer", targetId: "u2", targetName: "Sanjay P.", reviewerName: "Akhil Reddy",
-    overall: 5, categories: { communication: 5, punctuality: 5, behaviour: 5, transaction: 5 },
-    comment: "Prompt and polite. Meeting was quick and safe.", createdAt: Date.now() - 3 * 86400000,
-    verified: true, helpful: 2, moderation: "published" },
-];
+const DEFAULT_REVIEWS: Review[] = [];
+
 export function listReviews(): Review[] {
   const stored = read<Review[] | null>(AK.reviews, null);
-  if (stored && stored.length) return stored;
-  write(AK.reviews, DEFAULT_REVIEWS);
-  return DEFAULT_REVIEWS;
+  if (stored && Array.isArray(stored)) {
+    // Purge fake mock reviews (e.g. Sanjay P., Ramesh Kumar mock records)
+    const cleaned = stored.filter((r) => r.reviewerName !== "Sanjay P." && r.targetName !== "Sanjay P." && r.id !== "R1" && r.id !== "R2" && r.id !== "R3");
+    if (cleaned.length !== stored.length) {
+      write(AK.reviews, cleaned);
+    }
+    return cleaned;
+  }
+  return [];
 }
 export const getReview = (id: string) => listReviews().find((r) => r.id === id);
 export function addReview(r: Omit<Review, "id" | "createdAt" | "helpful" | "moderation" | "verified">): Review {
