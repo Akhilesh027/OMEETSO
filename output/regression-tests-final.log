@@ -1,0 +1,8 @@
+PASS tests/document-issues.test.js
+PASS tests/frontend-auth-and-chat.test.js
+
+Test Suites: 2 passed, 2 total
+Tests:       53 passed, 53 total
+Snapshots:   0 total
+Time:        5.222 s
+Ran all test suites.

@@ -430,6 +430,12 @@ export async function registerUser(req: Request, res: Response, next: NextFuncti
     const tenDigitPhone = cleanDigits.slice(-10);
     const normalizedPhone = `+91${tenDigitPhone}`;
 
+    const verifiedUser = (req as AuthenticatedUserRequest).user;
+    if (!verifiedUser || verifiedUser.phone !== normalizedPhone) {
+      res.status(403).json({ success: false, error: { code: "PHONE_NOT_VERIFIED", message: "Verify this phone number with OTP before completing registration." } });
+      return;
+    }
+
     if (tenDigitPhone.length !== 10) {
       res.status(400).json({ success: false, error: { code: "INVALID_PHONE", message: "Please enter a valid 10-digit mobile number" } });
       return;
@@ -588,7 +594,7 @@ export async function loginUserDirect(req: Request, res: Response, next: NextFun
       return;
     }
 
-    if (user.status === UserStatus.DELETED || user.status === UserStatus.PERMANENTLY_SUSPENDED) {
+    if (user.status === UserStatus.DELETED || user.status === UserStatus.PERMANENTLY_SUSPENDED || user.status === UserStatus.DEACTIVATED) {
       res.status(403).json({
         success: false,
         error: {
@@ -600,6 +606,10 @@ export async function loginUserDirect(req: Request, res: Response, next: NextFun
     }
 
     const userPin = pin || password;
+    if (!(user as any).passwordHash) {
+      res.status(401).json({ success: false, error: { code: "PIN_NOT_SET", message: "Please sign in with OTP and set your PIN." } });
+      return;
+    }
     if ((user as any).passwordHash) {
       if (!userPin) {
         res.status(400).json({ success: false, error: { code: "PIN_REQUIRED", message: "Please enter your 4-digit PIN" } });
@@ -816,86 +826,6 @@ export async function resetUserPin(req: Request, res: Response, next: NextFuncti
   }
 }
 
-export async function loginWithGoogle(req: Request, res: Response, next: NextFunction): Promise<void> {
-  try {
-    const { email, name, avatar, googleId } = req.body;
-    const safeEmail = email ? String(email).trim().toLowerCase() : "";
-    const safeName = name ? String(name).trim() : "Google User";
-
-    let user: any = null;
-    if (safeEmail) {
-      user = await User.findOne({ $or: [{ email: safeEmail }, { "profile.email": safeEmail }] });
-    }
-
-    if (!user) {
-      // Generate a unique fallback phone for new Google user if needed
-      const uniqueSuffix = Date.now().toString().slice(-6);
-      const generatedPhone = `+919000${uniqueSuffix}`;
-
-      user = await User.create({
-        phone: generatedPhone,
-        email: safeEmail || undefined,
-        emailVerified: Boolean(safeEmail),
-        accountType: "individual",
-        status: UserStatus.ACTIVE,
-        profile: {
-          name: safeName,
-          avatar: avatar || "",
-          city: "Hyderabad",
-          pincode: "",
-          area: "",
-          language: "en",
-          memberSince: new Date()
-        },
-        verificationSummary: {
-          mobileVerified: true,
-          emailVerified: Boolean(safeEmail),
-          identityVerified: false,
-          businessVerified: false,
-          riskScore: 98
-        }
-      });
-    }
-
-    // Revoke prior active sessions
-    await UserSession.updateMany(
-      { userId: user._id, isRevoked: false },
-      { $set: { isRevoked: true } }
-    );
-
-    const rawRefreshToken = generateOpaqueToken();
-    const refreshTokenHash = hashToken(rawRefreshToken);
-    const refreshExpiresAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
-
-    const session = await UserSession.create({
-      userId: user._id,
-      refreshTokenHash,
-      ipAddress: req.ip,
-      userAgent: req.get("user-agent"),
-      expiresAt: refreshExpiresAt,
-      isRevoked: false
-    });
-
-    const accessToken = generateUserAccessToken(user._id.toString(), session._id.toString());
-
-    res.cookie(USER_REFRESH_COOKIE, rawRefreshToken, {
-      httpOnly: true,
-      secure: env.NODE_ENV === "production",
-      sameSite: "strict",
-      path: "/api/v1/auth",
-      expires: refreshExpiresAt
-    });
-
-    res.status(200).json({
-      success: true,
-      message: "Signed in successfully with Google",
-      data: {
-        accessToken,
-        refreshToken: rawRefreshToken,
-        user: formatAuthUser(user)
-      }
-    });
-  } catch (error) {
-    next(error);
-  }
+export async function loginWithGoogle(req: Request, res: Response): Promise<void> {
+  res.status(503).json({ success: false, error: { code: "GOOGLE_AUTH_UNAVAILABLE", message: "Google sign-in is unavailable. Please sign in using your PIN or OTP." } });
 }

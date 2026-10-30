@@ -11,6 +11,7 @@ import { uploadFile } from "@/lib/upload";
 import { toast } from "sonner";
 import { pushNotification } from "@/lib/account";
 import { API_BASE } from "@/config/api";
+import { hasApplicationResume } from "@/lib/resumeValidation";
 
 interface ApplyJobModalProps {
   job: JobItem;
@@ -173,6 +174,11 @@ export function ApplyJobModal({ job, isOpen, onClose, onSuccess }: ApplyJobModal
 
     setErrors(errs);
 
+    if (uploadingResume || !hasApplicationResume(formData)) {
+      toast.error(uploadingResume ? "Please wait for your resume to finish uploading." : "Upload a resume or complete your manual profile with education, skills, and a professional title or summary.");
+      return false;
+    }
+
     if (Object.keys(errs).length > 0) {
       toast.error("Please fill in all required details before continuing.");
       return false;
@@ -184,6 +190,11 @@ export function ApplyJobModal({ job, isOpen, onClose, onSuccess }: ApplyJobModal
   const handleResumeFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
+
+    if (!/\.(pdf|doc|docx)$/i.test(file.name)) {
+      toast.error("Please choose a PDF or Word resume.");
+      return;
+    }
 
     if (file.size > 10 * 1024 * 1024) {
       toast.error("Resume file size must be less than 10MB.");
@@ -199,6 +210,8 @@ export function ApplyJobModal({ job, isOpen, onClose, onSuccess }: ApplyJobModal
         reader.onerror = () => resolve(URL.createObjectURL(file));
         reader.readAsDataURL(file);
       });
+
+      if (!finalUrl || finalUrl.startsWith("blob:")) throw new Error("Resume could not be read");
 
       setFormData((prev) => {
         const updated = {
@@ -219,25 +232,7 @@ export function ApplyJobModal({ job, isOpen, onClose, onSuccess }: ApplyJobModal
       });
       toast.success(`Resume "${file.name}" attached successfully!`);
     } catch {
-      const localUrl = URL.createObjectURL(file);
-      setFormData((prev) => {
-        const updated = {
-          ...prev,
-          resumeUrl: localUrl,
-          resumeFileName: file.name,
-        };
-        try {
-          const local = localStorage.getItem("omeetso_candidate_profile");
-          const parsed = local ? JSON.parse(local) : {};
-          localStorage.setItem("omeetso_candidate_profile", JSON.stringify({
-            ...parsed,
-            resumeUrl: localUrl,
-            resumeFileName: file.name,
-          }));
-        } catch { }
-        return updated;
-      });
-      toast.success(`Resume "${file.name}" attached.`);
+      toast.error("Could not attach this resume. Please try again.");
     } finally {
       setUploadingResume(false);
       if (fileInputRef.current) fileInputRef.current.value = "";
@@ -267,6 +262,7 @@ export function ApplyJobModal({ job, isOpen, onClose, onSuccess }: ApplyJobModal
   };
 
   const handleSubmitFinal = async () => {
+    if (loading) return;
     if (!validateDetails()) {
       setStep("form");
       return;
@@ -281,6 +277,7 @@ export function ApplyJobModal({ job, isOpen, onClose, onSuccess }: ApplyJobModal
     setLoading(true);
     try {
       const token = getUserAccessToken() || (typeof window !== "undefined" ? localStorage.getItem("omeetso_user_token") || localStorage.getItem("omeetso_auth_token") : null);
+      if (!token) throw new Error("Please sign in before applying.");
       const formattedAnswers = Object.entries(screeningAnswers).map(([question, answer]) => ({ question, answer }));
 
       let serverApp: any = null;
@@ -329,12 +326,14 @@ export function ApplyJobModal({ job, isOpen, onClose, onSuccess }: ApplyJobModal
             });
             return;
           } else if (json.error?.message) {
-            console.warn("[Job Apply] Server response:", json.error.message);
+            throw new Error(json.error.message);
           }
         } catch (serverErr) {
-          console.warn("[Job Apply] Server fetch skipped or timed out:", serverErr);
+          throw serverErr;
         }
       }
+
+      if (!serverApp) throw new Error("Your application could not be submitted. Please try again.");
 
       submitJobApplicationLocal({
         id: serverApp?.id || serverApp?._id || `APP-${Date.now()}`,

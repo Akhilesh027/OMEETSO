@@ -515,6 +515,9 @@ function JobDetailPage() {
                     if (res.success && res.data?.id) {
                       nav({ to: "/chat/$id", params: { id: res.data.id } });
                     } else {
+                      if (["UNAUTHORIZED", "TOKEN_EXPIRED", "SESSION_REVOKED", "USER_NOT_FOUND"].includes(res.error?.code)) {
+                        nav({ to: "/login", search: { redirect: `/job/${job.id}` } });
+                      }
                       toast.error(res.error?.message || "Could not start chat with employer");
                     }
                   } catch (err: any) {

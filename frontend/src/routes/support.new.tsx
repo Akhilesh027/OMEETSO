@@ -4,6 +4,8 @@ import { MobileFrame } from "@/components/omeetso/MobileFrame";
 import { BackBar } from "@/components/omeetso/TopBar";
 import { createTicket } from "@/lib/account";
 import { createSupportTicketApi } from "@/api/support.api";
+import { uploadFile } from "@/lib/upload";
+import { getUserAccessToken } from "@/api/auth.api";
 import { toast } from "sonner";
 import {
   Upload,
@@ -109,7 +111,9 @@ function NewTicket() {
   const [related, setRelated] = useState({ listing: "", store: "", campaign: "", payment: "" });
   const [showRelated, setShowRelated] = useState(false);
   const [attachments, setAttachments] = useState<string[]>([]);
-  const [contact, setContact] = useState<"in_app" | "email" | "call">("in_app");
+  const [attachmentNames, setAttachmentNames] = useState<string[]>([]);
+  const [uploading, setUploading] = useState(false);
+  const [contact, setContact] = useState<"in_app" | "email">("in_app");
 
   // User contact details prefilled
   const [userName, setUserName] = useState("");
@@ -146,22 +150,28 @@ function NewTicket() {
   const currentCategoryMeta = CATEGORIES.find((c) => c.id === category) || CATEGORIES[0];
   const subs = currentCategoryMeta.sub;
 
-  const pick = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const pick = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(e.target.files ?? []);
-    if (attachments.length + files.length > 5) {
-      toast.error("Maximum 5 attachments allowed");
-      return;
+    e.target.value = "";
+    if (uploading || !files.length) return;
+    if (attachments.length + files.length > 5) { toast.error("Maximum 5 attachments allowed"); return; }
+    if (files.some(file => file.size > 5 * 1024 * 1024 || !["image/png", "image/jpeg", "application/pdf"].includes(file.type))) {
+      toast.error("Choose PNG, JPG or PDF files under 5MB each."); return;
     }
-    const over = files.find((f) => f.size > 5 * 1024 * 1024);
-    if (over) {
-      toast.error("Each attachment must be under 5MB");
-      return;
-    }
-    setAttachments((cur) => [...cur, ...files.map((f) => `ref://${f.name}`)]);
+    setUploading(true);
+    try {
+      const urls = await Promise.all(files.map(file => uploadFile(file, "support")));
+      if (urls.some(url => !url || !/^(https?:|data:)/i.test(url))) throw new Error("Attachment upload failed. Please try again.");
+      if ([...attachments, ...urls].reduce((total, url) => total + url.length, 0) > 8 * 1024 * 1024) throw new Error("Attachments are too large together. Please upload smaller files.");
+      setAttachments(current => [...current, ...urls]);
+      setAttachmentNames(current => [...current, ...files.map(file => file.name)]);
+    } catch (error) { toast.error(error instanceof Error ? error.message : "Could not upload attachments"); }
+    finally { setUploading(false); }
   };
 
   const removeAttachment = (index: number) => {
-    setAttachments((cur) => cur.filter((_, i) => i !== index));
+    setAttachments(current => current.filter((_, i) => i !== index));
+    setAttachmentNames(current => current.filter((_, i) => i !== index));
   };
 
   const copyTicketId = (text: string) => {
@@ -170,7 +180,8 @@ function NewTicket() {
   };
 
   const submit = async () => {
-    if (busy) return;
+    if (busy || uploading) return;
+    if (contact === "in_app" && !getUserAccessToken()) { toast.error("Please sign in to use the in-app support desk, or choose Email."); return; }
     if (!subject.trim()) {
       toast.error("Please enter a subject summary");
       return;
@@ -183,12 +194,8 @@ function NewTicket() {
       toast.error("Description must be at least 5 characters");
       return;
     }
-    if (contact === "email" && userEmail.trim() && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(userEmail.trim())) {
+    if (contact === "email" && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(userEmail.trim())) {
       toast.error("Please enter a valid email address");
-      return;
-    }
-    if (contact === "call" && userPhone.trim() && userPhone.replace(/\D/g, "").length < 10) {
-      toast.error("Please enter a valid 10-digit phone number");
       return;
     }
     if (!declarationConfirmed) {
@@ -210,6 +217,8 @@ function NewTicket() {
           description: description.trim(),
           priority,
           contactMethod: contact,
+          userName: userName.trim(),
+          userEmail: userEmail.trim(),
           relatedListing: related.listing.trim() || undefined,
           relatedStore: related.store.trim() || undefined,
           relatedCampaign: related.campaign.trim() || undefined,
@@ -220,13 +229,15 @@ function NewTicket() {
         if (serverRes.success && serverRes.data) {
           serverTicketId = serverRes.data.id;
           ticketNum = serverRes.data.ticketNumber;
+        } else {
+          throw new Error(serverRes.error || "Could not submit your support request. Please try again.");
         }
       } catch (e) {
-        console.warn("Backend ticket dispatch warning, syncing locally:", e);
+        throw e;
       }
 
       // 2. Also record in local account store for immediate client access & offline support
-      const t = createTicket({
+      try { createTicket({
         category,
         subcategory,
         subject: subject.trim(),
@@ -237,10 +248,10 @@ function NewTicket() {
         relatedStore: related.store.trim() || undefined,
         relatedCampaign: related.campaign.trim() || undefined,
         relatedPayment: related.payment.trim() || undefined,
-      });
+      }); } catch { /* The server already saved the ticket; local cache may be full. */ }
 
-      const finalId = serverTicketId || t.id;
-      const finalNumber = ticketNum || t.number;
+      const finalId = serverTicketId!;
+      const finalNumber = ticketNum;
 
       // Handle email or phone direct dispatch if needed
       if (contact === "email") {
@@ -251,8 +262,6 @@ function NewTicket() {
           }\nDescription:\n${description.trim()}\n\nPlease respond to me via email.\n\nThank you,\n${userName || "Omeetso Member"}`
         );
         window.location.href = `mailto:info@omeetso.in?subject=${mailSubject}&body=${mailBody}`;
-      } else if (contact === "call") {
-        window.location.href = "tel:+919876543210";
       }
 
       toast.success(`Support ticket #${finalNumber} filed successfully!`);
@@ -281,6 +290,7 @@ function NewTicket() {
     setDescription("");
     setSubcategory("");
     setAttachments([]);
+    setAttachmentNames([]);
     setRelated({ listing: "", store: "", campaign: "", payment: "" });
   };
 
@@ -354,9 +364,7 @@ function NewTicket() {
                 <span className="font-bold text-foreground capitalize">
                   {submitted.contactMethod === "in_app"
                     ? "In-App Live Desk"
-                    : submitted.contactMethod === "email"
-                    ? "Email Reply"
-                    : "Phone Hotline"}
+                    : "Email Reply"}
                 </span>
               </div>
             </div>
@@ -384,7 +392,7 @@ function NewTicket() {
                 className="w-full flex items-center justify-center gap-2 rounded-2xl bg-primary py-3.5 text-sm font-bold text-primary-foreground shadow-md hover:bg-primary/90 transition active:scale-[0.99] cursor-pointer"
               >
                 <MessageSquare className="h-4 w-4" />
-                <span>Open Live Support Desk</span>
+                <span>Chat with Support</span>
                 <ChevronRight className="h-4 w-4" />
               </button>
 
@@ -500,7 +508,7 @@ function NewTicket() {
             <label className="text-xs font-extrabold uppercase tracking-wider text-muted-foreground">
               2. Priority Level
             </label>
-            <div className="grid grid-cols-3 gap-2">
+            <div className="grid grid-cols-2 gap-2">
               {[
                 { id: "LOW", label: "Normal", desc: "General question" },
                 { id: "MEDIUM", label: "Standard", desc: "Order or listing" },
@@ -622,7 +630,7 @@ function NewTicket() {
               <Upload className="h-5 w-5 text-muted-foreground" />
               <span className="text-xs font-bold text-foreground">Click to upload screenshots</span>
               <span className="text-[10px] text-muted-foreground">PNG, JPG or PDF up to 5MB each (max 5)</span>
-              <input type="file" multiple className="hidden" onChange={pick} aria-label="Attach files" />
+              <input type="file" accept="image/png,image/jpeg,application/pdf" multiple disabled={uploading || busy} className="hidden" onChange={pick} aria-label="Attach files" />
             </label>
 
             {attachments.length > 0 && (
@@ -633,7 +641,7 @@ function NewTicket() {
                     className="flex items-center gap-1.5 rounded-xl border border-border bg-card px-2.5 py-1.5 text-xs font-medium shadow-2xs"
                   >
                     <FileText className="h-3.5 w-3.5 text-primary" />
-                    <span className="line-clamp-1 max-w-[140px] text-[11px]">{file.replace("ref://", "")}</span>
+                    <span className="line-clamp-1 max-w-[140px] text-[11px]">{attachmentNames[idx] || `Attachment ${idx + 1}`}</span>
                     <button
                       type="button"
                       onClick={() => removeAttachment(idx)}
@@ -656,8 +664,7 @@ function NewTicket() {
             <div className="grid grid-cols-3 gap-2">
               {[
                 { id: "in_app", label: "In-App Desk", icon: MessageSquare },
-                { id: "email", label: "Email", icon: Mail },
-                { id: "call", label: "Phone Call", icon: Phone }
+                { id: "email", label: "Email", icon: Mail }
               ].map((c) => {
                 const IconComponent = c.icon;
                 const active = contact === c.id;
@@ -692,18 +699,7 @@ function NewTicket() {
               </div>
             )}
 
-            {contact === "call" && (
-              <div className="p-3 bg-secondary/30 rounded-2xl border border-border space-y-1">
-                <span className="text-[10px] font-bold text-muted-foreground">Your Phone Number for Callback</span>
-                <input
-                  type="tel"
-                  value={userPhone}
-                  onChange={(e) => setUserPhone(e.target.value)}
-                  placeholder="+91 98765 43210"
-                  className="w-full rounded-xl border border-border bg-card px-3 py-2 text-xs outline-none"
-                />
-              </div>
-            )}
+
           </div>
 
           {/* 7. Declaration Checkbox */}
@@ -733,11 +729,11 @@ function NewTicket() {
               id="submit-ticket-desktop-btn"
               type="button"
               onClick={submit}
-              disabled={busy || !declarationConfirmed}
+              disabled={busy || uploading || !declarationConfirmed}
               className="flex items-center justify-center gap-2 rounded-2xl bg-primary py-3.5 px-8 text-xs font-black text-primary-foreground shadow-lg shadow-primary/25 hover:bg-primary/90 active:scale-[0.99] disabled:opacity-50 transition-all cursor-pointer"
             >
               <Send className="h-4 w-4" />
-              <span>{busy ? "Submitting Ticket..." : "Submit Support Request"}</span>
+              <span>{uploading ? "Uploading attachments..." : busy ? "Submitting Ticket..." : "Submit Support Request"}</span>
             </button>
           </div>
         </div>
@@ -757,7 +753,7 @@ function NewTicket() {
               id="submit-ticket-btn"
               type="button"
               onClick={submit}
-              disabled={busy || !declarationConfirmed}
+              disabled={busy || uploading || !declarationConfirmed}
               className="flex-1 flex items-center justify-center gap-2 rounded-2xl bg-primary py-3.5 px-4 text-xs font-black text-primary-foreground shadow-md hover:bg-primary/90 active:scale-[0.99] disabled:opacity-50 transition-all cursor-pointer"
             >
               <Send className="h-4 w-4" />

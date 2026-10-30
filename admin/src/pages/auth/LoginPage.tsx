@@ -7,8 +7,8 @@ export default function LoginPage() {
   const { login, intendedRoute, setIntendedRoute } = useAdminAuth();
   const navigate = useNavigate();
 
-  const [email, setEmail] = useState("admin@digitalness.co.in");
-  const [password, setPassword] = useState("DLNS@2021");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [rememberDevice, setRememberDevice] = useState(true);
   const [isLoading, setIsLoading] = useState(false);

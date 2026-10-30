@@ -72,6 +72,10 @@ function HelpHome() {
             <span className="inline-flex items-center gap-2"><LifeBuoy className="h-4 w-4" /> Contact support</span>
             <ArrowRight className="h-4 w-4" />
           </Link>
+          <Link to="/support" className="flex items-center justify-between rounded-2xl border border-border bg-card px-4 py-3 text-sm font-bold">
+            <span className="inline-flex items-center gap-2"><MessagesSquare className="h-4 w-4" /> Chat with Support</span>
+            <ArrowRight className="h-4 w-4" />
+          </Link>
         </div>
       </div>
     </MobileFrame>

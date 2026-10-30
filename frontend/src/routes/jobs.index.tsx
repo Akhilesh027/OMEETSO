@@ -790,7 +790,7 @@ function JobsPage() {
                 {liveStores.length > 0 && (
                   <section className="pt-4 space-y-3 w-full max-w-full">
                     <div className="flex items-center justify-between">
-                      <h2 className="text-base font-extrabold text-foreground">Verified Employers & Hiring Partners Near You</h2>
+                      <h2 className="text-base font-extrabold text-foreground">Discover Stores & Businesses Near You</h2>
                       <Link to="/stores" className="text-xs font-bold text-indigo-brand hover:underline">View All Employers</Link>
                     </div>
                     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 w-full">

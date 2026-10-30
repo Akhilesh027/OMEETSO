@@ -12,6 +12,39 @@ export interface EmailAttachment {
   encoding?: string;
 }
 
+export async function sendJobApplicationStatusEmail(options: {
+  candidateEmail: string;
+  candidateName: string;
+  jobTitle: string;
+  companyName: string;
+  status: string;
+  interviewDetails?: { date?: string | Date; time?: string; type?: string; venueOrLink?: string; contactPerson?: string; notes?: string };
+}): Promise<{ success: boolean; error?: string }> {
+  const labels: Record<string, string> = { SHORTLISTED: "Shortlisted", INTERVIEW_SCHEDULED: "Interview Scheduled", SELECTED: "Selected", HIRED: "Hired", REJECTED: "Not Selected" };
+  const label = labels[options.status];
+  if (!label) return { success: false, error: "Unsupported application status" };
+  const escape = (value: string) => value.replace(/[&<>"']/g, char => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[char]!));
+  const lines = [
+    `Hello ${options.candidateName || "Candidate"},`,
+    `Your application for ${options.jobTitle} at ${options.companyName} has been updated to: ${label}.`,
+  ];
+  if (options.status === "INTERVIEW_SCHEDULED" && options.interviewDetails) {
+    const details = options.interviewDetails;
+    const interviewDate = details.date instanceof Date ? details.date.toLocaleDateString("en-IN", { timeZone: "Asia/Kolkata" }) : details.date;
+    for (const [name, value] of Object.entries({ Date: interviewDate, Time: details.time, Type: details.type, "Venue or meeting link": details.venueOrLink, "Contact person": details.contactPerson, Instructions: details.notes })) {
+      if (value) lines.push(`${name}: ${value}`);
+    }
+  }
+  const link = `${env.CLIENT_USER_URL.replace(/\/$/, "")}/my/jobs`;
+  lines.push(`View your application: ${link}`);
+  return dispatchEmail({
+    to: options.candidateEmail,
+    subject: `Application ${label}: ${options.jobTitle} at ${options.companyName}`,
+    text: lines.join("\n\n"),
+    html: `<div style="font-family:Arial,sans-serif;line-height:1.6">${lines.map(line => `<p>${escape(line)}</p>`).join("")}</div>`,
+  });
+}
+
 export interface SendEmailOptions {
   to: string;
   subject: string;

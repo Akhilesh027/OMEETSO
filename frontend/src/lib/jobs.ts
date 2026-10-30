@@ -496,33 +496,16 @@ export function listCandidateApplicationsLocal(): JobApplicationItem[] {
   const currentKey = getCandidateApplicationsStorageKey();
   const allSources: JobApplicationItem[] = [];
 
-  // 1. Current user-scoped candidate applications
-  allSources.push(...getLocal<JobApplicationItem[]>(currentKey, []));
-
-  // 2. Global pre-login applications key
-  allSources.push(...getLocal<JobApplicationItem[]>("omeetso_candidate_applied_jobs", []));
-
-  // 3. Global job applications
-  allSources.push(...getLocal<JobApplicationItem[]>(LS_APPLICATIONS, []));
-
-  // 4. Scan all localStorage candidate and employer keys to never miss any application
-  if (typeof window !== "undefined") {
-    try {
-      for (let i = 0; i < localStorage.length; i++) {
-        const k = localStorage.key(i);
-        if (k && (k.startsWith("omeetso_candidate_applications_") || k.startsWith("omeetso_employer_applicants_"))) {
-          if (k !== currentKey && k !== "omeetso_candidate_applied_jobs") {
-            const raw = localStorage.getItem(k);
-            if (raw) {
-              const parsed = JSON.parse(raw);
-              if (Array.isArray(parsed)) allSources.push(...parsed);
-            }
-          }
-        }
-      }
-    } catch {}
+  let currentUserId = "";
+  try {
+    const user = JSON.parse(localStorage.getItem("omeetso_user") || "null");
+    currentUserId = user?._id || user?.id || "";
+  } catch {}
+  if (!currentUserId) return [];
+  // Use only this candidate's applications, including identifiable legacy records.
+  for (const key of [currentKey, "omeetso_candidate_applied_jobs", LS_APPLICATIONS]) {
+    allSources.push(...getLocal<JobApplicationItem[]>(key, []).filter(app => String(app.applicantId || "") === currentUserId));
   }
-
   // Deduplicate and enrich with job details from LS_JOBS if app.job is missing
   const cachedJobs = getLocal<JobItem[]>(LS_JOBS, []);
   const seen = new Map<string, JobApplicationItem>();
@@ -576,7 +559,7 @@ export async function checkIsCandidateApplied(jobId: string, token?: string | nu
             const isActive = a.status && String(a.status).toUpperCase() !== "WITHDRAWN";
             return isMatch && isActive;
           });
-          if (serverMatch) return true;
+          return serverMatch;
         }
       }
     } catch {

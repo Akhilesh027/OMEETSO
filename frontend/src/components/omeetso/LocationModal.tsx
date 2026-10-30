@@ -106,7 +106,7 @@ export function LocationModal({
           pincode: loc.pincode,
           area: loc.area,
         }),
-      }).catch(() => {});
+      }).catch(() => { });
     }
   };
 

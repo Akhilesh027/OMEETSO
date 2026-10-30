@@ -443,6 +443,15 @@ export default function TicketsListPage() {
                           }`}
                         >
                           {m.text}
+                          {!!m.attachments?.length && (
+                            <div className="mt-2 flex flex-wrap gap-2">
+                              {m.attachments.filter(url => /^(https?:\/\/|data:(image\/(png|jpeg)|application\/pdf);base64,)/i.test(url)).map((url, index) => (
+                                <a key={index} href={url} target="_blank" rel="noopener noreferrer" download={url.startsWith("data:") ? "attachment-" + (index + 1) + (url.startsWith("data:application/pdf") ? ".pdf" : ".jpg") : undefined} className="block rounded-lg border border-slate-200 p-1 underline">
+                                  {/^(data:image\/|https?:\/\/.*\.(png|jpe?g|webp)(\?|$))/i.test(url) ? <img src={url} alt={"Support attachment " + (index + 1)} className="max-h-48 max-w-full rounded object-contain" /> : "Download attachment " + (index + 1)}
+                                </a>
+                              ))}
+                            </div>
+                          )}
                         </div>
                       </div>
                     ))

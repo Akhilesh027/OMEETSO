@@ -129,7 +129,7 @@ export async function registerUserApi(payload: RegisterPayload): Promise<{ succe
   try {
     const res = await fetch(`${API_BASE}/register`, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${getUserAccessToken() || ""}` },
       credentials: "include",
       body: JSON.stringify(payload)
     });
@@ -376,13 +376,13 @@ export function isJwtTokenExpired(token: string | null): boolean {
   if (!token || token === "guest_token" || token === "null" || token === "undefined") {
     return true;
   }
-  if (token === "mock_google_jwt_token" || token.startsWith("mock_")) {
-    return false;
+  if (token.startsWith("mock_") || token === "admin_super_token") {
+    return true;
   }
   try {
     const parts = token.split(".");
     if (parts.length !== 3) {
-      return false;
+      return true;
     }
     const base64Url = parts[1];
     const base64 = base64Url.replace(/-/g, "+").replace(/_/g, "/");
@@ -396,9 +396,9 @@ export function isJwtTokenExpired(token: string | null): boolean {
     if (decoded && typeof decoded.exp === "number") {
       return decoded.exp * 1000 <= Date.now();
     }
-    return false;
+    return true;
   } catch {
-    return false;
+    return true;
   }
 }
 
@@ -441,7 +441,7 @@ export async function checkUserAuthStatus(): Promise<{
       return { isAuthenticated: true, isExpired: false, user: refreshResult.data.user };
     }
     // Clean up expired state
-    localStorage.removeItem("omeetso_user_token");
+    setUserAccessToken(null);
     localStorage.removeItem("omeetso_user");
     return { isAuthenticated: false, isExpired: true };
   }
@@ -457,7 +457,7 @@ export async function checkUserAuthStatus(): Promise<{
       if (refreshResult.success && refreshResult.data) {
         return { isAuthenticated: true, isExpired: false, user: refreshResult.data.user };
       }
-      localStorage.removeItem("omeetso_user_token");
+      setUserAccessToken(null);
       localStorage.removeItem("omeetso_user");
       return { isAuthenticated: false, isExpired: true };
     }
@@ -473,14 +473,6 @@ export async function checkUserAuthStatus(): Promise<{
     // Offline or network error: fall back to local token validation
   }
 
-  if (rawUser) {
-    try {
-      const parsed = JSON.parse(rawUser);
-      return { isAuthenticated: true, isExpired: false, user: parsed };
-    } catch {
-      return { isAuthenticated: true, isExpired: false };
-    }
-  }
 
   return { isAuthenticated: false, isExpired: false };
 }

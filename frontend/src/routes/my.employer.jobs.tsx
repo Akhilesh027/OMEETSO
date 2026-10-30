@@ -296,6 +296,19 @@ function EmployerJobsDashboardPage() {
   });
 
   const handleUpdateStatus = async (appId: string, nextStatus: string) => {
+    try {
+      const token = localStorage.getItem("omeetso_user_token");
+      if (!token) throw new Error("Please sign in to update applications.");
+      const response = await fetch(`${API_BASE}/jobs/applicants/${appId}/status`, {
+        method: "PATCH", headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` }, body: JSON.stringify({ status: nextStatus })
+      });
+      const result = await response.json();
+      if (!response.ok || !result.success) throw new Error(result.error?.message || "Could not update the application.");
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Could not update the application.");
+      return;
+    }
+
     const target = applicants.find((a) => a.id === appId);
     const updated = applicants.map((a) => (a.id === appId ? { ...a, status: nextStatus as any } : a));
     setApplicants(updated);
@@ -317,7 +330,7 @@ function EmployerJobsDashboardPage() {
             const arr = JSON.parse(raw);
             if (Array.isArray(arr)) {
               const updatedCand = arr.map((item: any) => {
-                if (item.id === appId || item._id === appId || item.jobId === selectedJobId) {
+                if (item.id === appId || item._id === appId) {
                   return { ...item, status: nextStatus };
                 }
                 return item;
@@ -329,19 +342,6 @@ function EmployerJobsDashboardPage() {
       } catch {}
     }
 
-    const token = typeof window !== "undefined" ? localStorage.getItem("omeetso_user_token") : null;
-    try {
-      if (token) {
-        await fetch(`${API_BASE}/jobs/applicants/${appId}/status`, {
-          method: "PATCH",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${token}`
-          },
-          body: JSON.stringify({ status: nextStatus })
-        });
-      }
-    } catch { }
 
     if (typeof window !== "undefined") {
       window.dispatchEvent(new Event("omeetso_job_applications_changed"));
@@ -350,18 +350,7 @@ function EmployerJobsDashboardPage() {
 
     toast.success(`Candidate status updated to "${nextStatus}"`);
 
-    if (!token) {
-      pushNotification({
-        id: `job-app-status-${appId}-${Date.now()}`,
-        category: "job_application",
-        title: `Application Status Updated: ${target?.job?.title || "Job Application"}`,
-        body: `Your application status for "${target?.job?.title || "Position"}" was updated to ${nextStatus}.`,
-        destination: "/my/jobs",
-        destinationLabel: "View Job Application",
-        read: false,
-        time: Date.now(),
-      });
-    }
+
   };
 
   const handleSaveInterviewSchedule = async (e: React.FormEvent) => {
@@ -376,6 +365,19 @@ function EmployerJobsDashboardPage() {
         notes: interviewForm.notes
       };
 
+      try {
+        const token = localStorage.getItem("omeetso_user_token");
+        if (!token) throw new Error("Please sign in to schedule interviews.");
+        const response = await fetch(`${API_BASE}/jobs/applicants/${scheduleModalApp.id}/status`, {
+          method: "PATCH", headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+          body: JSON.stringify({ status: "INTERVIEW_SCHEDULED", interviewDetails })
+        });
+        const result = await response.json();
+        if (!response.ok || !result.success) throw new Error(result.error?.message || "Could not schedule the interview.");
+      } catch (error) {
+        toast.error(error instanceof Error ? error.message : "Could not schedule the interview.");
+        return;
+      }
       const updated = applicants.map((a) =>
         a.id === scheduleModalApp.id
           ? {
@@ -399,7 +401,7 @@ function EmployerJobsDashboardPage() {
               const arr = JSON.parse(raw);
               if (Array.isArray(arr)) {
                 const updatedCand = arr.map((item: any) => {
-                  if (item.id === scheduleModalApp.id || item._id === scheduleModalApp.id || item.jobId === selectedJobId) {
+                  if (item.id === scheduleModalApp.id || item._id === scheduleModalApp.id) {
                     return { ...item, status: "INTERVIEW_SCHEDULED", interviewDetails };
                   }
                   return item;
@@ -411,40 +413,12 @@ function EmployerJobsDashboardPage() {
         } catch {}
       }
 
-      const token = typeof window !== "undefined" ? localStorage.getItem("omeetso_user_token") : null;
-      try {
-        if (token) {
-          await fetch(`${API_BASE}/jobs/applicants/${scheduleModalApp.id}/status`, {
-            method: "PATCH",
-            headers: {
-              "Content-Type": "application/json",
-              Authorization: `Bearer ${token}`
-            },
-            body: JSON.stringify({
-              status: "INTERVIEW_SCHEDULED",
-              interviewDetails
-            })
-          });
-        }
-      } catch { }
 
       if (typeof window !== "undefined") {
         window.dispatchEvent(new Event("omeetso_job_applications_changed"));
         window.dispatchEvent(new Event("storage"));
       }
 
-      if (!token) {
-        pushNotification({
-          id: `job-interview-${scheduleModalApp.id}-${Date.now()}`,
-          category: "job_application",
-          title: `Interview Scheduled: ${scheduleModalApp.job?.title || "Job Application"}`,
-          body: `Interview scheduled on ${interviewForm.date || "scheduled date"} at ${interviewForm.time || "scheduled time"}.`,
-          destination: "/my/jobs",
-          destinationLabel: "View Job Application",
-          read: false,
-          time: Date.now(),
-        });
-      }
 
       setScheduleModalApp(null);
       toast.success("Interview scheduled and notification sent to candidate!");

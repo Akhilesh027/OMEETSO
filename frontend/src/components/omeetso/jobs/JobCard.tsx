@@ -3,9 +3,11 @@ import { Link } from "@tanstack/react-router";
 import { MapPin, Briefcase, Clock, ShieldCheck, Zap, Footprints, AlertTriangle, Sparkles, Building2 } from "lucide-react";
 import { JobItem, toggleSaveJobLocal, getSavedJobIds } from "@/lib/jobs";
 import { useState } from "react";
+import { useAppliedJobIds } from "@/hooks/useAppliedJobIds";
 
 export function JobCard({ job, variant = "grid" }: { job: JobItem; variant?: "grid" | "list" }) {
   const [saved, setSaved] = useState(() => getSavedJobIds().includes(job.id));
+  const applied = useAppliedJobIds().has(job.id);
 
   const handleSaveToggle = (e: React.MouseEvent) => {
     e.preventDefault();
@@ -121,7 +123,7 @@ export function JobCard({ job, variant = "grid" }: { job: JobItem; variant?: "gr
               params={{ id: job.id }}
               className="inline-flex items-center gap-1 rounded-xl bg-primary px-4 py-2 text-xs font-bold text-primary-foreground hover:opacity-95 transition-all"
             >
-              {isClosed ? "Position Closed" : "View Job"}
+              {applied ? "Applied" : isClosed ? "Position Closed" : "View Job"}
             </Link>
             <div className="text-[10px] text-muted-foreground flex items-center justify-end gap-1 mt-1 font-semibold">
               <Clock className="h-3 w-3" />
@@ -236,7 +238,7 @@ export function JobCard({ job, variant = "grid" }: { job: JobItem; variant?: "gr
           params={{ id: job.id }}
           className="inline-flex items-center gap-1 rounded-xl bg-primary px-4 py-1.5 text-xs font-bold text-primary-foreground hover:opacity-95 transition-all"
         >
-          {isClosed ? "Position Closed" : "View Job"}
+          {applied ? "Applied" : isClosed ? "Position Closed" : "View Job"}
         </Link>
       </div>
     </div>

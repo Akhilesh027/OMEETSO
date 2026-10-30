@@ -17,7 +17,9 @@ export interface SupportTicketPayload {
   subcategory?: string;
   description: string;
   priority?: "LOW" | "MEDIUM" | "HIGH" | "URGENT";
-  contactMethod?: "in_app" | "email" | "call";
+  contactMethod?: "in_app" | "email";
+  userName?: string;
+  userEmail?: string;
   relatedListing?: string;
   relatedStore?: string;
   relatedCampaign?: string;

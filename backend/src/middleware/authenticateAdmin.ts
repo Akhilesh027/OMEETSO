@@ -1,6 +1,7 @@
 import { Request, Response, NextFunction } from "express";
 import { verifyAccessToken, AdminTokenPayload } from "../modules/auth/utils/token";
 import { AdminUser, IAdminUser } from "../modules/admin/models/AdminUser";
+import { AdminSession } from "../modules/auth/models/AdminSession";
 
 export interface AuthenticatedAdminRequest extends Request {
   admin?: IAdminUser;
@@ -13,66 +14,26 @@ export async function authenticateAdmin(
 ): Promise<void> {
   const authHeader = req.headers.authorization;
   if (!authHeader || !authHeader.startsWith("Bearer ")) {
-    try {
-      let admin = await AdminUser.findOne({ email: "admin@digitalness.co.in" }) || await AdminUser.findOne({ status: "active" });
-      if (!admin) {
-        admin = await AdminUser.create({
-          name: "Digitalness Admin",
-          email: "admin@digitalness.co.in",
-          passwordHash: "$2a$10$wN300b/l1sVq1Rfx321M3.60N9xI/y3O7U6uT5.k8tJ0.KjQ5p.jG",
-          role: "Super Admin",
-          status: "active",
-          permissions: ["*"],
-          twoFAEnabled: false
-        });
-      }
-      req.admin = admin;
-      return next();
-    } catch {
       res.status(401).json({
         success: false,
         error: { code: "UNAUTHORIZED", message: "Admin access token missing or invalid" }
       });
       return;
-    }
   }
 
   const token = authHeader.split(" ")[1];
-  if (token === "admin_super_token" || token.startsWith("mock_") || token === "guest_token") {
-    let admin = await AdminUser.findOne({ email: "admin@digitalness.co.in" }) || await AdminUser.findOne({ status: "active" });
-    if (!admin) {
-      admin = await AdminUser.create({
-        name: "Digitalness Admin",
-        email: "admin@digitalness.co.in",
-        passwordHash: "$2a$10$wN300b/l1sVq1Rfx321M3.60N9xI/y3O7U6uT5.k8tJ0.KjQ5p.jG",
-        role: "Super Admin",
-        status: "active",
-        permissions: ["*"],
-        twoFAEnabled: false
-      });
-    }
-    req.admin = admin;
-    return next();
-  }
-
   try {
     const payload = verifyAccessToken<AdminTokenPayload>(token);
 
     if (payload.aud !== "omeetso-admin") {
-      let admin = await AdminUser.findOne({ email: "admin@digitalness.co.in" }) || await AdminUser.findOne({ status: "active" });
-      if (!admin) {
-        admin = await AdminUser.create({
-          name: "Digitalness Admin",
-          email: "admin@digitalness.co.in",
-          passwordHash: "$2a$10$wN300b/l1sVq1Rfx321M3.60N9xI/y3O7U6uT5.k8tJ0.KjQ5p.jG",
-          role: "Super Admin",
-          status: "active",
-          permissions: ["*"],
-          twoFAEnabled: false
-        });
-      }
-      req.admin = admin;
-      return next();
+      res.status(403).json({ success: false, error: { code: "FORBIDDEN", message: "Invalid admin token audience" } });
+      return;
+    }
+
+    const session = payload.sessionId ? await AdminSession.findById(payload.sessionId) : null;
+    if (!session || String(session.adminId) !== payload.adminId || session.isRevoked || session.expiresAt <= new Date()) {
+      res.status(401).json({ success: false, error: { code: "SESSION_EXPIRED", message: "Admin session expired or revoked. Please sign in again." } });
+      return;
     }
 
     const admin = await AdminUser.findById(payload.adminId);
@@ -95,26 +56,6 @@ export async function authenticateAdmin(
     req.admin = admin;
     next();
   } catch (error) {
-    try {
-      let admin = await AdminUser.findOne({ email: "admin@digitalness.co.in" }) || await AdminUser.findOne({ status: "active" });
-      if (!admin) {
-        admin = await AdminUser.create({
-          name: "Digitalness Admin",
-          email: "admin@digitalness.co.in",
-          passwordHash: "$2a$10$wN300b/l1sVq1Rfx321M3.60N9xI/y3O7U6uT5.k8tJ0.KjQ5p.jG",
-          role: "Super Admin",
-          status: "active",
-          permissions: ["*"],
-          twoFAEnabled: false
-        });
-      }
-      req.admin = admin;
-      return next();
-    } catch {
-      res.status(401).json({
-        success: false,
-        error: { code: "TOKEN_EXPIRED", message: "Admin access token expired or invalid" }
-      });
-    }
+    res.status(401).json({ success: false, error: { code: "TOKEN_EXPIRED", message: "Admin access token expired or invalid" } });
   }
 }

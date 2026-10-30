@@ -13,7 +13,9 @@ import {
   sendJobApplicationConfirmationEmail,
   sendNewJobApplicationNotificationEmail
 } from "../../auth/services/email.service";
+import { sendJobApplicationStatusEmail } from "../../auth/services/email.service";
 import { env } from "../../../config/env";
+import { hasApplicationResume } from "../utils/resumeValidation";
 
 // DEFAULT JOB CATEGORIES SEED DATA
 const DEFAULT_JOB_CATEGORIES = [
@@ -518,6 +520,12 @@ export async function applyToJob(req: AuthenticatedUserRequest, res: Response, n
     // Get candidate profile
     const profile = await CandidateProfile.findOne({ userId: req.user._id });
 
+    // Validate the profile actually attached to this application, including explicit removals.
+    if (!hasApplicationResume(customSnapshot ?? profile)) {
+      res.status(400).json({ success: false, error: { code: "RESUME_REQUIRED", message: "Upload a resume or complete your manual profile with education, skills, and a professional title or summary." } });
+      return;
+    }
+
     const candidateExp = customSnapshot?.experience || profile?.experienceYears || "Fresher";
 
     // Validate experience eligibility against job requirement
@@ -593,8 +601,8 @@ export async function applyToJob(req: AuthenticatedUserRequest, res: Response, n
         area: customSnapshot?.area || profile?.area || "",
         title: customSnapshot?.title || profile?.title || "",
         summary: customSnapshot?.summary || profile?.summary || "",
-        resumeUrl: customSnapshot?.resumeUrl || profile?.resumeUrl || "",
-        resumeFileName: customSnapshot?.resumeFileName || profile?.resumeFileName || "",
+        resumeUrl: customSnapshot?.resumeUrl ?? profile?.resumeUrl ?? "",
+        resumeFileName: customSnapshot?.resumeFileName ?? profile?.resumeFileName ?? "",
         experience: customSnapshot?.experience || profile?.experienceYears || "Fresher",
         currentRole: customSnapshot?.currentRole || profile?.currentRole || "",
         currentCompany: customSnapshot?.currentCompany || profile?.currentCompany || "",
@@ -957,6 +965,11 @@ export async function updateApplicantStatus(req: AuthenticatedUserRequest, res: 
 
     const applicationId = String(req.params.applicationId);
     const { status, interviewDetails, employerNotes } = req.body;
+    const nextStatus = typeof status === "string" ? status.toUpperCase() : undefined;
+    if (status !== undefined && !["APPLIED", "VIEWED", "SHORTLISTED", "INTERVIEW_SCHEDULED", "SELECTED", "HIRED", "REJECTED", "WITHDRAWN"].includes(nextStatus || "")) {
+      res.status(400).json({ success: false, error: { message: "Invalid application status" } });
+      return;
+    }
 
     let app = await JobApplication.findById(applicationId);
     if (!app && mongoose.Types.ObjectId.isValid(applicationId)) {
@@ -979,8 +992,9 @@ export async function updateApplicantStatus(req: AuthenticatedUserRequest, res: 
       return;
     }
 
-    if (status) {
-      app.status = status.toUpperCase() as any;
+    const statusChanged = !!nextStatus && app.status !== nextStatus;
+    if (nextStatus) {
+      app.status = nextStatus as any;
     }
     if (interviewDetails) {
       app.interviewDetails = interviewDetails;
@@ -992,7 +1006,7 @@ export async function updateApplicantStatus(req: AuthenticatedUserRequest, res: 
     await app.save();
 
     // Update job counts
-    if (status) {
+    if (statusChanged) {
       const s = status.toUpperCase();
       if (s === "SHORTLISTED") {
         await Job.findByIdAndUpdate(app.jobId, { $inc: { shortlistedCount: 1 } });
@@ -1004,7 +1018,7 @@ export async function updateApplicantStatus(req: AuthenticatedUserRequest, res: 
     }
 
     // Notify candidate of status update
-    if (app.applicantId) {
+    if (statusChanged && app.applicantId) {
       await Notification.create({
         userId: app.applicantId,
         type: "job_application",
@@ -1012,6 +1026,25 @@ export async function updateApplicantStatus(req: AuthenticatedUserRequest, res: 
         body: `Your job application status for "${job?.title || "job"}" is now "${status}".`,
         link: "/my/jobs"
       }).catch(() => {});
+
+      if (["SHORTLISTED", "INTERVIEW_SCHEDULED", "SELECTED", "HIRED", "REJECTED"].includes(nextStatus!)) {
+        try {
+          const candidate = await User.findById(app.applicantId).select("email profile.name").lean();
+          if (candidate?.email) {
+            const delivery = await sendJobApplicationStatusEmail({
+              candidateEmail: candidate.email,
+              candidateName: candidate.profile?.name || app.applicantProfileSnapshot?.name || "Candidate",
+              jobTitle: job?.title || app.jobSnapshot?.title || "Job position",
+              companyName: job?.companyName || app.jobSnapshot?.companyName || "Employer",
+              status: nextStatus!,
+              interviewDetails: app.interviewDetails,
+            });
+            if (!delivery.success) console.warn("[Email] Application status delivery failed:", delivery.error);
+          }
+        } catch (error) {
+          console.warn("[Email] Application status delivery failed:", error instanceof Error ? error.message : "Unknown error");
+        }
+      }
     }
 
     res.status(200).json({ success: true, data: { ...app.toObject(), id: app._id.toString() } });

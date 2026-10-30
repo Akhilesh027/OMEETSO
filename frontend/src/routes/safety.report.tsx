@@ -50,7 +50,7 @@ function ReportPage() {
   const [relatedChat, setRelatedChat] = useState("");
   const [attachments, setAttachments] = useState<string[]>([]);
   const [contactPref, setContactPref] = useState("in_app");
-  
+
   // Credential & Contact Preferences
   const [isAnonymous, setIsAnonymous] = useState(false);
   const [reporterName, setReporterName] = useState("");
@@ -60,7 +60,7 @@ function ReportPage() {
   const [declarationConfirmed, setDeclarationConfirmed] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isUserBlocked, setIsUserBlocked] = useState(false);
-  
+
   const [submitted, setSubmitted] = useState<{
     id: string;
     isAnonymous: boolean;
@@ -141,14 +141,6 @@ function ReportPage() {
         toast.error("Please enter a valid email address");
         return;
       }
-      if (contactPref === "call" && !reporterPhone.trim()) {
-        toast.error("Please enter your contact phone number for callback");
-        return;
-      }
-      if (reporterPhone.trim() && reporterPhone.replace(/\D/g, "").length < 10) {
-        toast.error("Please enter a valid 10-digit phone number");
-        return;
-      }
     }
 
     if (!declarationConfirmed) {
@@ -174,7 +166,7 @@ function ReportPage() {
         isAnonymous,
         reporterName: isAnonymous ? "Anonymous Reporter" : reporterName.trim() || "Omeetso User",
         reporterEmail: isAnonymous ? undefined : (reporterEmail.trim() || undefined),
-        reporterPhone: isAnonymous ? undefined : (reporterPhone.trim() || undefined),
+
       });
 
       // 2. Also persist in local storage for local client cache & offline sync
@@ -188,7 +180,7 @@ function ReportPage() {
         contactPref,
         reporterName: isAnonymous ? "Anonymous" : reporterName.trim() || "Omeetso User",
         reporterEmail: isAnonymous ? undefined : reporterEmail.trim(),
-        reporterPhone: isAnonymous ? undefined : reporterPhone.trim(),
+
         contactTimeSlot,
         isAnonymous,
       });
@@ -247,12 +239,12 @@ function ReportPage() {
       <MobileFrame>
         <div className="min-h-dvh bg-background pb-16">
           <BackBar title="Report Submitted" onBack={() => nav({ to: "/safety" })} />
-          
+
           <div className="px-4 pt-2 space-y-4">
             {/* Success Hero Card */}
             <div className="rounded-3xl gradient-brand p-6 text-white shadow-xl relative overflow-hidden">
               <div className="absolute right-0 top-0 translate-x-4 -translate-y-4 w-32 h-32 bg-white/10 rounded-full blur-2xl pointer-events-none" />
-              
+
               <div className="flex items-center gap-3">
                 <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-white/20 backdrop-blur-md text-amber-300 shadow-inner">
                   <CheckCircle2 className="h-7 w-7" />
@@ -381,7 +373,7 @@ function ReportPage() {
     <MobileFrame>
       <div className="min-h-dvh bg-background pb-32">
         <BackBar title="Report Suspicious Activity" onBack={() => nav({ to: "/safety" })} />
-        
+
         <div className="px-4 pt-2 space-y-3.5 max-w-2xl mx-auto">
           {/* Incident Category Selector */}
           <div className="rounded-3xl border border-border/80 bg-card p-4 shadow-xs space-y-3">
@@ -532,11 +524,10 @@ function ReportPage() {
             {/* Contact Method Selector */}
             <div className="space-y-1.5">
               <label className="text-[11px] font-bold text-foreground">Preferred Channel</label>
-              <div className="grid grid-cols-3 gap-2">
+              <div className="grid grid-cols-2 gap-2">
                 {[
                   { id: "in_app", label: "In-App Chat", icon: MessageSquare },
                   { id: "email", label: "Email", icon: Mail },
-                  { id: "call", label: "Phone Call", icon: Phone },
                 ].map(({ id, label, icon: Icon }) => {
                   const isSelected = contactPref === id;
                   return (
@@ -643,31 +634,12 @@ function ReportPage() {
                 </div>
               </div>
 
-              <div>
-                <label className="block text-[11px] font-bold text-foreground mb-1">
-                  Phone / WhatsApp Number {contactPref === "call" && !isAnonymous ? "*" : "(Optional)"}
-                </label>
-                <div className="flex items-center rounded-xl border border-border/80 bg-background px-3 py-2.5 focus-within:border-primary focus-within:ring-2 focus-within:ring-primary/10 transition-all">
-                  <span className="flex items-center gap-1.5 text-xs font-bold text-foreground font-mono pr-2.5 border-r border-border mr-2.5 shrink-0 select-none">
-                    <span className="text-sm">🇮🇳</span> +91
-                  </span>
-                  <input
-                    type="tel"
-                    inputMode="numeric"
-                    maxLength={11}
-                    value={formatPhoneDisplay(reporterPhone)}
-                    onChange={(e) => setReporterPhone(cleanPhoneInput(e.target.value))}
-                    placeholder="98765 43210"
-                    className="w-full bg-transparent text-xs font-medium outline-none font-mono tracking-wider placeholder:font-normal"
-                  />
-                </div>
-              </div>
 
               {/* Follow-up Window */}
               <div>
                 <label className="flex items-center gap-1.5 text-[11px] font-bold text-foreground mb-1.5">
                   <Clock className="h-3.5 w-3.5 text-muted-foreground" />
-                  <span>Preferred Callback / Contact Window</span>
+                  <span>Preferred Contact Window</span>
                 </label>
                 <div className="grid grid-cols-2 gap-1.5">
                   {TIME_SLOTS.map((slot) => {
@@ -712,7 +684,7 @@ function ReportPage() {
                 >
                   Cancel
                 </button>
-                
+
                 <button
                   type="button"
                   onClick={submit}
@@ -747,7 +719,7 @@ function ReportPage() {
             >
               Cancel
             </button>
-            
+
             <button
               type="button"
               onClick={submit}

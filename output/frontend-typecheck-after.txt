@@ -1,0 +1,295 @@
+frontend/src/components/omeetso/CategoryDetailModal.tsx(390,13): error TS2304: Cannot find name 'Category'.
+frontend/src/components/omeetso/chat/MakeOfferSheet.tsx(66,20): error TS2322: Type 'string | false' is not assignable to type 'string | undefined'.
+  Type 'boolean' is not assignable to type 'string'.
+frontend/src/components/omeetso/chat/ThreadListPane.tsx(209,10): error TS2367: This comparison appears to be unintentional because the types '"LISTING" | "STORE" | "JOB" | "SERVICE" | undefined' and '"USER"' have no overlap.
+frontend/src/components/omeetso/chat/ThreadListPane.tsx(209,42): error TS2367: This comparison appears to be unintentional because the types '"LISTING" | "STORE" | "JOB" | "SERVICE" | undefined' and '"PEER"' have no overlap.
+frontend/src/components/omeetso/promotions/BoostAdWizard.tsx(125,30): error TS2551: Property 'image' does not exist on type 'Listing'. Did you mean 'images'?
+frontend/src/components/omeetso/promotions/BoostAdWizard.tsx(126,26): error TS2551: Property 'image' does not exist on type 'Listing'. Did you mean 'images'?
+frontend/src/components/omeetso/services/PostServiceForm.tsx(345,9): error TS2322: Type '"moderation"' is not assignable to type 'NotifCategory'.
+frontend/src/components/omeetso/ShareBlogModal.tsx(241,48): error TS2774: This condition will always return true since this function is always defined. Did you mean to call it instead?
+frontend/src/components/omeetso/WebsiteHeader.tsx(263,27): error TS2339: Property 'unavailable' does not exist on type 'Listing'.
+frontend/src/components/omeetso/WebsiteHeader.tsx(263,42): error TS2367: This comparison appears to be unintentional because the types 'ListingStatus' and '"deleted"' have no overlap.
+frontend/src/components/sell/ListingCard.tsx(92,50): error TS2367: This comparison appears to be unintentional because the types '"draft" | "under_review" | "active" | "requires_changes" | "paused" | "sold" | "expired" | "removed"' and '"REJECTED"' have no overlap.
+frontend/src/lib/account.ts(373,29): error TS2339: Property 'verifiedViaOtp' does not exist on type 'Verification'.
+frontend/src/lib/account.ts(378,46): error TS2353: Object literal may only specify known properties, and 'verifiedViaOtp' does not exist in type 'Verification'.
+frontend/src/lib/account.ts(440,74): error TS2339: Property 'verifiedViaOtp' does not exist on type 'Verification'.
+frontend/src/lib/account.ts(511,9): error TS2339: Property 'link' does not exist on type 'Notification'.
+frontend/src/lib/account.ts(512,21): error TS2339: Property 'link' does not exist on type 'Notification'.
+frontend/src/lib/account.ts(651,15): error TS2339: Property 'link' does not exist on type 'Notification'.
+frontend/src/lib/account.ts(651,26): error TS2339: Property 'link' does not exist on type 'Notification'.
+frontend/src/lib/account.ts(651,54): error TS2339: Property 'link' does not exist on type 'Notification'.
+frontend/src/lib/account.ts(651,96): error TS2339: Property 'link' does not exist on type 'Notification'.
+frontend/src/lib/categories.ts(151,21): error TS2345: Argument of type 'LiveCategory' is not assignable to parameter of type '{ subcategories: string[]; id: string; name: string; icon: string; count: number; tint: string; }'.
+  Types of property 'subcategories' are incompatible.
+    Type '(string | { id: string; name: string; })[]' is not assignable to type 'string[]'.
+      Type 'string | { id: string; name: string; }' is not assignable to type 'string'.
+        Type '{ id: string; name: string; }' is not assignable to type 'string'.
+frontend/src/lib/categories.ts(194,21): error TS2345: Argument of type 'LiveCategory' is not assignable to parameter of type '{ subcategories: string[]; id: string; name: string; icon: string; count: number; tint: string; }'.
+  Types of property 'subcategories' are incompatible.
+    Type '(string | { id: string; name: string; })[]' is not assignable to type 'string[]'.
+      Type 'string | { id: string; name: string; }' is not assignable to type 'string'.
+        Type '{ id: string; name: string; }' is not assignable to type 'string'.
+frontend/src/lib/jobs.ts(455,64): error TS2345: Argument of type '{ userId: string; title: string; city: string; experienceYears: string; education: string; skills: string[]; languages: string[]; noticePeriod: string; preferredJobTypes: string[]; preferredLocations: string[]; allowDirectContact: true; savedJobs: never[]; }' is not assignable to parameter of type 'CandidateProfileItem'.
+  Type '{ userId: string; title: string; city: string; experienceYears: string; education: string; skills: string[]; languages: string[]; noticePeriod: string; preferredJobTypes: string[]; preferredLocations: string[]; allowDirectContact: true; savedJobs: never[]; }' is missing the following properties from type 'CandidateProfileItem': openToWork, skillsList, workExperiences, educations, and 15 more.
+frontend/src/lib/jobs.ts(983,7): error TS2783: 'name' is specified more than once, so this usage will be overwritten.
+frontend/src/lib/jobs.ts(984,7): error TS2783: 'phone' is specified more than once, so this usage will be overwritten.
+frontend/src/lib/jobs.ts(985,7): error TS2783: 'email' is specified more than once, so this usage will be overwritten.
+frontend/src/lib/jobs.ts(986,7): error TS2783: 'city' is specified more than once, so this usage will be overwritten.
+frontend/src/lib/jobs.ts(988,7): error TS2783: 'experience' is specified more than once, so this usage will be overwritten.
+frontend/src/lib/jobs.ts(1017,9): error TS2783: 'name' is specified more than once, so this usage will be overwritten.
+frontend/src/lib/jobs.ts(1018,9): error TS2783: 'phone' is specified more than once, so this usage will be overwritten.
+frontend/src/lib/jobs.ts(1019,9): error TS2783: 'email' is specified more than once, so this usage will be overwritten.
+frontend/src/lib/jobs.ts(1020,9): error TS2783: 'city' is specified more than once, so this usage will be overwritten.
+frontend/src/lib/jobs.ts(1022,9): error TS2783: 'experience' is specified more than once, so this usage will be overwritten.
+frontend/src/lib/location.ts(183,3): error TS1117: An object literal cannot have multiple properties with the same name.
+frontend/src/lib/mock.ts(1077,9): error TS2367: This comparison appears to be unintentional because the types 'ListingStatus' and '"deleted"' have no overlap.
+frontend/src/lib/mock.ts(1077,99): error TS2339: Property 'unavailable' does not exist on type 'Listing'.
+frontend/src/lib/mock.ts(1100,50): error TS2339: Property 'sellerId' does not exist on type 'Listing'.
+frontend/src/lib/mock.ts(1106,20): error TS2367: This comparison appears to be unintentional because the types '"draft" | "under_review" | "active" | "requires_changes" | "rejected" | "paused" | "sold" | "expired"' and '"removed"' have no overlap.
+frontend/src/lib/mock.ts(1106,79): error TS2367: This comparison appears to be unintentional because the types '"draft" | "under_review" | "active" | "requires_changes" | "paused" | "sold" | "expired"' and '"deleted"' have no overlap.
+frontend/src/lib/mock.ts(1108,18): error TS2367: This comparison appears to be unintentional because the types '"draft" | "under_review" | "active" | "requires_changes" | "rejected" | "paused" | "sold" | "expired"' and '"deleted"' have no overlap.
+frontend/src/lib/mock.ts(1143,13): error TS2353: Object literal may only specify known properties, and 'createdAt' does not exist in type 'Seller'.
+frontend/src/lib/mock.ts(1160,14): error TS2339: Property 'sellerId' does not exist on type 'Listing'.
+frontend/src/lib/mock.ts(1172,7): error TS2353: Object literal may only specify known properties, and 'createdAt' does not exist in type 'Seller'.
+frontend/src/lib/mock.ts(1228,10): error TS2339: Property 'sellerId' does not exist on type 'Listing'.
+frontend/src/routes/account.tsx(91,13): error TS2345: Argument of type '() => () => boolean' is not assignable to parameter of type 'EffectCallback'.
+  Type '() => boolean' is not assignable to type 'void | Destructor'.
+    Type '() => boolean' is not assignable to type 'Destructor'.
+      Type 'boolean' is not assignable to type 'void | { [UNDEFINED_VOID_ONLY]: never; }'.
+frontend/src/routes/account.tsx(232,73): error TS2367: This comparison appears to be unintentional because the types '"draft" | "under_review" | "requires_changes" | "rejected" | "paused" | "sold" | "expired" | "removed"' and '"approved"' have no overlap.
+frontend/src/routes/account.tsx(232,100): error TS2367: This comparison appears to be unintentional because the types '"draft" | "under_review" | "requires_changes" | "rejected" | "paused" | "sold" | "expired" | "removed"' and '"APPROVED"' have no overlap.
+frontend/src/routes/account.tsx(233,69): error TS2367: This comparison appears to be unintentional because the types '"draft" | "under_review" | "active" | "requires_changes" | "rejected" | "paused" | "expired" | "removed"' and '"SOLD"' have no overlap.
+frontend/src/routes/account.tsx(271,51): error TS2339: Property 'gender' does not exist on type 'Profile'.
+frontend/src/routes/account.tsx(329,53): error TS2339: Property 'gender' does not exist on type 'Profile'.
+frontend/src/routes/account.tsx(608,55): error TS2339: Property 'unavailable' does not exist on type 'Listing'.
+frontend/src/routes/account.tsx(608,70): error TS2367: This comparison appears to be unintentional because the types 'ListingStatus' and '"deleted"' have no overlap.
+frontend/src/routes/account.tsx(674,23): error TS2322: Type '{ icon: ForwardRefExoticComponent<Omit<LucideProps, "ref"> & RefAttributes<SVGSVGElement>>; label: string; right: Element; onClick: () => void; }' is not assignable to type 'IntrinsicAttributes & { icon?: any; label: string; to?: string | undefined; params?: any; onClick?: (() => void) | undefined; badge?: string | number | undefined; chevron?: boolean | undefined; sub?: string | undefined; }'.
+  Property 'right' does not exist on type 'IntrinsicAttributes & { icon?: any; label: string; to?: string | undefined; params?: any; onClick?: (() => void) | undefined; badge?: string | number | undefined; chevron?: boolean | undefined; sub?: string | undefined; }'.
+frontend/src/routes/account.verification.$type.tsx(225,56): error TS2353: Object literal may only specify known properties, and 'verifiedViaOtp' does not exist in type 'Partial<Verification>'.
+frontend/src/routes/account.verification.$type.tsx(250,56): error TS2353: Object literal may only specify known properties, and 'verifiedViaOtp' does not exist in type 'Partial<Verification>'.
+frontend/src/routes/account.verification.index.tsx(94,103): error TS2339: Property 'verifiedViaOtp' does not exist on type 'Verification'.
+frontend/src/routes/account.verification.index.tsx(297,56): error TS2353: Object literal may only specify known properties, and 'verifiedViaOtp' does not exist in type 'Partial<Verification>'.
+frontend/src/routes/account.verification.index.tsx(322,56): error TS2353: Object literal may only specify known properties, and 'verifiedViaOtp' does not exist in type 'Partial<Verification>'.
+frontend/src/routes/account.verification.index.tsx(356,42): error TS2353: Object literal may only specify known properties, and 'phoneVerified' does not exist in type 'Partial<Profile>'.
+frontend/src/routes/account.verification.index.tsx(596,64): error TS7053: Element implicitly has an 'any' type because expression of type 'VerifKind' can't be used to index type '{ mobile: number; email: number; identity: number; address: number; total: number; max: number; }'.
+  Property 'business' does not exist on type '{ mobile: number; email: number; identity: number; address: number; total: number; max: number; }'.
+frontend/src/routes/account.verification.index.tsx(606,32): error TS7053: Element implicitly has an 'any' type because expression of type 'VerifKind' can't be used to index type '{ mobile: number; email: number; identity: number; address: number; total: number; max: number; }'.
+  Property 'business' does not exist on type '{ mobile: number; email: number; identity: number; address: number; total: number; max: number; }'.
+frontend/src/routes/ads.new.tsx(207,34): error TS2339: Property 'listingId' does not exist on type 'CampaignSource'.
+  Property 'listingId' does not exist on type '{ kind: "listing"; refId: string; }'.
+frontend/src/routes/categories.tsx(271,80): error TS2322: Type '{ id: string; } | undefined' is not assignable to type 'true | ParamsReducerFn<AnyRouter, "PATH", string, any> | undefined'.
+  Object literal may only specify known properties, and 'id' does not exist in type 'ParamsReducerFn<AnyRouter, "PATH", string, any>'.
+frontend/src/routes/categories.tsx(305,84): error TS2322: Type '{ id: string; } | undefined' is not assignable to type 'true | ParamsReducerFn<AnyRouter, "PATH", string, any> | undefined'.
+  Object literal may only specify known properties, and 'id' does not exist in type 'ParamsReducerFn<AnyRouter, "PATH", string, any>'.
+frontend/src/routes/categories.tsx(339,74): error TS2322: Type '{ id: string; } | undefined' is not assignable to type 'true | ParamsReducerFn<AnyRouter, "PATH", string, any> | undefined'.
+  Object literal may only specify known properties, and 'id' does not exist in type 'ParamsReducerFn<AnyRouter, "PATH", string, any>'.
+frontend/src/routes/category.$id.tsx(248,21): error TS2339: Property 'listingId' does not exist on type 'ServedAdItem'.
+frontend/src/routes/category.$id.tsx(252,23): error TS2339: Property 'targeting' does not exist on type 'ServedAdItem'.
+frontend/src/routes/category.$id.tsx(253,23): error TS2339: Property 'targeting' does not exist on type 'ServedAdItem'.
+frontend/src/routes/category.$id.tsx(463,18): error TS7006: Parameter 'w' implicitly has an 'any' type.
+frontend/src/routes/category.$id.tsx(479,33): error TS7006: Parameter 'w' implicitly has an 'any' type.
+frontend/src/routes/category.$id.tsx(578,57): error TS7006: Parameter 'k' implicitly has an 'any' type.
+frontend/src/routes/category.$id.tsx(597,50): error TS7006: Parameter 't' implicitly has an 'any' type.
+frontend/src/routes/chat.$id.tsx(240,5): error TS2322: Type '{ id: string; title: string; price: number; category: string; location: string; postedAgo: string; images: string[]; image: string; seller: { id: string; name: string; avatar: string | undefined; rating: number; ... 5 more ...; badge: string; }; negotiable: true; description: string; featured: boolean; } | null' is not assignable to type 'Product | null'.
+  Object literal may only specify known properties, and 'location' does not exist in type 'Product'.
+frontend/src/routes/chat.$id.tsx(393,19): error TS18047: 'thread' is possibly 'null'.
+frontend/src/routes/chat.$id.tsx(394,36): error TS18047: 'thread' is possibly 'null'.
+frontend/src/routes/chat.$id.tsx(401,18): error TS18047: 'thread' is possibly 'null'.
+frontend/src/routes/chat.$id.tsx(401,50): error TS18047: 'thread' is possibly 'null'.
+frontend/src/routes/chat.$id.tsx(403,22): error TS18047: 'thread' is possibly 'null'.
+frontend/src/routes/chat.$id.tsx(403,53): error TS2304: Cannot find name 'StoreIcon'.
+frontend/src/routes/chat.$id.tsx(407,26): error TS18047: 'thread' is possibly 'null'.
+frontend/src/routes/chat.$id.tsx(407,57): error TS18047: 'thread' is possibly 'null'.
+frontend/src/routes/chat.$id.tsx(407,77): error TS18047: 'thread' is possibly 'null'.
+frontend/src/routes/chat.$id.tsx(407,112): error TS18047: 'thread' is possibly 'null'.
+frontend/src/routes/chat.$id.tsx(407,131): error TS18047: 'thread' is possibly 'null'.
+frontend/src/routes/chat.$id.tsx(408,26): error TS18047: 'thread' is possibly 'null'.
+frontend/src/routes/chat.$id.tsx(410,88): error TS18047: 'thread' is possibly 'null'.
+frontend/src/routes/chat.$id.tsx(415,34): error TS18047: 'thread' is possibly 'null'.
+frontend/src/routes/chat.$id.tsx(421,62): error TS18047: 'thread' is possibly 'null'.
+frontend/src/routes/chat.$id.tsx(422,20): error TS18047: 'thread' is possibly 'null'.
+frontend/src/routes/chat.$id.tsx(429,25): error TS18047: 'thread' is possibly 'null'.
+frontend/src/routes/chat.$id.tsx(467,38): error TS2367: This comparison appears to be unintentional because the types '"LISTING" | "STORE" | "JOB" | "SERVICE" | undefined' and '"USER"' have no overlap.
+frontend/src/routes/chat.$id.tsx(467,78): error TS2367: This comparison appears to be unintentional because the types '"LISTING" | "STORE" | "JOB" | "SERVICE" | undefined' and '"PEER"' have no overlap.
+frontend/src/routes/chat.$id.tsx(484,18): error TS18048: 'conversation' is possibly 'undefined'.
+frontend/src/routes/chat.$id.tsx(484,48): error TS18048: 'conversation' is possibly 'undefined'.
+frontend/src/routes/chat.$id.tsx(485,29): error TS18048: 'conversation' is possibly 'undefined'.
+frontend/src/routes/chat.$id.tsx(496,22): error TS2304: Cannot find name 'StoreIcon'.
+frontend/src/routes/chat.$id.tsx(505,45): error TS18048: 'conversation' is possibly 'undefined'.
+frontend/src/routes/chat.$id.tsx(508,44): error TS18048: 'conversation' is possibly 'undefined'.
+frontend/src/routes/chat.$id.tsx(512,26): error TS18048: 'conversation' is possibly 'undefined'.
+frontend/src/routes/chat.$id.tsx(514,24): error TS18048: 'conversation' is possibly 'undefined'.
+frontend/src/routes/chat.$id.tsx(514,60): error TS18048: 'conversation' is possibly 'undefined'.
+frontend/src/routes/chat.$id.tsx(516,38): error TS18048: 'conversation' is possibly 'undefined'.
+frontend/src/routes/chat.$id.tsx(523,26): error TS18048: 'conversation' is possibly 'undefined'.
+frontend/src/routes/chat.$id.tsx(528,28): error TS18048: 'conversation' is possibly 'undefined'.
+frontend/src/routes/chat.$id.tsx(532,28): error TS18048: 'conversation' is possibly 'undefined'.
+frontend/src/routes/chat.$id.tsx(534,27): error TS18048: 'conversation' is possibly 'undefined'.
+frontend/src/routes/chat.$id.tsx(534,63): error TS18048: 'conversation' is possibly 'undefined'.
+frontend/src/routes/chat.$id.tsx(536,38): error TS18048: 'conversation' is possibly 'undefined'.
+frontend/src/routes/chat.$id.tsx(773,80): error TS18047: 'thread' is possibly 'null'.
+frontend/src/routes/chat.$id.tsx(848,23): error TS18047: 'thread' is possibly 'null'.
+frontend/src/routes/chat.$id.tsx(854,21): error TS18047: 'thread' is possibly 'null'.
+frontend/src/routes/chat.$id.tsx(859,81): error TS18047: 'thread' is possibly 'null'.
+frontend/src/routes/chat.$id.tsx(859,102): error TS18047: 'thread' is possibly 'null'.
+frontend/src/routes/chat.$id.tsx(859,129): error TS18047: 'thread' is possibly 'null'.
+frontend/src/routes/chat.$id.tsx(863,19): error TS18047: 'thread' is possibly 'null'.
+frontend/src/routes/chat.$id.tsx(863,44): error TS18047: 'thread' is possibly 'null'.
+frontend/src/routes/chat.$id.tsx(863,71): error TS18047: 'thread' is possibly 'null'.
+frontend/src/routes/chat.$id.tsx(868,11): error TS2322: Type 'Thread | null' is not assignable to type 'Thread'.
+  Type 'null' is not assignable to type 'Thread'.
+frontend/src/routes/chat.$id.tsx(870,58): error TS18047: 'thread' is possibly 'null'.
+frontend/src/routes/chat.$id.tsx(891,21): error TS18047: 'thread' is possibly 'null'.
+frontend/src/routes/chat.$id.tsx(892,23): error TS18047: 'thread' is possibly 'null'.
+frontend/src/routes/chat.$id.tsx(893,23): error TS18047: 'thread' is possibly 'null'.
+frontend/src/routes/chat.$id.tsx(894,22): error TS18047: 'thread' is possibly 'null'.
+frontend/src/routes/chats.tsx(343,10): error TS2367: This comparison appears to be unintentional because the types '"LISTING" | "STORE" | "JOB" | "SERVICE" | undefined' and '"USER"' have no overlap.
+frontend/src/routes/chats.tsx(343,42): error TS2367: This comparison appears to be unintentional because the types '"LISTING" | "STORE" | "JOB" | "SERVICE" | undefined' and '"PEER"' have no overlap.
+frontend/src/routes/credits.wallet.tsx(32,20): error TS2339: Property 'promoCreditsInPaise' does not exist on type '{ id: string; balanceInPaise: number; availableBalanceInPaise: number; heldBalanceInPaise: number; refundBalanceInPaise: number; transactions: { id: string; type: string; amountInPaise: number; description: string; referenceType: string; status: string; createdAt: string; }[]; }'.
+frontend/src/routes/credits.wallet.tsx(33,36): error TS2339: Property 'promoCreditsInPaise' does not exist on type '{ id: string; balanceInPaise: number; availableBalanceInPaise: number; heldBalanceInPaise: number; refundBalanceInPaise: number; transactions: { id: string; type: string; amountInPaise: number; description: string; referenceType: string; status: string; createdAt: string; }[]; }'.
+frontend/src/routes/gallery.$id.tsx(168,25): error TS7006: Parameter 'item' implicitly has an 'any' type.
+frontend/src/routes/gallery.$id.tsx(168,31): error TS7006: Parameter 'i' implicitly has an 'any' type.
+frontend/src/routes/home.tsx(577,48): error TS2345: Argument of type 'SavedLocation | null' is not assignable to parameter of type '{ area?: string | undefined; city?: string | undefined; pincode?: string | undefined; } | undefined'.
+  Type 'null' is not assignable to type '{ area?: string | undefined; city?: string | undefined; pincode?: string | undefined; } | undefined'.
+frontend/src/routes/home.tsx(828,48): error TS2345: Argument of type 'SavedLocation | null' is not assignable to parameter of type '{ area?: string | undefined; city?: string | undefined; pincode?: string | undefined; } | undefined'.
+  Type 'null' is not assignable to type '{ area?: string | undefined; city?: string | undefined; pincode?: string | undefined; } | undefined'.
+frontend/src/routes/home.tsx(853,22): error TS2339: Property 'sellerId' does not exist on type 'Listing'.
+frontend/src/routes/home.tsx(1162,69): error TS2339: Property 'subcategories' does not exist on type 'Category'.
+frontend/src/routes/home.tsx(1164,26): error TS7006: Parameter 'sub' implicitly has an 'any' type.
+frontend/src/routes/home.tsx(1383,53): error TS2345: Argument of type 'SavedLocation | null' is not assignable to parameter of type '{ area?: string | undefined; city?: string | undefined; pincode?: string | undefined; } | undefined'.
+  Type 'null' is not assignable to type '{ area?: string | undefined; city?: string | undefined; pincode?: string | undefined; } | undefined'.
+frontend/src/routes/job.$id.tsx(169,54): error TS2367: This comparison appears to be unintentional because the types '"APPROVED" | "REJECTED" | "EXPIRED" | "ACTIVE" | "DRAFT" | "PAUSED" | "FILLED"' and '"pending"' have no overlap.
+frontend/src/routes/job.$id.tsx(169,82): error TS2367: This comparison appears to be unintentional because the types '"APPROVED" | "REJECTED" | "EXPIRED" | "ACTIVE" | "DRAFT" | "PAUSED" | "FILLED"' and '"PENDING"' have no overlap.
+frontend/src/routes/job.$id.tsx(204,41): error TS2367: This comparison appears to be unintentional because the types '"APPROVED" | "REJECTED" | "EXPIRED" | "ACTIVE" | "DRAFT" | "PAUSED" | "FILLED"' and '"pending"' have no overlap.
+frontend/src/routes/job.$id.tsx(758,11): error TS2322: Type '{ open: boolean; onClose: () => void; listingId: string; }' is not assignable to type 'IntrinsicAttributes & { open: boolean; onClose: () => void; productId: string; }'.
+  Property 'listingId' does not exist on type 'IntrinsicAttributes & { open: boolean; onClose: () => void; productId: string; }'.
+frontend/src/routes/jobs.index.tsx(215,50): error TS7006: Parameter 't' implicitly has an 'any' type.
+frontend/src/routes/listing.$id.analytics.tsx(41,49): error TS2367: This comparison appears to be unintentional because the types '"draft" | "under_review" | "active" | "requires_changes" | "paused" | "sold" | "expired" | "removed"' and '"REJECTED"' have no overlap.
+frontend/src/routes/listing.$id.manage.tsx(582,7): error TS2322: Type '{ children: Element; open: boolean; onClose: () => void; title: string; subtitle: string; footer: Element; }' is not assignable to type 'IntrinsicAttributes & { open: boolean; onClose: () => void; title?: string | undefined; children: ReactNode; footer?: ReactNode; }'.
+  Property 'subtitle' does not exist on type 'IntrinsicAttributes & { open: boolean; onClose: () => void; title?: string | undefined; children: ReactNode; footer?: ReactNode; }'.
+frontend/src/routes/listings.tsx(23,7): error TS2367: This comparison appears to be unintentional because the types '"draft" | "under_review" | "requires_changes" | "rejected" | "paused" | "sold" | "expired" | "removed"' and '"approved"' have no overlap.
+frontend/src/routes/listings.tsx(24,7): error TS2367: This comparison appears to be unintentional because the types '"draft" | "under_review" | "requires_changes" | "rejected" | "paused" | "sold" | "expired" | "removed"' and '"APPROVED"' have no overlap.
+frontend/src/routes/listings.tsx(34,7): error TS2367: This comparison appears to be unintentional because the types '"draft" | "active" | "requires_changes" | "rejected" | "paused" | "sold" | "expired" | "removed"' and '"submitted"' have no overlap.
+frontend/src/routes/listings.tsx(35,7): error TS2367: This comparison appears to be unintentional because the types '"draft" | "active" | "requires_changes" | "rejected" | "paused" | "sold" | "expired" | "removed"' and '"pending_review"' have no overlap.
+frontend/src/routes/listings.tsx(36,7): error TS2367: This comparison appears to be unintentional because the types '"draft" | "active" | "requires_changes" | "rejected" | "paused" | "sold" | "expired" | "removed"' and '"SUBMITTED"' have no overlap.
+frontend/src/routes/listings.tsx(37,7): error TS2367: This comparison appears to be unintentional because the types '"draft" | "active" | "requires_changes" | "rejected" | "paused" | "sold" | "expired" | "removed"' and '"PENDING_REVIEW"' have no overlap.
+frontend/src/routes/listings.tsx(40,90): error TS2367: This comparison appears to be unintentional because the types '"draft" | "under_review" | "active" | "requires_changes" | "rejected" | "paused" | "expired" | "removed"' and '"SOLD"' have no overlap.
+frontend/src/routes/listings.tsx(41,101): error TS2367: This comparison appears to be unintentional because the types '"draft" | "under_review" | "active" | "requires_changes" | "rejected" | "paused" | "sold" | "removed"' and '"EXPIRED"' have no overlap.
+frontend/src/routes/listings.tsx(42,104): error TS2367: This comparison appears to be unintentional because the types '"draft" | "under_review" | "active" | "requires_changes" | "paused" | "sold" | "expired" | "removed"' and '"REJECTED"' have no overlap.
+frontend/src/routes/my.employer.jobs.tsx(663,78): error TS2551: Property 'experienceYears' does not exist on type '{ name: string; phone: string; email: string; city: string; area?: string | undefined; title?: string | undefined; summary?: string | undefined; resumeUrl?: string | undefined; resumeFileName?: string | undefined; ... 14 more ...; githubUrl?: string | undefined; }'. Did you mean 'experience'?
+frontend/src/routes/my.employer.jobs.tsx(719,68): error TS2551: Property 'experienceYears' does not exist on type '{ name: string; phone: string; email: string; city: string; area?: string | undefined; title?: string | undefined; summary?: string | undefined; resumeUrl?: string | undefined; resumeFileName?: string | undefined; ... 14 more ...; githubUrl?: string | undefined; }'. Did you mean 'experience'?
+frontend/src/routes/my.employer.jobs.tsx(1080,105): error TS2551: Property 'experienceYears' does not exist on type '{ name: string; phone: string; email: string; city: string; area?: string | undefined; title?: string | undefined; summary?: string | undefined; resumeUrl?: string | undefined; resumeFileName?: string | undefined; ... 14 more ...; githubUrl?: string | undefined; }'. Did you mean 'experience'?
+frontend/src/routes/my.profile.jobs.tsx(1700,55): error TS2345: Argument of type 'string | undefined' is not assignable to parameter of type 'string'.
+  Type 'undefined' is not assignable to type 'string'.
+frontend/src/routes/my.provider-services.tsx(80,64): error TS2345: Argument of type '{ quotationAmount: number; providerNotes: string | undefined; }' is not assignable to parameter of type 'number'.
+frontend/src/routes/my.provider-services.tsx(133,42): error TS2367: This comparison appears to be unintentional because the types 'InquiryStatus' and '"REQUESTED"' have no overlap.
+frontend/src/routes/my.provider-services.tsx(220,24): error TS2367: This comparison appears to be unintentional because the types 'InquiryStatus' and '"REQUESTED"' have no overlap.
+frontend/src/routes/notifications.$id.tsx(94,41): error TS2339: Property 'unavailable' does not exist on type 'Listing'.
+frontend/src/routes/notifications.$id.tsx(94,56): error TS2367: This comparison appears to be unintentional because the types 'ListingStatus' and '"deleted"' have no overlap.
+frontend/src/routes/notifications.tsx(244,27): error TS2339: Property 'unavailable' does not exist on type 'Listing'.
+frontend/src/routes/notifications.tsx(244,42): error TS2367: This comparison appears to be unintentional because the types 'ListingStatus' and '"deleted"' have no overlap.
+frontend/src/routes/product.$id.tsx(56,13): error TS2367: This comparison appears to be unintentional because the types 'ListingStatus' and '"deleted"' have no overlap.
+frontend/src/routes/product.$id.tsx(56,112): error TS2339: Property 'unavailable' does not exist on type 'Listing'.
+frontend/src/routes/product.$id.tsx(69,25): error TS2339: Property 'status' does not exist on type 'Product | { id: string; title: string; price: number; originalPrice: number; image: string; images: string[]; area: string; city: string; location: string; pincode: string; description: string; ... 20 more ...; bestContactTime: BestContactTime; }'.
+  Property 'status' does not exist on type 'Product'.
+frontend/src/routes/product.$id.tsx(80,15): error TS2339: Property 'status' does not exist on type 'Product | { id: string; title: string; price: number; originalPrice: number; image: string; images: string[]; area: string; city: string; location: string; pincode: string; description: string; ... 20 more ...; bestContactTime: BestContactTime; }'.
+  Property 'status' does not exist on type 'Product'.
+frontend/src/routes/product.$id.tsx(230,22): error TS2367: This comparison appears to be unintentional because the types 'ListingStatus' and '"deleted"' have no overlap.
+frontend/src/routes/product.$id.tsx(230,112): error TS2339: Property 'unavailable' does not exist on type 'Listing'.
+frontend/src/routes/product.$id.tsx(250,21): error TS2339: Property 'status' does not exist on type 'Product | { id: string; title: string; price: number; originalPrice: number; image: string; images: string[]; area: string; city: string; location: string; pincode: string; description: string; ... 20 more ...; bestContactTime: BestContactTime; }'.
+  Property 'status' does not exist on type 'Product'.
+frontend/src/routes/product.$id.tsx(633,21): error TS2339: Property 'phone' does not exist on type 'Seller'.
+frontend/src/routes/product.$id.tsx(910,101): error TS7006: Parameter 'c' implicitly has an 'any' type.
+frontend/src/routes/product.$id.tsx(978,98): error TS7006: Parameter 'c' implicitly has an 'any' type.
+frontend/src/routes/product.$id.tsx(979,124): error TS7006: Parameter 'c' implicitly has an 'any' type.
+frontend/src/routes/product.$id.tsx(980,97): error TS7006: Parameter 'c' implicitly has an 'any' type.
+frontend/src/routes/product.$id.tsx(1056,73): error TS2739: Type 'Listing' is missing the following properties from type 'Product': distanceKm, postedAgo, image, sellerId
+frontend/src/routes/product.$id.tsx(1062,70): error TS2739: Type 'Listing' is missing the following properties from type 'Product': distanceKm, postedAgo, image, sellerId
+frontend/src/routes/profile-setup.tsx(71,7): error TS2304: Cannot find name 'setGender'.
+frontend/src/routes/profile-setup.tsx(77,9): error TS2304: Cannot find name 'setGender'.
+frontend/src/routes/profile-setup.tsx(114,11): error TS2353: Object literal may only specify known properties, and 'businessName' does not exist in type 'RegisterPayload'.
+frontend/src/routes/results.tsx(125,15): error TS2322: Type '{ id: any; title: any; price: any; negotiable: any; category: any; subcategory: any; condition: any; area: any; city: any; pincode: any; distanceKm: number | undefined; postedAgo: string; image: any; images: any; ... 15 more ...; publishedAt: any; }[]' is not assignable to type 'Product[]'.
+  Type '{ id: any; title: any; price: any; negotiable: any; category: any; subcategory: any; condition: any; area: any; city: any; pincode: any; distanceKm: number | undefined; postedAgo: string; image: any; images: any; ... 15 more ...; publishedAt: any; }' is not assignable to type 'Product'.
+    Types of property 'distanceKm' are incompatible.
+      Type 'number | undefined' is not assignable to type 'number'.
+        Type 'undefined' is not assignable to type 'number'.
+frontend/src/routes/results.tsx(220,28): error TS2339: Property 'sellerId' does not exist on type 'Listing'.
+frontend/src/routes/results.tsx(263,28): error TS2339: Property 'sellerId' does not exist on type 'Listing'.
+frontend/src/routes/results.tsx(298,26): error TS2339: Property 'sellerId' does not exist on type 'Listing'.
+frontend/src/routes/results.tsx(316,23): error TS2339: Property 'listingId' does not exist on type 'ServedAdItem'.
+frontend/src/routes/results.tsx(320,25): error TS2339: Property 'targeting' does not exist on type 'ServedAdItem'.
+frontend/src/routes/results.tsx(321,25): error TS2339: Property 'targeting' does not exist on type 'ServedAdItem'.
+frontend/src/routes/results.tsx(365,18): error TS7006: Parameter 'w' implicitly has an 'any' type.
+frontend/src/routes/results.tsx(381,33): error TS7006: Parameter 'w' implicitly has an 'any' type.
+frontend/src/routes/results.tsx(480,57): error TS7006: Parameter 'k' implicitly has an 'any' type.
+frontend/src/routes/results.tsx(500,50): error TS7006: Parameter 't' implicitly has an 'any' type.
+frontend/src/routes/safety.report.tsx(249,45): error TS2322: Type '{ title: string; onBack: () => Promise<void>; }' is not assignable to type 'IntrinsicAttributes & { title: string; right?: ReactNode; fallback?: string | undefined; }'.
+  Property 'onBack' does not exist on type 'IntrinsicAttributes & { title: string; right?: ReactNode; fallback?: string | undefined; }'.
+frontend/src/routes/safety.report.tsx(383,53): error TS2322: Type '{ title: string; onBack: () => Promise<void>; }' is not assignable to type 'IntrinsicAttributes & { title: string; right?: ReactNode; fallback?: string | undefined; }'.
+  Property 'onBack' does not exist on type 'IntrinsicAttributes & { title: string; right?: ReactNode; fallback?: string | undefined; }'.
+frontend/src/routes/search.tsx(154,76): error TS2322: Type '{ id: string; } | undefined' is not assignable to type 'true | ParamsReducerFn<AnyRouter, "PATH", string, any> | undefined'.
+  Object literal may only specify known properties, and 'id' does not exist in type 'ParamsReducerFn<AnyRouter, "PATH", string, any>'.
+frontend/src/routes/search.tsx(254,74): error TS2322: Type '{ id: string; } | undefined' is not assignable to type 'true | ParamsReducerFn<AnyRouter, "PATH", string, any> | undefined'.
+  Object literal may only specify known properties, and 'id' does not exist in type 'ParamsReducerFn<AnyRouter, "PATH", string, any>'.
+frontend/src/routes/sell.detailed.tsx(345,44): error TS2345: Argument of type 'string | undefined' is not assignable to parameter of type 'string | File'.
+  Type 'undefined' is not assignable to type 'string | File'.
+frontend/src/routes/sell.detailed.tsx(426,47): error TS1117: An object literal cannot have multiple properties with the same name.
+frontend/src/routes/sell.detailed.tsx(463,26): error TS2345: Argument of type 'string | undefined' is not assignable to parameter of type 'string'.
+  Type 'undefined' is not assignable to type 'string'.
+frontend/src/routes/sell.quick.tsx(339,44): error TS2345: Argument of type 'string | undefined' is not assignable to parameter of type 'string | File'.
+  Type 'undefined' is not assignable to type 'string | File'.
+frontend/src/routes/sell.quick.tsx(360,18): error TS18048: 'data.title' is possibly 'undefined'.
+frontend/src/routes/sell.quick.tsx(428,47): error TS1117: An object literal cannot have multiple properties with the same name.
+frontend/src/routes/seller.$id.tsx(189,56): error TS2339: Property 'sellerId' does not exist on type 'Listing'.
+frontend/src/routes/seller.$id.tsx(265,46): error TS2345: Argument of type '"USER"' is not assignable to parameter of type '"LISTING" | "STORE" | "JOB" | "SERVICE"'.
+frontend/src/routes/services.index.tsx(116,16): error TS7006: Parameter 'prev' implicitly has an 'any' type.
+frontend/src/routes/services.index.tsx(355,11): error TS2322: Type '{ open: boolean; onClose: () => void; value: any; onChange: (val: string) => void; options: { id: string; label: string; }[]; }' is not assignable to type 'IntrinsicAttributes & { open: boolean; onClose: () => void; value: string; onChange: (id: string) => void; }'.
+  Property 'options' does not exist on type 'IntrinsicAttributes & { open: boolean; onClose: () => void; value: string; onChange: (id: string) => void; }'.
+frontend/src/routes/settings.deactivate.tsx(78,45): error TS2322: Type '{ title: string; onBack: () => Promise<void>; }' is not assignable to type 'IntrinsicAttributes & { title: string; right?: ReactNode; fallback?: string | undefined; }'.
+  Property 'onBack' does not exist on type 'IntrinsicAttributes & { title: string; right?: ReactNode; fallback?: string | undefined; }'.
+frontend/src/routes/settings.delete.tsx(69,41): error TS2322: Type '{ title: string; onBack: () => Promise<void>; }' is not assignable to type 'IntrinsicAttributes & { title: string; right?: ReactNode; fallback?: string | undefined; }'.
+  Property 'onBack' does not exist on type 'IntrinsicAttributes & { title: string; right?: ReactNode; fallback?: string | undefined; }'.
+frontend/src/routes/store.$id.tsx(140,11): error TS2353: Object literal may only specify known properties, and 'followersCount' does not exist in type 'Store'.
+frontend/src/routes/store.$id.tsx(172,24): error TS2339: Property 'search' does not exist on type 'AssetFnContextOptions<"/store/$id", "/store/$id", RootRoute<Register, undefined, { queryClient: QueryClient; }, AnyContext, AnyContext, {}, undefined, ... 4 more ..., undefined>, ... 6 more ..., {}>'.
+frontend/src/routes/store.$id.tsx(240,60): error TS2339: Property 'followersCount' does not exist on type 'Store'.
+frontend/src/routes/store.$id.tsx(282,98): error TS2339: Property 'followersCount' does not exist on type 'Store'.
+frontend/src/routes/store.manage.$id.preview.tsx(27,124): error TS2367: This comparison appears to be unintentional because the types '"draft" | "under_review" | "requires_changes" | "rejected" | "paused" | "sold" | "expired" | "removed"' and '"approved"' have no overlap.
+frontend/src/routes/store.manage.$id.preview.tsx(27,151): error TS2367: This comparison appears to be unintentional because the types '"draft" | "under_review" | "requires_changes" | "rejected" | "paused" | "sold" | "expired" | "removed"' and '"APPROVED"' have no overlap.
+frontend/src/routes/store.manage.$id.products.tsx(29,52): error TS2367: This comparison appears to be unintentional because the types '"draft" | "under_review" | "requires_changes" | "rejected" | "paused" | "sold" | "expired" | "removed"' and '"approved"' have no overlap.
+frontend/src/routes/store.manage.$id.products.tsx(29,79): error TS2367: This comparison appears to be unintentional because the types '"draft" | "under_review" | "requires_changes" | "rejected" | "paused" | "sold" | "expired" | "removed"' and '"APPROVED"' have no overlap.
+frontend/src/routes/store.manage.$id.products.tsx(31,58): error TS2367: This comparison appears to be unintentional because the types '"draft" | "active" | "requires_changes" | "rejected" | "paused" | "sold" | "expired" | "removed"' and '"submitted"' have no overlap.
+frontend/src/routes/store.manage.$id.products.tsx(31,86): error TS2367: This comparison appears to be unintentional because the types '"draft" | "active" | "requires_changes" | "rejected" | "paused" | "sold" | "expired" | "removed"' and '"SUBMITTED"' have no overlap.
+frontend/src/routes/store.manage.$id.products.tsx(33,56): error TS2367: This comparison appears to be unintentional because the types '"draft" | "under_review" | "active" | "requires_changes" | "paused" | "sold" | "expired" | "removed"' and '"REJECTED"' have no overlap.
+frontend/src/routes/store.manage.$id.products.tsx(148,49): error TS2367: This comparison appears to be unintentional because the types '"draft" | "under_review" | "active" | "requires_changes" | "paused" | "sold" | "expired" | "removed"' and '"REJECTED"' have no overlap.
+frontend/src/routes/store.manage.$id.tsx(70,61): error TS2367: This comparison appears to be unintentional because the types '"draft" | "under_review" | "requires_changes" | "rejected" | "paused" | "sold" | "expired" | "removed"' and '"approved"' have no overlap.
+frontend/src/routes/store.manage.$id.tsx(70,88): error TS2367: This comparison appears to be unintentional because the types '"draft" | "under_review" | "requires_changes" | "rejected" | "paused" | "sold" | "expired" | "removed"' and '"APPROVED"' have no overlap.
+frontend/src/routes/support.$id.tsx(126,13): error TS2345: Argument of type '() => () => boolean' is not assignable to parameter of type 'EffectCallback'.
+  Type '() => boolean' is not assignable to type 'void | Destructor'.
+    Type '() => boolean' is not assignable to type 'Destructor'.
+      Type 'boolean' is not assignable to type 'void | { [UNDEFINED_VOID_ONLY]: never; }'.
+frontend/src/routes/support.$id.tsx(237,50): error TS2367: This comparison appears to be unintentional because the types '"IN_PROGRESS" | "OPEN" | "RESOLVED" | "WAITING_USER" | "REOPENED"' and '"closed"' have no overlap.
+frontend/src/routes/support.$id.tsx(238,54): error TS2367: This comparison appears to be unintentional because the types '"IN_PROGRESS" | "OPEN" | "WAITING_USER" | "CLOSED" | "REOPENED"' and '"resolved"' have no overlap.
+frontend/src/routes/support.$id.tsx(244,96): error TS2322: Type '{ title: string; onBack: () => Promise<void>; }' is not assignable to type 'IntrinsicAttributes & { title: string; right?: ReactNode; fallback?: string | undefined; }'.
+  Property 'onBack' does not exist on type 'IntrinsicAttributes & { title: string; right?: ReactNode; fallback?: string | undefined; }'.
+frontend/src/routes/support.$id.tsx(266,38): error TS2345: Argument of type 'string' is not assignable to parameter of type 'number'.
+frontend/src/routes/support.index.tsx(80,26): error TS2339: Property 'priority' does not exist on type 'SupportTicket'.
+frontend/src/routes/support.index.tsx(80,47): error TS2339: Property 'priority' does not exist on type 'SupportTicket'.
+frontend/src/routes/support.index.tsx(123,13): error TS2345: Argument of type '() => () => boolean' is not assignable to parameter of type 'EffectCallback'.
+  Type '() => boolean' is not assignable to type 'void | Destructor'.
+    Type '() => boolean' is not assignable to type 'Destructor'.
+      Type 'boolean' is not assignable to type 'void | { [UNDEFINED_VOID_ONLY]: never; }'.
+frontend/src/routes/support.index.tsx(254,50): error TS2345: Argument of type 'string' is not assignable to parameter of type 'number'.
+frontend/src/routes/support.new.tsx(302,45): error TS2322: Type '{ title: string; onBack: () => Promise<void>; }' is not assignable to type 'IntrinsicAttributes & { title: string; right?: ReactNode; fallback?: string | undefined; }'.
+  Property 'onBack' does not exist on type 'IntrinsicAttributes & { title: string; right?: ReactNode; fallback?: string | undefined; }'.
+frontend/src/routes/support.new.tsx(425,49): error TS2322: Type '{ title: string; onBack: () => Promise<void>; }' is not assignable to type 'IntrinsicAttributes & { title: string; right?: ReactNode; fallback?: string | undefined; }'.
+  Property 'onBack' does not exist on type 'IntrinsicAttributes & { title: string; right?: ReactNode; fallback?: string | undefined; }'.
+frontend/src/routes/verification.$type.tsx(225,56): error TS2353: Object literal may only specify known properties, and 'verifiedViaOtp' does not exist in type 'Partial<Verification>'.
+frontend/src/routes/verification.$type.tsx(250,56): error TS2353: Object literal may only specify known properties, and 'verifiedViaOtp' does not exist in type 'Partial<Verification>'.
+frontend/src/routes/verification.index.tsx(94,103): error TS2339: Property 'verifiedViaOtp' does not exist on type 'Verification'.
+frontend/src/routes/verification.index.tsx(297,56): error TS2353: Object literal may only specify known properties, and 'verifiedViaOtp' does not exist in type 'Partial<Verification>'.
+frontend/src/routes/verification.index.tsx(322,56): error TS2353: Object literal may only specify known properties, and 'verifiedViaOtp' does not exist in type 'Partial<Verification>'.
+frontend/src/routes/verification.index.tsx(356,42): error TS2353: Object literal may only specify known properties, and 'phoneVerified' does not exist in type 'Partial<Profile>'.
+frontend/src/routes/verification.index.tsx(596,64): error TS7053: Element implicitly has an 'any' type because expression of type 'VerifKind' can't be used to index type '{ mobile: number; email: number; identity: number; address: number; total: number; max: number; }'.
+  Property 'business' does not exist on type '{ mobile: number; email: number; identity: number; address: number; total: number; max: number; }'.
+frontend/src/routes/verification.index.tsx(606,32): error TS7053: Element implicitly has an 'any' type because expression of type 'VerifKind' can't be used to index type '{ mobile: number; email: number; identity: number; address: number; total: number; max: number; }'.
+  Property 'business' does not exist on type '{ mobile: number; email: number; identity: number; address: number; total: number; max: number; }'.

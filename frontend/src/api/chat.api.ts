@@ -89,6 +89,7 @@ export async function startConversationApi(
       priceInPaise: metadata?.priceInPaise,
       metadata,
     }),
+    signal: AbortSignal.timeout(12000),
   });
 }
 

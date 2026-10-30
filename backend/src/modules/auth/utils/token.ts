@@ -10,6 +10,7 @@ export interface UserTokenPayload {
 
 export interface AdminTokenPayload {
   adminId: string;
+  sessionId?: string;
   role: string;
   permissions: string[];
   aud: "omeetso-admin";
@@ -26,9 +27,10 @@ export function generateUserAccessToken(userId: string, sessionId?: string): str
   });
 }
 
-export function generateAdminAccessToken(adminId: string, role: string, permissions: string[]): string {
+export function generateAdminAccessToken(adminId: string, role: string, permissions: string[], sessionId?: string): string {
   const payload: AdminTokenPayload = {
     adminId,
+    sessionId,
     role,
     permissions,
     aud: "omeetso-admin"

@@ -11,7 +11,9 @@
     "seed:all": "ts-node src/database/seeders/seedAll.ts",
     "db:reset": "ts-node src/database/seeders/resetDatabase.ts",
     "migrate:images": "ts-node src/database/seeders/migrateImagesToCloudinary.ts",
-    "test": "jest --passWithNoTests",
+    "pretest": "npm run build",
+    "pretest": "npm run build",
+    "test": "jest --runInBand --passWithNoTests",
     "test:email": "node send_test_email.js"
   },
   "dependencies": {

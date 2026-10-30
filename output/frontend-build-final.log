@@ -1,0 +1,19 @@
+vite v8.1.5 building client environment for production...
+[2K
+transforming...✓ 2124 modules transformed.
+rendering chunks...
+computing gzip size...
+dist/index.html                    23.20 kB │ gzip:   6.62 kB
+dist/assets/index-Dp_4tLjF.css    360.20 kB │ gzip:  47.94 kB
+dist/assets/index-B566VlZ1.js   3,273.37 kB │ gzip: 770.46 kB
+
+[INEFFECTIVE_DYNAMIC_IMPORT] src/api/notifications.api.ts is dynamically imported by src/routes/notifications.$id.tsx but also statically imported by src/components/omeetso/TopBar.tsx, src/components/omeetso/WebsiteHeader.tsx, src/routes/notifications.tsx, dynamic import will not move module into another chunk.
+
+[plugin builtin:vite-reporter] 
+(!) Some chunks are larger than 1200 kB after minification. Consider:
+- Using dynamic import() to code-split the application
+- Use build.rolldownOptions.output.codeSplitting to improve chunking: https://rolldown.rs/reference/OutputOptions.codeSplitting
+- Adjust chunk size limit for this warning via build.chunkSizeWarningLimit.
+[INEFFECTIVE_DYNAMIC_IMPORT] src/api/adCampaigns.api.ts is dynamically imported by src/routes/results.tsx but also statically imported by src/components/omeetso/AdBanner.tsx, src/components/omeetso/GoogleAdSlot.tsx, src/components/omeetso/promotions/BoostAdWizard.tsx, src/routes/add.wallet.tsx, src/routes/ads.index.tsx, ..., dynamic import will not move module into another chunk.
+
+✓ built in 4.12s

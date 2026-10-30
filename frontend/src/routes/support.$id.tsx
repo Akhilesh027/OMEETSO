@@ -18,6 +18,7 @@ import {
 } from "@/api/support.api";
 import { StatusTimeline, ConfirmModal } from "@/components/omeetso/account";
 import { Paperclip, Send, CheckCircle2, RotateCcw, XCircle, RefreshCw, ShieldCheck, Clock } from "lucide-react";
+import { uploadFile } from "@/lib/upload";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 
@@ -68,6 +69,7 @@ function TicketDetail() {
   const [isLoading, setIsLoading] = useState(true);
   const [body, setBody] = useState("");
   const [attachments, setAttachments] = useState<string[]>([]);
+  const [uploading, setUploading] = useState(false);
   const [sending, setSending] = useState(false);
   const [confirmClose, setConfirmClose] = useState(false);
   const [confirmResolve, setConfirmResolve] = useState(false);
@@ -126,16 +128,29 @@ function TicketDetail() {
   useEffect(() => {
     loadTicket();
     const unsub = subscribeAccount(() => loadTicket());
-    return () => unsub();
+    const timer = window.setInterval(() => { void loadTicket(); }, 10000);
+    return () => { unsub(); window.clearInterval(timer); };
   }, [loadTicket]);
 
-  const pick = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const pick = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(e.target.files ?? []);
-    setAttachments((cur) => [...cur, ...files.map((f) => `ref://${f.name}`)]);
+    e.target.value = "";
+    if (uploading || !files.length) return;
+    if (attachments.length + files.length > 5 || files.some(file => file.size > 5 * 1024 * 1024 || !["image/png", "image/jpeg", "application/pdf"].includes(file.type))) {
+      toast.error("Choose up to five PNG, JPG or PDF attachments under 5MB each."); return;
+    }
+    setUploading(true);
+    try {
+      const urls = await Promise.all(files.map(file => uploadFile(file, "support")));
+      if (urls.some(url => !url || !/^(https?:|data:)/i.test(url))) throw new Error("Could not upload attachment");
+      if ([...attachments, ...urls].reduce((total, url) => total + url.length, 0) > 8 * 1024 * 1024) throw new Error("Attachments are too large together. Choose smaller files.");
+      setAttachments(current => [...current, ...urls]);
+    } catch (error) { toast.error(error instanceof Error ? error.message : "Could not upload attachment"); }
+    finally { setUploading(false); }
   };
 
   const send = async () => {
-    if (sending) return;
+    if (sending || uploading) return;
     if (!body.trim()) {
       toast.error("Type a reply");
       return;
@@ -155,18 +170,7 @@ function TicketDetail() {
       if (serverRes.success && serverRes.data) {
         setMessages((prev) => [...prev, serverRes.data!]);
       } else {
-        // Fallback optimistic message
-        setMessages((prev) => [
-          ...prev,
-          {
-            id: `temp_${Date.now()}`,
-            senderType: "user",
-            senderName: "You",
-            text: textToSend,
-            attachments: currentAttachments,
-            createdAt: new Date().toISOString(),
-          },
-        ]);
+        throw new Error(serverRes.error || "Could not send reply");
       }
 
       // 2. Also sync to local account store
@@ -341,15 +345,9 @@ function TicketDetail() {
                         {m.attachments && m.attachments.length > 0 && (
                           <div className="mt-1.5 flex flex-wrap gap-1">
                             {m.attachments.map((att, idx) => (
-                              <span
-                                key={idx}
-                                className={cn(
-                                  "inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-bold",
-                                  isUser ? "bg-white/20 text-white" : "bg-secondary text-primary"
-                                )}
-                              >
-                                📎 {att.replace("ref://", "")}
-                              </span>
+                              <a key={idx} href={/^(https?:\/\/|data:(image\/(png|jpeg)|application\/pdf);base64,)/i.test(att) ? att : undefined} target="_blank" rel="noopener noreferrer" download={att.startsWith("data:") ? "support-attachment-" + (idx + 1) + (att.startsWith("data:application/pdf") ? ".pdf" : ".jpg") : undefined} className="block rounded border border-current/20 p-1 text-xs underline">
+                                {/^(data:image\/|https?:\/\/.*\.(png|jpe?g|webp)(\?|$))/i.test(att) ? <img src={att} alt={"Support attachment " + (idx + 1)} className="max-h-40 max-w-full rounded object-contain" /> : "Attachment " + (idx + 1)}
+                              </a>
                             ))}
                           </div>
                         )}
@@ -408,7 +406,7 @@ function TicketDetail() {
                     key={idx}
                     className="inline-flex items-center gap-1 rounded-lg bg-primary/10 border border-primary/20 px-2 py-0.5 text-[10px] font-bold text-primary"
                   >
-                    📎 {file.replace("ref://", "")}
+                    📎 Attachment {idx + 1}
                   </span>
                 ))}
               </div>
@@ -420,7 +418,7 @@ function TicketDetail() {
                 aria-label="Attach screenshot or file"
               >
                 <Paperclip className="h-4 w-4" />
-                <input type="file" multiple className="hidden" onChange={pick} />
+                <input type="file" multiple accept="image/png,image/jpeg,application/pdf" disabled={uploading || sending} className="hidden" onChange={pick} />
               </label>
 
               <textarea
@@ -442,7 +440,7 @@ function TicketDetail() {
                 id="ticket-reply-send-btn"
                 type="button"
                 onClick={send}
-                disabled={sending || !body.trim()}
+                disabled={sending || uploading || !body.trim()}
                 aria-label="Send reply"
                 className="grid h-10 w-10 shrink-0 place-items-center rounded-2xl bg-primary text-primary-foreground shadow-sm hover:bg-primary/90 transition active:scale-95 disabled:opacity-50 cursor-pointer"
               >

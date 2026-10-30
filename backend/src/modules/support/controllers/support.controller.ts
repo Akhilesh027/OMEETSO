@@ -40,29 +40,17 @@ export async function createTicket(req: AuthenticatedUserRequest, res: Response,
     const contactEmail = userEmail || email || req.user?.email || undefined;
     const contactPhone = userPhone || phone || req.user?.phone || undefined;
 
-    if (!user) {
-      const searchEmail = contactEmail;
-      const searchPhone = contactPhone;
-      if (searchEmail || searchPhone) {
-        user = await User.findOne({
-          $or: [
-            ...(searchEmail ? [{ email: searchEmail.toLowerCase() }] : []),
-            ...(searchPhone ? [{ phone: searchPhone }] : [])
-          ]
-        });
-      }
-      if (!user) {
-        user = await User.findOne({ status: UserStatus.ACTIVE }) || await User.findOne();
-      }
-      if (!user) {
-        user = await User.create({
-          phone: phone || "+919876543210",
-          email: email || "member.support@omeetso.in",
-          status: UserStatus.ACTIVE,
-          accountType: "individual",
-          profile: { name: contactName, city: "Hyderabad" }
-        });
-      }
+    if (!["in_app", "email"].includes(contactMethod)) {
+      res.status(400).json({ success: false, error: { message: "Choose email or in-app support." } }); return;
+    }
+    if (contactMethod === "in_app" && !user) {
+      res.status(401).json({ success: false, error: { message: "Please sign in to use in-app support." } }); return;
+    }
+    if (contactMethod === "email" && (!contactEmail || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(contactEmail))) {
+      res.status(400).json({ success: false, error: { message: "A valid email address is required." } }); return;
+    }
+    if (!Array.isArray(attachments) || attachments.length > 5 || attachments.some((url: unknown) => typeof url !== "string" || !/^(https?:\/\/|data:(image\/(png|jpeg)|application\/pdf);base64,)/i.test(url))) {
+      res.status(400).json({ success: false, error: { message: "Invalid support attachments. Please upload the files again." } }); return;
     }
 
     const ticketBody = description || message || subject;
@@ -181,7 +169,7 @@ export async function getTicketById(req: AuthenticatedUserRequest, res: Response
     }
 
     // Verify ownership
-    if (ticket.userId.toString() !== req.user._id.toString()) {
+    if (ticket.userId?.toString() !== req.user._id.toString()) {
       res.status(403).json({ success: false, error: { code: "FORBIDDEN", message: "Access denied to ticket" } });
       return;
     }
@@ -245,7 +233,7 @@ export async function getTicketMessages(req: AuthenticatedUserRequest, res: Resp
       return;
     }
 
-    if (ticket.userId.toString() !== req.user._id.toString()) {
+    if (ticket.userId?.toString() !== req.user._id.toString()) {
       res.status(403).json({ success: false, error: { code: "FORBIDDEN", message: "Access denied to ticket" } });
       return;
     }
@@ -280,6 +268,16 @@ export async function addTicketMessage(req: AuthenticatedUserRequest, res: Respo
     const ticketId = String(req.params.ticketId);
     const { text, attachments = [] } = req.body;
 
+    if (!Array.isArray(attachments) || attachments.length > 5 || attachments.some((url: unknown) => typeof url !== "string" || !/^(https?:\/\/|data:(image\/(png|jpeg)|application\/pdf);base64,)/i.test(url))) {
+      res.status(400).json({ success: false, error: { message: "Invalid support attachments. Please upload the files again." } });
+      return;
+    }
+
+    if (!Array.isArray(attachments) || attachments.length > 5 || attachments.some((url: unknown) => typeof url !== "string" || !/^(https?:\/\/|data:(image\/(png|jpeg)|application\/pdf);base64,)/i.test(url))) {
+      res.status(400).json({ success: false, error: { message: "Invalid support attachments. Please upload the files again." } });
+      return;
+    }
+
     if (!text || !text.trim()) {
       res.status(400).json({ success: false, error: { message: "Message text is required" } });
       return;
@@ -297,7 +295,7 @@ export async function addTicketMessage(req: AuthenticatedUserRequest, res: Respo
       return;
     }
 
-    if (ticket.userId.toString() !== req.user._id.toString()) {
+    if (ticket.userId?.toString() !== req.user._id.toString()) {
       res.status(403).json({ success: false, error: { code: "FORBIDDEN", message: "Access denied" } });
       return;
     }
@@ -355,7 +353,7 @@ export async function updateTicketStatus(req: AuthenticatedUserRequest, res: Res
       return;
     }
 
-    if (ticket.userId.toString() !== req.user._id.toString()) {
+    if (ticket.userId?.toString() !== req.user._id.toString()) {
       res.status(403).json({ success: false, error: { code: "FORBIDDEN", message: "Access denied" } });
       return;
     }

@@ -14,6 +14,7 @@ export function MobileStickyAnchorAd() {
     path.startsWith("/register") ||
     path.startsWith("/otp") ||
     path.startsWith("/verification") ||
+    path.startsWith("/support/") ||
     path.startsWith("/sell/quick") ||
     path.startsWith("/sell/detailed");
 

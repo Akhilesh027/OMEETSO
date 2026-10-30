@@ -11,6 +11,7 @@ export interface IAdminUser extends Document {
   status: "active" | "suspended" | "locked";
   twoFASecret?: string;
   twoFAEnabled: boolean;
+  lastTwoFAStep?: number;
   failedLoginAttempts: number;
   lockedUntil?: Date;
   lastLoginAt?: Date;
@@ -29,6 +30,7 @@ const AdminUserSchema = new Schema<IAdminUser>(
     status: { type: String, enum: ["active", "suspended", "locked"], default: "active", index: true },
     twoFASecret: { type: String },
     twoFAEnabled: { type: Boolean, default: false },
+    lastTwoFAStep: { type: Number },
     failedLoginAttempts: { type: Number, default: 0 },
     lockedUntil: { type: Date },
     lastLoginAt: { type: Date }

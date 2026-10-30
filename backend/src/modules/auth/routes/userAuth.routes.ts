@@ -22,7 +22,7 @@ import { RequestOtpSchema, VerifyOtpSchema } from "../../../contracts";
 export const userAuthRouter = Router();
 
 userAuthRouter.post("/check-phone", checkPhoneStatus);
-userAuthRouter.post("/register", registerUser);
+userAuthRouter.post("/register", authenticateUser, registerUser);
 userAuthRouter.post("/login", loginUserDirect);
 userAuthRouter.post("/google", loginWithGoogle);
 userAuthRouter.post("/otp/request", validateBody(RequestOtpSchema), requestOtp);

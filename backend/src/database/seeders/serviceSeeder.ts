@@ -72,9 +72,15 @@ export const SERVICE_CATEGORIES_SEED = [
 
 export async function seedInitialServices() {
   try {
+    const catCount = await ServiceCategory.countDocuments();
+    if (catCount === 0) {
+      console.log("[ServiceSeeder] Seeding initial service categories...");
+      await ServiceCategory.insertMany(SERVICE_CATEGORIES_SEED);
+      console.log(`[ServiceSeeder] Successfully seeded ${SERVICE_CATEGORIES_SEED.length} service categories.`);
+    }
     const count = await Service.countDocuments();
-    console.log(`[ServiceSeeder] Verified ${count} services in MongoDB (auto-seeding disabled).`);
+    console.log(`[ServiceSeeder] Verified ${count} services in MongoDB.`);
   } catch (err) {
-    console.error("[ServiceSeeder] Error checking services:", err);
+    console.error("[ServiceSeeder] Error checking/seeding services:", err);
   }
 }

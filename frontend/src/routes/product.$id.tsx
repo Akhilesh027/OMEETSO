@@ -372,6 +372,7 @@ function ProductPage() {
   const [guestOpen, setGuestOpen] = useState(false);
   const nav = useNavigate();
   const { addConversation } = useChatContext();
+  const [startingChat, setStartingChat] = useState(false);
 
   useEffect(() => {
     if (typeof window !== "undefined") {
@@ -433,6 +434,7 @@ function ProductPage() {
   );
 
   const handleStartChat = async () => {
+    if (startingChat) return;
     const token = getUserAccessToken() || (typeof localStorage !== "undefined" ? localStorage.getItem("omeetso_user_token") || localStorage.getItem("omeetso_auth_token") : null);
     if (!token) {
       setGuestOpen(true);
@@ -449,6 +451,7 @@ function ProductPage() {
       return;
     }
 
+    setStartingChat(true);
     try {
       const targetListingId = product.id || product._id;
       const targetSellerId = realSellerId;
@@ -476,17 +479,21 @@ function ProductPage() {
         if (
           res.error?.code === "TOKEN_EXPIRED" ||
           res.error?.code === "UNAUTHORIZED" ||
+          res.error?.code === "SESSION_REVOKED" ||
+          res.error?.code === "USER_NOT_FOUND" ||
           errMsg.toLowerCase().includes("token expired") ||
           errMsg.toLowerCase().includes("invalid token")
         ) {
           toast.error("Your session has expired. Please sign in again.");
-          nav({ to: "/login" });
+          nav({ to: "/login", search: { redirect: `/product/${product.id}` } });
           return;
         }
         toast.error(errMsg);
       }
     } catch {
       toast.error("Connection error. Please try again.");
+    } finally {
+      setStartingChat(false);
     }
   };
 
@@ -1131,6 +1138,7 @@ function ProductPage() {
                 ) : (
                   <button
                     onClick={handleStartChat}
+                    disabled={startingChat}
                     className="flex items-center justify-center gap-2 rounded-2xl bg-blue-600 hover:bg-blue-700 text-white py-3.5 text-sm font-extrabold shadow-md active:scale-98 transition-all"
                   >
                     <MessageCircle className="h-4 w-4" /> Chat with Seller
@@ -1262,6 +1270,7 @@ function ProductPage() {
               )}
               <button
                 onClick={handleStartChat}
+                disabled={startingChat}
                 className="flex flex-col items-center justify-center gap-0.5 rounded-2xl bg-blue-600 text-white py-2 text-xs font-bold shadow-xs"
               >
                 <MessageCircle className="h-4 w-4" /> Chat
@@ -1282,7 +1291,7 @@ function ProductPage() {
               <button
                 onClick={() => {
                   try { localStorage.setItem("omeetso_return_product", product.id); } catch { /* ignore */ }
-                  nav({ to: "/login" });
+                  nav({ to: "/login", search: { redirect: `/product/${product.id}` } });
                 }}
                 className="h-11 rounded-2xl bg-blue-600 text-sm font-bold text-white shadow-sm hover:bg-blue-700"
               >Sign in</button>
