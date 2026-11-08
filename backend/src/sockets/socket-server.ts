@@ -220,3 +220,14 @@ export function initSocketServer(httpServer: HttpServer): Server {
 export function getIO(): Server | null {
   return io;
 }
+
+export function broadcastLiveActivity(activity: any): void {
+  try {
+    if (io) {
+      io.to("admin:monitoring").emit("live_activity:new", activity);
+    }
+  } catch (err) {
+    console.error("[Socket] Failed to broadcast live activity:", err);
+  }
+}
+

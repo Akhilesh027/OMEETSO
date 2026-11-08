@@ -1657,6 +1657,19 @@ export async function approveAdminAdCampaign(req: AuthenticatedAdminRequest, res
     campaign.endAt = new Date(now.getTime() + durationDays * 24 * 60 * 60 * 1000);
     await campaign.save();
 
+    if (campaign.listingId) {
+      try {
+        const { attributeBoostConversion } = await import("../services/boostReminder.service");
+        await attributeBoostConversion(
+          campaign.listingId,
+          campaign._id,
+          campaign.pricing?.totalInPaise || (hold?.amountInPaise || 0)
+        );
+      } catch (attrErr) {
+        console.error("[Monetization] Error attributing boost conversion:", attrErr);
+      }
+    }
+
     invalidateServeAdsCache();
 
     res.status(200).json({
@@ -2139,6 +2152,37 @@ export async function updateAdSettings(req: Request, res: Response, next: NextFu
         googleTestMode: setting.googleTestMode,
         updatedAt: setting.updatedAt
       }
+    });
+  } catch (error) {
+    next(error);
+  }
+}
+
+export async function getBoostReminderStatsController(req: Request, res: Response, next: NextFunction): Promise<void> {
+  try {
+    const { getMonetizationStats } = await import("../services/boostReminder.service");
+    const stats = await getMonetizationStats();
+    res.status(200).json({
+      success: true,
+      data: stats
+    });
+  } catch (error) {
+    next(error);
+  }
+}
+
+export async function triggerBoostRemindersNowController(req: Request, res: Response, next: NextFunction): Promise<void> {
+  try {
+    const { scanAndSendBoostReminders } = await import("../services/boostReminder.service");
+    const result = await scanAndSendBoostReminders({
+      minAgeDays: req.body?.minAgeDays ? Number(req.body.minAgeDays) : 3,
+      maxViews: req.body?.maxViews ? Number(req.body.maxViews) : 35
+    });
+
+    res.status(200).json({
+      success: true,
+      message: `Successfully completed boost reminder scan. Dispatched ${result.remindersDispatchedCount} automated monetization reminders.`,
+      data: result
     });
   } catch (error) {
     next(error);

@@ -6,6 +6,7 @@ export interface IAdminUser extends Document {
   email: string;
   passwordHash: string;
   role: string;
+  roles: string[];
   permissions: string[];
   avatar?: string;
   status: "active" | "suspended" | "locked";
@@ -25,6 +26,7 @@ const AdminUserSchema = new Schema<IAdminUser>(
     email: { type: String, required: true, unique: true, index: true },
     passwordHash: { type: String, required: true },
     role: { type: String, required: true, default: "Super Admin" },
+    roles: [{ type: String, default: "Super Admin" }],
     permissions: [{ type: String }],
     avatar: { type: String },
     status: { type: String, enum: ["active", "suspended", "locked"], default: "active", index: true },

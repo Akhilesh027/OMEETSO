@@ -283,10 +283,13 @@ export const AdminSidebar: React.FC<AdminSidebarProps> = ({
                       </div>
                       {!isCollapsed && item.badge && (
                         <span
-                          className={`px-1.5 py-0.2 text-[10px] rounded-full shrink-0 ${
+                          className={`px-2 py-0.5 text-[10px] rounded-full shrink-0 flex items-center gap-1 shadow-xs ${
                             badgeColorClasses[item.badgeColor || "info"]
                           }`}
                         >
+                          {item.badge === "LIVE" && (
+                            <span className="w-1.5 h-1.5 rounded-full bg-white animate-pulse" />
+                          )}
                           {item.badge}
                         </span>
                       )}

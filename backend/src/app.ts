@@ -40,7 +40,10 @@ import {
 } from "./modules/og/controllers/og.controller";
 import { blogsRouter } from "./modules/blogs/routes/blogs.routes";
 import { adminBlogsRouter } from "./modules/blogs/routes/adminBlogs.routes";
+import { adminStaffRouter } from "./modules/admin/routes/adminStaff.routes";
 import { newsletterRouter } from "./modules/newsletter/routes/newsletter.routes";
+import { telemetryRouter } from "./modules/telemetry/routes/telemetry.routes";
+import { generalApiRateLimiter } from "./middleware/rateLimiter";
 
 export const app: Express = express();
 
@@ -362,6 +365,9 @@ app.get(`${env.API_PREFIX}/health`, (req: Request, res: Response) => {
   });
 });
 
+// General Rate Limiter for all API endpoints
+app.use(env.API_PREFIX, generalApiRateLimiter);
+
 // API Routes
 app.get(`${env.API_PREFIX}/ads/serve`, (req: Request, res: Response, next: NextFunction) => {
   const { serveAds } = require("./modules/revenue/controllers/revenue.controller");
@@ -406,7 +412,13 @@ app.use("/api/admin/reviews", adminReviewsRouter);
 app.use(`${env.API_PREFIX}/blogs`, blogsRouter);
 app.use(`${env.API_PREFIX}/admin/blogs`, adminBlogsRouter);
 app.use("/api/admin/blogs", adminBlogsRouter);
+app.use(`${env.API_PREFIX}/admin/staff`, adminStaffRouter);
+app.use("/api/admin/staff", adminStaffRouter);
+app.use(`${env.API_PREFIX}/admin/team`, adminStaffRouter);
+app.use("/api/admin/team", adminStaffRouter);
 app.use(`${env.API_PREFIX}/newsletter`, newsletterRouter);
+app.use(`${env.API_PREFIX}/telemetry`, telemetryRouter);
+app.use("/api/telemetry", telemetryRouter);
 app.use(`${env.API_PREFIX}/og`, ogRouter);
 
 // Direct crawler & link preview friendly routes

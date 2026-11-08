@@ -1,6 +1,7 @@
 import { QueryClient } from "@tanstack/react-query";
-import { Outlet, Link, createRootRouteWithContext, useRouter } from "@tanstack/react-router";
-import { useEffect } from "react";
+import { Outlet, Link, createRootRouteWithContext, useRouter, useRouterState } from "@tanstack/react-router";
+import { useEffect, useRef } from "react";
+import { sendTelemetryEvent } from "../lib/telemetry";
 
 import { reportLovableError } from "../lib/lovable-error-reporting";
 import { WebsiteHeader } from "../components/omeetso/WebsiteHeader";
@@ -51,6 +52,31 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
 });
 
 function RootComponent() {
+  const routerState = useRouterState();
+  const currentPath = routerState.location.pathname;
+  const prevPathRef = useRef<string | null>(null);
+
+  // Automatic Telemetry: Track page transitions & initial visit
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    if (prevPathRef.current === null) {
+      // First app open
+      sendTelemetryEvent({
+        activityType: "VISIT_OPENED",
+        pagePath: currentPath,
+        pageTitle: document.title
+      });
+    } else if (prevPathRef.current !== currentPath) {
+      // Route change
+      sendTelemetryEvent({
+        activityType: "PAGE_VIEW",
+        pagePath: currentPath,
+        pageTitle: document.title
+      });
+    }
+    prevPathRef.current = currentPath;
+  }, [currentPath]);
+
   useEffect(() => {
     if (typeof window === "undefined") return;
     try {

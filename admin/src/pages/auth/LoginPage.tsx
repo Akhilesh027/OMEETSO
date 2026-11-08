@@ -64,7 +64,7 @@ export default function LoginPage() {
               required
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              placeholder="admin@digitalness.co.in"
+              placeholder="admin@omeetso.in"
               className="w-full pl-10 pr-4 py-2.5 text-xs rounded-xl border border-[#E2E8F0] focus:ring-2 focus:ring-[#3547D4] focus:outline-none bg-white text-[#111827]"
             />
           </div>

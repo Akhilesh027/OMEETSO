@@ -142,3 +142,16 @@ export const hasPermission = (userPermissions: (Permission | string)[], required
   if (userPermissions.includes("dashboard.view" as Permission) && requiredPermissions.length === 0) return true;
   return requiredPermissions.every(p => userPermissions.includes(p as Permission));
 };
+
+export const computePermissionsForRoles = (roles: (AdminRole | string)[]): Permission[] => {
+  if (!roles || roles.length === 0) return [];
+  if (roles.includes("Super Admin")) return [...PERMISSIONS];
+  const set = new Set<Permission>();
+  for (const r of roles) {
+    const def = ROLE_DEFINITIONS[r as AdminRole];
+    if (def && Array.isArray(def.permissions)) {
+      def.permissions.forEach((p) => set.add(p));
+    }
+  }
+  return Array.from(set);
+};

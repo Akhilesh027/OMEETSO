@@ -24,7 +24,9 @@ import {
   getCampaignAnalytics,
   getAdminRevenueAnalytics,
   getAdSettings,
-  updateAdSettings
+  updateAdSettings,
+  getBoostReminderStatsController,
+  triggerBoostRemindersNowController
 } from "../controllers/revenue.controller";
 import { createRazorpayOrder, verifyRazorpayPayment } from "../controllers/razorpay.controller";
 import { authenticateUser } from "../../../middleware/authenticateUser";
@@ -70,3 +72,9 @@ revenueRouter.delete("/admin/ad-placements/:id", authenticateAdmin, deleteAdPlac
 revenueRouter.put("/admin/ad-settings", authenticateAdmin, updateAdSettings);
 revenueRouter.patch("/admin/ad-settings", authenticateAdmin, updateAdSettings);
 revenueRouter.get("/admin/revenue/analytics", authenticateAdmin, requirePermission("ads.view"), getAdminRevenueAnalytics);
+
+// Automated Monetization & Boost Reminders (Admin API)
+revenueRouter.get("/admin/boost-reminders/stats", authenticateAdmin, getBoostReminderStatsController);
+revenueRouter.post("/admin/boost-reminders/trigger-now", authenticateAdmin, triggerBoostRemindersNowController);
+revenueRouter.get("/boost-reminders/stats", authenticateAdmin, getBoostReminderStatsController);
+revenueRouter.post("/boost-reminders/trigger-now", authenticateAdmin, triggerBoostRemindersNowController);

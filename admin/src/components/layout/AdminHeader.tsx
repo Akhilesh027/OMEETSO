@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useAdminAuth } from "@/contexts/AdminAuthContext";
+import { useToast } from "@/contexts/ToastContext";
 import {
   Menu,
   Search,
@@ -25,6 +26,7 @@ export const AdminHeader: React.FC<AdminHeaderProps> = ({
   onOpenGlobalSearch,
 }) => {
   const { admin, logout, switchRoleForTesting } = useAdminAuth();
+  const { showSuccess } = useToast();
   const [isProfileOpen, setIsProfileOpen] = useState(false);
   const [isNotifOpen, setIsNotifOpen] = useState(false);
 
@@ -153,15 +155,24 @@ export const AdminHeader: React.FC<AdminHeaderProps> = ({
 
               {/* Dev Testing Role Switcher */}
               <div className="p-2 border-b border-[#E2E8F0]">
-                <label className="block text-[10px] font-bold text-[#64748B] uppercase tracking-wider mb-1">
-                  Dev Role Switcher:
-                </label>
+                <div className="flex items-center justify-between mb-1">
+                  <label className="text-[10px] font-bold text-[#64748B] uppercase tracking-wider">
+                    Dev Role Switcher:
+                  </label>
+                  <span className="text-[9px] font-bold text-amber-600 bg-amber-50 px-1.5 py-0.2 rounded border border-amber-200">
+                    Live Testing
+                  </span>
+                </div>
                 <select
                   value={admin?.role}
-                  onChange={(e) => switchRoleForTesting?.(e.target.value as any)}
-                  className="w-full text-xs p-1.5 rounded-lg border border-[#E2E8F0] bg-[#F5F7FC] focus:outline-none"
+                  onChange={(e) => {
+                    const newRole = e.target.value as any;
+                    switchRoleForTesting?.(newRole);
+                    showSuccess("Role Switched", `Switched active role to "${newRole}". Permissions and sidebar re-filtered.`);
+                  }}
+                  className="w-full text-xs p-1.5 rounded-lg border border-[#E2E8F0] bg-[#F5F7FC] focus:outline-none focus:ring-2 focus:ring-[#3547D4] font-medium"
                 >
-                  <option value="Super Admin">Super Admin</option>
+                  <option value="Super Admin">Super Admin (All Access)</option>
                   <option value="Platform Admin">Platform Admin</option>
                   <option value="Listing Moderator">Listing Moderator</option>
                   <option value="Store Moderator">Store Moderator</option>
@@ -171,6 +182,11 @@ export const AdminHeader: React.FC<AdminHeaderProps> = ({
                   <option value="Safety and Fraud Officer">Safety Officer</option>
                   <option value="Analytics Viewer">Analytics Viewer</option>
                 </select>
+                {admin?.roles && admin.roles.length > 1 && (
+                  <div className="mt-1 text-[10px] text-indigo-700 font-medium">
+                    Multiple Roles: {admin.roles.join(", ")}
+                  </div>
+                )}
               </div>
 
               <Link

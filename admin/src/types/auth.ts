@@ -16,6 +16,7 @@ export interface AdminUser {
   name: string;
   email: string;
   role: AdminRole;
+  roles?: (AdminRole | string)[];
   permissions: Permission[];
   avatar?: string;
   status: "active" | "suspended" | "locked";

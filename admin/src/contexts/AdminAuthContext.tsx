@@ -1,7 +1,7 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from "react";
 import { AdminUser, AdminSession, AuthStatus, LoginCredentials, TwoFactorVerification } from "@/types/auth";
 import { Permission } from "@/permissions/permissions";
-import { hasPermission as checkHasPermission } from "@/permissions/roles";
+import { hasPermission as checkHasPermission, computePermissionsForRoles } from "@/permissions/roles";
 import { AdminAuthService } from "@/services/adminAuthService";
 import { LocalStorageService, adminStorageKeys } from "@/storage/localStorageService";
 
@@ -21,7 +21,7 @@ interface AdminAuthContextType {
   can: (permission: Permission) => boolean;
   canAny: (permissions: Permission[]) => boolean;
   canAll: (permissions: Permission[]) => boolean;
-  switchRoleForTesting?: (role: AdminUser["role"]) => void;
+  switchRoleForTesting: (roleOrRoles: AdminUser["role"] | AdminUser["role"][]) => void;
 }
 
 const AdminAuthContext = createContext<AdminAuthContextType | undefined>(undefined);
@@ -40,7 +40,17 @@ export const AdminAuthProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     const restore = () => AdminAuthService.restoreSession().then(result => {
       if (!mounted) return;
       setStatus(result.status);
-      setAdmin(result.admin);
+      let adminData = result.admin;
+      const devRoles = LocalStorageService.getItem<AdminUser["role"][] | null>("omeetso_admin_dev_test_roles", null);
+      if (adminData && devRoles && Array.isArray(devRoles) && devRoles.length > 0) {
+        adminData = {
+          ...adminData,
+          role: devRoles[0],
+          roles: devRoles,
+          permissions: computePermissionsForRoles(devRoles),
+        };
+      }
+      setAdmin(adminData);
       setSession(result.session);
     });
     void restore();
@@ -100,6 +110,7 @@ export const AdminAuthProvider: React.FC<{ children: React.ReactNode }> = ({ chi
   };
 
   const logout = async () => {
+    LocalStorageService.removeItem("omeetso_admin_dev_test_roles");
     await AdminAuthService.logout(admin);
     setStatus("unauthenticated");
     setAdmin(null);
@@ -108,6 +119,7 @@ export const AdminAuthProvider: React.FC<{ children: React.ReactNode }> = ({ chi
   };
 
   const logoutAllSessions = async () => {
+    LocalStorageService.removeItem("omeetso_admin_dev_test_roles");
     await AdminAuthService.logout(admin);
     LocalStorageService.clearAllAdminData();
     setStatus("unauthenticated");
@@ -117,6 +129,23 @@ export const AdminAuthProvider: React.FC<{ children: React.ReactNode }> = ({ chi
   };
 
   const clearError = () => setError(null);
+
+  const switchRoleForTesting = useCallback((roleOrRoles: AdminUser["role"] | AdminUser["role"][]) => {
+    setAdmin((prev) => {
+      if (!prev) return null;
+      const rolesList = (Array.isArray(roleOrRoles) ? roleOrRoles : [roleOrRoles]).filter(Boolean);
+      const primaryRole = rolesList[0] || "Super Admin";
+      const newPermissions = computePermissionsForRoles(rolesList);
+      const updated: AdminUser = {
+        ...prev,
+        role: primaryRole,
+        roles: rolesList,
+        permissions: newPermissions,
+      };
+      LocalStorageService.setItem("omeetso_admin_dev_test_roles", rolesList);
+      return updated;
+    });
+  }, []);
 
   const hasPermission = useCallback((required: Permission[] = []) =>
     status === "authenticated" && !!admin && (required.length === 0 || checkHasPermission(admin.permissions, required)), [status, admin]);
@@ -142,6 +171,7 @@ export const AdminAuthProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         can,
         canAny,
         canAll,
+        switchRoleForTesting,
       }}
     >
       {children}

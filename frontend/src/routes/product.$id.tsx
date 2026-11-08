@@ -42,6 +42,7 @@ import {
 import { addRecentlyViewed } from "@/lib/saved";
 import { useSaved } from "@/hooks/useSaved";
 import { ProductWatermark } from "@/components/omeetso/Watermark";
+import { trackListingView, trackContactLead } from "@/lib/telemetry";
 
 export const Route = createFileRoute("/product/$id")({
   staleTime: 0,
@@ -281,6 +282,17 @@ function ProductPage() {
     Boolean((product as any).isDeleted) ||
     isListingDeletedLocally(cleanId)
   );
+
+  useEffect(() => {
+    if (product?.id) {
+      trackListingView({
+        id: product.id,
+        title: product.title,
+        price: product.price,
+        categoryId: (product as any).category || (product as any).categoryId
+      });
+    }
+  }, [product?.id]);
 
   const isUnavailable = !loading && (isSold || isDeletedOrMissing);
 
@@ -672,6 +684,10 @@ function ProductPage() {
       });
       return;
     }
+    trackContactLead("call", {
+      listingTitle: product?.title,
+      sellerPhone: callablePhone
+    });
     window.location.href = `tel:${callablePhone}`;
   };
 
@@ -1159,6 +1175,7 @@ function ProductPage() {
                     href={waLink}
                     target="_blank"
                     rel="noopener noreferrer"
+                    onClick={() => trackContactLead("whatsapp", { listingTitle: product?.title, sellerPhone: waPhone })}
                     className="flex items-center justify-center gap-2 rounded-2xl bg-blue-600 hover:bg-blue-700 text-white py-3 text-sm font-bold shadow-sm transition-all"
                   >
                     WhatsApp Seller

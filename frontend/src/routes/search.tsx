@@ -9,6 +9,7 @@ import { getCachedCategories } from "@/lib/categories";
 import {
   addRecentSearch, clearRecentSearches, getRecentSearches, removeRecentSearch, subscribe as subscribeSaved,
 } from "@/lib/saved";
+import { trackSearch } from "@/lib/telemetry";
 
 type SearchRouteParams = {
   q?: string;
@@ -58,6 +59,7 @@ function SearchLanding() {
   const submit = (query: string) => {
     const s = query.trim();
     if (!s) return;
+    trackSearch(s);
     addRecentSearch(s);
     nav({ to: "/results", search: { q: s } as never });
   };

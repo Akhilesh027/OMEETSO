@@ -1,12 +1,18 @@
 import React from "react";
 import { Breadcrumbs } from "./Breadcrumbs";
 
+interface ActionConfig {
+  label: string;
+  onClick: () => void;
+  iconName?: string;
+}
+
 interface PageHeaderProps {
   title: string;
   description?: string;
   badge?: string;
   badgeColor?: "warning" | "error" | "info" | "success" | "indigo" | "amber" | "emerald" | "purple" | "blue";
-  primaryAction?: React.ReactNode;
+  primaryAction?: React.ReactNode | ActionConfig;
   secondaryActions?: React.ReactNode;
 }
 
@@ -28,6 +34,23 @@ export const PageHeader: React.FC<PageHeaderProps> = ({
     emerald: "bg-emerald-50 text-[#16A36A] border-emerald-200",
     indigo: "bg-indigo-50 text-[#3547D4] border-indigo-200",
     purple: "bg-purple-50 text-[#7C3AED] border-purple-200",
+  };
+
+  const renderPrimaryAction = () => {
+    if (!primaryAction) return null;
+    if (React.isValidElement(primaryAction)) return primaryAction;
+    if (typeof primaryAction === "object" && "label" in primaryAction && "onClick" in primaryAction) {
+      const config = primaryAction as ActionConfig;
+      return (
+        <button
+          onClick={config.onClick}
+          className="px-4 py-2 bg-[#3547D4] hover:bg-blue-700 text-white rounded-xl text-xs font-bold transition-all shadow-xs inline-flex items-center gap-1.5"
+        >
+          {config.label}
+        </button>
+      );
+    }
+    return null;
   };
 
   return (
@@ -55,7 +78,7 @@ export const PageHeader: React.FC<PageHeaderProps> = ({
         {(primaryAction || secondaryActions) && (
           <div className="flex flex-wrap items-center gap-2.5 shrink-0">
             {secondaryActions}
-            {primaryAction}
+            {renderPrimaryAction()}
           </div>
         )}
       </div>

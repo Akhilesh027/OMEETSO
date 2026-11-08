@@ -41,6 +41,7 @@ const RefundsPage = lazy(() => import("@/pages/finance/RefundsPage"));
 const TicketsListPage = lazy(() => import("@/pages/support/TicketsListPage"));
 const AuditLogsPage = lazy(() => import("@/pages/administration/AuditLogsPage"));
 const RolesPage = lazy(() => import("@/pages/administration/RolesPage"));
+const AdminUsersPage = lazy(() => import("@/pages/administration/AdminUsersPage"));
 const CategoriesPage = lazy(() => import("@/pages/categories/CategoriesPage"));
 const ReviewsPage = lazy(() => import("@/pages/reviews/ReviewsPage"));
 const NotificationsPage = lazy(() => import("@/pages/notifications/NotificationsPage"));
@@ -274,7 +275,8 @@ export default function AdminRoutes() {
 
           {/* Administration Group */}
           <Route element={<PermissionRoute permissions={["admins.view"]} />}>
-            <Route path="/admin/admin-users" element={<UsersListPage />} />
+            <Route path="/admin/admin-users" element={<AdminUsersPage />} />
+            <Route path="/admin/staff" element={<AdminUsersPage />} />
             <Route path="/admin/login-activity" element={<AuditLogsPage />} />
           </Route>
           <Route element={<PermissionRoute permissions={["roles.view"]} />}>

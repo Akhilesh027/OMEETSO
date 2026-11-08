@@ -168,6 +168,7 @@ async function completeAdminLogin(admin: any, req: Request, res: Response) {
         name: admin.name,
         email: admin.email,
         role: admin.role,
+        roles: (admin as any).roles?.length ? (admin as any).roles : [admin.role],
         permissions: admin.permissions,
         avatar: admin.avatar,
         status: admin.status,
@@ -249,6 +250,7 @@ export async function refreshAdminSession(req: Request, res: Response, next: Nex
           name: admin.name,
           email: admin.email,
           role: admin.role,
+          roles: (admin as any).roles?.length ? (admin as any).roles : [admin.role],
           permissions: admin.permissions,
           avatar: admin.avatar,
           status: admin.status
@@ -292,6 +294,7 @@ export async function getAdminSession(req: AuthenticatedAdminRequest, res: Respo
         name: a.name,
         email: a.email,
         role: a.role,
+        roles: (a as any).roles?.length ? (a as any).roles : [a.role],
         permissions: a.permissions,
         avatar: a.avatar,
         status: a.status

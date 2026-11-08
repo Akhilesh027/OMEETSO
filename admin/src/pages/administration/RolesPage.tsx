@@ -1,12 +1,14 @@
 import React, { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { PageContainer } from "@/components/layout/PageContainer";
 import { ROLE_DEFINITIONS } from "@/permissions/roles";
 import { MockDataService, type FeatureFlags } from "@/services/mockDataService";
-import { Lock, Shield, CheckCircle2, Sliders, ToggleLeft, ToggleRight, Eye, Save } from "lucide-react";
+import { Lock, Shield, CheckCircle2, Sliders, ToggleLeft, ToggleRight, Eye, Save, UserCog } from "lucide-react";
 import { useToast } from "@/contexts/ToastContext";
 
 export default function RolesPage() {
+  const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState<"roles" | "flags">("roles");
   const [flags, setFlags] = useState<FeatureFlags>({
     maintenanceMode: false,
@@ -45,6 +47,15 @@ export default function RolesPage() {
         description="Configuration definitions for the 9 platform operator roles, permission matrix, and feature flags."
         badge="Platform Administration"
         badgeColor="indigo"
+        primaryAction={
+          <button
+            onClick={() => navigate("/admin/admin-users")}
+            className="px-4 py-2 bg-[#3547D4] hover:bg-blue-700 text-white rounded-xl text-xs font-bold transition-all shadow-xs inline-flex items-center gap-1.5"
+          >
+            <UserCog className="w-4 h-4" />
+            Manage Staff & Multi-Roles
+          </button>
+        }
       />
 
       <div className="bg-white rounded-2xl border border-[#E2E8F0] shadow-sm p-5 space-y-4">

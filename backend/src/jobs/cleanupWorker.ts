@@ -2,9 +2,10 @@ import { MediaAsset } from "../modules/uploads/models/MediaAsset";
 import { Listing } from "../modules/listings/models/Listing";
 import { ListingStatus } from "../contracts";
 import { Blog } from "../modules/blogs/models/Blog";
+import { scanAndSendBoostReminders } from "../modules/revenue/services/boostReminder.service";
 
 export function startBackgroundWorkers(): void {
-  console.log("[Worker] Background cleanup worker initialized (Interval: 1 hour, Blog Scheduler: 1 minute)");
+  console.log("[Worker] Background cleanup worker initialized (Interval: 1 hour, Blog Scheduler: 1 minute, Boost Monetization: 6 hours)");
 
   // Delay initial cleanup by 45 seconds so server startup and initial requests are unhindered
   setTimeout(runBackgroundTasks, 45 * 1000);
@@ -13,6 +14,22 @@ export function startBackgroundWorkers(): void {
   // Fast interval for scheduled blog releases (every 60 seconds)
   setTimeout(checkAndPublishScheduledBlogs, 5 * 1000);
   setInterval(checkAndPublishScheduledBlogs, 60 * 1000);
+
+  // Automated Monetization: Scan stale active listings & dispatch boost promotions
+  setTimeout(async () => {
+    try {
+      await scanAndSendBoostReminders();
+    } catch (e) {
+      console.error("[Worker] Initial boost reminder scan notice:", e);
+    }
+  }, 90 * 1000);
+  setInterval(async () => {
+    try {
+      await scanAndSendBoostReminders();
+    } catch (e) {
+      console.error("[Worker] Periodic boost reminder scan notice:", e);
+    }
+  }, 6 * 60 * 60 * 1000);
 }
 
 export async function checkAndPublishScheduledBlogs(): Promise<void> {
