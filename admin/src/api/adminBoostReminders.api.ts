@@ -49,6 +49,8 @@ export async function fetchBoostRemindersStatsApi(): Promise<{
   }
 }
 
+export const getAdminBoostReminderStatsApi = fetchBoostRemindersStatsApi;
+
 export async function triggerBoostRemindersScanApi(options: {
   minAgeDays?: number;
   maxViews?: number;

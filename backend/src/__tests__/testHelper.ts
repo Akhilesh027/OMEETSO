@@ -68,11 +68,26 @@ export class TestClient {
     };
   }
 
-  async get<T = any>(path: string, headers?: Record<string, string>) {
+  async get<T = any>(
+    path: string,
+    headersOrOptions?: Record<string, string> | { headers?: Record<string, string> }
+  ) {
+    const headers =
+      headersOrOptions && "headers" in headersOrOptions
+        ? headersOrOptions.headers
+        : (headersOrOptions as Record<string, string>);
     return this.request<T>(path, { method: "GET", headers });
   }
 
-  async post<T = any>(path: string, body?: any, headers?: Record<string, string>) {
+  async post<T = any>(
+    path: string,
+    body?: any,
+    headersOrOptions?: Record<string, string> | { headers?: Record<string, string> }
+  ) {
+    const headers =
+      headersOrOptions && "headers" in headersOrOptions
+        ? headersOrOptions.headers
+        : (headersOrOptions as Record<string, string>);
     return this.request<T>(path, { method: "POST", body, headers });
   }
 }

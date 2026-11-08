@@ -27,10 +27,24 @@ export function generateUserAccessToken(userId: string, sessionId?: string): str
   });
 }
 
-export function generateAdminAccessToken(adminId: string, role: string, permissions: string[], sessionId?: string): string {
+export function generateAdminAccessToken(
+  adminId: string,
+  role: string,
+  permissionsOrSessionId?: string[] | string,
+  sessionId?: string
+): string {
+  let permissions: string[] = ["*"];
+  let finalSessionId = sessionId;
+
+  if (Array.isArray(permissionsOrSessionId)) {
+    permissions = permissionsOrSessionId;
+  } else if (typeof permissionsOrSessionId === "string") {
+    finalSessionId = permissionsOrSessionId;
+  }
+
   const payload: AdminTokenPayload = {
     adminId,
-    sessionId,
+    sessionId: finalSessionId,
     role,
     permissions,
     aud: "omeetso-admin"
